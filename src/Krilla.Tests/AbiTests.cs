@@ -1,5 +1,3 @@
-using System.Reflection;
-
 /// <summary>
 /// Guards the boundary between the managed <c>Interop/</c> mirrors and the Rust
 /// <c>#[repr(C)]</c> structs.

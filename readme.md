@@ -42,6 +42,7 @@ var pdf = document.Finish();
 <sup><a href='/src/Krilla.Tests/Samples.cs#L22-L35' title='Snippet source file'>snippet source</a> | <a href='#snippet-HelloWorld' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
+
 #### Result
 
 | [<img src="/src/Krilla.Tests/Samples.HelloWorld%23page_0001.verified.png" width="190" alt="Rendered output of the HelloWorld sample">](/src/Krilla.Tests/Samples.HelloWorld.verified.pdf) |
@@ -74,6 +75,7 @@ var pdf = document.Finish();
 ```
 <sup><a href='/src/Krilla.Tests/Samples.cs#L43-L64' title='Snippet source file'>snippet source</a> | <a href='#snippet-DrawAPath' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
+
 
 #### Result
 
@@ -108,6 +110,7 @@ var pdf = document.Finish();
 <sup><a href='/src/Krilla.Tests/Samples.cs#L72-L91' title='Snippet source file'>snippet source</a> | <a href='#snippet-FillAndStroke' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
+
 #### Result
 
 | [<img src="/src/Krilla.Tests/Samples.FillAndStroke%23page_0001.verified.png" width="190" alt="Rendered output of the FillAndStroke sample">](/src/Krilla.Tests/Samples.FillAndStroke.verified.pdf) |
@@ -139,6 +142,7 @@ var pdf = document.Finish();
 <!-- endSnippet -->
 
 All stops in a gradient must share one colour space. A mismatch is reported when the document is finished, not when the gradient is created.
+
 
 #### Result
 
@@ -173,6 +177,7 @@ var pdf = document.Finish();
 <sup><a href='/src/Krilla.Tests/Samples.cs#L125-L144' title='Snippet source file'>snippet source</a> | <a href='#snippet-TransformsAndOpacity' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
+
 #### Result
 
 | [<img src="/src/Krilla.Tests/Samples.TransformsAndOpacity%23page_0001.verified.png" width="190" alt="Rendered output of the TransformsAndOpacity sample">](/src/Krilla.Tests/Samples.TransformsAndOpacity.verified.pdf) |
@@ -198,6 +203,7 @@ document.Save("report.pdf");
 ```
 <sup><a href='/src/Krilla.Tests/Samples.cs#L152-L166' title='Snippet source file'>snippet source</a> | <a href='#snippet-MultiplePages' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
+
 
 #### Result
 
@@ -241,6 +247,7 @@ var pdf = document.Finish();
 <sup><a href='/src/Krilla.Tests/Samples.cs#L174-L204' title='Snippet source file'>snippet source</a> | <a href='#snippet-DrawAnImage' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
+
 #### Result
 
 | [<img src="/src/Krilla.Tests/Samples.DrawAnImage%23page_0001.verified.png" width="120" alt="Rendered output of the DrawAnImage sample">](/src/Krilla.Tests/Samples.DrawAnImage.verified.pdf) |
@@ -273,6 +280,7 @@ var pdf = document.Finish();
 ```
 <sup><a href='/src/Krilla.Tests/Samples.cs#L212-L233' title='Snippet source file'>snippet source</a> | <a href='#snippet-Metadata' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
+
 
 #### Result
 
@@ -307,6 +315,7 @@ var pdf = document.Finish();
 ```
 <sup><a href='/src/Krilla.Tests/Samples.cs#L241-L263' title='Snippet source file'>snippet source</a> | <a href='#snippet-Bookmarks' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
+
 
 #### Result
 
@@ -343,6 +352,7 @@ var pdf = document.Finish();
 <sup><a href='/src/Krilla.Tests/Samples.cs#L271-L294' title='Snippet source file'>snippet source</a> | <a href='#snippet-Links' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
+
 #### Result
 
 | [<img src="/src/Krilla.Tests/Samples.Links%23page_0001.verified.png" width="190" alt="Rendered output of the Links sample">](/src/Krilla.Tests/Samples.Links.verified.pdf) |
@@ -372,6 +382,7 @@ var pdf = document.Finish();
 ```
 <sup><a href='/src/Krilla.Tests/Samples.cs#L420-L438' title='Snippet source file'>snippet source</a> | <a href='#snippet-Attachments' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
+
 
 #### Result
 
@@ -407,6 +418,7 @@ var pdf = document.Finish();
 ```
 <sup><a href='/src/Krilla.Tests/Samples.cs#L391-L412' title='Snippet source file'>snippet source</a> | <a href='#snippet-ReusableGraphic' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
+
 
 #### Result
 
@@ -445,6 +457,7 @@ var pdf = document.Finish();
 ```
 <sup><a href='/src/Krilla.Tests/Samples.cs#L302-L328' title='Snippet source file'>snippet source</a> | <a href='#snippet-ArchivalPdf' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
+
 
 #### Result
 
@@ -508,6 +521,7 @@ var pdf = document.Finish();
 <!-- endSnippet -->
 
 Content that is decoration rather than meaning — running heads, page numbers, rules — should be marked with `BeginArtifact` instead, which keeps it out of the tree entirely.
+
 
 #### Result
 

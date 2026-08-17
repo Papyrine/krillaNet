@@ -55,7 +55,7 @@ public sealed class OutlineItem
 
     /// <inheritdoc cref="Add(OutlineItem)" />
     public OutlineItem Add(string title, int pageIndex, Point target = default) =>
-        Add(new OutlineItem(title, pageIndex, target));
+        Add(new(title, pageIndex, target));
 
     /// <summary>
     /// Builds the native node, recursively.
