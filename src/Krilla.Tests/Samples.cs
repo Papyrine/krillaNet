@@ -1,10 +1,23 @@
 /// <summary>
 /// Tests that double as the readme's usage snippets, via MarkdownSnippets.
 /// </summary>
+/// <remarks>
+/// Each one snapshots its output, so the readme can show the PDF a snippet actually produces
+/// rather than asserting it looks right. That also makes the two impossible to drift apart:
+/// changing a snippet regenerates the artefact the readme links to.
+///
+/// Every sample is deterministic — fixed creation dates rather than <c>UtcNow</c> — because
+/// the snapshot covers the PDF bytes, not just the render.
+/// </remarks>
 public class Samples
 {
+    /// <summary>
+    /// A fixed timestamp, so samples that record a creation date stay byte-reproducible.
+    /// </summary>
+    static readonly DateTimeOffset created = new(2026, 8, 17, 9, 30, 0, TimeSpan.Zero);
+
     [Test]
-    public void HelloWorld()
+    public Task HelloWorld()
     {
         #region HelloWorld
 
@@ -21,11 +34,11 @@ public class Samples
 
         #endregion
 
-        AssertPdf(pdf);
+        return Verify(pdf, "pdf");
     }
 
     [Test]
-    public void DrawAPath()
+    public Task DrawAPath()
     {
         #region DrawAPath
 
@@ -50,11 +63,11 @@ public class Samples
 
         #endregion
 
-        AssertPdf(pdf);
+        return Verify(pdf, "pdf");
     }
 
     [Test]
-    public void FillAndStroke()
+    public Task FillAndStroke()
     {
         #region FillAndStroke
 
@@ -77,11 +90,11 @@ public class Samples
 
         #endregion
 
-        AssertPdf(pdf);
+        return Verify(pdf, "pdf");
     }
 
     [Test]
-    public void GradientFill()
+    public Task GradientFill()
     {
         #region GradientFill
 
@@ -103,11 +116,11 @@ public class Samples
 
         #endregion
 
-        AssertPdf(pdf);
+        return Verify(pdf, "pdf");
     }
 
     [Test]
-    public void TransformsAndOpacity()
+    public Task TransformsAndOpacity()
     {
         #region TransformsAndOpacity
 
@@ -130,11 +143,11 @@ public class Samples
 
         #endregion
 
-        AssertPdf(pdf);
+        return Verify(pdf, "pdf");
     }
 
     [Test]
-    public void MultiplePages()
+    public Task MultiplePages()
     {
         #region MultiplePages
 
@@ -148,15 +161,15 @@ public class Samples
                 Color.Gray(80));
         }
 
-        document.Save(Path.Combine(Path.GetTempPath(), "krilla-sample.pdf"));
+        document.Save("report.pdf");
 
         #endregion
 
-        File.Delete(Path.Combine(Path.GetTempPath(), "krilla-sample.pdf"));
+        return Verify(File.ReadAllBytes("report.pdf"), "pdf");
     }
 
     [Test]
-    public void DrawAnImage()
+    public Task DrawAnImage()
     {
         #region DrawAnImage
 
@@ -164,7 +177,20 @@ public class Samples
 
         // Raw RGBA, four bytes per pixel, row-major.
         var pixels = new byte[4 * 4 * 4];
-        Array.Fill(pixels, (byte) 200);
+
+        for (var y = 0; y < 4; y++)
+        {
+            for (var x = 0; x < 4; x++)
+            {
+                var offset = (y * 4 + x) * 4;
+                var dark = (x + y) % 2 == 0;
+
+                pixels[offset] = dark ? (byte) 40 : (byte) 230;
+                pixels[offset + 1] = dark ? (byte) 110 : (byte) 230;
+                pixels[offset + 2] = dark ? (byte) 190 : (byte) 230;
+                pixels[offset + 3] = 255;
+            }
+        }
 
         using var image = PdfImage.FromRgba(pixels, 4, 4);
 
@@ -177,11 +203,11 @@ public class Samples
 
         #endregion
 
-        AssertPdf(pdf);
+        return Verify(pdf, "pdf");
     }
 
     [Test]
-    public void Metadata()
+    public Task Metadata()
     {
         #region Metadata
 
@@ -193,32 +219,35 @@ public class Samples
                 Title = "Quarterly Report",
                 Language = "en-GB",
                 Authors = ["A. Writer"],
-                CreationDate = DateTimeOffset.UtcNow
+                Keywords = ["quarterly", "report"],
+                CreationDate = created
             });
 
-        using (document.StartPage(PageSettings.A4))
+        using (var page = document.StartPage(PageSettings.A4))
         {
+            page.Surface.FillRectangle(new(72, 72, 523, 130), Color.Gray(40));
         }
 
         var pdf = document.Finish();
 
         #endregion
 
-        AssertPdf(pdf);
+        return Verify(pdf, "pdf");
     }
 
     [Test]
-    public void Bookmarks()
+    public Task Bookmarks()
     {
         #region Bookmarks
 
         using var document = new KrillaDocument();
 
-        foreach (var _ in Enumerable.Range(0, 3))
+        foreach (var index in Enumerable.Range(0, 3))
         {
-            using (document.StartPage(PageSettings.A4))
-            {
-            }
+            using var page = document.StartPage(PageSettings.A4);
+            page.Surface.FillRectangle(
+                Rectangle.FromSize(72, 72, 200 + index * 60, 32),
+                Color.Gray((byte) (40 + index * 60)));
         }
 
         var chapter = new OutlineItem("Chapter One", pageIndex: 0)
@@ -233,11 +262,11 @@ public class Samples
 
         #endregion
 
-        AssertPdf(pdf);
+        return Verify(pdf, "pdf");
     }
 
     [Test]
-    public void Links()
+    public Task Links()
     {
         #region Links
 
@@ -245,11 +274,15 @@ public class Samples
 
         using (var page = document.StartPage(PageSettings.A4))
         {
-            // External.
-            page.Surface.AddLink(new(72, 72, 300, 100), "https://example.com/");
+            var surface = page.Surface;
 
+            // Nothing about a link is visible on its own, so draw the text it sits over.
+            surface.FillRectangle(new(72, 72, 300, 100), Color.Rgb(20, 80, 200));
+            surface.AddLink(new(72, 72, 300, 100), "https://example.com/");
+
+            surface.FillRectangle(new(72, 120, 300, 148), Color.Rgb(20, 80, 200));
             // Internal — the target page need not exist yet.
-            page.Surface.AddLink(new(72, 120, 300, 148), pageIndex: 1);
+            surface.AddLink(new(72, 120, 300, 148), pageIndex: 1);
         }
 
         using (document.StartPage(PageSettings.A4))
@@ -260,11 +293,11 @@ public class Samples
 
         #endregion
 
-        AssertPdf(pdf);
+        return Verify(pdf, "pdf");
     }
 
     [Test]
-    public void ArchivalPdf()
+    public Task ArchivalPdf()
     {
         #region ArchivalPdf
 
@@ -280,12 +313,12 @@ public class Samples
             {
                 Title = "Archived Invoice",
                 Language = "en-GB",
-                CreationDate = DateTimeOffset.UtcNow
+                CreationDate = created
             });
 
         using (var page = document.StartPage(PageSettings.A4))
         {
-            page.Surface.FillRectangle(new(72, 72, 523, 200), Color.Rgb(240, 240, 240));
+            page.Surface.FillRectangle(new(72, 72, 523, 200), Color.Gray(220));
         }
 
         // Conformance violations are reported here, as a KrillaException, rather than when
@@ -294,11 +327,11 @@ public class Samples
 
         #endregion
 
-        AssertPdf(pdf);
+        return Verify(pdf, "pdf");
     }
 
     [Test]
-    public void AccessibleDocument()
+    public Task AccessibleDocument()
     {
         #region AccessibleDocument
 
@@ -349,11 +382,11 @@ public class Samples
 
         #endregion
 
-        AssertPdf(pdf);
+        return Verify(pdf, "pdf");
     }
 
     [Test]
-    public void ReusableGraphic()
+    public Task ReusableGraphic()
     {
         #region ReusableGraphic
 
@@ -378,18 +411,19 @@ public class Samples
 
         #endregion
 
-        AssertPdf(pdf);
+        return Verify(pdf, "pdf");
     }
 
     [Test]
-    public void Attachments()
+    public Task Attachments()
     {
         #region Attachments
 
         using var document = new KrillaDocument();
 
-        using (document.StartPage(PageSettings.A4))
+        using (var page = document.StartPage(PageSettings.A4))
         {
+            page.Surface.FillRectangle(new(72, 72, 523, 160), Color.Gray(200));
         }
 
         document.EmbedFile(
@@ -403,15 +437,6 @@ public class Samples
 
         #endregion
 
-        AssertPdf(pdf);
-    }
-
-    static void AssertPdf(byte[] pdf)
-    {
-        if (pdf.Length < 100 ||
-            !"%PDF-"u8.SequenceEqual(pdf.AsSpan(0, 5)))
-        {
-            throw new("Expected a PDF document.");
-        }
+        return Verify(pdf, "pdf");
     }
 }

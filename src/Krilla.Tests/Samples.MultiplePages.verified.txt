@@ -1,0 +1,17 @@
+﻿{
+  PageCount: 3,
+  Pages: [
+    {
+      Width: 612.0,
+      Height: 792.0
+    },
+    {
+      Width: 612.0,
+      Height: 792.0
+    },
+    {
+      Width: 612.0,
+      Height: 792.0
+    }
+  ]
+}

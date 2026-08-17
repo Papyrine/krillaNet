@@ -1,0 +1,14 @@
+﻿{
+  PageCount: 1,
+  Properties: {
+    CreationDate: DateTimeOffset_1,
+    ModDate: DateTimeOffset_1,
+    Title: Archived Invoice
+  },
+  Pages: [
+    {
+      Width: 595.0,
+      Height: 842.0
+    }
+  ]
+}

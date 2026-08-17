@@ -1,0 +1,12 @@
+﻿{
+  PageCount: 1,
+  Properties: {
+    Title: An Accessible Document
+  },
+  Pages: [
+    {
+      Width: 595.0,
+      Height: 842.0
+    }
+  ]
+}

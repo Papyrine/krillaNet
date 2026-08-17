@@ -17,6 +17,11 @@ Krilla *writes* PDFs. To read, render or edit an existing one, use [Morph.PDFium
 
 ## Usage
 
+Every snippet below is a test, and the image under it is that test's snapshot: the first page
+of the PDF the code actually produces, rendered through [PDFium](https://github.com/Papyrine/Morph.PDFium).
+Click one for the full PDF. Both are regenerated whenever the sample changes, so the code and
+the picture cannot drift apart.
+
 
 ### Hello world
 
@@ -34,8 +39,10 @@ using (var page = document.StartPage(PageSettings.A4))
 
 var pdf = document.Finish();
 ```
-<sup><a href='/src/Krilla.Tests/Samples.cs#L9-L22' title='Snippet source file'>snippet source</a> | <a href='#snippet-HelloWorld' title='Start of snippet'>anchor</a></sup>
+<sup><a href='/src/Krilla.Tests/Samples.cs#L22-L35' title='Snippet source file'>snippet source</a> | <a href='#snippet-HelloWorld' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
+
+<a href="/src/Krilla.Tests/Samples.HelloWorld.verified.pdf"><img src="/src/Krilla.Tests/Samples.HelloWorld%23page_0001.verified.png" width="190" alt="Rendered output of the HelloWorld sample"></a>
 
 
 ### Draw a path
@@ -62,8 +69,10 @@ using (var page = document.StartPage(300, 200))
 
 var pdf = document.Finish();
 ```
-<sup><a href='/src/Krilla.Tests/Samples.cs#L30-L51' title='Snippet source file'>snippet source</a> | <a href='#snippet-DrawAPath' title='Start of snippet'>anchor</a></sup>
+<sup><a href='/src/Krilla.Tests/Samples.cs#L43-L64' title='Snippet source file'>snippet source</a> | <a href='#snippet-DrawAPath' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
+
+<a href="/src/Krilla.Tests/Samples.DrawAPath.verified.pdf"><img src="/src/Krilla.Tests/Samples.DrawAPath%23page_0001.verified.png" width="260" alt="Rendered output of the DrawAPath sample"></a>
 
 
 ### Fill and stroke
@@ -90,8 +99,10 @@ using (var page = document.StartPage(200, 200))
 
 var pdf = document.Finish();
 ```
-<sup><a href='/src/Krilla.Tests/Samples.cs#L59-L78' title='Snippet source file'>snippet source</a> | <a href='#snippet-FillAndStroke' title='Start of snippet'>anchor</a></sup>
+<sup><a href='/src/Krilla.Tests/Samples.cs#L72-L91' title='Snippet source file'>snippet source</a> | <a href='#snippet-FillAndStroke' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
+
+<a href="/src/Krilla.Tests/Samples.FillAndStroke.verified.pdf"><img src="/src/Krilla.Tests/Samples.FillAndStroke%23page_0001.verified.png" width="190" alt="Rendered output of the FillAndStroke sample"></a>
 
 
 ### Gradients
@@ -115,8 +126,10 @@ using (var page = document.StartPage(300, 150))
 
 var pdf = document.Finish();
 ```
-<sup><a href='/src/Krilla.Tests/Samples.cs#L86-L104' title='Snippet source file'>snippet source</a> | <a href='#snippet-GradientFill' title='Start of snippet'>anchor</a></sup>
+<sup><a href='/src/Krilla.Tests/Samples.cs#L99-L117' title='Snippet source file'>snippet source</a> | <a href='#snippet-GradientFill' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
+
+<a href="/src/Krilla.Tests/Samples.GradientFill.verified.pdf"><img src="/src/Krilla.Tests/Samples.GradientFill%23page_0001.verified.png" width="260" alt="Rendered output of the GradientFill sample"></a>
 
 All stops in a gradient must share one colour space. A mismatch is reported when the document is finished, not when the gradient is created.
 
@@ -145,8 +158,10 @@ using (var page = document.StartPage(200, 200))
 
 var pdf = document.Finish();
 ```
-<sup><a href='/src/Krilla.Tests/Samples.cs#L112-L131' title='Snippet source file'>snippet source</a> | <a href='#snippet-TransformsAndOpacity' title='Start of snippet'>anchor</a></sup>
+<sup><a href='/src/Krilla.Tests/Samples.cs#L125-L144' title='Snippet source file'>snippet source</a> | <a href='#snippet-TransformsAndOpacity' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
+
+<a href="/src/Krilla.Tests/Samples.TransformsAndOpacity.verified.pdf"><img src="/src/Krilla.Tests/Samples.TransformsAndOpacity%23page_0001.verified.png" width="190" alt="Rendered output of the TransformsAndOpacity sample"></a>
 
 
 ### Multiple pages
@@ -164,10 +179,12 @@ foreach (var index in Enumerable.Range(0, 3))
         Color.Gray(80));
 }
 
-document.Save(Path.Combine(Path.GetTempPath(), "krilla-sample.pdf"));
+document.Save("report.pdf");
 ```
-<sup><a href='/src/Krilla.Tests/Samples.cs#L139-L153' title='Snippet source file'>snippet source</a> | <a href='#snippet-MultiplePages' title='Start of snippet'>anchor</a></sup>
+<sup><a href='/src/Krilla.Tests/Samples.cs#L152-L166' title='Snippet source file'>snippet source</a> | <a href='#snippet-MultiplePages' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
+
+<a href="/src/Krilla.Tests/Samples.MultiplePages.verified.pdf"><img src="/src/Krilla.Tests/Samples.MultiplePages%23page_0001.verified.png" width="190" alt="Rendered output of the MultiplePages sample"></a>
 
 
 ### Images
@@ -179,7 +196,20 @@ using var document = new KrillaDocument();
 
 // Raw RGBA, four bytes per pixel, row-major.
 var pixels = new byte[4 * 4 * 4];
-Array.Fill(pixels, (byte) 200);
+
+for (var y = 0; y < 4; y++)
+{
+    for (var x = 0; x < 4; x++)
+    {
+        var offset = (y * 4 + x) * 4;
+        var dark = (x + y) % 2 == 0;
+
+        pixels[offset] = dark ? (byte) 40 : (byte) 230;
+        pixels[offset + 1] = dark ? (byte) 110 : (byte) 230;
+        pixels[offset + 2] = dark ? (byte) 190 : (byte) 230;
+        pixels[offset + 3] = 255;
+    }
+}
 
 using var image = PdfImage.FromRgba(pixels, 4, 4);
 
@@ -190,8 +220,10 @@ using (var page = document.StartPage(120, 120))
 
 var pdf = document.Finish();
 ```
-<sup><a href='/src/Krilla.Tests/Samples.cs#L161-L178' title='Snippet source file'>snippet source</a> | <a href='#snippet-DrawAnImage' title='Start of snippet'>anchor</a></sup>
+<sup><a href='/src/Krilla.Tests/Samples.cs#L174-L204' title='Snippet source file'>snippet source</a> | <a href='#snippet-DrawAnImage' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
+
+<a href="/src/Krilla.Tests/Samples.DrawAnImage.verified.pdf"><img src="/src/Krilla.Tests/Samples.DrawAnImage%23page_0001.verified.png" width="120" alt="Rendered output of the DrawAnImage sample"></a>
 
 
 ### Metadata
@@ -207,17 +239,21 @@ document.SetMetadata(
         Title = "Quarterly Report",
         Language = "en-GB",
         Authors = ["A. Writer"],
-        CreationDate = DateTimeOffset.UtcNow
+        Keywords = ["quarterly", "report"],
+        CreationDate = created
     });
 
-using (document.StartPage(PageSettings.A4))
+using (var page = document.StartPage(PageSettings.A4))
 {
+    page.Surface.FillRectangle(new(72, 72, 523, 130), Color.Gray(40));
 }
 
 var pdf = document.Finish();
 ```
-<sup><a href='/src/Krilla.Tests/Samples.cs#L186-L205' title='Snippet source file'>snippet source</a> | <a href='#snippet-Metadata' title='Start of snippet'>anchor</a></sup>
+<sup><a href='/src/Krilla.Tests/Samples.cs#L212-L233' title='Snippet source file'>snippet source</a> | <a href='#snippet-Metadata' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
+
+<a href="/src/Krilla.Tests/Samples.Metadata.verified.pdf"><img src="/src/Krilla.Tests/Samples.Metadata%23page_0001.verified.png" width="190" alt="Rendered output of the Metadata sample"></a>
 
 
 ### Bookmarks
@@ -227,11 +263,12 @@ var pdf = document.Finish();
 ```cs
 using var document = new KrillaDocument();
 
-foreach (var _ in Enumerable.Range(0, 3))
+foreach (var index in Enumerable.Range(0, 3))
 {
-    using (document.StartPage(PageSettings.A4))
-    {
-    }
+    using var page = document.StartPage(PageSettings.A4);
+    page.Surface.FillRectangle(
+        Rectangle.FromSize(72, 72, 200 + index * 60, 32),
+        Color.Gray((byte) (40 + index * 60)));
 }
 
 var chapter = new OutlineItem("Chapter One", pageIndex: 0)
@@ -244,8 +281,10 @@ document.SetOutline(chapter, new OutlineItem("Chapter Two", pageIndex: 2));
 
 var pdf = document.Finish();
 ```
-<sup><a href='/src/Krilla.Tests/Samples.cs#L213-L234' title='Snippet source file'>snippet source</a> | <a href='#snippet-Bookmarks' title='Start of snippet'>anchor</a></sup>
+<sup><a href='/src/Krilla.Tests/Samples.cs#L241-L263' title='Snippet source file'>snippet source</a> | <a href='#snippet-Bookmarks' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
+
+<a href="/src/Krilla.Tests/Samples.Bookmarks.verified.pdf"><img src="/src/Krilla.Tests/Samples.Bookmarks%23page_0001.verified.png" width="190" alt="Rendered output of the Bookmarks sample"></a>
 
 
 ### Links
@@ -257,11 +296,15 @@ using var document = new KrillaDocument();
 
 using (var page = document.StartPage(PageSettings.A4))
 {
-    // External.
-    page.Surface.AddLink(new(72, 72, 300, 100), "https://example.com/");
+    var surface = page.Surface;
 
+    // Nothing about a link is visible on its own, so draw the text it sits over.
+    surface.FillRectangle(new(72, 72, 300, 100), Color.Rgb(20, 80, 200));
+    surface.AddLink(new(72, 72, 300, 100), "https://example.com/");
+
+    surface.FillRectangle(new(72, 120, 300, 148), Color.Rgb(20, 80, 200));
     // Internal — the target page need not exist yet.
-    page.Surface.AddLink(new(72, 120, 300, 148), pageIndex: 1);
+    surface.AddLink(new(72, 120, 300, 148), pageIndex: 1);
 }
 
 using (document.StartPage(PageSettings.A4))
@@ -270,8 +313,10 @@ using (document.StartPage(PageSettings.A4))
 
 var pdf = document.Finish();
 ```
-<sup><a href='/src/Krilla.Tests/Samples.cs#L242-L261' title='Snippet source file'>snippet source</a> | <a href='#snippet-Links' title='Start of snippet'>anchor</a></sup>
+<sup><a href='/src/Krilla.Tests/Samples.cs#L271-L294' title='Snippet source file'>snippet source</a> | <a href='#snippet-Links' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
+
+<a href="/src/Krilla.Tests/Samples.Links.verified.pdf"><img src="/src/Krilla.Tests/Samples.Links%23page_0001.verified.png" width="190" alt="Rendered output of the Links sample"></a>
 
 
 ### Attachments
@@ -281,8 +326,9 @@ var pdf = document.Finish();
 ```cs
 using var document = new KrillaDocument();
 
-using (document.StartPage(PageSettings.A4))
+using (var page = document.StartPage(PageSettings.A4))
 {
+    page.Surface.FillRectangle(new(72, 72, 523, 160), Color.Gray(200));
 }
 
 document.EmbedFile(
@@ -294,8 +340,10 @@ document.EmbedFile(
 
 var pdf = document.Finish();
 ```
-<sup><a href='/src/Krilla.Tests/Samples.cs#L387-L404' title='Snippet source file'>snippet source</a> | <a href='#snippet-Attachments' title='Start of snippet'>anchor</a></sup>
+<sup><a href='/src/Krilla.Tests/Samples.cs#L420-L438' title='Snippet source file'>snippet source</a> | <a href='#snippet-Attachments' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
+
+<a href="/src/Krilla.Tests/Samples.Attachments.verified.pdf"><img src="/src/Krilla.Tests/Samples.Attachments%23page_0001.verified.png" width="190" alt="Rendered output of the Attachments sample"></a>
 
 
 ### Reusable graphics
@@ -324,8 +372,10 @@ using (var page = document.StartPage(PageSettings.A4))
 
 var pdf = document.Finish();
 ```
-<sup><a href='/src/Krilla.Tests/Samples.cs#L358-L379' title='Snippet source file'>snippet source</a> | <a href='#snippet-ReusableGraphic' title='Start of snippet'>anchor</a></sup>
+<sup><a href='/src/Krilla.Tests/Samples.cs#L391-L412' title='Snippet source file'>snippet source</a> | <a href='#snippet-ReusableGraphic' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
+
+<a href="/src/Krilla.Tests/Samples.ReusableGraphic.verified.pdf"><img src="/src/Krilla.Tests/Samples.ReusableGraphic%23page_0001.verified.png" width="190" alt="Rendered output of the ReusableGraphic sample"></a>
 
 
 ### PDF/A
@@ -345,20 +395,22 @@ document.SetMetadata(
     {
         Title = "Archived Invoice",
         Language = "en-GB",
-        CreationDate = DateTimeOffset.UtcNow
+        CreationDate = created
     });
 
 using (var page = document.StartPage(PageSettings.A4))
 {
-    page.Surface.FillRectangle(new(72, 72, 523, 200), Color.Rgb(240, 240, 240));
+    page.Surface.FillRectangle(new(72, 72, 523, 200), Color.Gray(220));
 }
 
 // Conformance violations are reported here, as a KrillaException, rather than when
 // the offending content was added.
 var pdf = document.Finish();
 ```
-<sup><a href='/src/Krilla.Tests/Samples.cs#L269-L295' title='Snippet source file'>snippet source</a> | <a href='#snippet-ArchivalPdf' title='Start of snippet'>anchor</a></sup>
+<sup><a href='/src/Krilla.Tests/Samples.cs#L302-L328' title='Snippet source file'>snippet source</a> | <a href='#snippet-ArchivalPdf' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
+
+<a href="/src/Krilla.Tests/Samples.ArchivalPdf.verified.pdf"><img src="/src/Krilla.Tests/Samples.ArchivalPdf%23page_0001.verified.png" width="190" alt="Rendered output of the ArchivalPdf sample"></a>
 
 
 ### Tagged PDF and PDF/UA
@@ -413,8 +465,10 @@ document.SetOutline(new OutlineItem("Introduction", pageIndex: 0));
 
 var pdf = document.Finish();
 ```
-<sup><a href='/src/Krilla.Tests/Samples.cs#L303-L350' title='Snippet source file'>snippet source</a> | <a href='#snippet-AccessibleDocument' title='Start of snippet'>anchor</a></sup>
+<sup><a href='/src/Krilla.Tests/Samples.cs#L336-L383' title='Snippet source file'>snippet source</a> | <a href='#snippet-AccessibleDocument' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
+
+<a href="/src/Krilla.Tests/Samples.AccessibleDocument.verified.pdf"><img src="/src/Krilla.Tests/Samples.AccessibleDocument%23page_0001.verified.png" width="190" alt="Rendered output of the AccessibleDocument sample"></a>
 
 Content that is decoration rather than meaning — running heads, page numbers, rules — should be marked with `BeginArtifact` instead, which keeps it out of the tree entirely.
 

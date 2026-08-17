@@ -1,0 +1,16 @@
+﻿{
+  PageCount: 1,
+  Properties: {
+    Author: A. Writer,
+    CreationDate: DateTimeOffset_1,
+    Keywords: quarterly, report,
+    ModDate: DateTimeOffset_1,
+    Title: Quarterly Report
+  },
+  Pages: [
+    {
+      Width: 595.0,
+      Height: 842.0
+    }
+  ]
+}
