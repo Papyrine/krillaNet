@@ -21,6 +21,11 @@ krilla = { version = "=0.8.2", default-features = false, features = [
     "simple-text",   # Surface::draw_text, via harfrust shaping
     "pdf",           # embedding pages from existing PDF documents
 ] }
+# Already in the tree: krilla's `simple-text` feature depends on exactly this version, so a
+# direct dependency adds no crate and no licence obligation. Naming it directly is what lets
+# `krilla_font_shape` reuse the shaper krilla itself draws with, rather than introducing a
+# second one that would eventually disagree with it.
+rustybuzz = "=0.20.1"
 krilla-svg = { version = "=0.8.1", optional = true }
 
 [features]

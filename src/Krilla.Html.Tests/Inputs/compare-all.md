@@ -1,4 +1,4 @@
-# All scenarios (38)
+# All scenarios (40)
 
 The browser reference (left) beside the page Krilla.Html produced (right). `AE` is the fraction of pixels that differ and `SSIM` is structural similarity; neither is asserted. The worst offset is the largest positional disagreement in CSS pixels between the rendered element geometry and the browser's, and is the number to watch — it reaches zero exactly when the layout is right.
 
@@ -39,6 +39,8 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [page/break_between_lines](#page-break_between_lines)
 - [page/multi_page_flow](#page-multi_page_flow)
 - [page/page_size](#page-page_size)
+- [text/kerning](#text-kerning)
+- [text/ligatures](#text-ligatures)
 - [ua/blockquote_pre](#ua-blockquote_pre)
 - [ua/headings](#ua-headings)
 - [ua/lists](#ua-lists)
@@ -234,7 +236,7 @@ replaced element.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |
-| **Page 1** | **Page 1. AE 0.0001 · SSIM 0.9998** |
+| **Page 1** | **Page 1. AE 0.0007 · SSIM 0.9998** |
 | <img src="image/inline_flow/reference_0001.png" width="480"> | <img src="image/inline_flow/result%23page_0001.verified.png" width="480"> |
 
 
@@ -498,7 +500,7 @@ Not rendered: `html > body:nth-child(2) > p:nth-child(1) > a:nth-child(1)`
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |
-| **Page 1** | **Page 1. AE 0.0003 · SSIM 0.9999** |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 0.9999** |
 | <img src="link/wrapped/reference_0001.png" width="480"> | <img src="link/wrapped/result%23page_0001.verified.png" width="480"> |
 
 
@@ -512,7 +514,7 @@ page height instead would cut it in half.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |
-| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| **Page 1** | **Page 1. AE 0.0017 · SSIM 0.9996** |
 | <img src="page/break_between_lines/reference_0001.png" width="480"> | <img src="page/break_between_lines/result%23page_0001.verified.png" width="480"> |
 | **Page 2** | **Page 2. AE 0.0000 · SSIM 1.0000** |
 | <img src="page/break_between_lines/reference_0002.png" width="480"> | <img src="page/break_between_lines/result%23page_0002.verified.png" width="480"> |
@@ -529,9 +531,9 @@ rather than from anything either engine did.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |
-| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| **Page 1** | **Page 1. AE 0.0016 · SSIM 0.9998** |
 | <img src="page/multi_page_flow/reference_0001.png" width="480"> | <img src="page/multi_page_flow/result%23page_0001.verified.png" width="480"> |
-| **Page 2** | **Page 2. AE 0.0000 · SSIM 1.0000** |
+| **Page 2** | **Page 2. AE 0.0004 · SSIM 1.0000** |
 | <img src="page/multi_page_flow/reference_0002.png" width="480"> | <img src="page/multi_page_flow/result%23page_0002.verified.png" width="480"> |
 
 
@@ -549,6 +551,42 @@ step somewhere, and every multi-page scenario will be wrong in the same way.
 | <img src="page/page_size/reference_0001.png" width="480"> | <img src="page/page_size/result%23page_0001.verified.png" width="480"> |
 
 
+## text/kerning
+
+Kerning pairs, at a size that makes a fraction of an em visible. AV, LT, Wa and To are the classic
+ones: the pair is drawn tighter than the two advances would place it.
+
+This is the scenario the corpus could not have before. Text used to be measured by summing raw hmtx
+advances, which ignores kerning entirely, so `reset.css` disabled it in the browser to keep the two
+sides comparable. Shaping through krilla's own rustybuzz removed that concession, and the third
+paragraph checks the consequence that actually matters: with the wrong widths, a line breaks in the
+wrong place.
+
+**Boxes**: 5 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0201 · SSIM 0.9945** |
+| <img src="text/kerning/reference_0001.png" width="480"> | <img src="text/kerning/result%23page_0001.verified.png" width="480"> |
+
+
+## text/ligatures
+
+Ligatures, where shaping changes the glyph count rather than only the spacing: fi and fl become a
+single glyph, so the text measures narrower than its characters would suggest.
+
+The cluster mapping matters here as much as the width. A ligature covers several characters with
+one glyph, so its text range spans them all — get that wrong and the PDF's text extraction returns
+the wrong characters for the run even though the page looks right.
+
+**Boxes**: 5 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0099 · SSIM 0.9982** |
+| <img src="text/ligatures/reference_0001.png" width="480"> | <img src="text/ligatures/result%23page_0001.verified.png" width="480"> |
+
+
 ## ua/blockquote_pre
 
 Two elements whose defaults are more than a margin: blockquote is indented 40px on both sides, and
@@ -559,7 +597,7 @@ AngleSharp's sheet.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |
-| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| **Page 1** | **Page 1. AE 0.0005 · SSIM 0.9999** |
 | <img src="ua/blockquote_pre/reference_0001.png" width="480"> | <img src="ua/blockquote_pre/result%23page_0001.verified.png" width="480"> |
 
 

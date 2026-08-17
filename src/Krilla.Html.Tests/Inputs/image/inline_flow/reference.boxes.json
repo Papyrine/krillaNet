@@ -22,7 +22,7 @@
   },
   {
     "selector": "html > body:nth-child(2) > p:nth-child(1) > img:nth-child(1)",
-    "x": 85.38,
+    "x": 83.61,
     "y": 0,
     "width": 64,
     "height": 32

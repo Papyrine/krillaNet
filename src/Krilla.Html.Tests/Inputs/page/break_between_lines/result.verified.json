@@ -7,7 +7,8 @@
   "PageDiffs": [
     {
       "Page": 1,
-      "Ssim": 1.0,
+      "AbsoluteError": 0.0017,
+      "Ssim": 0.9996,
       "ReferenceFile": "reference_0001.png",
       "RenderedFile": "result#page_0001.verified.png"
     },

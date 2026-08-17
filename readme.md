@@ -45,9 +45,9 @@ hosts it names. Set `HtmlOptions.ImageResolver` to take that decision explicitly
 
 Two limits worth knowing before reaching for it:
 
-- Text is measured by summing raw glyph advances, so there is no kerning, no ligatures and no
-  complex-script shaping. Set `font-kerning: none` and `font-variant-ligatures: none` if matching a
-  browser's line breaking matters.
+- Text is shaped through krilla's own shaper, so kerning and ligatures are applied. Bidirectional
+  resolution, font fallback and complex-script shaping are still missing, so a run is shaped with
+  one font and one script.
 - AngleSharp compares CSS specificity across cascade origins, where the specification resolves
   origin first. A reset relying on `* { margin: 0 }` will not clear the default margins on `body`
   and `p`; name the elements explicitly instead.

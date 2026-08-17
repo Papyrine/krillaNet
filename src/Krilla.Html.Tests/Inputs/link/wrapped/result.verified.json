@@ -11,7 +11,7 @@
     {
       "Page": 1,
       "Target": "https://example.com/a-rather-long-destination",
-      "X": 136.09,
+      "X": 135.2,
       "Y": 3.0,
       "Width": 168.09,
       "Height": 17.0
@@ -34,7 +34,6 @@
   "PageDiffs": [
     {
       "Page": 1,
-      "AbsoluteError": 0.0003,
       "Ssim": 0.9999,
       "ReferenceFile": "reference_0001.png",
       "RenderedFile": "result#page_0001.verified.png"

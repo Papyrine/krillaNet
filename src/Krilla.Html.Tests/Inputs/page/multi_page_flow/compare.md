@@ -9,8 +9,8 @@ rather than from anything either engine did.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |
-| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| **Page 1** | **Page 1. AE 0.0016 · SSIM 0.9998** |
 | <img src="reference_0001.png" width="480"> | <img src="result%23page_0001.verified.png" width="480"> |
-| **Page 2** | **Page 2. AE 0.0000 · SSIM 1.0000** |
+| **Page 2** | **Page 2. AE 0.0004 · SSIM 1.0000** |
 | <img src="reference_0002.png" width="480"> | <img src="result%23page_0002.verified.png" width="480"> |
 

@@ -136,6 +136,9 @@ static class InlineLayout
                 continue;
             }
 
+            // Shaped once for the whole item, then sliced. Shaping each word separately would
+            // also lose the kerning between a word and the punctuation attached to it.
+            var shaped = ShapedText.Create(face, item.Text, item.Style.FontSize);
             var index = 0;
 
             while (index < item.Text.Length)
@@ -149,36 +152,48 @@ static class InlineLayout
                     continue;
                 }
 
+                var start = index;
+
                 if (character == ' ')
                 {
-                    var start = index;
                     while (index < item.Text.Length && item.Text[index] == ' ')
                     {
                         index++;
                     }
 
                     // Preserved white space keeps its full run, since every space of it occupies
-                    // the page. Collapsed white space arrives here already reduced to one.
-                    var text = item.Style.PreservesSpaces ? item.Text[start..index] : " ";
-                    var width = TextMeasurer.Measure(face, text, item.Style.FontSize);
-                    tokens.Add(new(text, item.Style, face, width, TokenKind.Space, Link: item.Link));
+                    // the page. Collapsed white space arrives here already reduced to one, so the
+                    // range is one character wide either way.
+                    var end = item.Style.PreservesSpaces ? index : start + 1;
+
+                    tokens.Add(new(
+                        item.Text[start..end],
+                        item.Style,
+                        face,
+                        shaped.Width(start, end),
+                        TokenKind.Space,
+                        Link: item.Link,
+                        Shaped: shaped,
+                        TextStart: start,
+                        TextEnd: end));
                     continue;
                 }
 
-                var wordStart = index;
                 while (index < item.Text.Length && item.Text[index] is not (' ' or '\n'))
                 {
                     index++;
                 }
 
-                var word = item.Text[wordStart..index];
                 tokens.Add(new(
-                    word,
+                    item.Text[start..index],
                     item.Style,
                     face,
-                    TextMeasurer.Measure(face, word, item.Style.FontSize),
+                    shaped.Width(start, index),
                     TokenKind.Word,
-                    Link: item.Link));
+                    Link: item.Link,
+                    Shaped: shaped,
+                    TextStart: start,
+                    TextEnd: index));
             }
         }
 
@@ -275,17 +290,20 @@ static class InlineLayout
                    tokens[runEnd + 1].Link == tokens[runStart].Link &&
                    ReferenceEquals(tokens[runEnd + 1].Style, tokens[runStart].Style) &&
                    ReferenceEquals(tokens[runEnd + 1].Face, tokens[runStart].Face) &&
+                   // Only tokens contiguous within one shaped run can be joined: their glyph
+                   // ranges are adjacent slices of the same array, and merging across a gap
+                   // would silently swallow whatever sat between them.
+                   ReferenceEquals(tokens[runEnd + 1].Shaped, tokens[runStart].Shaped) &&
+                   tokens[runEnd + 1].TextStart == tokens[runEnd].TextEnd &&
                    extra == 0)
             {
                 runEnd++;
             }
 
-            var builder = new StringBuilder();
             var runWidth = 0f;
 
             for (var index = runStart; index <= runEnd; index++)
             {
-                builder.Append(tokens[index].Text);
                 runWidth += tokens[index].Width;
 
                 if (extra > 0 && tokens[index].Kind == TokenKind.Space)
@@ -294,14 +312,19 @@ static class InlineLayout
                 }
             }
 
+            var (glyphs, runText) = tokens[runStart].Shaped is {} shaped
+                ? shaped.Slice(tokens[runStart].TextStart, tokens[runEnd].TextEnd)
+                : ([], "");
+
             line.Runs.Add(new(
-                builder.ToString(),
+                runText,
                 tokens[runStart].Style,
                 tokens[runStart].Face,
                 x,
                 y + above,
                 runWidth,
-                tokens[runStart].Link));
+                tokens[runStart].Link,
+                glyphs));
 
             x += runWidth;
             runStart = runEnd + 1;
@@ -377,5 +400,8 @@ static class InlineLayout
         ImageData? Image = null,
         float Height = 0,
         string? Selector = null,
-        string? Link = null);
+        string? Link = null,
+        ShapedText? Shaped = null,
+        int TextStart = 0,
+        int TextEnd = 0);
 }

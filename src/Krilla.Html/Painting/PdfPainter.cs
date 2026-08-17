@@ -259,22 +259,21 @@ static class PdfPainter
             return;
         }
 
-        var shaped = TextMeasurer.Shape(run.Face, run.Text, run.Style.FontSize);
-        if (shaped.Glyphs.Count == 0)
+        if (run.Glyphs is not {Count: > 0} glyphs)
         {
             return;
         }
 
         surface.SetFill(run.Style.Color);
 
-        // The same glyphs and advances the line was measured with, so what is painted is what was
-        // laid out. Drawn from the baseline, which is where krilla positions a run's origin.
+        // The very glyphs the line was measured with, so what is painted is what was laid out.
+        // Drawn from the baseline, which is where krilla positions a run's origin.
         surface.DrawGlyphs(
             new(run.X, run.Y),
             run.Face.Font,
             run.Style.FontSize,
             run.Text,
-            shaped.Glyphs);
+            glyphs);
 
         if (run.Style.Underline)
         {

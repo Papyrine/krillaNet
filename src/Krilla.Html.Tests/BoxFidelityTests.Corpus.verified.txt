@@ -36,6 +36,8 @@ link/wrapped                     matched  3  offset    0.00  size    0.00  diffe
 page/break_between_lines         matched  4  offset    0.00  size    0.00  differing  0  unmatched 0
 page/multi_page_flow             matched  8  offset    0.00  size    0.00  differing  0  unmatched 0
 page/page_size                   matched  3  offset    0.00  size    0.00  differing  0  unmatched 0
+text/kerning                     matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
+text/ligatures                   matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
 ua/blockquote_pre                matched  6  offset    0.00  size    0.00  differing  0  unmatched 0
 ua/headings                      matched  8  offset    0.00  size    0.00  differing  0  unmatched 0
 ua/lists                         matched 12  offset    0.00  size    0.00  differing  0  unmatched 0

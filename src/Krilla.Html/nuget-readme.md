@@ -22,7 +22,7 @@ than discovered from the host. That is what makes output reproducible across mac
 ## What is implemented
 
 Block and inline layout, the box model, collapsing margins, line breaking, text alignment,
-pagination, images, and links.
+pagination, images, links, and text shaping with kerning and ligatures.
 
 Images resolve from `data:` URIs and files relative to `BaseUrl`; nothing is fetched over the
 network unless a caller supplies `HtmlOptions.ImageResolver`.

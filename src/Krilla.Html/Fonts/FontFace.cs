@@ -136,6 +136,17 @@ public sealed class FontFace :
     public float Advance(int codepoint, float fontSize) =>
         metrics.Advance(metrics.GlyphIndex(codepoint)) / metrics.UnitsPerEm * fontSize;
 
+    /// <summary>
+    /// Shapes <paramref name="text"/>, applying kerning, ligatures and the font's own
+    /// substitutions.
+    /// </summary>
+    /// <remarks>
+    /// The one operation here that needs the native library, because the shaper lives in krilla.
+    /// Everything else this type does is read out of the font bytes in managed code.
+    /// </remarks>
+    public Glyph[] Shape(string text) =>
+        Font.Shape(text);
+
     /// <summary>The glyph for <paramref name="codepoint"/>, or 0 when the face lacks it.</summary>
     public ushort GlyphIndex(int codepoint) =>
         metrics.GlyphIndex(codepoint);

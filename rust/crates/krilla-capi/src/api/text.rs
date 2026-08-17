@@ -1,6 +1,9 @@
 //! Fonts, glyph runs and simple text.
 
+use std::sync::Arc;
+
 use krilla::text::{Font, GlyphId, KrillaGlyph as InnerGlyph, TextDirection};
+use rustybuzz::{Direction, GlyphInfo, UnicodeBuffer};
 
 use crate::guard::{ffi, ffi_doc};
 use crate::handle;
@@ -17,6 +20,14 @@ use crate::types::{KrillaGlyph, KrillaPoint, location};
 /// here.
 pub struct KrillaFont {
     pub(crate) inner: Font,
+    /// The bytes the font was parsed from.
+    ///
+    /// Kept because krilla's `Font` will not give them back: `font_data`, `index` and
+    /// `variation_coordinates` are all `pub(crate)`, and `krilla_font_shape` needs the bytes to
+    /// build a rustybuzz face. The same `Arc` is handed to krilla, so this shares one allocation
+    /// rather than holding a second copy of every font file.
+    data: Arc<Vec<u8>>,
+    index: u32,
 }
 
 fn direction(value: i32) -> Result<TextDirection, i32> {
@@ -47,10 +58,22 @@ ffi! {
             return Err(status::INVALID_FONT);
         }
 
-        let font = Font::new(bytes.to_vec().into(), index).ok_or(status::INVALID_FONT)?;
+        // One allocation, shared: krilla's `Data` is `Arc`-backed, so handing it a clone costs a
+        // refcount rather than a second copy of the file.
+        let data = Arc::new(bytes.to_vec());
+        let font = Font::new(data.clone().into(), index).ok_or(status::INVALID_FONT)?;
 
         // SAFETY: out-parameter contract.
-        unsafe { handle::write_out(out, handle::into_handle(KrillaFont { inner: font }))? };
+        unsafe {
+            handle::write_out(
+                out,
+                handle::into_handle(KrillaFont {
+                    inner: font,
+                    data,
+                    index,
+                }),
+            )?
+        };
         Ok(status::OK)
     }
 }
@@ -78,6 +101,147 @@ ffi! {
         unsafe { handle::write_out(out, font.inner.units_per_em())? };
         Ok(status::OK)
     }
+}
+
+ffi! {
+    /// Shapes text with the bundled shaper and returns the glyphs, without drawing anything.
+    ///
+    /// This is what `krilla_surface_draw_text` does internally, stopped one step earlier so the
+    /// caller can measure the result. A layout engine has to know how wide a word is before it
+    /// can decide where a line breaks, and summing `hmtx` advances is not that width: it misses
+    /// kerning and every ligature, so text laid out that way is a little too wide and breaks in
+    /// the wrong places.
+    ///
+    /// Advances and offsets come back already divided by units-per-em, which is the form
+    /// `krilla_surface_draw_glyphs` expects, so a shaped run can be measured and then drawn
+    /// without touching the numbers in between. `text_start` and `text_end` are UTF-8 byte
+    /// offsets into `text`.
+    ///
+    /// Rule R5: the run is allocated here and must be released with `krilla_glyphs_free`.
+    ///
+    /// Same limits as `krilla_surface_draw_text`: one font, one script, no bidirectional
+    /// resolution and no fallback.
+    fn krilla_font_shape(
+        font: *const KrillaFont,
+        text_ptr: *const u8,
+        text_len: usize,
+        text_direction: i32,
+        out_ptr: *mut *mut KrillaGlyph,
+        out_len: *mut usize,
+    ) {
+        // SAFETY: R1 - live handle.
+        let font = unsafe { handle::as_ref(font)? };
+
+        // SAFETY: R4 - borrowed UTF-8 for the duration of the call.
+        let text = unsafe { handle::str_arg(text_ptr, text_len)? };
+
+        let glyphs = shape(font, text, direction(text_direction)?);
+
+        // SAFETY: out-parameter contract; `glyphs_out` null-checks both pointers.
+        unsafe { handle::glyphs_out(glyphs, out_ptr, out_len)? };
+        Ok(status::OK)
+    }
+}
+
+ffi! {
+    /// Releases a glyph run written by `krilla_font_shape`.
+    ///
+    /// Rule R2: the native library allocated it, so the native library frees it. A glyph is
+    /// wider than a byte and more strictly aligned, so this cannot go through
+    /// `krilla_buffer_free`.
+    fn krilla_glyphs_free(ptr: *mut KrillaGlyph, len: usize) {
+        // SAFETY: R5 - the caller passes back exactly what a successful call wrote out.
+        unsafe { handle::free_glyphs(ptr, len) };
+        Ok(status::OK)
+    }
+}
+
+/// Shapes `text` with `font`, mirroring what krilla does inside `draw_text`.
+///
+/// krilla's shaping is crate-private, so this drives the same rustybuzz that krilla's
+/// `simple-text` feature already pulls in. Using the same shaper is the point: a second one
+/// would eventually disagree, and a measurement that disagrees with the drawing is worse than
+/// no measurement at all.
+///
+/// Variable-font coordinates are not applied, because nothing in this API can set them.
+fn shape(font: &KrillaFont, text: &str, text_direction: TextDirection) -> Vec<KrillaGlyph> {
+    // An unparseable face yields no glyphs rather than an error. The bytes already parsed once,
+    // in `krilla_font_new`, so reaching this would mean the two parsers disagree, and dropping
+    // one run is a better outcome than failing a whole document over it.
+    let Some(face) = rustybuzz::Face::from_slice(font.data.as_ref(), font.index) else {
+        return Vec::new();
+    };
+
+    let mut buffer = UnicodeBuffer::new();
+    buffer.push_str(text);
+    buffer.guess_segment_properties();
+
+    match text_direction {
+        TextDirection::LeftToRight => buffer.set_direction(Direction::LeftToRight),
+        TextDirection::RightToLeft => buffer.set_direction(Direction::RightToLeft),
+        // Auto keeps whatever `guess_segment_properties` inferred from the script.
+        _ => {}
+    }
+
+    let forward = matches!(
+        buffer.direction(),
+        Direction::LeftToRight | Direction::TopToBottom
+    );
+
+    let output = rustybuzz::shape(&face, &[], buffer);
+    let positions = output.glyph_positions();
+    let infos = output.glyph_infos();
+    let units_per_em = font.inner.units_per_em();
+
+    let mut glyphs = Vec::with_capacity(output.len());
+
+    for index in 0..output.len() {
+        let info = infos[index];
+        let position = positions[index];
+        let start = info.cluster as usize;
+
+        let end = cluster_end(infos, index, info.cluster, forward)
+            .map_or(text.len(), |last| infos[last].cluster as usize);
+
+        glyphs.push(KrillaGlyph {
+            glyph_id: info.glyph_id,
+            text_start: start as u32,
+            text_end: end as u32,
+            x_advance: position.x_advance as f32 / units_per_em,
+            x_offset: position.x_offset as f32 / units_per_em,
+            y_offset: position.y_offset as f32 / units_per_em,
+            y_advance: position.y_advance as f32 / units_per_em,
+            location: 0,
+        });
+    }
+
+    glyphs
+}
+
+/// The index of the first glyph past `index`'s cluster, or `None` at the end of the run.
+///
+/// Shaping can map several characters onto one glyph and one character onto several, so a
+/// glyph's text range is not its own index: it runs to the next glyph carrying a different
+/// cluster. A right-to-left run is laid out in reverse, so the scan runs backwards there.
+fn cluster_end(infos: &[GlyphInfo], index: usize, cluster: u32, forward: bool) -> Option<usize> {
+    let step = |at: usize| {
+        if forward {
+            at.checked_add(1)
+        } else {
+            at.checked_sub(1)
+        }
+    };
+
+    let mut at = step(index);
+
+    while let Some(current) = at {
+        match infos.get(current) {
+            Some(info) if info.cluster == cluster => at = step(current),
+            _ => break,
+        }
+    }
+
+    at.filter(|&index| index < infos.len())
 }
 
 ffi_doc! {

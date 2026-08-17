@@ -4,27 +4,18 @@
   What remains here is only what makes the two engines COMPARABLE at all. Anything that merely
   makes a scenario simpler lives in flatten.css, which a scenario can opt out of.
 
-  1. SHAPING FEATURES. Krilla.Html measures text by summing raw hmtx advances: no kerning, no
-     ligatures, no contextual substitution. A browser does all three by default, so an unmodified
-     comparison would show every line of text as slightly too wide and blame the layout for it.
-     Switching the features off makes a browser's advances the same raw hmtx values we sum, so
-     text measurement is comparable rather than approximately comparable. This is the single thing
-     that makes text measurable at all — see Fonts/TextMeasurer.cs.
+  THE BASE FONT. Bound to the bundled faces by name so that both sides resolve the same files.
+  The browser gets @font-face rules pointing at these same files, injected by the reference
+  generator. Without this Chromium falls back to whatever the host has installed, text reflows
+  between machines, and every number the corpus records becomes noise.
 
-  2. THE BASE FONT. Bound to the bundled faces by name so that both sides resolve the same files.
-     The browser gets @font-face rules pointing at these same files, injected by the reference
-     generator.
+  This file used to disable kerning and ligatures too. It no longer has to: text is shaped through
+  krilla's own rustybuzz rather than measured by summing raw hmtx advances, so a browser's advances
+  and ours come from the same algorithm. Those two lines were the corpus's largest concession, and
+  removing them is what lets it measure text the way a real document is written.
 
   Changing anything here invalidates every committed reference. Re-run Krilla.Html.RefGen after.
 */
-
-* {
-  /* See (1) above. */
-  font-kerning: none;
-  font-variant-ligatures: none;
-  font-feature-settings: normal;
-  font-variant: normal;
-}
 
 html {
   font-family: "Liberation Sans";
@@ -39,9 +30,7 @@ html {
   These need naming separately because the default stylesheet gives them the GENERIC family
   `monospace`, and a generic cannot be pinned: the reference generator's @font-face rules bind
   real family names, and a generic name is not legal as an @font-face family. So Chromium resolves
-  `monospace` against whatever the host has installed — Consolas on this machine, something else on
-  CI — and the reference stops being reproducible. It showed up as `pre` being a pixel taller per
-  line than Liberation Mono produces.
+  `monospace` against whatever the host has installed and the reference stops being reproducible.
 
   The consequence is that "does <pre> default to monospace" is a question this corpus cannot ask.
   Its margins and white-space handling are still measured; only the family binding is out of reach.

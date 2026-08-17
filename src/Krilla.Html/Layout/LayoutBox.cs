@@ -229,6 +229,11 @@ readonly record struct InlineImage(ImageData Image, Rect Bounds, string? Selecto
 /// do not merge across a link boundary: a PDF link is a rectangle, so an anchor spanning three
 /// lines needs three of them.
 /// </param>
+/// <param name="Glyphs">
+/// The shaped glyphs, already positioned relative to the run's origin. Carried rather than
+/// re-derived at paint time so that what is drawn is exactly what the line was measured with —
+/// shaping twice would leave the two free to disagree.
+/// </param>
 readonly record struct TextRun(
     string Text,
     ComputedStyle Style,
@@ -236,4 +241,5 @@ readonly record struct TextRun(
     float X,
     float Y,
     float Width,
-    string? Link = null);
+    string? Link = null,
+    IReadOnlyList<Glyph>? Glyphs = null);
