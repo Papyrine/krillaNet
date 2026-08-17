@@ -1,0 +1,188 @@
+namespace Krilla.Html.Painting;
+
+/// <summary>
+/// Paints the laid-out box tree onto a krilla surface.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Layout works in CSS pixels and PDF works in points, so every page pushes one scale transform
+/// and everything below it is painted in layout units. Doing the conversion once, in the graphics
+/// state, is what keeps the painting code free of unit arithmetic — and unit arithmetic scattered
+/// across painting code is exactly how a renderer ends up almost right.
+/// </para>
+/// <para>
+/// Paint order follows CSS 2.1 Appendix E as far as the feature set goes: backgrounds, then
+/// borders, then text, with each box's own decoration painted before its children's.
+/// </para>
+/// </remarks>
+static class PdfPainter
+{
+    /// <summary>
+    /// Paints the slice of <paramref name="root"/> between <paramref name="pageTop"/> and
+    /// <paramref name="pageTop"/> plus <paramref name="pageHeight"/>.
+    /// </summary>
+    /// <param name="surface">The page being drawn.</param>
+    /// <param name="root">The laid-out tree.</param>
+    /// <param name="pageTop">Where this page's content starts, in layout units.</param>
+    /// <param name="pageEnd">
+    /// Where the next page's content starts, or <see cref="float.PositiveInfinity"/> on the last
+    /// page.
+    /// </param>
+    /// <param name="content">The page's content box, in layout units.</param>
+    /// <param name="scale">Points per layout unit.</param>
+    /// <remarks>
+    /// <paramref name="pageEnd"/> is not the same as the bottom of the page box, and the
+    /// difference is the whole reason it is a parameter. A line that straddles the page boundary
+    /// is moved WHOLE to the next page by <see cref="Paginator"/>, so the last line on this page
+    /// can end well short of the paper. Painting everything down to the paper's edge instead would
+    /// draw that line here, clipped in half, and then draw it again in full overleaf.
+    /// </remarks>
+    public static void Paint(
+        Surface surface,
+        LayoutBox root,
+        float pageTop,
+        float pageEnd,
+        Rect content,
+        float scale)
+    {
+        using var _ = surface.PushTransform(Matrix.Scale(scale, scale));
+
+        // Content is clipped to the page box so a box straddling a break stops at the edge rather
+        // than painting over the margin, and so the next page's slice starts clean.
+        using var clipPath = PdfPath.Rectangle(
+            Rectangle.FromSize(content.X, content.Y, content.Width, content.Height));
+        using var __ = surface.PushClip(clipPath);
+
+        // Shift the document so this page's slice lands at the page's content origin. One
+        // transform for the whole page beats offsetting every coordinate at every call site.
+        using var ___ = surface.PushTransform(Matrix.Translate(content.X, content.Y - pageTop));
+
+        PaintBox(surface, root, pageTop, pageTop + content.Height, pageEnd);
+    }
+
+    static void PaintBox(Surface surface, LayoutBox box, float top, float bottom, float pageEnd)
+    {
+        // Skipping off-page subtrees is what keeps a long document's per-page cost proportional to
+        // what is actually on the page. Only leaves are culled: a box with an explicit height
+        // smaller than its content lets that content overflow and paint outside the border box, so
+        // a parent that misses the page says nothing about where its children are.
+        if (box.Children.Count == 0 &&
+            box.Lines.Count == 0 &&
+            (box.BorderBox.Bottom < top || box.BorderBox.Y > bottom))
+        {
+            return;
+        }
+
+        PaintBackground(surface, box);
+        PaintBorders(surface, box);
+
+        foreach (var line in box.Lines)
+        {
+            // Bounded by where the next page starts, not by the paper. A line at or past the break
+            // belongs overleaf and must not be drawn here even though it overlaps this sheet.
+            if (line.Bounds.Bottom < top || line.Bounds.Y >= pageEnd)
+            {
+                continue;
+            }
+
+            foreach (var run in line.Runs)
+            {
+                PaintRun(surface, run);
+            }
+        }
+
+        foreach (var child in box.Children)
+        {
+            PaintBox(surface, child, top, bottom, pageEnd);
+        }
+    }
+
+    static void PaintBackground(Surface surface, LayoutBox box)
+    {
+        if (box.Style.BackgroundColor is not {} color)
+        {
+            return;
+        }
+
+        var rect = box.BorderBox;
+        if (rect.Width <= 0 || rect.Height <= 0)
+        {
+            return;
+        }
+
+        surface.FillRectangle(Rectangle.FromSize(rect.X, rect.Y, rect.Width, rect.Height), color);
+    }
+
+    /// <summary>
+    /// Paints the four border edges.
+    /// </summary>
+    /// <remarks>
+    /// Each edge is a filled rectangle spanning the full border box on its axis, so adjacent edges
+    /// overlap at the corners. Real CSS mitres them diagonally, which is visible only where two
+    /// edges differ in colour or where a border is thick; for uniform borders the rendering is
+    /// identical and the mitre is not worth the geometry.
+    /// </remarks>
+    static void PaintBorders(Surface surface, LayoutBox box)
+    {
+        var style = box.Style;
+        if (!style.HasBorder)
+        {
+            return;
+        }
+
+        var rect = box.BorderBox;
+
+        if (style.BorderTop > 0 && style.BorderTopColor is {} topColor)
+        {
+            surface.FillRectangle(
+                Rectangle.FromSize(rect.X, rect.Y, rect.Width, style.BorderTop),
+                topColor);
+        }
+
+        if (style.BorderBottom > 0 && style.BorderBottomColor is {} bottomColor)
+        {
+            surface.FillRectangle(
+                Rectangle.FromSize(rect.X, rect.Bottom - style.BorderBottom, rect.Width, style.BorderBottom),
+                bottomColor);
+        }
+
+        if (style.BorderLeft > 0 && style.BorderLeftColor is {} leftColor)
+        {
+            surface.FillRectangle(
+                Rectangle.FromSize(rect.X, rect.Y, style.BorderLeft, rect.Height),
+                leftColor);
+        }
+
+        if (style.BorderRight > 0 && style.BorderRightColor is {} rightColor)
+        {
+            surface.FillRectangle(
+                Rectangle.FromSize(rect.Right - style.BorderRight, rect.Y, style.BorderRight, rect.Height),
+                rightColor);
+        }
+    }
+
+    static void PaintRun(Surface surface, TextRun run)
+    {
+        if (run.Text.Length == 0)
+        {
+            return;
+        }
+
+        var shaped = TextMeasurer.Shape(run.Face, run.Text, run.Style.FontSize);
+        if (shaped.Glyphs.Count == 0)
+        {
+            return;
+        }
+
+        surface.SetFill(run.Style.Color);
+
+        // The same glyphs and advances the line was measured with, so what is painted is what was
+        // laid out. Drawn from the baseline, which is where krilla positions a run's origin.
+        surface.DrawGlyphs(
+            new(run.X, run.Y),
+            run.Face.Font,
+            run.Style.FontSize,
+            run.Text,
+            shaped.Glyphs);
+    }
+}

@@ -1,0 +1,3 @@
+#outer { font-size: 20px; line-height: 1.5; padding: 0.5em; background-color: #f0f0e0; }
+#inner { font-size: 0.8em; line-height: 1.5; padding: 0.5em; background-color: #e0e0d0; }
+#deep { font-size: 1.5em; line-height: 1.5; padding: 0.5em; background-color: #d0d0c0; }

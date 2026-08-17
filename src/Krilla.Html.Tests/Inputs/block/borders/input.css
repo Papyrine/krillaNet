@@ -1,0 +1,10 @@
+#a {
+  width: 300px;
+  height: 120px;
+  margin: 20px;
+  border-top: 4px solid #d02020;
+  border-right: 12px solid #20a020;
+  border-bottom: 20px solid #2020d0;
+  border-left: 8px solid #d0a020;
+  background-color: #f8f8c0;
+}

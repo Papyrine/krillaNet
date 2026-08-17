@@ -4,5 +4,6 @@
   "MaxWidth": 100,
   "Convention": "InPlaceOverwrite",
   "ValidateContent": true,
-  "ExcludeSnippetFiles": [ "*.verified.txt", "*.received.txt" ]
+  "ExcludeSnippetFiles": [ "*.verified.txt", "*.received.txt" ],
+  "ExcludeDirectories": [ "target" ]
 }

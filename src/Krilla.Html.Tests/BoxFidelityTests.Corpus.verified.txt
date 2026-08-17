@@ -1,0 +1,29 @@
+﻿Layout geometry against the browser reference, in CSS pixels. Zero means the box tree
+agrees with Chrome exactly. `unmatched` counts elements the browser laid out that this
+engine generates no box for.
+
+block/auto_margins               matched  4  offset    0.00  size    0.00  differing  0  unmatched 0
+block/auto_width                 matched  4  offset    0.00  size    0.00  differing  0  unmatched 0
+block/background_color           matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
+block/borders                    matched  3  offset    0.00  size    0.00  differing  0  unmatched 0
+block/box_model                  matched  3  offset    0.00  size    0.00  differing  0  unmatched 0
+block/margin_collapse            matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
+block/margin_collapse_blocked    matched  4  offset    0.00  size    0.00  differing  0  unmatched 0
+block/margin_collapse_parent     matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
+block/max_width                  matched  3  offset    0.00  size    0.00  differing  0  unmatched 0
+block/nested_blocks              matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
+block/percentage_width           matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
+inline/font_size_em              matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
+inline/font_style                matched  4  offset    0.00  size    0.00  differing  0  unmatched 0
+inline/font_weight               matched  4  offset    0.00  size    0.00  differing  0  unmatched 0
+inline/justify                   matched  3  offset    0.00  size    0.00  differing  0  unmatched 0
+inline/line_height               matched  4  offset    0.00  size    0.00  differing  0  unmatched 0
+inline/line_height_normal        matched  3  offset    0.00  size    0.00  differing  0  unmatched 2
+inline/nested_inline             matched  3  offset    0.00  size    0.00  differing  0  unmatched 4
+inline/simple_text               matched  3  offset    0.00  size    0.00  differing  0  unmatched 0
+inline/text_align                matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
+inline/white_space_pre           matched  4  offset    0.00  size    0.00  differing  0  unmatched 0
+inline/wrapping                  matched  3  offset    0.00  size    0.00  differing  0  unmatched 0
+page/break_between_lines         matched  4  offset    0.00  size    0.00  differing  0  unmatched 0
+page/multi_page_flow             matched  8  offset    0.00  size    0.00  differing  0  unmatched 0
+page/page_size                   matched  3  offset    0.00  size    0.00  differing  0  unmatched 0

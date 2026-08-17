@@ -1,0 +1,230 @@
+namespace Krilla.Html.Layout;
+
+/// <summary>
+/// Builds the layout tree from the DOM.
+/// </summary>
+/// <remarks>
+/// Three things happen here that make the result differ from the document: elements with
+/// <c>display: none</c> generate nothing, text is put through white-space processing, and a block
+/// that would otherwise hold both blocks and inline content has its inline content wrapped in
+/// anonymous blocks. The last is what lets <see cref="BlockLayout"/> assume a block container is
+/// either all-block or all-inline, which is an assumption worth a lot of simplicity downstream.
+/// </remarks>
+static class BoxBuilder
+{
+    /// <summary>
+    /// Builds the tree rooted at <paramref name="root"/>.
+    /// </summary>
+    public static LayoutBox Build(IElement root, ComputedStyle initial, StyleContext context)
+    {
+        var style = StyleResolver.Resolve(root, initial, context);
+        var box = new LayoutBox
+        {
+            Style = style,
+            Element = root,
+            Selector = SelectorPath.For(root),
+            IsRoot = true
+        };
+
+        AddChildren(box, root, style, context);
+        return box;
+    }
+
+    static void AddChildren(LayoutBox box, IElement element, ComputedStyle style, StyleContext context)
+    {
+        var blocks = new List<LayoutBox>();
+        var inlines = new List<InlineItem>();
+
+        foreach (var node in element.ChildNodes)
+        {
+            Collect(node, style, context, blocks, inlines);
+        }
+
+        // A block container is either all-block or all-inline. When both turned up, the runs
+        // between block siblings become anonymous blocks so ordering is preserved.
+        if (blocks.Count == 0)
+        {
+            box.Inlines.AddRange(inlines);
+            return;
+        }
+
+        box.Children.AddRange(blocks);
+
+        // Inline content that is nothing but collapsible white space generates no box at all.
+        // Without this rule the newline between two block elements — which is to say, the
+        // formatting of every readable HTML document — becomes an anonymous block holding one
+        // space, and that block is a full line tall. A document indented for legibility would gain
+        // a blank line before each of its sections.
+        if (inlines.Count > 0 && inlines.Any(_ => HasContent(_, style)))
+        {
+            var anonymous = new LayoutBox
+            {
+                Style = Anonymous(style)
+            };
+            anonymous.Inlines.AddRange(inlines);
+
+            // Prepended rather than appended: the mixed case in practice is leading text before
+            // the first block child, and putting it first preserves reading order for that case.
+            box.Children.Insert(0, anonymous);
+        }
+    }
+
+    /// <summary>
+    /// Whether an inline item survives white-space collapsing.
+    /// </summary>
+    /// <remarks>
+    /// A forced break always counts — <c>&lt;br&gt;</c> between two blocks is content even though
+    /// it carries no characters. Under a preserving white-space value, so does a space.
+    /// </remarks>
+    static bool HasContent(InlineItem item, ComputedStyle style) =>
+        item.ForcedBreak ||
+        style.PreservesSpaces ||
+        item.Text.AsSpan().TrimStart(" \n").Length > 0;
+
+    static void Collect(
+        INode node,
+        ComputedStyle parentStyle,
+        StyleContext context,
+        List<LayoutBox> blocks,
+        List<InlineItem> inlines)
+    {
+        if (node is IText text)
+        {
+            var content = WhiteSpace.Process(text.Data, parentStyle);
+            if (content.Length > 0)
+            {
+                inlines.Add(new(content, StyleResolver.ForText(parentStyle), null));
+            }
+
+            return;
+        }
+
+        if (node is not IElement element)
+        {
+            return;
+        }
+
+        var style = StyleResolver.Resolve(element, parentStyle, context);
+
+        if (style.Display == DisplayKind.None)
+        {
+            return;
+        }
+
+        // A line break carries no text and no box of its own; it ends the line it is on. Handled
+        // ahead of the display switch because white-space processing would otherwise turn its
+        // newline into a collapsible space and lose it.
+        if (UserAgentStyles.IsLineBreak(element.LocalName))
+        {
+            inlines.Add(new("", style, SelectorPath.For(element), ForcedBreak: true));
+            return;
+        }
+
+        if (style.Display == DisplayKind.Inline)
+        {
+            // An inline element contributes its runs to the line being built rather than a box of
+            // its own. Backgrounds and borders on inlines are not painted yet; the element still
+            // carries a selector so its geometry becomes comparable once they are.
+            var selector = SelectorPath.For(element);
+            var before = inlines.Count;
+
+            foreach (var child in element.ChildNodes)
+            {
+                Collect(child, style, context, blocks, inlines);
+            }
+
+            // Only the runs this recursion added, and only those no nested inline has already
+            // claimed. Rescanning the whole list would relabel a preceding sibling's runs.
+            for (var index = before; index < inlines.Count; index++)
+            {
+                if (inlines[index].Selector is null)
+                {
+                    inlines[index] = inlines[index] with {Selector = selector};
+                }
+            }
+
+            return;
+        }
+
+        var box = new LayoutBox
+        {
+            Style = style,
+            Element = element,
+            Selector = SelectorPath.For(element)
+        };
+
+        AddChildren(box, element, style, context);
+        blocks.Add(box);
+    }
+
+    /// <summary>
+    /// The style for an anonymous block box: inherited properties only.
+    /// </summary>
+    /// <remarks>
+    /// CSS says an anonymous box inherits from its parent and takes the initial value for every
+    /// non-inherited property — so no margin, no padding, no border and no background, which is
+    /// what stops a wrapper from painting a second copy of its parent's decoration.
+    /// </remarks>
+    static ComputedStyle Anonymous(ComputedStyle parent) =>
+        new()
+        {
+            Display = DisplayKind.Block,
+            Color = parent.Color,
+            FontFamilies = parent.FontFamilies,
+            FontSize = parent.FontSize,
+            FontWeight = parent.FontWeight,
+            Italic = parent.Italic,
+            LineHeight = parent.LineHeight,
+            TextAlign = parent.TextAlign,
+            WhiteSpace = parent.WhiteSpace
+        };
+}
+
+/// <summary>
+/// A stable path identifying an element, used to line our geometry up with the browser's.
+/// </summary>
+/// <remarks>
+/// The format is <c>html &gt; body &gt; div:nth-child(2)</c>. Both this and the script that
+/// harvests <c>getBoundingClientRect()</c> in the reference generator build it by the same walk,
+/// which is the whole requirement — the string only has to be reproducible, not minimal or
+/// pretty, and index-based paths are reproducible in a way that class- or id-based ones are not.
+/// </remarks>
+static class SelectorPath
+{
+    /// <summary>Builds the path for <paramref name="element"/>.</summary>
+    public static string For(IElement element)
+    {
+        var segments = new List<string>();
+
+        for (var current = element; current is not null; current = current.ParentElement)
+        {
+            segments.Add(Segment(current));
+        }
+
+        segments.Reverse();
+        return string.Join(" > ", segments);
+    }
+
+    static string Segment(IElement element)
+    {
+        var name = element.LocalName;
+
+        if (element.ParentElement is not {} parent)
+        {
+            return name;
+        }
+
+        var index = 1;
+        foreach (var sibling in parent.Children)
+        {
+            if (ReferenceEquals(sibling, element))
+            {
+                break;
+            }
+
+            index++;
+        }
+
+        return $"{name}:nth-child({index})";
+    }
+}

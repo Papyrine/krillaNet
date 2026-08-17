@@ -15,6 +15,42 @@ Krilla *writes* PDFs. To read, render or edit an existing one, use [Morph.PDFium
 [Krilla](https://www.nuget.org/packages/Krilla/)
 
 
+## HTML to PDF
+
+`Krilla.Html` converts HTML to PDF on top of this library. [AngleSharp](https://anglesharp.github.io/)
+parses the markup and runs the CSS cascade, `Krilla.Html` lays the result out, and Krilla writes the
+PDF.
+
+```cs
+using var fonts = new FontSet()
+    .AddDirectory("fonts");
+
+var pdf = HtmlConverter.Convert("<h1>Hello</h1><p>World</p>", new()
+{
+    Fonts = fonts
+});
+```
+
+Krilla has no font database, so the fonts a document may use are supplied by the caller rather than
+discovered from the host. That is what makes output reproducible across machines.
+
+Implemented: block and inline layout, the box model, collapsing margins, line breaking, text
+alignment and pagination. Floats, positioned boxes, flexbox, grid and tables lay out as plain
+blocks.
+
+Two limits worth knowing before reaching for it:
+
+- Text is measured by summing raw glyph advances, so there is no kerning, no ligatures and no
+  complex-script shaping. Set `font-kerning: none` and `font-variant-ligatures: none` if matching a
+  browser's line breaking matters.
+- AngleSharp compares CSS specificity across cascade origins, where the specification resolves
+  origin first. A reset relying on `* { margin: 0 }` will not clear the default margins on `body`
+  and `p`; name the elements explicitly instead.
+
+Layout fidelity is measured against Chrome scenario by scenario — see
+[the corpus](/src/Krilla.Html.Tests/Inputs/readme.md).
+
+
 ## Usage
 
 Every snippet below is a test, and the image under it is that test's snapshot: the first page

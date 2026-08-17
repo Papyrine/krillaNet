@@ -1,0 +1,72 @@
+/*
+  Prepended to every scenario, and to the reference the browser renders from.
+
+  Its job is to remove every difference that is not the one the scenario is testing. Three
+  categories, each load-bearing:
+
+  1. THE UA STYLESHEET. Chromium and AngleSharp.Css ship different default stylesheets — different
+     heading margins, a different body margin, different list indentation. Those differences are
+     real and worth closing eventually, but they are not layout, and leaving them in would make
+     every scenario fail for a reason that has nothing to do with what it tests. Zeroing the box
+     properties on everything means a scenario measures our layout against Chromium's layout, not
+     our defaults table against Chromium's.
+
+  2. SHAPING FEATURES. Krilla.Html measures text by summing raw hmtx advances: no kerning, no
+     ligatures, no contextual substitution. A browser does all three by default, so an unmodified
+     comparison would show every line of text as slightly too wide and blame the layout for it.
+     Switching the features off makes a browser's advances the same raw hmtx values we sum, so
+     text measurement is comparable rather than approximately comparable. This is the single line
+     that makes slice one measurable at all — see Fonts/TextMeasurer.cs.
+
+  3. THE BASE FONT. Bound to the bundled faces by name so that both sides resolve the same files.
+     The browser gets @font-face rules pointing at these same files, injected by the reference
+     generator.
+
+  Changing anything here invalidates every committed reference. Re-run Krilla.Html.RefGen after.
+*/
+
+* {
+  margin: 0;
+  padding: 0;
+  border: none;
+  box-sizing: content-box;
+
+  /* See (2) above. */
+  font-kerning: none;
+  font-variant-ligatures: none;
+  font-feature-settings: normal;
+  font-variant: normal;
+}
+
+/*
+  Restated with type selectors, because the universal one above is not enough.
+
+  CSS resolves ORIGIN before specificity, so an author `*` rule beats a UA `p` rule outright and a
+  browser zeroes these margins from the rule above alone. AngleSharp.Css compares specificity
+  across origins instead, so its own UA sheet wins there: `body` keeps its 8px margin and `p` keeps
+  the 1.12em one inherited from the HTML4 default stylesheet. The two engines then disagree about
+  where the document starts and about the gap between every pair of paragraphs.
+
+  Matching the UA selectors' specificity settles it identically in both. Enumerating elements
+  rather than leaning on `*` is what every production reset stylesheet does anyway, for adjacent
+  reasons.
+
+  This is a workaround for a real limitation, not a corpus quirk: a Krilla.Html caller who relies
+  on `*` to clear UA margins will see the same difference. It is noted in the readme.
+*/
+html, body, div, p, pre, blockquote, figure, form, fieldset, hr, address,
+h1, h2, h3, h4, h5, h6,
+ul, ol, li, dl, dt, dd,
+table, thead, tbody, tfoot, tr, th, td {
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  font-family: "Liberation Sans";
+  font-size: 16px;
+  color: #000000;
+  background-color: #ffffff;
+  text-align: left;
+  white-space: normal;
+}
