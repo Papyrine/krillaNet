@@ -42,7 +42,7 @@ var pdf = document.Finish();
 <sup><a href='/src/Krilla.Tests/Samples.cs#L22-L35' title='Snippet source file'>snippet source</a> | <a href='#snippet-HelloWorld' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
-<a href="/src/Krilla.Tests/Samples.HelloWorld.verified.pdf"><img src="/src/Krilla.Tests/Samples.HelloWorld%23page_0001.verified.png" width="190" alt="Rendered output of the HelloWorld sample"></a>
+<table><tr><td><a href="/src/Krilla.Tests/Samples.HelloWorld.verified.pdf"><img src="/src/Krilla.Tests/Samples.HelloWorld%23page_0001.verified.png" width="190" alt="Rendered output of the HelloWorld sample"></a></td></tr></table>
 
 
 ### Draw a path
@@ -72,7 +72,7 @@ var pdf = document.Finish();
 <sup><a href='/src/Krilla.Tests/Samples.cs#L43-L64' title='Snippet source file'>snippet source</a> | <a href='#snippet-DrawAPath' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
-<a href="/src/Krilla.Tests/Samples.DrawAPath.verified.pdf"><img src="/src/Krilla.Tests/Samples.DrawAPath%23page_0001.verified.png" width="260" alt="Rendered output of the DrawAPath sample"></a>
+<table><tr><td><a href="/src/Krilla.Tests/Samples.DrawAPath.verified.pdf"><img src="/src/Krilla.Tests/Samples.DrawAPath%23page_0001.verified.png" width="260" alt="Rendered output of the DrawAPath sample"></a></td></tr></table>
 
 
 ### Fill and stroke
@@ -102,7 +102,7 @@ var pdf = document.Finish();
 <sup><a href='/src/Krilla.Tests/Samples.cs#L72-L91' title='Snippet source file'>snippet source</a> | <a href='#snippet-FillAndStroke' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
-<a href="/src/Krilla.Tests/Samples.FillAndStroke.verified.pdf"><img src="/src/Krilla.Tests/Samples.FillAndStroke%23page_0001.verified.png" width="190" alt="Rendered output of the FillAndStroke sample"></a>
+<table><tr><td><a href="/src/Krilla.Tests/Samples.FillAndStroke.verified.pdf"><img src="/src/Krilla.Tests/Samples.FillAndStroke%23page_0001.verified.png" width="190" alt="Rendered output of the FillAndStroke sample"></a></td></tr></table>
 
 
 ### Gradients
@@ -129,7 +129,7 @@ var pdf = document.Finish();
 <sup><a href='/src/Krilla.Tests/Samples.cs#L99-L117' title='Snippet source file'>snippet source</a> | <a href='#snippet-GradientFill' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
-<a href="/src/Krilla.Tests/Samples.GradientFill.verified.pdf"><img src="/src/Krilla.Tests/Samples.GradientFill%23page_0001.verified.png" width="260" alt="Rendered output of the GradientFill sample"></a>
+<table><tr><td><a href="/src/Krilla.Tests/Samples.GradientFill.verified.pdf"><img src="/src/Krilla.Tests/Samples.GradientFill%23page_0001.verified.png" width="260" alt="Rendered output of the GradientFill sample"></a></td></tr></table>
 
 All stops in a gradient must share one colour space. A mismatch is reported when the document is finished, not when the gradient is created.
 
@@ -161,7 +161,7 @@ var pdf = document.Finish();
 <sup><a href='/src/Krilla.Tests/Samples.cs#L125-L144' title='Snippet source file'>snippet source</a> | <a href='#snippet-TransformsAndOpacity' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
-<a href="/src/Krilla.Tests/Samples.TransformsAndOpacity.verified.pdf"><img src="/src/Krilla.Tests/Samples.TransformsAndOpacity%23page_0001.verified.png" width="190" alt="Rendered output of the TransformsAndOpacity sample"></a>
+<table><tr><td><a href="/src/Krilla.Tests/Samples.TransformsAndOpacity.verified.pdf"><img src="/src/Krilla.Tests/Samples.TransformsAndOpacity%23page_0001.verified.png" width="190" alt="Rendered output of the TransformsAndOpacity sample"></a></td></tr></table>
 
 
 ### Multiple pages
@@ -184,7 +184,7 @@ document.Save("report.pdf");
 <sup><a href='/src/Krilla.Tests/Samples.cs#L152-L166' title='Snippet source file'>snippet source</a> | <a href='#snippet-MultiplePages' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
-<a href="/src/Krilla.Tests/Samples.MultiplePages.verified.pdf"><img src="/src/Krilla.Tests/Samples.MultiplePages%23page_0001.verified.png" width="190" alt="Rendered output of the MultiplePages sample"></a>
+<table><tr><td><a href="/src/Krilla.Tests/Samples.MultiplePages.verified.pdf"><img src="/src/Krilla.Tests/Samples.MultiplePages%23page_0001.verified.png" width="190" alt="Rendered output of the MultiplePages sample"></a></td></tr></table>
 
 
 ### Images
@@ -223,7 +223,7 @@ var pdf = document.Finish();
 <sup><a href='/src/Krilla.Tests/Samples.cs#L174-L204' title='Snippet source file'>snippet source</a> | <a href='#snippet-DrawAnImage' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
-<a href="/src/Krilla.Tests/Samples.DrawAnImage.verified.pdf"><img src="/src/Krilla.Tests/Samples.DrawAnImage%23page_0001.verified.png" width="120" alt="Rendered output of the DrawAnImage sample"></a>
+<table><tr><td><a href="/src/Krilla.Tests/Samples.DrawAnImage.verified.pdf"><img src="/src/Krilla.Tests/Samples.DrawAnImage%23page_0001.verified.png" width="120" alt="Rendered output of the DrawAnImage sample"></a></td></tr></table>
 
 
 ### Metadata
@@ -253,7 +253,7 @@ var pdf = document.Finish();
 <sup><a href='/src/Krilla.Tests/Samples.cs#L212-L233' title='Snippet source file'>snippet source</a> | <a href='#snippet-Metadata' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
-<a href="/src/Krilla.Tests/Samples.Metadata.verified.pdf"><img src="/src/Krilla.Tests/Samples.Metadata%23page_0001.verified.png" width="190" alt="Rendered output of the Metadata sample"></a>
+<table><tr><td><a href="/src/Krilla.Tests/Samples.Metadata.verified.pdf"><img src="/src/Krilla.Tests/Samples.Metadata%23page_0001.verified.png" width="190" alt="Rendered output of the Metadata sample"></a></td></tr></table>
 
 
 ### Bookmarks
@@ -284,7 +284,7 @@ var pdf = document.Finish();
 <sup><a href='/src/Krilla.Tests/Samples.cs#L241-L263' title='Snippet source file'>snippet source</a> | <a href='#snippet-Bookmarks' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
-<a href="/src/Krilla.Tests/Samples.Bookmarks.verified.pdf"><img src="/src/Krilla.Tests/Samples.Bookmarks%23page_0001.verified.png" width="190" alt="Rendered output of the Bookmarks sample"></a>
+<table><tr><td><a href="/src/Krilla.Tests/Samples.Bookmarks.verified.pdf"><img src="/src/Krilla.Tests/Samples.Bookmarks%23page_0001.verified.png" width="190" alt="Rendered output of the Bookmarks sample"></a></td></tr></table>
 
 
 ### Links
@@ -316,7 +316,7 @@ var pdf = document.Finish();
 <sup><a href='/src/Krilla.Tests/Samples.cs#L271-L294' title='Snippet source file'>snippet source</a> | <a href='#snippet-Links' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
-<a href="/src/Krilla.Tests/Samples.Links.verified.pdf"><img src="/src/Krilla.Tests/Samples.Links%23page_0001.verified.png" width="190" alt="Rendered output of the Links sample"></a>
+<table><tr><td><a href="/src/Krilla.Tests/Samples.Links.verified.pdf"><img src="/src/Krilla.Tests/Samples.Links%23page_0001.verified.png" width="190" alt="Rendered output of the Links sample"></a></td></tr></table>
 
 
 ### Attachments
@@ -343,7 +343,7 @@ var pdf = document.Finish();
 <sup><a href='/src/Krilla.Tests/Samples.cs#L420-L438' title='Snippet source file'>snippet source</a> | <a href='#snippet-Attachments' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
-<a href="/src/Krilla.Tests/Samples.Attachments.verified.pdf"><img src="/src/Krilla.Tests/Samples.Attachments%23page_0001.verified.png" width="190" alt="Rendered output of the Attachments sample"></a>
+<table><tr><td><a href="/src/Krilla.Tests/Samples.Attachments.verified.pdf"><img src="/src/Krilla.Tests/Samples.Attachments%23page_0001.verified.png" width="190" alt="Rendered output of the Attachments sample"></a></td></tr></table>
 
 
 ### Reusable graphics
@@ -375,7 +375,7 @@ var pdf = document.Finish();
 <sup><a href='/src/Krilla.Tests/Samples.cs#L391-L412' title='Snippet source file'>snippet source</a> | <a href='#snippet-ReusableGraphic' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
-<a href="/src/Krilla.Tests/Samples.ReusableGraphic.verified.pdf"><img src="/src/Krilla.Tests/Samples.ReusableGraphic%23page_0001.verified.png" width="190" alt="Rendered output of the ReusableGraphic sample"></a>
+<table><tr><td><a href="/src/Krilla.Tests/Samples.ReusableGraphic.verified.pdf"><img src="/src/Krilla.Tests/Samples.ReusableGraphic%23page_0001.verified.png" width="190" alt="Rendered output of the ReusableGraphic sample"></a></td></tr></table>
 
 
 ### PDF/A
@@ -410,7 +410,7 @@ var pdf = document.Finish();
 <sup><a href='/src/Krilla.Tests/Samples.cs#L302-L328' title='Snippet source file'>snippet source</a> | <a href='#snippet-ArchivalPdf' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
-<a href="/src/Krilla.Tests/Samples.ArchivalPdf.verified.pdf"><img src="/src/Krilla.Tests/Samples.ArchivalPdf%23page_0001.verified.png" width="190" alt="Rendered output of the ArchivalPdf sample"></a>
+<table><tr><td><a href="/src/Krilla.Tests/Samples.ArchivalPdf.verified.pdf"><img src="/src/Krilla.Tests/Samples.ArchivalPdf%23page_0001.verified.png" width="190" alt="Rendered output of the ArchivalPdf sample"></a></td></tr></table>
 
 
 ### Tagged PDF and PDF/UA
@@ -468,7 +468,7 @@ var pdf = document.Finish();
 <sup><a href='/src/Krilla.Tests/Samples.cs#L336-L383' title='Snippet source file'>snippet source</a> | <a href='#snippet-AccessibleDocument' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
-<a href="/src/Krilla.Tests/Samples.AccessibleDocument.verified.pdf"><img src="/src/Krilla.Tests/Samples.AccessibleDocument%23page_0001.verified.png" width="190" alt="Rendered output of the AccessibleDocument sample"></a>
+<table><tr><td><a href="/src/Krilla.Tests/Samples.AccessibleDocument.verified.pdf"><img src="/src/Krilla.Tests/Samples.AccessibleDocument%23page_0001.verified.png" width="190" alt="Rendered output of the AccessibleDocument sample"></a></td></tr></table>
 
 Content that is decoration rather than meaning — running heads, page numbers, rules — should be marked with `BeginArtifact` instead, which keeps it out of the tree entirely.
 
