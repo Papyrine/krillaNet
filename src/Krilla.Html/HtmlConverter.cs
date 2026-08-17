@@ -130,6 +130,15 @@ public static class HtmlConverter
                 Category = DeviceCategory.Screen
             });
 
+        // AngleSharp's default stylesheet is the HTML 4.01 one, which disagrees with what browsers
+        // implement on most block elements. The provider is per-configuration rather than a shared
+        // singleton, so appending here corrects this document's cascade without accumulating rules
+        // across conversions.
+        foreach (var provider in configuration.Services.OfType<ICssDefaultStyleSheetProvider>())
+        {
+            provider.AppendDefault(UserAgentStyles.Corrections);
+        }
+
         var context = BrowsingContext.New(configuration);
 
         // Synchronous by design. Parsing is CPU-bound here — no external resource is fetched,

@@ -45,6 +45,22 @@ static class CorpusLayout
     /// <summary>The stylesheet every scenario includes, shared across the corpus.</summary>
     public const string ResetFile = "reset.css";
 
+    /// <summary>
+    /// The stylesheet that removes the default stylesheet from the picture, included unless a
+    /// scenario opts out.
+    /// </summary>
+    public const string FlattenFile = "flatten.css";
+
+    /// <summary>
+    /// A marker file whose presence in a scenario directory suppresses
+    /// <see cref="FlattenFile"/>.
+    /// </summary>
+    /// <remarks>
+    /// For the scenarios that exist to measure the default stylesheet itself, where flattening it
+    /// away would leave nothing to compare.
+    /// </remarks>
+    public const string NoFlattenMarker = "no-flatten";
+
     /// <summary>The file holding the browser's element geometry.</summary>
     public const string BoxesFile = "reference.boxes.json";
 
@@ -113,7 +129,14 @@ static class CorpusLayout
     public static string Html(string directory)
     {
         var markup = File.ReadAllText(Path.Combine(directory, HtmlFile));
-        var reset = File.ReadAllText(Path.Combine(InputsDirectory, ResetFile));
+        var shared = File.ReadAllText(Path.Combine(InputsDirectory, ResetFile));
+
+        // Scenarios that measure the default stylesheet itself keep it, since flattening it away
+        // would leave them nothing to compare.
+        if (!File.Exists(Path.Combine(directory, NoFlattenMarker)))
+        {
+            shared += "\n" + File.ReadAllText(Path.Combine(InputsDirectory, FlattenFile));
+        }
 
         var cssPath = Path.Combine(directory, CssFile);
         var css = File.Exists(cssPath) ? File.ReadAllText(cssPath) : "";
@@ -124,7 +147,7 @@ static class CorpusLayout
                 <head>
                 <meta charset="utf-8">
                 <style>
-                {reset}
+                {shared}
                 </style>
                 <style>
                 {css}

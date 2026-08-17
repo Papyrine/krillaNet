@@ -51,13 +51,23 @@ it is why a regression here is unambiguous rather than lost in noise.
    ```
 5. Run the category and accept the new snapshots.
 
-## reset.css
+## The two shared stylesheets
 
-Prepended to every scenario and to the browser's copy. It removes the differences that are not the
-one being tested: the two engines' default stylesheets, the shaping features the text measurer
-cannot do, and the base font binding. Its header comment explains each in detail.
+`reset.css` is prepended to every scenario and to the browser's copy. It is what makes the two
+engines comparable at all: it pins the fonts both sides load, and disables the shaping features the
+text measurer cannot do.
 
-Changing it invalidates every committed reference, so regenerate them all afterwards.
+`flatten.css` follows it, and removes the default stylesheet from the picture so a scenario measures
+the layout algorithm rather than the defaults table. A scenario opts out by containing a file named
+`no-flatten` — the `ua/` category does, because those scenarios exist to measure exactly what
+flattening would remove.
+
+Changing either invalidates every committed reference, so regenerate them all afterwards.
+
+One limit worth knowing: a generic font family cannot be pinned, because the reference generator
+binds real family names via `@font-face` and a generic is not legal as an `@font-face` family. So
+`reset.css` names `Liberation Mono` on the monospace elements directly, and "does `<pre>` default to
+monospace" is a question this corpus cannot ask.
 
 ## A warning about regenerating
 

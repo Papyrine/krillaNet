@@ -1,4 +1,4 @@
-# All scenarios (31)
+# All scenarios (35)
 
 The browser reference (left) beside the page Krilla.Html produced (right). `AE` is the fraction of pixels that differ and `SSIM` is structural similarity; neither is asserted. The worst offset is the largest positional disagreement in CSS pixels between the rendered element geometry and the browser's, and is the number to watch — it reaches zero exactly when the layout is right.
 
@@ -36,6 +36,10 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [page/break_between_lines](#page-break_between_lines)
 - [page/multi_page_flow](#page-multi_page_flow)
 - [page/page_size](#page-page_size)
+- [ua/blockquote_pre](#ua-blockquote_pre)
+- [ua/headings](#ua-headings)
+- [ua/lists](#ua-lists)
+- [ua/paragraphs](#ua-paragraphs)
 
 </details>
 
@@ -479,5 +483,66 @@ step somewhere, and every multi-page scenario will be wrong in the same way.
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
 | <img src="page/page_size/reference_0001.png" width="480"> | <img src="page/page_size/result%23page_0001.verified.png" width="480"> |
+
+
+## ua/blockquote_pre
+
+Two elements whose defaults are more than a margin: blockquote is indented 40px on both sides, and
+pre switches to the monospace family as well as preserving its white space. Both were absent from
+AngleSharp's sheet.
+
+**Boxes**: 6 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| <img src="ua/blockquote_pre/reference_0001.png" width="480"> | <img src="ua/blockquote_pre/result%23page_0001.verified.png" width="480"> |
+
+
+## ua/headings
+
+The six heading defaults, with no stylesheet of their own. Each has a distinct font size and a
+distinct margin, and the margins run the opposite way to the sizes: the smallest heading has the
+largest one. AngleSharp ships the HTML 4.01 values, which differ from the modern ones on every
+level below h1, so this scenario is the whole reason UserAgentStyles.Corrections exists.
+
+**Boxes**: 8 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0004 · SSIM 1.0000** |
+| <img src="ua/headings/reference_0001.png" width="480"> | <img src="ua/headings/result%23page_0001.verified.png" width="480"> |
+
+
+## ua/lists
+
+List indentation, which AngleSharp omits entirely — before the corrections an unstyled list had no
+padding-left at all and sat flush against the margin. Also covers the nested case, where the inner
+list drops its vertical margins so a multi-level outline reads as one block.
+
+List markers are not drawn, so the bullets and numbers a browser shows are absent from the render.
+That is a real gap and it shows in the pixel metric; the box geometry is unaffected, because a
+marker sits outside the principal box.
+
+**Boxes**: 12 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0003 · SSIM 0.9984** |
+| <img src="ua/lists/reference_0001.png" width="480"> | <img src="ua/lists/result%23page_0001.verified.png" width="480"> |
+
+
+## ua/paragraphs
+
+Paragraph spacing with no stylesheet. The default margin is 1em top and bottom, and adjacent
+paragraphs collapse to one gap rather than two. AngleSharp uses the HTML 4.01 value of 1.12em, so
+before the corrections every gap in an unstyled document was 12% too large.
+
+**Boxes**: 5 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| <img src="ua/paragraphs/reference_0001.png" width="480"> | <img src="ua/paragraphs/result%23page_0001.verified.png" width="480"> |
 
 

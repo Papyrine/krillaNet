@@ -51,6 +51,11 @@ Two limits worth knowing before reaching for it:
   origin first. A reset relying on `* { margin: 0 }` will not clear the default margins on `body`
   and `p`; name the elements explicitly instead.
 
+The default stylesheet AngleSharp ships is the HTML 4.01 one, which disagrees with browsers on most
+block elements — headings, paragraph spacing, and list indentation in particular. `Krilla.Html`
+appends corrections from the HTML Standard's rendering section, so an unstyled document matches a
+browser.
+
 Layout fidelity is measured against Chrome scenario by scenario — see
 [the corpus](/src/Krilla.Html.Tests/Inputs/readme.md).
 

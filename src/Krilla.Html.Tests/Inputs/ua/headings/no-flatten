@@ -1,0 +1,2 @@
+Suppresses flatten.css. These scenarios exist to measure the default stylesheet, so flattening it
+away would leave them nothing to compare.
