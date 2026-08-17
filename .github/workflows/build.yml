@@ -1,0 +1,93 @@
+name: build
+
+# Builds and tests the managed side on every platform that has a hosted runner.
+#
+# This replaces the AppVeyor pipeline this repository started with. AppVeyor was Windows-only,
+# so it could only ever prove the managed layer worked on one platform; the same job here runs
+# on Linux and macOS too, which is where a marshalling or path assumption is most likely to
+# break.
+#
+# Deliberately does *not* invoke cargo directly. `dotnet build` triggers the KrillaBuildNative
+# target in src/Krilla.Native.targets, which locates cargo, applies the per-platform RUSTFLAGS
+# and copies the result into runtimes/. Driving the build that way means this workflow also
+# tests the MSBuild wiring — the part of the repository with no precedent elsewhere in
+# Papyrine, and therefore the part most worth exercising on all three platforms.
+#
+# The eight-RID release matrix lives in native.yml, and the packages produced here carry the
+# host RID only. See the artifact step at the end.
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+env:
+  DOTNET_NOLOGO: true
+  DOTNET_CLI_TELEMETRY_OPTOUT: true
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: ubuntu-latest, name: linux }
+          - { os: windows-latest, name: windows }
+          - { os: macos-14, name: macos }
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+          key: build-${{ matrix.name }}
+
+      - name: Build
+        # Packs as a side effect: ProjectDefaults sets GeneratePackageOnBuild=true for Release
+        # package projects, so ./nugets is populated by the end of this step.
+        run: dotnet build src --configuration Release
+
+      - name: Test
+        # TUnit, not VSTest — `dotnet test` is unsupported on the .NET 10 SDK.
+        run: dotnet run --project src/Krilla.Tests --configuration Release --no-build
+
+      - name: Build integration tests
+        # Consumes the nupkg just produced, which is what proves runtimes/<rid>/native/
+        # resolves out of a real package rather than across a project reference.
+        run: dotnet build IntegrationTests --configuration Release
+
+      - name: Run integration tests
+        run: dotnet run --project IntegrationTests/IntegrationTests --configuration Release --no-build
+
+      - name: Upload snapshot diffs
+        # Verify writes .received.* beside the .verified.* baseline when a snapshot differs.
+        # Without these a failure on a platform nobody has locally is close to undebuggable.
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: received-${{ matrix.name }}
+          path: '**/*.received.*'
+          if-no-files-found: ignore
+          retention-days: 7
+
+      - name: Upload package
+        # Host RID only, so this is for local inspection and must never be published. The
+        # publishable package is built by publish-nuget.yml from the full native matrix, and
+        # nuget.org Trusted Publishing means no API key exists to push this one with anyway.
+        if: matrix.os == 'ubuntu-latest'
+        uses: actions/upload-artifact@v4
+        with:
+          name: nupkg-host-rid-only
+          path: nugets/*.nupkg
+          if-no-files-found: error
+          retention-days: 7
