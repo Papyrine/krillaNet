@@ -1,0 +1,163 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project>
+
+  <!--
+    Why this is a .targets file and not part of Krilla.Native.props:
+
+    Everything below needs $(NETCoreSdkPortableRuntimeIdentifier) to know the current
+    machine's RID. That property is set by Microsoft.NET.Sdk.props, which is imported AFTER
+    Directory.Build.props, so the same code in the .props file would silently see an empty
+    string. Facts live in the .props, logic lives here.
+  -->
+
+  <PropertyGroup>
+    <KrillaHostRid Condition="'$(KrillaHostRid)' == ''">$(NETCoreSdkPortableRuntimeIdentifier)</KrillaHostRid>
+  </PropertyGroup>
+
+  <!--
+    Resolve the host RID against the table.
+
+    This has to live inside a target: MSBuild rejects %(Identity) in the condition of an
+    ItemGroup at project scope (MSB4190), allowing built-in metadata references only within a
+    target. Everything downstream therefore takes a DependsOnTargets on this one.
+  -->
+  <Target Name="KrillaResolveHostNative">
+    <ItemGroup>
+      <KrillaHostNative Include="@(KrillaRid)" Condition="'%(Identity)' == '$(KrillaHostRid)'" />
+    </ItemGroup>
+
+    <PropertyGroup>
+      <KrillaHostTriple>@(KrillaHostNative->'%(Triple)')</KrillaHostTriple>
+      <KrillaHostFile>@(KrillaHostNative->'%(File)')</KrillaHostFile>
+      <KrillaHostNativePath>$(KrillaNativeRoot)$(KrillaHostRid)\native\$(KrillaHostFile)</KrillaHostNativePath>
+      <KrillaCargoOutput>$(KrillaRustDir)target\$(KrillaHostTriple)\release\$(KrillaHostFile)</KrillaCargoOutput>
+    </PropertyGroup>
+
+    <Warning Condition="'$(KrillaHostTriple)' == ''"
+             Text="Krilla: no native is shipped for this machine's runtime identifier ('$(KrillaHostRid)'). The managed assembly will build, but nothing can load the native library at run time." />
+  </Target>
+
+  <!--
+    Dev loop: build the native with cargo when it is missing or out of date.
+
+    Deliberately scoped to this repository. This file is imported by Directory.Build.targets
+    and is NEVER packed into build/ or buildTransitive/, so a consumer's restore can never be
+    made to require rustup — which would break every downstream CI.
+
+    Skipped silently when cargo is absent, so someone working only on the managed side can
+    build against a native produced elsewhere (a CI artifact, or a previous cargo run).
+  -->
+  <Target Name="KrillaBuildNative"
+          DependsOnTargets="KrillaResolveHostNative"
+          BeforeTargets="BeforeBuild"
+          Condition="'$(KrillaSkipCargo)' != 'true'">
+
+    <PropertyGroup>
+      <_KrillaCargoExe Condition="'$(OS)' == 'Windows_NT'">$(USERPROFILE)\.cargo\bin\cargo.exe</_KrillaCargoExe>
+      <_KrillaCargoExe Condition="'$(OS)' != 'Windows_NT'">$(HOME)/.cargo/bin/cargo</_KrillaCargoExe>
+      <_KrillaHaveCargo>false</_KrillaHaveCargo>
+      <_KrillaHaveCargo Condition="Exists('$(_KrillaCargoExe)')">true</_KrillaHaveCargo>
+    </PropertyGroup>
+
+    <!--
+      Rebuild when any Rust source or manifest is newer than the copied native. Globbing
+      inside the target rather than at evaluation time keeps a clean checkout (no target/
+      directory) from tripping over missing paths.
+    -->
+    <ItemGroup>
+      <_KrillaRustSource Include="$(KrillaRustDir)crates\**\*.rs" />
+      <_KrillaRustSource Include="$(KrillaRustDir)**\Cargo.toml" />
+      <_KrillaRustSource Include="$(KrillaRustDir)Cargo.lock" />
+    </ItemGroup>
+
+    <PropertyGroup>
+      <_KrillaNativeStale>true</_KrillaNativeStale>
+      <_KrillaNativeStale Condition="Exists('$(KrillaHostNativePath)')">false</_KrillaNativeStale>
+    </PropertyGroup>
+
+    <Message Importance="normal"
+             Condition="'$(_KrillaHaveCargo)' != 'true' and '$(_KrillaNativeStale)' == 'true'"
+             Text="Krilla: cargo not found at $(_KrillaCargoExe) and no native at $(KrillaHostNativePath). Build the native separately, or install Rust from https://rustup.rs." />
+
+    <!--
+      +crt-static on the MSVC targets. Without it the DLL imports VCRUNTIME140.dll, which is
+      not present on a clean Windows install, and the consumer sees a DllNotFoundException
+      naming *our* library rather than the missing redistributable. Costs ~140 KB.
+
+      This is also what gives the DLL its own heap, which is why every allocation crossing
+      the ABI must be freed by the side that made it (see docs/ffi-abi.md, rule R2).
+    -->
+    <PropertyGroup>
+      <_KrillaRustFlags Condition="$(KrillaHostTriple.Contains('windows-msvc'))">-C target-feature=+crt-static</_KrillaRustFlags>
+    </PropertyGroup>
+
+    <Exec Command="&quot;$(_KrillaCargoExe)&quot; build --release --locked --manifest-path &quot;$(KrillaRustDir)Cargo.toml&quot; --target $(KrillaHostTriple)"
+          Condition="'$(_KrillaHaveCargo)' == 'true' and '$(KrillaHostTriple)' != ''"
+          EnvironmentVariables="RUSTFLAGS=$(_KrillaRustFlags)"
+          WorkingDirectory="$(KrillaRustDir)"
+          StandardOutputImportance="low" />
+
+    <Copy SourceFiles="$(KrillaCargoOutput)"
+          DestinationFiles="$(KrillaHostNativePath)"
+          SkipUnchangedFiles="true"
+          Condition="'$(_KrillaHaveCargo)' == 'true' and Exists('$(KrillaCargoOutput)')" />
+  </Target>
+
+  <!--
+    Copy the host native next to the output assembly, flattened.
+
+    This flows across a ProjectReference, so Krilla.Tests gets it too. That is why the test
+    project needs neither UseCurrentRuntimeIdentifier nor AppendRuntimeIdentifierToOutputPath,
+    unlike Morph.PDFium.Tests: those exist there to stop the SDK unpacking twelve RIDs out of
+    the bblanchon *packages*, whereas here exactly one file is produced, already scoped to
+    this machine.
+  -->
+  <Target Name="KrillaAddNativeToOutput"
+          DependsOnTargets="KrillaResolveHostNative"
+          AfterTargets="KrillaBuildNative"
+          BeforeTargets="AssignTargetPaths">
+    <ItemGroup>
+      <None Include="$(KrillaHostNativePath)"
+            Condition="Exists('$(KrillaHostNativePath)')"
+            Link="$(KrillaHostFile)"
+            CopyToOutputDirectory="PreserveNewest"
+            Pack="false"
+            Visible="false" />
+    </ItemGroup>
+  </Target>
+
+  <!--
+    Pack every available native into runtimes/<rid>/native/, which is the layout NuGet's RID
+    asset resolution understands: a consumer's build copies only the one matching their
+    target, and `dotnet publish -r <rid>` emits exactly one file.
+
+    Hooked on _GetPackageFiles rather than declared as a static <None> glob because the files
+    do not exist at evaluation time on a clean machine — the same reason documented in
+    Parchment.csproj's PackParchmentSourceGenerator target.
+  -->
+  <Target Name="KrillaPackNatives"
+          BeforeTargets="_GetPackageFiles"
+          Condition="'$(IsPackable)' != 'false'">
+
+    <ItemGroup>
+      <_KrillaPackable Include="@(KrillaRid)"
+                       Condition="Exists('$(KrillaNativeRoot)%(Identity)\native\%(File)')" />
+      <_KrillaMissing Include="@(KrillaRid)"
+                      Condition="!Exists('$(KrillaNativeRoot)%(Identity)\native\%(File)')" />
+    </ItemGroup>
+
+    <Error Condition="'$(KrillaRequireAllNatives)' == 'true' and '@(_KrillaMissing)' != ''"
+           Text="Krilla: native binaries missing for @(_KrillaMissing, ', '). A release package must carry all eight RIDs; download the artifacts from the native workflow before packing." />
+
+    <Warning Condition="'$(KrillaRequireAllNatives)' != 'true' and '@(_KrillaMissing)' != ''"
+             Text="Krilla: packing without natives for @(_KrillaMissing, ', '). This package is for local use only and must not be published." />
+
+    <ItemGroup>
+      <None Include="$(KrillaNativeRoot)%(_KrillaPackable.Identity)\native\%(_KrillaPackable.File)"
+            Pack="true"
+            PackagePath="runtimes\%(_KrillaPackable.Identity)\native\"
+            Visible="false" />
+    </ItemGroup>
+  </Target>
+
+</Project>

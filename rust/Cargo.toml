@@ -1,0 +1,24 @@
+[workspace]
+members = ["crates/krilla-capi"]
+resolver = "3"
+
+# Profile settings are only honoured in the workspace root. A [profile.*] block in a member
+# crate is silently ignored, so everything that shapes the shipped cdylib lives here.
+[profile.release]
+# Explicit, and never "abort". Every export wraps its body in catch_unwind so a krilla panic
+# surfaces as a status code instead of killing the consumer's process; that depends on unwind.
+panic = "unwind"
+lto = "fat"
+codegen-units = 1
+# Not "z". krilla is compute-bound: deflate, font subsetting, image decode.
+opt-level = 3
+# Not "symbols". Keeping function names costs little and keeps native crash dumps and
+# profiler traces readable in consumer applications.
+strip = "debuginfo"
+debug = 0
+
+# Used by CI to archive a symbol-bearing build alongside the shipped one.
+[profile.release-symbols]
+inherits = "release"
+debug = 1
+strip = "none"

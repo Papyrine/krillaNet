@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project>
+  <Import Project="Krilla.Native.props" />
+  <PropertyGroup>
+    <!--
+      SC023 comes from Morph.PDFium, pulled in transitively by Verify.PDFium in the test
+      project. That is a *consumer-side* reminder from another Papyrine package, unrelated to
+      this repository having dropped its own SponsorCheck reference; it pairs with the
+      Papyrine_SponsorshipLicenseIgnored property below.
+    -->
+    <NoWarn>CS1591;NU1608;SC023</NoWarn>
+    <Version>0.1.0</Version>
+    <LangVersion>preview</LangVersion>
+    <AssemblyVersion>0.1.0</AssemblyVersion>
+    <Description>Creates PDF files via the krilla Rust library</Description>
+    <ResolveAssemblyReferencesSilent>true</ResolveAssemblyReferencesSilent>
+    <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+    <EnforceCodeStyleInBuild>true</EnforceCodeStyleInBuild>
+    <SuppressNETCoreSdkPreviewMessage>true</SuppressNETCoreSdkPreviewMessage>
+    <!--
+      Plain MIT, unlike the other Papyrine packages: this repository does not participate in
+      the Open Source Maintenance Fee, so there is no EULA and nothing to accept.
+    -->
+    <PackageLicenseFile>license.txt</PackageLicenseFile>
+    <Papyrine_SponsorshipLicenseIgnored>true</Papyrine_SponsorshipLicenseIgnored>
+  </PropertyGroup>
+  <ItemGroup>
+    <None Include="$(MSBuildThisFileDirectory)..\license.txt" Pack="true" PackagePath="" Visible="false" />
+  </ItemGroup>
+</Project>

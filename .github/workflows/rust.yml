@@ -1,0 +1,121 @@
+name: rust
+
+# Correctness gates for the native shim. Deliberately separate from the RID build matrix in
+# native.yml: these run on every push and finish in a couple of minutes, whereas the matrix
+# cross-compiles eight targets and only needs to run for a release.
+
+on:
+  push:
+    paths:
+      - 'rust/**'
+      - '.github/workflows/rust.yml'
+  pull_request:
+    paths:
+      - 'rust/**'
+      - '.github/workflows/rust.yml'
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+defaults:
+  run:
+    working-directory: rust
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+
+      - name: Format
+        run: cargo fmt --check
+
+      - name: Clippy
+        # Warnings are failures here. The crate's lint set is what keeps non-FFI-safe types
+        # out of `extern "C"` signatures, so a warning is a real defect rather than noise.
+        run: cargo clippy --all-targets --locked -- -D warnings
+
+      - name: Test
+        run: cargo test --locked
+
+      - name: Exports are guarded
+        # Every export must go through the ffi!/ffi_doc! macros, which wrap the body in
+        # catch_unwind. A hand-written #[unsafe(no_mangle)] would silently reintroduce
+        # process-abort-on-panic for the whole library, so the attribute may appear only in
+        # the macro definitions.
+        run: |
+          stray=$(grep -rln 'unsafe(no_mangle)' crates/krilla-capi/src \
+            | grep -v 'crates/krilla-capi/src/guard.rs' \
+            | grep -v 'crates/krilla-capi/src/lib.rs' || true)
+          if [ -n "$stray" ]; then
+            echo "::error::exports outside guard.rs bypass the panic boundary:"
+            echo "$stray"
+            exit 1
+          fi
+
+  miri:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Miri
+        run: |
+          rustup toolchain install nightly --component miri --profile minimal
+          rustup run nightly cargo miri setup
+        working-directory: .
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+          key: miri
+
+      - name: Miri
+        # The one check that matters for src/document.rs. Its lifetime erasure is the only
+        # part of the crate whose correctness rests on an argument rather than the type
+        # system, and Stacked Borrows violations there are invisible to review.
+        env:
+          RUSTUP_TOOLCHAIN: nightly
+          MIRIFLAGS: -Zmiri-disable-isolation
+        run: cargo miri test --locked
+
+  licences:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install cargo-deny
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-deny
+
+      - name: Check licences and advisories
+        # The package is a binary distribution of the whole dependency tree, so a new
+        # transitive crate under a copyleft or unrecognised licence is a licensing problem for
+        # everyone who ships it. This is the gate that stops a routine `cargo update`
+        # introducing one unnoticed.
+        run: cargo deny check licenses bans advisories sources
+
+      - name: Install cargo-about
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-about
+
+      - name: Check third-party notices are current
+        # Regenerates the notices and fails on any difference, rather than auto-committing the
+        # way on-push-do-docs.yml does for mdsnippets. The distinction is deliberate: a stale
+        # documentation snippet is a nuisance, a stale licence notice is a distribution
+        # obligation going unmet, and it deserves a human looking at the diff.
+        run: |
+          set -euo pipefail
+          cargo about generate --config about.toml about.hbs -o /tmp/notices.md
+          if ! diff -u ../src/Krilla/THIRD-PARTY-NOTICES.md /tmp/notices.md; then
+            echo "::error::THIRD-PARTY-NOTICES.md is out of date. Regenerate it with: cargo about generate --config about.toml about.hbs -o ../src/Krilla/THIRD-PARTY-NOTICES.md"
+            exit 1
+          fi

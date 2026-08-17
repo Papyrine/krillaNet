@@ -1,0 +1,43 @@
+# Third-party notices
+
+The `Krilla` package contains a native library statically linked from the Rust crates listed
+below. Their licences require that this notice accompany any binary distribution, so it ships
+inside the package alongside Krilla's own [MIT licence](../../license.txt).
+
+Krilla takes each dual-licensed crate under the **MIT** arm where one is offered.
+
+This file is generated. Do not edit it by hand — run:
+
+```
+cargo about generate --config about.toml about.hbs -o ../src/Krilla/THIRD-PARTY-NOTICES.md
+```
+
+## The Rust standard library
+
+Every build statically links the Rust standard library, which is distributed under `MIT OR
+Apache-2.0` and whose own `COPYRIGHT` file carries further notices for LLVM and compiler-rt
+(`Apache-2.0 WITH LLVM-exception`). It is not a crate in the dependency graph, so it does not
+appear in the list below; its notices are available at
+<https://github.com/rust-lang/rust/blob/master/COPYRIGHT>.
+
+## Crates
+
+{{#each overview}}
+- [{{name}}](#{{id}}) — {{count}} {{#if (eq count 1)}}crate{{else}}crates{{/if}}
+{{/each}}
+
+{{#each licenses}}
+<a id="{{id}}"></a>
+### {{name}}
+
+Used by:
+
+{{#each used_by}}
+- [{{crate.name}} {{crate.version}}]({{#if crate.repository}}{{crate.repository}}{{else}}https://crates.io/crates/{{crate.name}}{{/if}})
+{{/each}}
+
+```
+{{text}}
+```
+
+{{/each}}

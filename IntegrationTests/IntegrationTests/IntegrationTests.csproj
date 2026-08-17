@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+    <Nullable>enable</Nullable>
+    <ImplicitUsings>enable</ImplicitUsings>
+    <!-- Deliberately no ProjectReference: this suite exists to prove the *package* works,
+         including that its runtimes/<rid>/native asset resolves and loads. A project
+         reference would bypass exactly the thing under test. -->
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="Krilla" />
+    <PackageReference Include="TUnit" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+  </ItemGroup>
+</Project>

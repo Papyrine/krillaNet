@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project>
+  <!--
+    Imported during the targets phase, which is the only point at which
+    $(NETCoreSdkPortableRuntimeIdentifier) is available. See the header comment in
+    Krilla.Native.targets for why the native logic cannot live alongside its data in
+    Krilla.Native.props.
+  -->
+  <Import Project="Krilla.Native.targets" />
+</Project>

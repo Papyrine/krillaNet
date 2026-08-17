@@ -1,0 +1,20 @@
+# root = true stops the repo-root .editorconfig governing this tree.
+#
+# That file is not hand-authored: the ProjectDefaults package's PatchSettings target overwrites
+# it on every `dotnet build`, with C#-oriented rules that make no sense for Rust and that any
+# edit here would lose on the next build.
+root = true
+
+[*]
+indent_style = space
+indent_size = 4
+end_of_line = lf
+charset = utf-8
+insert_final_newline = true
+trim_trailing_whitespace = true
+
+[*.rs]
+max_line_length = 100
+
+[*.{toml,yml,yaml}]
+indent_size = 2

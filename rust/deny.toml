@@ -1,0 +1,78 @@
+# cargo-deny configuration, run by .github/workflows/rust.yml.
+#
+# The Krilla package is a *binary* distribution of this entire dependency tree, statically
+# linked into one library. Every licence in the graph therefore becomes an obligation on
+# everyone who ships the package, and a copyleft crate arriving through a routine
+# `cargo update` would be a licensing problem discovered far too late. This file is the gate.
+
+[graph]
+# Only the shipped targets. Without this, cargo-deny evaluates crates that are never linked
+# into anything we distribute and reports obligations that do not exist.
+targets = [
+    "x86_64-pc-windows-msvc",
+    "aarch64-pc-windows-msvc",
+    "x86_64-unknown-linux-gnu",
+    "aarch64-unknown-linux-gnu",
+    "x86_64-unknown-linux-musl",
+    "aarch64-unknown-linux-musl",
+    "x86_64-apple-darwin",
+    "aarch64-apple-darwin",
+]
+
+[licenses]
+# Every licence observed in the resolved tree as of krilla 0.8.2, all permissive. A new entry
+# appearing here is a deliberate decision, not a formality: adding one accepts its obligations
+# on behalf of every consumer.
+# Note: Apache-2.0 WITH LLVM-exception is deliberately absent. It applies to the Rust standard
+# library and compiler-rt, which are statically linked into every cdylib but are not crates in
+# the resolved graph, so cargo-deny never sees them and listing it here only produces an
+# "unmatched license allowance" warning. That obligation is discharged in THIRD-PARTY-NOTICES.md
+# instead.
+allow = [
+    "MIT",
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "Zlib",
+    "0BSD",
+    "Unlicense",
+    "Unicode-3.0",
+    "BSL-1.0",
+]
+confidence-threshold = 0.9
+
+[bans]
+multiple-versions = "allow"
+wildcards = "deny"
+
+[advisories]
+# Fail on any unfixed advisory. The dependency tree is small and pure Rust, so this should
+# stay quiet; when it does not, it is worth a human.
+yanked = "deny"
+
+ignore = [
+    # ttf-parser is unmaintained (an informational notice, not a vulnerability). It arrives
+    # transitively through krilla's own rustybuzz, and through fontdb/usvg/resvg under the
+    # `svg` feature; nothing here selects it and RustSec states no safe upgrade exists. The
+    # replacement the advisory suggests, skrifa, is *already* what krilla uses for its own
+    # font parsing — this is the shaping path, which upstream has yet to migrate.
+    #
+    # Ignored rather than disabling the advisories check wholesale, so a real vulnerability in
+    # any other crate still fails the build. Revisit when krilla bumps rustybuzz or usvg.
+    "RUSTSEC-2026-0192",
+
+    # rustybuzz is unmaintained, again informational rather than a vulnerability. It is
+    # krilla's shaping engine, pulled in by the `simple-text` feature that backs
+    # Surface.DrawText, and by usvg for text in SVGs. Not substitutable from here: dropping it
+    # would mean dropping DrawText and requiring every caller to shape their own glyph runs.
+    #
+    # Both entries are unmaintained notices on crates krilla chose, not on anything this
+    # repository selects. If either becomes an actual vulnerability the advisory is reissued
+    # under a new ID and this file will not suppress it.
+    "RUSTSEC-2026-0206",
+]
+
+[sources]
+unknown-registry = "deny"
+unknown-git = "deny"
+allow-registry = ["https://github.com/rust-lang/crates.io-index"]

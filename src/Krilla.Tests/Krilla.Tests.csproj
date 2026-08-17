@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+    <!--
+      No UseCurrentRuntimeIdentifier here, unlike Morph.PDFium.Tests. That pair of properties
+      exists there to stop the SDK unpacking twelve RIDs of pdfium out of the bblanchon
+      packages. Krilla's native arrives across the ProjectReference as a single copy-local
+      item, already flattened and already scoped to this machine, so setting a runtime
+      identifier would buy nothing and would change how everything else resolves.
+    -->
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="MarkdownSnippets.MsBuild" PrivateAssets="all" />
+    <PackageReference Include="TUnit" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Verify.TUnit" />
+    <PackageReference Include="Verify" />
+    <PackageReference Include="Verify.DiffPlex" />
+    <!-- Renders produced PDFs to PNG via PDFium so snapshots assert what a reader actually
+         draws, not just the bytes krilla emitted. -->
+    <PackageReference Include="Verify.PDFium" />
+    <PackageReference Include="Argon" />
+    <PackageReference Include="DiffEngine" />
+    <PackageReference Include="EmptyFiles" />
+    <PackageReference Include="SimpleInfoName" />
+    <PackageReference Include="ProjectDefaults" PrivateAssets="all" />
+    <ProjectReference Include="..\Krilla\Krilla.csproj" />
+  </ItemGroup>
+</Project>

@@ -1,0 +1,14 @@
+<Project>
+  <!-- Imported for $(Version), so the package reference below always names the build that was
+       just produced rather than a hard-coded number that silently goes stale. -->
+  <Import Project="../src/Directory.Build.props" />
+  <PropertyGroup>
+    <ManagePackageVersionsCentrally>true</ManagePackageVersionsCentrally>
+    <CentralPackageTransitivePinningEnabled>true</CentralPackageTransitivePinningEnabled>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.9.0" />
+    <PackageVersion Include="TUnit" Version="1.65.0" />
+    <PackageVersion Include="Krilla" Version="$(Version)" />
+  </ItemGroup>
+</Project>

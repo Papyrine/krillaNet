@@ -1,0 +1,205 @@
+name: Publish NuGet
+
+# Builds the natives for all eight RIDs, packs them into a single Krilla package, proves the
+# package loads on every platform it claims to support, and only then publishes to nuget.org
+# using Trusted Publishing (OIDC) — no long-lived API key is stored.
+#
+# Trigger: pushing a tag (aligning with milestone-release.yml, which also fires on tags), or
+# manually via the Actions tab.
+#
+# One-time setup:
+#   1. nuget.org -> Account -> Trusted Publishing: add a policy for this GitHub owner +
+#      repository + workflow file (publish-nuget.yml), scoped to the Krilla package owner.
+#   2. Repo -> Settings -> Secrets and variables -> Actions -> Variables: set NUGET_USER to
+#      the nuget.org username. A username is not sensitive, so it lives in a variable.
+#
+# Unlike the other Papyrine repositories this one does not reference SponsorCheck, so no
+# SPONSOR_CHECK_TOKEN is needed and the pack step requires no GitHub credentials.
+
+on:
+  push:
+    tags:
+      - '*'
+  workflow_dispatch:
+
+permissions:
+  id-token: write   # required: lets the publish job request a GitHub OIDC token
+  contents: read
+
+jobs:
+  natives:
+    uses: ./.github/workflows/native.yml
+
+  pack:
+    needs: natives
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Download natives
+        uses: actions/download-artifact@v4
+        with:
+          pattern: native-*
+          path: natives
+
+      - name: Lay out runtimes
+        # download-artifact writes each artifact into its own directory named for the
+        # artifact, so native-linux-x64/libkrilla_capi.so becomes
+        # runtimes/linux-x64/native/libkrilla_capi.so — the layout NuGet's RID asset
+        # resolution understands.
+        run: |
+          set -euo pipefail
+          for dir in natives/native-*; do
+            rid="${dir#natives/native-}"
+            mkdir -p "src/Krilla/runtimes/$rid/native"
+            cp "$dir"/* "src/Krilla/runtimes/$rid/native/"
+            echo "$rid: $(ls -1 "src/Krilla/runtimes/$rid/native")"
+          done
+
+      - name: Build and pack
+        # A plain build *is* the pack step: ProjectDefaults sets GeneratePackageOnBuild=true
+        # for Release package projects, so Krilla packs at the end of its own build into
+        # ./nugets. `dotnet pack` on a solution is deliberately avoided — it races with
+        # GeneratePackageOnBuild (NU5026), and disabling that to dodge the race would skip
+        # ProjectDefaults' GenerateNuspec hook and strip the package metadata.
+        #
+        # KrillaRequireAllNatives turns a missing RID from a warning into a hard error, so a
+        # partial matrix can never produce a publishable package.
+        #
+        # KrillaSkipCargo because the natives already exist; without it the build would try to
+        # cargo-build the host RID and overwrite the artifact just downloaded.
+        run: >
+          dotnet build src/Krilla/Krilla.csproj
+          --configuration Release
+          -p:KrillaRequireAllNatives=true
+          -p:KrillaSkipCargo=true
+          -p:ContinuousIntegrationBuild=true
+
+      - name: Verify package contents
+        # Cheap, and it catches a whole class of packaging regression that would otherwise only
+        # surface as a runtime load failure on a consumer's machine.
+        run: |
+          set -euo pipefail
+          nupkg=$(ls nugets/*.nupkg)
+          echo "Inspecting $nupkg"
+          unzip -l "$nupkg"
+
+          for rid in win-x64 win-arm64 linux-x64 linux-arm64 linux-musl-x64 linux-musl-arm64 osx-x64 osx-arm64; do
+            if ! unzip -l "$nupkg" | grep -q "runtimes/$rid/native/"; then
+              echo "::error::the package is missing a native for $rid"
+              exit 1
+            fi
+          done
+
+      - name: Upload package
+        uses: actions/upload-artifact@v4
+        with:
+          name: nupkg
+          path: nugets/*.nupkg
+          if-no-files-found: error
+
+  # Restores the real package on each platform and runs it. This is the only step that can
+  # catch a native built against too new a glibc, or a musl binary that linked its own libc —
+  # both invisible on the machine that produced them.
+  smoke:
+    needs: pack
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, name: win-x64 }
+          - { os: ubuntu-latest, name: linux-x64 }
+          - { os: macos-14, name: osx-arm64 }
+          # macos-13 is the last Intel-hosted runner and GitHub is retiring it. When it goes,
+          # replace this leg with a Rosetta run on macos-14: install the x64 .NET SDK and
+          # invoke the tests under `arch -x86_64`. Dropping the leg entirely would leave
+          # osx-x64 shipped but never executed.
+          - { os: macos-13, name: osx-x64 }
+    name: smoke ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Download package
+        uses: actions/download-artifact@v4
+        with:
+          name: nupkg
+          path: nugets
+
+      - name: Run integration tests
+        run: |
+          dotnet build IntegrationTests --configuration Release
+          dotnet run --project IntegrationTests/IntegrationTests --configuration Release --no-build
+
+  # Containers rather than runners, because the distributions that matter for the glibc floor
+  # and the musl split have no hosted runner.
+  smoke-containers:
+    needs: pack
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Proves the musl build, which .NET's RID graph will never substitute for glibc.
+          - { image: 'mcr.microsoft.com/dotnet/sdk:10.0-alpine', name: 'alpine (musl)' }
+          # Older glibc than the runner's: the check the 2.17 floor exists for.
+          - { image: 'mcr.microsoft.com/dotnet/sdk:10.0-bookworm-slim', name: 'debian 12' }
+    name: smoke ${{ matrix.name }}
+    container: ${{ matrix.image }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Download package
+        uses: actions/download-artifact@v4
+        with:
+          name: nupkg
+          path: nugets
+
+      - name: Run integration tests
+        run: |
+          dotnet build IntegrationTests --configuration Release
+          dotnet run --project IntegrationTests/IntegrationTests --configuration Release --no-build
+
+  publish:
+    needs: [smoke, smoke-containers]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Download package
+        uses: actions/download-artifact@v4
+        with:
+          name: nupkg
+          path: nugets
+
+      - name: NuGet OIDC login
+        # Exchanges the workflow's GitHub OIDC token for a short-lived nuget.org API key.
+        # Requires the trusted-publishing policy described at the top of this file.
+        uses: NuGet/login@v1
+        id: login
+        with:
+          user: ${{ vars.NUGET_USER }}
+
+      - name: Push to nuget.org
+        # --skip-duplicate makes re-runs idempotent: re-pushing an already-published version
+        # is a no-op rather than a hard failure.
+        run: >
+          dotnet nuget push "nugets/*.nupkg"
+          --api-key "${{ steps.login.outputs.NUGET_API_KEY }}"
+          --source https://api.nuget.org/v3/index.json
+          --skip-duplicate

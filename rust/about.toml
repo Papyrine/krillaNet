@@ -1,0 +1,44 @@
+# cargo-about configuration: generates src/Krilla/THIRD-PARTY-NOTICES.md.
+#
+# The Krilla package is a binary distribution containing this entire dependency tree,
+# statically linked. MIT, Apache-2.0, BSD and Zlib all require reproducing their licence text
+# and copyright notice with a binary distribution, so the notices file is an obligation rather
+# than a courtesy. Krilla's own MIT licence covers Krilla, and cannot relicense any of them.
+#
+# Regenerate with:
+#   cargo about generate --config about.toml about.hbs -o ../src/Krilla/THIRD-PARTY-NOTICES.md
+
+# Only the shipped targets, matching deny.toml. Attributing crates that are never linked into
+# anything distributed would overstate the obligations.
+targets = [
+    "x86_64-pc-windows-msvc",
+    "aarch64-pc-windows-msvc",
+    "x86_64-unknown-linux-gnu",
+    "aarch64-unknown-linux-gnu",
+    "x86_64-unknown-linux-musl",
+    "aarch64-unknown-linux-musl",
+    "x86_64-apple-darwin",
+    "aarch64-apple-darwin",
+]
+
+# Only what is actually shipped. Running with --all-features would attribute crates behind
+# features that are deliberately off (rayon, comemo), overstating the obligations.
+#
+# Dual- and tri-licensed crates are taken under the first match in this order. MIT first
+# because its obligation — reproduce the notice — is a strict subset of Apache-2.0's, which
+# additionally requires NOTICE-file propagation and change statements. Choosing MIT minimises
+# what has to be shipped and tracked.
+accepted = [
+    "MIT",
+    "Apache-2.0",
+    "BSD-2-Clause",
+    "BSD-3-Clause",
+    "Zlib",
+    "0BSD",
+    "Unlicense",
+    "Unicode-3.0",
+    "BSL-1.0",
+]
+
+# Fail rather than emit a notices file with holes in it.
+workarounds = []

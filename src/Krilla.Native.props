@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project>
+  <PropertyGroup>
+    <KrillaNativeRoot>$(MSBuildThisFileDirectory)Krilla\runtimes\</KrillaNativeRoot>
+    <KrillaRustDir>$(MSBuildThisFileDirectory)..\rust\</KrillaRustDir>
+    <!-- Set to true in the release pack job so a missing RID fails the build instead of
+         silently shipping a package with a hole in it. -->
+    <KrillaRequireAllNatives Condition="'$(KrillaRequireAllNatives)' == ''">false</KrillaRequireAllNatives>
+  </PropertyGroup>
+
+  <!--
+    The shipped RID table. Data only: the logic that consumes it lives in Krilla.Native.targets.
+
+    This list is duplicated in two other places and all three must be kept in sync:
+      - .github/workflows/native.yml    (the cross-compilation build matrix)
+      - readme.md                       (the documented platform support)
+
+    File is the name cargo emits for a [lib] named krilla_capi with crate-type = ["cdylib"].
+    Nothing renames it anywhere in the pipeline, so every copy step is a plain copy.
+  -->
+  <ItemGroup>
+    <KrillaRid Include="win-x64"          Triple="x86_64-pc-windows-msvc"     File="krilla_capi.dll" />
+    <KrillaRid Include="win-arm64"        Triple="aarch64-pc-windows-msvc"    File="krilla_capi.dll" />
+    <KrillaRid Include="linux-x64"        Triple="x86_64-unknown-linux-gnu"   File="libkrilla_capi.so" />
+    <KrillaRid Include="linux-arm64"      Triple="aarch64-unknown-linux-gnu"  File="libkrilla_capi.so" />
+    <KrillaRid Include="linux-musl-x64"   Triple="x86_64-unknown-linux-musl"  File="libkrilla_capi.so" />
+    <KrillaRid Include="linux-musl-arm64" Triple="aarch64-unknown-linux-musl" File="libkrilla_capi.so" />
+    <KrillaRid Include="osx-x64"          Triple="x86_64-apple-darwin"        File="libkrilla_capi.dylib" />
+    <KrillaRid Include="osx-arm64"        Triple="aarch64-apple-darwin"       File="libkrilla_capi.dylib" />
+  </ItemGroup>
+</Project>

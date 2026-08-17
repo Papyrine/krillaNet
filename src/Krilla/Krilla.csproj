@@ -1,0 +1,16 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+    <PackageTags>PDF, krilla, Create, Generate, Typst, Rust</PackageTags>
+    <PackageReadmeFile>nuget-readme.md</PackageReadmeFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="ProjectDefaults" PrivateAssets="all" />
+    <PackageReference Include="Microsoft.Sbom.Targets" PrivateAssets="all" Condition="'$(CI)' == 'true'" />
+    <None Include="nuget-readme.md" Pack="true" PackagePath="\" />
+    <!-- The package is a binary distribution of ~94 statically linked Rust crates. Krilla's
+         own MIT licence cannot relicense them, so their notices ship alongside it. -->
+    <None Include="THIRD-PARTY-NOTICES.md" Pack="true" PackagePath="\" Condition="Exists('THIRD-PARTY-NOTICES.md')" />
+  </ItemGroup>
+</Project>

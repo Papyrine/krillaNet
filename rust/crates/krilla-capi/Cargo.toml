@@ -1,0 +1,36 @@
+[package]
+name = "krilla-capi"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.92"
+publish = false
+license = "MIT OR Apache-2.0"
+description = "C ABI shim over krilla, consumed by the Krilla .NET package"
+
+[lib]
+name = "krilla_capi"
+# cdylib is what ships. rlib exists only so tests/ can link the crate and drive the
+# exports in-process, which is also what makes them runnable under Miri.
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# Exact pin. The managed test suite snapshot-compares PDF bytes, so a patch bump in krilla
+# is a deliberate, baseline-regenerating change rather than a transitive surprise.
+krilla = { version = "=0.8.2", default-features = false, features = [
+    "raster-images", # png / jpeg / gif / webp decoding
+    "simple-text",   # Surface::draw_text, via harfrust shaping
+    "pdf",           # embedding pages from existing PDF documents
+] }
+krilla-svg = { version = "=0.8.1", optional = true }
+
+[features]
+default = ["svg"]
+# Pulls usvg + resvg + fontdb. Measured separately in the Phase 0 smoke gate because it is
+# the single biggest contributor to binary size across eight RIDs.
+svg = ["dep:krilla-svg"]
+# Deliberately off: parallel serialization can reorder work, and the managed suite depends
+# on byte-reproducible output.
+rayon = ["krilla/rayon"]
+# Deliberately off: introduces a global memoization cache, which invalidates the threading
+# contract the shim documents.
+comemo = ["krilla/comemo"]

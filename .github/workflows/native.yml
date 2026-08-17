@@ -1,0 +1,207 @@
+name: native
+
+# Cross-compiles the krilla-capi cdylib for every shipped RID and uploads one artifact per
+# target. Called by publish-nuget.yml, and runnable on its own to check the matrix without
+# releasing.
+#
+# The RID list here is duplicated in src/Krilla.Native.props (the MSBuild table) and readme.md
+# (documented support). All three must be kept in sync.
+#
+# Each leg ends with a static check of its own output. These matter because every failure they
+# catch is invisible on the machine that produced the binary and only appears on a consumer's,
+# as a bare DllNotFoundException:
+#
+#   * glibc  — a plain build on ubuntu-latest emits references to the runner's glibc (2.39),
+#              which will not load on Debian 12, RHEL 9, or any runtime-deps:8.0 image.
+#   * MSVC   — the default dynamic CRT makes the DLL import VCRUNTIME140.dll, which is not
+#              present on a clean Windows install.
+#   * musl   — Rust's musl targets default to +crt-static, which links musl *into* the .so and
+#              gives the process two allocators and two TLS arenas.
+#   * arm64  — macOS refuses to load unsigned arm64 code.
+
+on:
+  workflow_call:
+  workflow_dispatch:
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    name: ${{ matrix.rid }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - rid: win-x64
+            os: windows-latest
+            target: x86_64-pc-windows-msvc
+            file: krilla_capi.dll
+
+          - rid: win-arm64
+            os: windows-latest
+            target: aarch64-pc-windows-msvc
+            file: krilla_capi.dll
+
+          # glibc 2.17 is the RHEL 7 floor, comfortably below every supported distribution and
+          # matching what .NET itself targets. zigbuild links against bundled glibc stubs for
+          # the requested version, so this needs no container and no QEMU.
+          - rid: linux-x64
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-gnu
+            zig-target: x86_64-unknown-linux-gnu.2.17
+            file: libkrilla_capi.so
+
+          - rid: linux-arm64
+            os: ubuntu-latest
+            target: aarch64-unknown-linux-gnu
+            zig-target: aarch64-unknown-linux-gnu.2.17
+            file: libkrilla_capi.so
+
+          # .NET's RID graph does not fall back linux-musl-* to linux-*, so without these an
+          # Alpine container fails with no diagnostic pointing at the libc.
+          - rid: linux-musl-x64
+            os: ubuntu-latest
+            target: x86_64-unknown-linux-musl
+            zig-target: x86_64-unknown-linux-musl
+            file: libkrilla_capi.so
+
+          - rid: linux-musl-arm64
+            os: ubuntu-latest
+            target: aarch64-unknown-linux-musl
+            zig-target: aarch64-unknown-linux-musl
+            file: libkrilla_capi.so
+
+          # Per-arch rather than a lipo'd universal binary: NuGet wants separate RID slots, so
+          # a universal file would double the package size for nothing.
+          - rid: osx-x64
+            os: macos-14
+            target: x86_64-apple-darwin
+            file: libkrilla_capi.dylib
+
+          - rid: osx-arm64
+            os: macos-14
+            target: aarch64-apple-darwin
+            file: libkrilla_capi.dylib
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Add Rust target
+        run: rustup target add ${{ matrix.target }}
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+          key: ${{ matrix.rid }}
+
+      - name: Install zig and cargo-zigbuild
+        if: matrix.zig-target != ''
+        uses: taiki-e/install-action@v2
+        with:
+          tool: cargo-zigbuild,zig
+
+      # -- Build ---------------------------------------------------------------------------
+
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        shell: bash
+        working-directory: rust
+        # +crt-static costs ~140 KB and removes the VCRUNTIME140.dll import. It also gives the
+        # DLL its own heap, which is why every allocation crossing the ABI must be freed by the
+        # side that made it — see docs rule R2 in crates/krilla-capi/src/handle.rs.
+        env:
+          RUSTFLAGS: -C target-feature=+crt-static
+        run: cargo build --release --locked --target ${{ matrix.target }}
+
+      - name: Build (Linux)
+        if: runner.os == 'Linux'
+        working-directory: rust
+        # -crt-static on musl so the cdylib links the host's libc rather than embedding its
+        # own. A fully static musl .so loaded into a musl process means two libcs in one
+        # address space: it appears to work, then corrupts the heap.
+        env:
+          RUSTFLAGS: ${{ contains(matrix.target, 'musl') && '-C target-feature=-crt-static' || '' }}
+        run: cargo zigbuild --release --locked --target ${{ matrix.zig-target }}
+
+      - name: Build (macOS)
+        if: runner.os == 'macOS'
+        working-directory: rust
+        env:
+          MACOSX_DEPLOYMENT_TARGET: '11.0'
+        run: cargo build --release --locked --target ${{ matrix.target }}
+
+      # -- Verify --------------------------------------------------------------------------
+
+      - name: Check Windows imports
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $lib = "rust/target/${{ matrix.target }}/release/${{ matrix.file }}"
+          $dumpbin = Get-ChildItem "C:\Program Files*\Microsoft Visual Studio\*\*\VC\Tools\MSVC\*\bin\Hostx64\x64\dumpbin.exe" |
+            Select-Object -Last 1
+          $imports = & $dumpbin.FullName /dependents $lib
+          Write-Host ($imports -join "`n")
+          if ($imports -match 'VCRUNTIME|MSVCP|api-ms-win-crt') {
+            throw "The DLL imports the dynamic CRT. +crt-static was not applied; consumers without the VC++ redistributable will see a DllNotFoundException."
+          }
+
+      - name: Check glibc floor
+        if: runner.os == 'Linux' && !contains(matrix.target, 'musl')
+        run: |
+          set -euo pipefail
+          # cargo-zigbuild strips the glibc suffix for the output directory: a
+          # `--target x86_64-unknown-linux-gnu.2.17` build lands in
+          # target/x86_64-unknown-linux-gnu/release/, since it is the same rustc target.
+          lib="rust/target/${{ matrix.target }}/release/${{ matrix.file }}"
+          echo "Versioned symbol references:"
+          objdump -T "$lib" | grep -o 'GLIBC_[0-9.]*' | sort -u
+
+          # The assertion is "nothing above 2.17", not "the highest is exactly 2.17" — a
+          # library that happens to need only 2.2.5 is perfectly fine and must not fail here.
+          highest=$(objdump -T "$lib" | grep -oP 'GLIBC_\K[0-9.]+' | sort -uV | tail -1)
+          echo "Highest required glibc: ${highest:-none}"
+
+          if [ -n "$highest" ] && [ "$(printf '%s\n2.17\n' "$highest" | sort -V | tail -1)" != "2.17" ]; then
+            echo "::error::the library requires glibc $highest and will not load on older distributions; the zigbuild target suffix did not take effect"
+            exit 1
+          fi
+
+      - name: Check musl linkage
+        if: contains(matrix.target, 'musl')
+        run: |
+          set -euo pipefail
+          # cargo-zigbuild strips the glibc suffix for the output directory: a
+          # `--target x86_64-unknown-linux-gnu.2.17` build lands in
+          # target/x86_64-unknown-linux-gnu/release/, since it is the same rustc target.
+          lib="rust/target/${{ matrix.target }}/release/${{ matrix.file }}"
+          # A statically linked musl cdylib has no NEEDED entry for libc. That is the failure
+          # mode this check exists to catch, since it is silent until the heap corrupts.
+          if ! objdump -p "$lib" | grep -q 'NEEDED.*libc'; then
+            echo "::error::the musl build statically linked libc; it must link the host's musl instead"
+            exit 1
+          fi
+
+      - name: Check macOS signature
+        if: runner.os == 'macOS'
+        run: |
+          set -euo pipefail
+          lib="rust/target/${{ matrix.target }}/release/${{ matrix.file }}"
+          # rustc ad-hoc signs arm64 output, but verify rather than assume: arm64 macOS
+          # refuses to load unsigned code outright.
+          codesign -dv "$lib" 2>&1 || {
+            echo "::error::the dylib is unsigned and will not load on Apple Silicon"
+            exit 1
+          }
+          otool -l "$lib" | grep -A 3 LC_BUILD_VERSION || true
+
+      - name: Upload
+        uses: actions/upload-artifact@v4
+        with:
+          name: native-${{ matrix.rid }}
+          path: rust/target/${{ matrix.target }}/release/${{ matrix.file }}
+          if-no-files-found: error
+          retention-days: 7

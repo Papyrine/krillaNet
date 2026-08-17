@@ -1,0 +1,19 @@
+*.suo
+*.user
+bin/
+obj/
+.vs/
+*.DotSettings.user
+.idea/
+*.received.*
+nugets/
+*~*
+nul
+/BenchmarkDotNet.Artifacts
+
+# Cargo build output.
+rust/target/
+
+# Native binaries, produced by cargo locally or downloaded from CI artifacts.
+# Never committed: see docs/native-api-coverage.md for why.
+src/Krilla/runtimes/

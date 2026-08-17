@@ -1,0 +1,12 @@
+# Tracks stable rather than pinning an exact version. krilla's MSRV is 1.92 and is declared in
+# crates/krilla-capi/Cargo.toml as rust-version, so cargo already fails with a clear message on
+# an older toolchain. Pinning an exact version here would instead force every contributor and
+# every CI leg to download a second toolchain for no benefit.
+#
+# Deliberately no `targets` list. rustup eagerly installs everything named here on the next cargo
+# invocation, so listing all eight would make a Windows-only dev loop download seven standard
+# libraries it will never link. The cross-compilation targets are added per-leg by
+# `rustup target add` in .github/workflows/native.yml, which is also the only place that needs them.
+[toolchain]
+channel = "stable"
+components = ["rustfmt", "clippy"]
