@@ -47,6 +47,24 @@ public sealed class HtmlOptions
     public string? BaseUrl { get; set; }
 
     /// <summary>
+    /// Turns an <c>&lt;img&gt;</c> <c>src</c> into encoded image bytes, or null when it cannot be
+    /// resolved. An unresolved image generates no box, as in a browser.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Unset resolves <c>data:</c> URIs and files relative to <see cref="BaseUrl"/>, and
+    /// deliberately does NOT fetch over the network. Converting an untrusted document would
+    /// otherwise issue requests to whatever hosts that document names, which leaks that the
+    /// conversion happened and can be used to probe hosts reachable from the converting machine.
+    /// </para>
+    /// <para>
+    /// Supplying a resolver that fetches is a decision to make explicitly, with whatever timeout,
+    /// size limit and host allow-list the situation calls for.
+    /// </para>
+    /// </remarks>
+    public Func<string, byte[]?>? ImageResolver { get; set; }
+
+    /// <summary>
     /// The root font size in CSS pixels, which <c>rem</c> resolves against and which an element
     /// without a <c>font-size</c> inherits. Browsers default to 16.
     /// </summary>

@@ -31,17 +31,40 @@ public static class BoxDump
     /// <summary>
     /// Every element box in <paramref name="root"/>, in document order.
     /// </summary>
-    internal static List<BoxGeometry> Collect(LayoutBox root) =>
-    [
-        .. root.Descendants()
-            .Where(_ => _.Selector is not null)
-            .Select(_ => new BoxGeometry(
-                _.Selector!,
-                Round(_.BorderBox.X),
-                Round(_.BorderBox.Y),
-                Round(_.BorderBox.Width),
-                Round(_.BorderBox.Height)))
-    ];
+    /// <remarks>
+    /// Includes images laid out on a line, which have no <see cref="LayoutBox"/> of their own
+    /// because they are inline-level. Their geometry is known exactly all the same, so reporting it
+    /// is what lets the corpus measure a replaced element in flow rather than recording it as
+    /// something the engine did not produce.
+    /// </remarks>
+    internal static List<BoxGeometry> Collect(LayoutBox root)
+    {
+        var boxes = new List<BoxGeometry>();
+
+        foreach (var box in root.Descendants())
+        {
+            if (box.Selector is {} selector)
+            {
+                boxes.Add(Geometry(selector, box.BorderBox));
+            }
+
+            foreach (var line in box.Lines)
+            {
+                foreach (var image in line.Images)
+                {
+                    if (image.Selector is {} imageSelector)
+                    {
+                        boxes.Add(Geometry(imageSelector, image.Bounds));
+                    }
+                }
+            }
+        }
+
+        return boxes;
+    }
+
+    static BoxGeometry Geometry(string selector, Rect rect) =>
+        new(selector, Round(rect.X), Round(rect.Y), Round(rect.Width), Round(rect.Height));
 
     /// <summary>
     /// Lays out <paramref name="html"/> and returns its element geometry, without producing a PDF.
@@ -49,7 +72,8 @@ public static class BoxDump
     public static IReadOnlyList<BoxGeometry> Measure(string html, HtmlOptions options)
     {
         using var document = HtmlConverter.Parse(html, options);
-        return Collect(HtmlConverter.LayoutDocument(document, options));
+        using var layout = HtmlConverter.LayoutDocument(document, options);
+        return Collect(layout.Root);
     }
 
     /// <summary>

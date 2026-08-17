@@ -21,7 +21,10 @@ than discovered from the host. That is what makes output reproducible across mac
 
 ## What is implemented
 
-Block and inline layout, the box model, collapsing margins, line breaking, text alignment, and
-pagination.
+Block and inline layout, the box model, collapsing margins, line breaking, text alignment,
+pagination, and images.
+
+Images resolve from `data:` URIs and files relative to `BaseUrl`; nothing is fetched over the
+network unless a caller supplies `HtmlOptions.ImageResolver`.
 
 Floats, positioned boxes, flexbox, grid and tables lay out as plain blocks.

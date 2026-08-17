@@ -35,8 +35,12 @@ Krilla has no font database, so the fonts a document may use are supplied by the
 discovered from the host. That is what makes output reproducible across machines.
 
 Implemented: block and inline layout, the box model, collapsing margins, line breaking, text
-alignment and pagination. Floats, positioned boxes, flexbox, grid and tables lay out as plain
-blocks.
+alignment, pagination, and images. Floats, positioned boxes, flexbox, grid and tables lay out as
+plain blocks.
+
+Images resolve from `data:` URIs and from files relative to `BaseUrl`. Nothing is fetched over the
+network by default — converting an untrusted document would otherwise issue requests to whatever
+hosts it names. Set `HtmlOptions.ImageResolver` to take that decision explicitly.
 
 Two limits worth knowing before reaching for it:
 

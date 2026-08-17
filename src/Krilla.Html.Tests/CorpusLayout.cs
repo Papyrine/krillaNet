@@ -149,6 +149,27 @@ static class CorpusLayout
     public static string BoxesPath(string directory) =>
         Path.Combine(directory, BoxesFile);
 
+    /// <summary>
+    /// The base a scenario's relative URLs resolve against: its own directory, as a file URL.
+    /// </summary>
+    /// <remarks>
+    /// A trailing separator is required. Without it the last path segment reads as a file name and
+    /// a relative <c>src</c> resolves one directory too high — which for a corpus whose images sit
+    /// at <c>../swatch.png</c> would silently resolve to nothing and drop every image.
+    /// </remarks>
+    public static string BaseUrl(string directory) =>
+        new Uri(Path.GetFullPath(directory) + Path.DirectorySeparatorChar).AbsoluteUri;
+
+    /// <summary>
+    /// Where the browser page for a scenario is written.
+    /// </summary>
+    /// <remarks>
+    /// Inside the scenario directory rather than in a temp directory, so a relative <c>src</c>
+    /// resolves against the same base the converter is given. Deleted after the render.
+    /// </remarks>
+    public static string BrowserPagePath(string directory) =>
+        Path.Combine(directory, ".refgen.html");
+
     static string Directory(string path) =>
         Path.GetDirectoryName(path)!;
 

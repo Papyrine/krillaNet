@@ -1,26 +1,31 @@
 namespace Krilla.Html.Styling;
 
 /// <summary>
-/// The document-wide state style resolution needs: the matched stylesheets, and the root font size
-/// that <c>rem</c> resolves against.
+/// The state that building a box tree needs once per document rather than once per element: the
+/// matched stylesheets, the root font size that <c>rem</c> resolves against, and the resolved
+/// images.
 /// </summary>
 /// <remarks>
 /// Exists because reading the cascaded style needs an <see cref="IStyleCollection"/>, and building
-/// one costs a pass over every stylesheet in the document. Once per conversion rather than once per
-/// element.
+/// one costs a pass over every stylesheet in the document.
 /// </remarks>
-sealed class StyleContext
+sealed class DocumentContext :
+    IDisposable
 {
     readonly IStyleCollection styles;
 
-    StyleContext(IStyleCollection styles, float rootFontSize)
+    DocumentContext(IStyleCollection styles, float rootFontSize, ImageStore images)
     {
         this.styles = styles;
         RootFontSize = rootFontSize;
+        Images = images;
     }
 
     /// <summary>The root element's font size in CSS pixels.</summary>
     public float RootFontSize { get; }
+
+    /// <summary>Images resolved from <c>src</c> attributes, deduplicated across the document.</summary>
+    public ImageStore Images { get; }
 
     /// <summary>
     /// Builds a context for <paramref name="document"/>.
@@ -30,7 +35,7 @@ sealed class StyleContext
     /// business: the cascaded style leaves them unresolved, which is the whole reason for reading
     /// that rather than the computed style.
     /// </remarks>
-    public static StyleContext For(IDocument document, HtmlOptions options)
+    public static DocumentContext For(IDocument document, HtmlOptions options)
     {
         var device = new DefaultRenderDevice
         {
@@ -44,7 +49,10 @@ sealed class StyleContext
         var window = document.DefaultView ??
                      throw new InvalidOperationException("The document has no view to resolve styles against.");
 
-        return new(window.GetStyleCollection(device), options.RootFontSize);
+        var images = new ImageStore(
+            options.ImageResolver ?? ImageStore.DefaultResolver(options.BaseUrl));
+
+        return new(window.GetStyleCollection(device), options.RootFontSize, images);
     }
 
     /// <summary>
@@ -59,4 +67,8 @@ sealed class StyleContext
     /// </remarks>
     public ICssStyleDeclaration Cascade(IElement element) =>
         styles.ComputeCascadedStyle(element, null!);
+
+    /// <inheritdoc />
+    public void Dispose() =>
+        Images.Dispose();
 }

@@ -9,6 +9,7 @@ global using AngleSharp.Dom;
 global using Krilla;
 global using Krilla.Html;
 global using Krilla.Html.Fonts;
+global using Krilla.Html.Images;
 global using Krilla.Html.Layout;
 global using Krilla.Html.Painting;
 global using Krilla.Html.Styling;

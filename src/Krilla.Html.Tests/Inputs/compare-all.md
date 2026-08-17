@@ -1,4 +1,4 @@
-# All scenarios (25)
+# All scenarios (31)
 
 The browser reference (left) beside the page Krilla.Html produced (right). `AE` is the fraction of pixels that differ and `SSIM` is structural similarity; neither is asserted. The worst offset is the largest positional disagreement in CSS pixels between the rendered element geometry and the browser's, and is the number to watch — it reaches zero exactly when the layout is right.
 
@@ -16,6 +16,12 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [block/max_width](#block-max_width)
 - [block/nested_blocks](#block-nested_blocks)
 - [block/percentage_width](#block-percentage_width)
+- [image/block_centred](#image-block_centred)
+- [image/data_uri](#image-data_uri)
+- [image/inline_flow](#image-inline_flow)
+- [image/intrinsic](#image-intrinsic)
+- [image/max_width](#image-max_width)
+- [image/sized](#image-sized)
 - [inline/font_size_em](#inline-font_size_em)
 - [inline/font_style](#inline-font_style)
 - [inline/font_weight](#inline-font_weight)
@@ -181,6 +187,91 @@ Percentage margins resolve against that same width, not against the height.
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
 | <img src="block/percentage_width/reference_0001.png" width="480"> | <img src="block/percentage_width/result%23page_0001.verified.png" width="480"> |
+
+
+## image/block_centred
+
+A block-level image centred by auto margins. The width comes from the image rather than from the
+container, and the leftover space is then split between the margins exactly as it would be for a
+div of the same width.
+
+**Boxes**: 3 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| <img src="image/block_centred/reference_0001.png" width="480"> | <img src="image/block_centred/result%23page_0001.verified.png" width="480"> |
+
+
+## image/data_uri
+
+A data URI, the one image source that carries its own bytes and needs no file access at all. Sizing
+is otherwise identical to a file source, so this measures the decoding path rather than the layout.
+
+**Boxes**: 3 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| <img src="image/data_uri/reference_0001.png" width="480"> | <img src="image/data_uri/result%23page_0001.verified.png" width="480"> |
+
+
+## image/inline_flow
+
+An image is an atomic inline: it flows on the line like a word, breaks before or after but never
+inside, and sits its bottom edge on the baseline. Because it is 32px tall in a 24px line, it pushes
+the line's top upward rather than growing it downward, which is what baseline alignment means for a
+replaced element.
+
+**Boxes**: 4 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0001 · SSIM 0.9998** |
+| <img src="image/inline_flow/reference_0001.png" width="480"> | <img src="image/inline_flow/result%23page_0001.verified.png" width="480"> |
+
+
+## image/intrinsic
+
+An image with no width or height takes its intrinsic size: 64x32 CSS pixels, one per image pixel.
+The wrapper exists so the image's own box is visible against a background rather than against the
+page.
+
+**Boxes**: 4 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| <img src="image/intrinsic/reference_0001.png" width="480"> | <img src="image/intrinsic/result%23page_0001.verified.png" width="480"> |
+
+
+## image/max_width
+
+max-width clamping with the height left auto. The declared 600px width is clamped to the 150px
+container, and the height must be rescaled by the same factor to 75px. Skipping that rescale is how
+images end up distorted inside responsive containers, so this scenario exists to catch it.
+
+**Boxes**: 4 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| <img src="image/max_width/reference_0001.png" width="480"> | <img src="image/max_width/result%23page_0001.verified.png" width="480"> |
+
+
+## image/sized
+
+The three sizing paths. Width alone gives 192x96 from the 2:1 ratio; height alone gives 192x96 the
+other way; both given wins over the ratio and the image is deliberately distorted to 150x150. The
+width and height content attributes are presentational hints, which AngleSharp does not surface as
+declarations, so they are applied after the cascade.
+
+**Boxes**: 5 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| <img src="image/sized/reference_0001.png" width="480"> | <img src="image/sized/result%23page_0001.verified.png" width="480"> |
 
 
 ## inline/font_size_em

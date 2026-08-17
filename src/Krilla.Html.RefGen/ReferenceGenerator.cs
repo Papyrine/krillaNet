@@ -80,7 +80,11 @@ public class ReferenceGenerator
         // Navigated to as a real file:// page rather than set with SetContent, which runs on an
         // opaque origin that blocks local font files — and without the bundled fonts the reference
         // would be rendered in whatever the host happens to have installed.
-        var temporary = Path.Combine(Path.GetTempPath(), $"krilla-refgen-{Guid.NewGuid():N}.html");
+        //
+        // Written into the scenario's own directory rather than a temp one, so a relative img src
+        // resolves against the same base the converter is handed. From a temp directory it would
+        // resolve to nothing and the browser reference would quietly contain no images.
+        var temporary = CorpusLayout.BrowserPagePath(directory);
         await File.WriteAllTextAsync(temporary, Document(directory));
 
         try

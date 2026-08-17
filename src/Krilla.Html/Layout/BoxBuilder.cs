@@ -15,7 +15,7 @@ static class BoxBuilder
     /// <summary>
     /// Builds the tree rooted at <paramref name="root"/>.
     /// </summary>
-    public static LayoutBox Build(IElement root, ComputedStyle initial, StyleContext context)
+    public static LayoutBox Build(IElement root, ComputedStyle initial, DocumentContext context)
     {
         var style = StyleResolver.Resolve(root, initial, context);
         var box = new LayoutBox
@@ -30,7 +30,7 @@ static class BoxBuilder
         return box;
     }
 
-    static void AddChildren(LayoutBox box, IElement element, ComputedStyle style, StyleContext context)
+    static void AddChildren(LayoutBox box, IElement element, ComputedStyle style, DocumentContext context)
     {
         var blocks = new List<LayoutBox>();
         var inlines = new List<InlineItem>();
@@ -70,21 +70,124 @@ static class BoxBuilder
     }
 
     /// <summary>
+    /// Adds an <c>&lt;img&gt;</c>, as an atomic inline or as a block-level replaced box.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// An image whose source cannot be resolved generates NO box, matching what a browser does
+    /// with a broken <c>src</c> and no <c>alt</c> text: the element collapses rather than leaving
+    /// an empty frame. Returning early is therefore correct behaviour, not a failure path.
+    /// </para>
+    /// <para>
+    /// The <c>width</c> and <c>height</c> content attributes are presentational hints — they act
+    /// as author-origin declarations of lowest priority, so any stylesheet rule beats them. They
+    /// are read here rather than in the cascade because AngleSharp does not surface them as
+    /// declarations, and without them the very common
+    /// <c>&lt;img width="100"&gt;</c> sizes to its intrinsic width instead.
+    /// </para>
+    /// </remarks>
+    static void AddImage(
+        IElement element,
+        ComputedStyle style,
+        DocumentContext context,
+        List<LayoutBox> blocks,
+        List<InlineItem> inlines)
+    {
+        var source = element.GetAttribute("src");
+        if (string.IsNullOrWhiteSpace(source) || context.Images.Resolve(source) is not {} image)
+        {
+            return;
+        }
+
+        var sized = WithAttributeSize(element, style);
+        var selector = SelectorPath.For(element);
+
+        if (style.Display == DisplayKind.Block)
+        {
+            blocks.Add(new()
+            {
+                Style = sized,
+                Element = element,
+                Selector = selector,
+                Image = image
+            });
+            return;
+        }
+
+        inlines.Add(new("", sized, selector, Image: image));
+    }
+
+    /// <summary>
+    /// Applies the <c>width</c> and <c>height</c> content attributes, where the stylesheet did not
+    /// already set them.
+    /// </summary>
+    static ComputedStyle WithAttributeSize(IElement element, ComputedStyle style)
+    {
+        var width = style.Width;
+        var height = style.Height;
+
+        if (width.IsAuto && Attribute(element, "width") is {} attributeWidth)
+        {
+            width = attributeWidth;
+        }
+
+        if (height.IsAuto && Attribute(element, "height") is {} attributeHeight)
+        {
+            height = attributeHeight;
+        }
+
+        if (width == style.Width && height == style.Height)
+        {
+            return style;
+        }
+
+        return style with
+        {
+            Width = width,
+            Height = height
+        };
+    }
+
+    static CssLength? Attribute(IElement element, string name)
+    {
+        var value = element.GetAttribute(name);
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        // A bare number is pixels, per the HTML standard's rules for dimension attributes; a
+        // trailing percent sign is the one unit they accept.
+        var text = value.Trim();
+
+        if (text.EndsWith('%'))
+        {
+            return CssValues.TryParseNumber(text[..^1], out var percent)
+                ? CssLength.Percentage(percent)
+                : null;
+        }
+
+        return CssValues.TryParseNumber(text, out var pixels) ? CssLength.Pixels(pixels) : null;
+    }
+
+    /// <summary>
     /// Whether an inline item survives white-space collapsing.
     /// </summary>
     /// <remarks>
     /// A forced break always counts — <c>&lt;br&gt;</c> between two blocks is content even though
-    /// it carries no characters. Under a preserving white-space value, so does a space.
+    /// it carries no characters, and so is an image. Under a preserving white-space value, so does
+    /// a space.
     /// </remarks>
     static bool HasContent(InlineItem item, ComputedStyle style) =>
         item.ForcedBreak ||
+        item.Image is not null ||
         style.PreservesSpaces ||
         item.Text.AsSpan().TrimStart(" \n").Length > 0;
 
     static void Collect(
         INode node,
         ComputedStyle parentStyle,
-        StyleContext context,
+        DocumentContext context,
         List<LayoutBox> blocks,
         List<InlineItem> inlines)
     {
@@ -117,6 +220,12 @@ static class BoxBuilder
         if (UserAgentStyles.IsLineBreak(element.LocalName))
         {
             inlines.Add(new("", style, SelectorPath.For(element), ForcedBreak: true));
+            return;
+        }
+
+        if (element.LocalName.Equals("img", StringComparison.OrdinalIgnoreCase))
+        {
+            AddImage(element, style, context, blocks, inlines);
             return;
         }
 

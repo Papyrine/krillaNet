@@ -30,7 +30,7 @@ static class InlineLayout
     {
         box.Lines.Clear();
 
-        var tokens = Tokenize(box.Inlines, fonts);
+        var tokens = Tokenize(box.Inlines, fonts, contentWidth);
         if (tokens.Count == 0)
         {
             return 0;
@@ -111,7 +111,7 @@ static class InlineLayout
     /// <summary>
     /// Turns the block's inline items into breakable tokens, measuring each.
     /// </summary>
-    static List<Token> Tokenize(List<InlineItem> items, FontSet fonts)
+    static List<Token> Tokenize(List<InlineItem> items, FontSet fonts, float contentWidth)
     {
         var tokens = new List<Token>();
 
@@ -122,6 +122,16 @@ static class InlineLayout
             if (item.ForcedBreak)
             {
                 tokens.Add(new("", item.Style, face, 0, TokenKind.Break));
+                continue;
+            }
+
+            if (item.Image is {} image)
+            {
+                // An atomic inline: a box on the line rather than a run of glyphs. It breaks like
+                // a word — a line can break before or after it, but never inside it.
+                var (width, height) = ReplacedSizing.Resolve(item.Style, image, contentWidth);
+                tokens.Add(new(
+                    "", item.Style, face, width, TokenKind.Replaced, image, height, item.Selector));
                 continue;
             }
 
@@ -189,7 +199,7 @@ static class InlineLayout
         // Trailing spaces hang outside the line box: they must not push a right-aligned line left
         // or shift a centred one. Preserved white space is exempt, being content rather than
         // separation.
-        var lastContent = tokens.FindLastIndex(_ => _.Kind == TokenKind.Word);
+        var lastContent = tokens.FindLastIndex(_ => _.Kind is TokenKind.Word or TokenKind.Replaced);
         if (lastContent >= 0 && !box.Style.PreservesSpaces)
         {
             for (var index = tokens.Count - 1; index > lastContent; index--)
@@ -209,7 +219,14 @@ static class InlineLayout
 
         foreach (var token in tokens)
         {
-            var (tokenAbove, tokenBelow) = Extents(token.Style, token.Face);
+            // An atomic inline sits its bottom margin edge on the baseline, which is what
+            // `vertical-align: baseline` means for a replaced element. So it reaches its whole
+            // height above the baseline and nothing below — and a tall image consequently pushes
+            // the line's top up rather than growing it downward.
+            var (tokenAbove, tokenBelow) = token.Kind == TokenKind.Replaced
+                ? (token.Height, 0f)
+                : Extents(token.Style, token.Face);
+
             above = Math.Max(above, tokenAbove);
             below = Math.Max(below, tokenBelow);
         }
@@ -236,8 +253,23 @@ static class InlineLayout
         var runStart = 0;
         while (runStart < tokens.Count)
         {
+            // An image is not text, so it interrupts the run rather than joining it. Its bottom
+            // edge sits on the baseline.
+            if (tokens[runStart] is {Kind: TokenKind.Replaced, Image: {} image} replaced)
+            {
+                line.Images.Add(new(
+                    image,
+                    new(x, y + above - replaced.Height, replaced.Width, replaced.Height),
+                    replaced.Selector));
+
+                x += replaced.Width;
+                runStart++;
+                continue;
+            }
+
             var runEnd = runStart;
             while (runEnd + 1 < tokens.Count &&
+                   tokens[runEnd + 1].Kind != TokenKind.Replaced &&
                    ReferenceEquals(tokens[runEnd + 1].Style, tokens[runStart].Style) &&
                    ReferenceEquals(tokens[runEnd + 1].Face, tokens[runStart].Face) &&
                    extra == 0)
@@ -326,7 +358,10 @@ static class InlineLayout
     {
         Word,
         Space,
-        Break
+        Break,
+
+        /// <summary>An atomic inline — an image — which occupies a box rather than glyphs.</summary>
+        Replaced
     }
 
     readonly record struct Token(
@@ -334,5 +369,8 @@ static class InlineLayout
         ComputedStyle Style,
         FontFace Face,
         float Width,
-        TokenKind Kind);
+        TokenKind Kind,
+        ImageData? Image = null,
+        float Height = 0,
+        string? Selector = null);
 }

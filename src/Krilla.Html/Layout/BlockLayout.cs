@@ -36,10 +36,25 @@ static class BlockLayout
         var paddingTop = style.PaddingTop.Resolve(containingWidth);
         var paddingBottom = style.PaddingBottom.Resolve(containingWidth);
 
-        var (marginLeft, contentWidth) = ResolveHorizontal(
-            style,
-            containingWidth,
-            paddingLeft + paddingRight + style.BorderWidthX);
+        var surround = paddingLeft + paddingRight + style.BorderWidthX;
+
+        // A replaced box sizes from its own content rather than from its container: an auto width
+        // takes the image's intrinsic width instead of filling the line, and the two dimensions
+        // are tied by the aspect ratio. Margins are still resolved the ordinary way afterwards, so
+        // `margin: 0 auto` centres an image exactly as it centres a div.
+        float? replacedWidth = null;
+        float? replacedHeight = null;
+
+        if (box.Image is {} replaced)
+        {
+            var size = ReplacedSizing.Resolve(style, replaced, containingWidth - surround);
+            replacedWidth = size.Width;
+            replacedHeight = size.Height;
+        }
+
+        var (marginLeft, contentWidth) = replacedWidth is {} fixedWidth
+            ? (ResolveReplacedMargin(style, containingWidth, surround, fixedWidth), fixedWidth)
+            : ResolveHorizontal(style, containingWidth, surround);
 
         var borderBoxWidth = contentWidth + paddingLeft + paddingRight + style.BorderWidthX;
         var borderBoxX = x + marginLeft;
@@ -48,7 +63,11 @@ static class BlockLayout
 
         float contentHeight;
 
-        if (box.IsInlineContainer)
+        if (replacedHeight is {} imageHeight)
+        {
+            contentHeight = imageHeight;
+        }
+        else if (box.IsInlineContainer)
         {
             contentHeight = InlineLayout.Layout(box, contentWidth, fonts);
 
@@ -68,7 +87,10 @@ static class BlockLayout
         // here and in the common case is itself auto. Treating it as auto matches what CSS
         // requires whenever the containing height is indefinite, which is the case throughout a
         // paginated document.
-        var height = style.Height.Kind == LengthKind.Absolute ? style.Height.Value : contentHeight;
+        //
+        // A replaced box's height already came from the aspect ratio, so it wins over both.
+        var height = replacedHeight ??
+                     (style.Height.Kind == LengthKind.Absolute ? style.Height.Value : contentHeight);
 
         var borderBoxHeight = height + paddingTop + paddingBottom + style.BorderWidthY;
 
@@ -165,6 +187,32 @@ static class BlockLayout
             // auto-right case: the left margin is honoured and the right absorbs the difference.
             // For left-to-right text that is what CSS 2.1 §10.3.3 requires.
             _ => (marginLeft!.Value, used)
+        };
+    }
+
+    /// <summary>
+    /// The left margin for a block-level replaced box, whose width is already settled.
+    /// </summary>
+    /// <remarks>
+    /// The same auto-margin rules as an ordinary block — two autos centre, one absorbs — applied
+    /// to a width that came from the image rather than from the container. That is what makes
+    /// <c>img { display: block; margin: 0 auto }</c> centre a picture.
+    /// </remarks>
+    static float ResolveReplacedMargin(
+        ComputedStyle style,
+        float containingWidth,
+        float surround,
+        float width)
+    {
+        var slack = Math.Max(0, containingWidth - surround - width);
+        var marginLeft = style.MarginLeft.ResolveOrNull(containingWidth);
+        var marginRight = style.MarginRight.ResolveOrNull(containingWidth);
+
+        return (marginLeft, marginRight) switch
+        {
+            (null, null) => slack / 2,
+            (null, not null) => Math.Max(0, slack - marginRight.Value),
+            _ => marginLeft!.Value
         };
     }
 
@@ -277,7 +325,15 @@ static class BlockLayout
     /// Whether the box's own top and bottom margins adjoin each other — a box with nothing in it
     /// to hold them apart.
     /// </summary>
+    /// <remarks>
+    /// A replaced box never is, however its height was arrived at. Its content holds the margins
+    /// apart exactly as a declared height would, and the height test below cannot see that: an
+    /// image sized from its aspect ratio has <c>height: auto</c>, which reads as zero here. Without
+    /// this an image's own bottom margin collapses through it and pushes the image down by that
+    /// margin.
+    /// </remarks>
     static bool IsSelfCollapsing(LayoutBox box, float containingWidth) =>
+        box.Image is null &&
         box.Style.BorderWidthY == 0 &&
         box.Style.PaddingTop.Resolve(containingWidth) == 0 &&
         box.Style.PaddingBottom.Resolve(containingWidth) == 0 &&

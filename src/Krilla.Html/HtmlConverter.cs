@@ -39,7 +39,10 @@ public static class HtmlConverter
     /// </remarks>
     public static byte[] Convert(IDocument document, HtmlOptions options)
     {
-        var root = LayoutDocument(document, options);
+        // The layout holds the decoded images, so it has to outlive painting — they are decoded
+        // on first draw, not during layout.
+        using var layout = LayoutDocument(document, options);
+        var root = layout.Root;
 
         using var pdf = new KrillaDocument();
 
@@ -82,7 +85,7 @@ public static class HtmlConverter
     /// <c>getBoundingClientRect()</c> without rasterising anything, which makes the comparison
     /// exact rather than subject to how two rasterisers antialias an edge.
     /// </remarks>
-    internal static LayoutBox LayoutDocument(IDocument document, HtmlOptions options)
+    internal static LayoutResult LayoutDocument(IDocument document, HtmlOptions options)
     {
         var fonts = RequireFonts(options);
 
@@ -95,7 +98,7 @@ public static class HtmlConverter
             FontFamilies = []
         };
 
-        var context = StyleContext.For(document, options);
+        var context = DocumentContext.For(document, options);
         var root = BoxBuilder.Build(element, initial, context);
 
         // The root box's containing block is the page's content area, which is the print
@@ -105,7 +108,7 @@ public static class HtmlConverter
         // once, when painting.
         var top = root.Style.MarginTop.Resolve(options.ContentWidth);
         BlockLayout.Layout(root, 0, top, options.ContentWidth, fonts);
-        return root;
+        return new(root, context);
     }
 
     /// <summary>
@@ -151,4 +154,23 @@ public static class HtmlConverter
             "HtmlOptions.Fonts must hold at least one face. Krilla has no font database, so the " +
             "fonts a document may use are supplied by the caller rather than discovered.");
     }
+}
+
+/// <summary>
+/// A laid-out document, and the resources its boxes point at.
+/// </summary>
+/// <remarks>
+/// The two travel together because an image is decoded on first paint rather than during layout,
+/// so the box tree alone is not self-contained — dropping the context before painting would
+/// dispose images the tree still refers to.
+/// </remarks>
+sealed class LayoutResult(LayoutBox root, DocumentContext context) :
+    IDisposable
+{
+    /// <summary>The root box.</summary>
+    public LayoutBox Root { get; } = root;
+
+    /// <inheritdoc />
+    public void Dispose() =>
+        context.Dispose();
 }

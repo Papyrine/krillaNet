@@ -22,7 +22,6 @@ public class BoxFidelityTests
     [Test]
     public Task Corpus()
     {
-        var options = CorpusRunner.Options();
         var report = new StringBuilder();
 
         report.Append(
@@ -46,9 +45,12 @@ public class BoxFidelityTests
                                 CorpusJson.Default.ListBoxGeometry) ??
                             [];
 
+            // Options per scenario, not shared: the base URL is the scenario's own directory, and
+            // without it a relative img src resolves to nothing. Sharing one options object here
+            // silently dropped every image and reported the absence as a layout difference.
             var result = BoxComparison.Compare(
                 reference,
-                BoxDump.Measure(CorpusLayout.Html(directory), options));
+                BoxDump.Measure(CorpusLayout.Html(directory), CorpusRunner.Options(directory)));
 
             report.Append(
                 $"{name,-32} matched {result.Matched,2}  " +

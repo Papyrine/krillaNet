@@ -24,15 +24,17 @@ static class UserAgentStyles
     /// Elements that are inline-level unless a stylesheet says otherwise.
     /// </summary>
     /// <remarks>
-    /// The HTML standard's rendering section, minus the replaced elements (<c>img</c>,
-    /// <c>input</c>, <c>svg</c>) which need more than a display value to lay out and are not
-    /// implemented yet.
+    /// The HTML standard's rendering section. <c>img</c> belongs here despite being replaced
+    /// rather than textual: it is inline-level, and treating it as a block puts it on a line of its
+    /// own — so a picture in the middle of a sentence jumps below the paragraph text instead of
+    /// flowing with it. The replaced elements still missing (<c>input</c>, <c>svg</c>, <c>video</c>)
+    /// are absent because they need more than a display value to lay out.
     /// </remarks>
     static readonly HashSet<string> inline = new(StringComparer.OrdinalIgnoreCase)
     {
-        "a", "abbr", "b", "bdi", "bdo", "br", "cite", "code", "data", "dfn", "em", "i", "kbd",
-        "label", "mark", "q", "rp", "rt", "ruby", "s", "samp", "small", "span", "strong", "sub",
-        "sup", "time", "u", "var", "wbr"
+        "a", "abbr", "b", "bdi", "bdo", "br", "cite", "code", "data", "dfn", "em", "i", "img",
+        "kbd", "label", "mark", "q", "rp", "rt", "ruby", "s", "samp", "small", "span", "strong",
+        "sub", "sup", "time", "u", "var", "wbr"
     };
 
     /// <summary>

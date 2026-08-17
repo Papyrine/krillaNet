@@ -33,7 +33,7 @@ static class StyleResolver
     /// <summary>
     /// Resolves <paramref name="element"/>'s style against its <paramref name="parent"/>.
     /// </summary>
-    public static ComputedStyle Resolve(IElement element, ComputedStyle parent, StyleContext context)
+    public static ComputedStyle Resolve(IElement element, ComputedStyle parent, DocumentContext context)
     {
         var declaration = context.Cascade(element);
         var rootFontSize = context.RootFontSize;

@@ -71,6 +71,15 @@ sealed class LayoutBox
     /// </remarks>
     public bool IsRoot { get; init; }
 
+    /// <summary>
+    /// The image this box replaces its content with, when it is a block-level replaced element.
+    /// </summary>
+    /// <remarks>
+    /// A replaced box has content that comes from outside CSS, so it sizes from the image's own
+    /// dimensions rather than from its children — and it has no children to size from anyway.
+    /// </remarks>
+    public ImageData? Image { get; init; }
+
     /// <summary>Child boxes, in document order.</summary>
     public List<LayoutBox> Children { get; } = [];
 
@@ -142,11 +151,16 @@ sealed class LayoutBox
 /// newline character because white-space processing would collapse a newline into a space under
 /// the default <c>white-space: normal</c>, which is exactly what a forced break must survive.
 /// </param>
+/// <param name="Image">
+/// An image, when this item is an inline-level replaced element rather than text. It occupies a
+/// box on the line instead of a run of glyphs, which is what CSS calls an atomic inline.
+/// </param>
 sealed record InlineItem(
     string Text,
     ComputedStyle Style,
     string? Selector,
-    bool ForcedBreak = false);
+    bool ForcedBreak = false,
+    ImageData? Image = null);
 
 /// <summary>One laid-out line, and the glyph runs positioned on it.</summary>
 sealed class LineBox
@@ -160,7 +174,10 @@ sealed class LineBox
     /// <summary>The runs on this line, left to right.</summary>
     public List<TextRun> Runs { get; } = [];
 
-    /// <summary>Moves the line and its runs by the given offset.</summary>
+    /// <summary>The atomic inlines on this line — images, currently.</summary>
+    public List<InlineImage> Images { get; } = [];
+
+    /// <summary>Moves the line and its contents by the given offset.</summary>
     public void Translate(float dx, float dy)
     {
         Bounds = Bounds.Offset(dx, dy);
@@ -173,8 +190,26 @@ sealed class LineBox
                 Y = Runs[index].Y + dy
             };
         }
+
+        for (var index = 0; index < Images.Count; index++)
+        {
+            Images[index] = Images[index] with
+            {
+                Bounds = Images[index].Bounds.Offset(dx, dy)
+            };
+        }
     }
 }
+
+/// <summary>An image positioned on a line.</summary>
+/// <param name="Image">The image to draw.</param>
+/// <param name="Bounds">Where to draw it.</param>
+/// <param name="Selector">
+/// The selector path of the <c>&lt;img&gt;</c> it came from. Carried so the box dump can report an
+/// inline image's geometry: it is a real box whose position and size are known exactly, and
+/// omitting it would leave the one replaced element in the corpus unmeasured.
+/// </param>
+readonly record struct InlineImage(ImageData Image, Rect Bounds, string? Selector);
 
 /// <summary>A positioned run of text, ready to paint.</summary>
 /// <param name="Text">The run's text.</param>

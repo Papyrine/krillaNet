@@ -1,0 +1,30 @@
+[
+  {
+    "selector": "html",
+    "x": 0,
+    "y": 0,
+    "width": 816,
+    "height": 75
+  },
+  {
+    "selector": "html > body:nth-child(2)",
+    "x": 0,
+    "y": 0,
+    "width": 816,
+    "height": 75
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(1)",
+    "x": 0,
+    "y": 0,
+    "width": 150,
+    "height": 75
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(1) > img:nth-child(1)",
+    "x": 0,
+    "y": 0,
+    "width": 150,
+    "height": 75
+  }
+]

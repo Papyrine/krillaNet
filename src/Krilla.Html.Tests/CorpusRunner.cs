@@ -23,7 +23,7 @@ static class CorpusRunner
     public static async Task Run(string directory)
     {
         var html = CorpusLayout.Html(directory);
-        var options = Options();
+        var options = Options(directory);
 
         var pdf = HtmlConverter.Convert(html, options);
         var pages = RenderPages(pdf);
@@ -56,13 +56,22 @@ static class CorpusRunner
         CorpusMarkdownGenerator.Regenerate(directory);
     }
 
-    /// <summary>The conversion settings the whole corpus shares.</summary>
-    public static HtmlOptions Options() =>
+    /// <summary>
+    /// The conversion settings the whole corpus shares, based at
+    /// <paramref name="directory"/> when a scenario has one.
+    /// </summary>
+    /// <remarks>
+    /// The base is the scenario's own directory, so a relative <c>src</c> resolves the same way it
+    /// does for the browser — which loads the scenario from a page written into that same
+    /// directory, for exactly this reason.
+    /// </remarks>
+    public static HtmlOptions Options(string? directory = null) =>
         new()
         {
             PageWidth = CorpusLayout.PageWidth,
             PageHeight = CorpusLayout.PageHeight,
-            Fonts = fonts.Value
+            Fonts = fonts.Value,
+            BaseUrl = directory is null ? null : CorpusLayout.BaseUrl(directory)
         };
 
     /// <summary>

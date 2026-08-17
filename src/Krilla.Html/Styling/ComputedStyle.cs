@@ -72,8 +72,13 @@ enum BorderStyleKind
 /// Lengths are in CSS pixels, resolved as far as they can be without layout — percentages survive
 /// as percentages because their basis is a layout result. See <see cref="CssLength"/>.
 /// </para>
+/// <para>
+/// A record for the <c>with</c> expression: an <c>&lt;img&gt;</c>'s <c>width</c> and
+/// <c>height</c> content attributes are presentational hints that AngleSharp does not surface as
+/// declarations, so they are layered on after the cascade has run rather than during it.
+/// </para>
 /// </remarks>
-sealed class ComputedStyle
+sealed record ComputedStyle
 {
     /// <summary>How the box participates in layout.</summary>
     public DisplayKind Display { get; init; } = DisplayKind.Block;

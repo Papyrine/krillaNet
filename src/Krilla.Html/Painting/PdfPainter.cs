@@ -76,6 +76,13 @@ static class PdfPainter
         PaintBackground(surface, box);
         PaintBorders(surface, box);
 
+        // A block-level image paints into its content box, which replaced sizing already gave the
+        // right aspect ratio — so no fitting is needed here.
+        if (box.Image is {} replaced)
+        {
+            PaintImage(surface, replaced, box.ContentBox);
+        }
+
         foreach (var line in box.Lines)
         {
             // Bounded by where the next page starts, not by the paper. A line at or past the break
@@ -88,6 +95,11 @@ static class PdfPainter
             foreach (var run in line.Runs)
             {
                 PaintRun(surface, run);
+            }
+
+            foreach (var image in line.Images)
+            {
+                PaintImage(surface, image.Image, image.Bounds);
             }
         }
 
@@ -159,6 +171,26 @@ static class PdfPainter
                 Rectangle.FromSize(rect.Right - style.BorderRight, rect.Y, style.BorderRight, rect.Height),
                 rightColor);
         }
+    }
+
+    /// <summary>
+    /// Draws an image into <paramref name="bounds"/>.
+    /// </summary>
+    /// <remarks>
+    /// krilla stretches an image to whatever size it is given without preserving the aspect ratio,
+    /// which is correct here: <see cref="ReplacedSizing"/> has already decided the shape, and
+    /// deciding it twice is how a picture ends up subtly the wrong proportion.
+    /// </remarks>
+    static void PaintImage(Surface surface, ImageData image, Rect bounds)
+    {
+        if (bounds.Width <= 0 || bounds.Height <= 0)
+        {
+            return;
+        }
+
+        surface.DrawImage(
+            image.Image,
+            Rectangle.FromSize(bounds.X, bounds.Y, bounds.Width, bounds.Height));
     }
 
     static void PaintRun(Surface surface, TextRun run)
