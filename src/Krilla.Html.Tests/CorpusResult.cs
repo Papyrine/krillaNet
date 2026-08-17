@@ -18,6 +18,19 @@ public class CorpusResult
     public BoxComparisonResult? Boxes { get; set; }
 
     /// <summary>
+    /// The link annotations in the produced PDF, read back out of it.
+    /// </summary>
+    /// <remarks>
+    /// Recorded because neither of the corpus's other measurements can see a link. A link
+    /// annotation carries no appearance stream, so it paints nothing and the pixel comparison is
+    /// blind to it; it is not an element box, so the geometry comparison is too. Reading the
+    /// annotations back is the only way the corpus can tell that an anchor produced anything at
+    /// all — and, since layout is unaffected by links, the box and pixel numbers staying at zero
+    /// alongside these is itself the check that adding them disturbed nothing.
+    /// </remarks>
+    public List<PdfLinkRecord>? Links { get; set; }
+
+    /// <summary>
     /// Per-page pixel comparison, or null when the page counts differ.
     /// </summary>
     /// <remarks>
@@ -47,6 +60,24 @@ public record PageDiff(
     double? Ssim,
     string ReferenceFile,
     string RenderedFile);
+
+/// <summary>
+/// One link annotation, as the produced PDF actually contains it.
+/// </summary>
+/// <param name="Page">One-based page the annotation is on.</param>
+/// <param name="Target">
+/// The URI for an external link, or <c>page N</c> for an internal one.
+/// </param>
+/// <param name="X">Left edge, in CSS pixels from the top-left of the page.</param>
+/// <param name="Y">Top edge, in CSS pixels from the top-left of the page.</param>
+/// <param name="Width">Width in CSS pixels.</param>
+/// <param name="Height">Height in CSS pixels.</param>
+/// <remarks>
+/// Converted out of PDF space into the corpus's own units — CSS pixels, Y increasing downward —
+/// so these numbers can be read against the box geometry directly. PDF space is points with the
+/// origin at the bottom-left, which would make every review an exercise in mental arithmetic.
+/// </remarks>
+public record PdfLinkRecord(int Page, string Target, double X, double Y, double Width, double Height);
 
 [JsonSerializable(typeof(CorpusResult))]
 public partial class CorpusResultContext : JsonSerializerContext;

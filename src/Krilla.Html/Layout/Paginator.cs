@@ -41,28 +41,62 @@ static class Paginator
             .OrderBy(_ => _.Bounds.Y)
             .ToList();
 
-        var pageTop = 0f;
+        var documentHeight = Math.Max(
+            root.BorderBox.Bottom,
+            lines.Count == 0 ? 0 : lines.Max(_ => _.Bounds.Bottom));
+
+        var top = 0f;
+
+        while (top + pageHeight < documentHeight)
+        {
+            top = NextTop(lines, top, pageHeight);
+            tops.Add(top);
+        }
+
+        return tops;
+    }
+
+    /// <summary>
+    /// Where the page after the one starting at <paramref name="top"/> begins.
+    /// </summary>
+    /// <remarks>
+    /// A straddling line moves whole to the next page, so the break goes at its top. When nothing
+    /// straddles the boundary the break goes at the page edge itself — and that fallback is not a
+    /// degenerate case, it is what carries a block taller than the page onto the next one. A tall
+    /// <c>div</c> contains no lines at all, so there is no line-based candidate anywhere inside it;
+    /// without the fallback the break lands after the whole block and everything between the page
+    /// edge and the block's end is simply never drawn.
+    /// </remarks>
+    static float NextTop(List<LineBox> lines, float top, float pageHeight)
+    {
+        var limit = top + pageHeight;
 
         foreach (var line in lines)
         {
-            if (line.Bounds.Bottom <= pageTop + pageHeight)
+            // Lines already on this page or an earlier one.
+            if (line.Bounds.Y <= top || line.Bounds.Bottom <= limit)
             {
                 continue;
             }
 
-            // A line taller than the page itself has nowhere better to go. Moving it would put it
-            // at the top of the next page and it would still not fit, so it would move again —
-            // forever. Let it overflow instead.
+            // Beyond the boundary entirely: nothing straddles it, so the page ends at its edge.
+            if (line.Bounds.Y > limit)
+            {
+                break;
+            }
+
+            // A line taller than the page has nowhere better to go — moving it to the top of the
+            // next page would leave it still not fitting, and it would move again forever. Let it
+            // overflow and keep looking for a line that can actually be moved.
             if (line.Bounds.Height > pageHeight)
             {
                 continue;
             }
 
-            pageTop = line.Bounds.Y;
-            tops.Add(pageTop);
+            return line.Bounds.Y;
         }
 
-        return tops;
+        return limit;
     }
 
     /// <summary>

@@ -167,6 +167,16 @@ sealed record ComputedStyle
     /// </summary>
     public float? LineHeight { get; init; }
 
+    /// <summary>Whether text is underlined.</summary>
+    /// <remarks>
+    /// Treated as inherited, which <c>text-decoration</c> strictly is not — CSS says a decoration
+    /// is drawn ACROSS descendants by the element that declared it, rather than being inherited by
+    /// them. The distinction shows only where a descendant sets its own colour, since a propagated
+    /// decoration keeps the colour of the element that declared it while an inherited one does not.
+    /// Inheriting is the far simpler model and agrees with propagation everywhere else.
+    /// </remarks>
+    public bool Underline { get; init; }
+
     /// <summary>How lines are aligned.</summary>
     public TextAlignKind TextAlign { get; init; } = TextAlignKind.Left;
 

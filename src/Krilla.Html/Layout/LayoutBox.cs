@@ -155,12 +155,18 @@ sealed class LayoutBox
 /// An image, when this item is an inline-level replaced element rather than text. It occupies a
 /// box on the line instead of a run of glyphs, which is what CSS calls an atomic inline.
 /// </param>
+/// <param name="Link">
+/// The <c>href</c> of the enclosing <c>&lt;a&gt;</c>, or null. Carried on the item rather than
+/// looked up later because an anchor's text is flattened into the line's runs, so by painting time
+/// there is nothing left to ask which element it came from.
+/// </param>
 sealed record InlineItem(
     string Text,
     ComputedStyle Style,
     string? Selector,
     bool ForcedBreak = false,
-    ImageData? Image = null);
+    ImageData? Image = null,
+    string? Link = null);
 
 /// <summary>One laid-out line, and the glyph runs positioned on it.</summary>
 sealed class LineBox
@@ -218,10 +224,16 @@ readonly record struct InlineImage(ImageData Image, Rect Bounds, string? Selecto
 /// <param name="X">Left edge of the run.</param>
 /// <param name="Y">The run's baseline.</param>
 /// <param name="Width">The run's advance width.</param>
+/// <param name="Link">
+/// The <c>href</c> this run links to, or null. One annotation is emitted per run, which is why runs
+/// do not merge across a link boundary: a PDF link is a rectangle, so an anchor spanning three
+/// lines needs three of them.
+/// </param>
 readonly record struct TextRun(
     string Text,
     ComputedStyle Style,
     FontFace Face,
     float X,
     float Y,
-    float Width);
+    float Width,
+    string? Link = null);

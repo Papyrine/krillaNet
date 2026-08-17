@@ -30,6 +30,9 @@ inline/simple_text               matched  3  offset    0.00  size    0.00  diffe
 inline/text_align                matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
 inline/white_space_pre           matched  4  offset    0.00  size    0.00  differing  0  unmatched 0
 inline/wrapping                  matched  3  offset    0.00  size    0.00  differing  0  unmatched 0
+link/external                    matched  4  offset    0.00  size    0.00  differing  0  unmatched 2
+link/fragment                    matched  6  offset    0.00  size    0.00  differing  0  unmatched 2
+link/wrapped                     matched  3  offset    0.00  size    0.00  differing  0  unmatched 1
 page/break_between_lines         matched  4  offset    0.00  size    0.00  differing  0  unmatched 0
 page/multi_page_flow             matched  8  offset    0.00  size    0.00  differing  0  unmatched 0
 page/page_size                   matched  3  offset    0.00  size    0.00  differing  0  unmatched 0

@@ -43,8 +43,19 @@ static class PdfPainter
         float pageTop,
         float pageEnd,
         Rect content,
-        float scale)
+        float scale,
+        LinkTargets? links = null)
     {
+        // Link annotations are queued and applied when the page closes, so they never see the
+        // transform stack below and have to be given page coordinates directly. Everything else on
+        // this page is painted in layout units through that stack, so the two coordinate spaces
+        // coexist and only annotations use this one.
+        var toPage = (Rect rect) => new Rect(
+            (content.X + rect.X) * scale,
+            (content.Y + rect.Y - pageTop) * scale,
+            rect.Width * scale,
+            rect.Height * scale);
+
         using var _ = surface.PushTransform(Matrix.Scale(scale, scale));
 
         // Content is clipped to the page box so a box straddling a break stops at the edge rather
@@ -57,10 +68,17 @@ static class PdfPainter
         // transform for the whole page beats offsetting every coordinate at every call site.
         using var ___ = surface.PushTransform(Matrix.Translate(content.X, content.Y - pageTop));
 
-        PaintBox(surface, root, pageTop, pageTop + content.Height, pageEnd);
+        PaintBox(surface, root, pageTop, pageTop + content.Height, pageEnd, links, toPage);
     }
 
-    static void PaintBox(Surface surface, LayoutBox box, float top, float bottom, float pageEnd)
+    static void PaintBox(
+        Surface surface,
+        LayoutBox box,
+        float top,
+        float bottom,
+        float pageEnd,
+        LinkTargets? links,
+        Func<Rect, Rect> toPage)
     {
         // Skipping off-page subtrees is what keeps a long document's per-page cost proportional to
         // what is actually on the page. Only leaves are culled: a box with an explicit height
@@ -95,6 +113,7 @@ static class PdfPainter
             foreach (var run in line.Runs)
             {
                 PaintRun(surface, run);
+                PaintLink(surface, run, links, toPage);
             }
 
             foreach (var image in line.Images)
@@ -105,7 +124,7 @@ static class PdfPainter
 
         foreach (var child in box.Children)
         {
-            PaintBox(surface, child, top, bottom, pageEnd);
+            PaintBox(surface, child, top, bottom, pageEnd, links, toPage);
         }
     }
 
@@ -193,6 +212,46 @@ static class PdfPainter
             Rectangle.FromSize(bounds.X, bounds.Y, bounds.Width, bounds.Height));
     }
 
+    /// <summary>
+    /// Adds a link annotation over <paramref name="run"/>, when it sits inside an anchor.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The rectangle covers the run's em box — ascent above the baseline, descent below — rather
+    /// than the whole line box. A line can be much taller than its text under a generous
+    /// <c>line-height</c>, and a link that reaches into the blank space above and below its own
+    /// words is clickable where nothing appears clickable.
+    /// </para>
+    /// <para>
+    /// A <c>#fragment</c> becomes an internal link when the document actually has that id, and no
+    /// annotation at all when it does not — a link that silently goes to the wrong page is worse
+    /// than one that is absent.
+    /// </para>
+    /// </remarks>
+    static void PaintLink(Surface surface, TextRun run, LinkTargets? links, Func<Rect, Rect> toPage)
+    {
+        if (run.Link is not {Length: > 0} href || run.Width <= 0)
+        {
+            return;
+        }
+
+        var ascent = run.Face.Ascent(run.Style.FontSize);
+        var descent = run.Face.Descent(run.Style.FontSize);
+        var area = toPage(new(run.X, run.Y - ascent, run.Width, ascent + descent));
+        var bounds = Rectangle.FromSize(area.X, area.Y, area.Width, area.Height);
+
+        if (!href.StartsWith('#'))
+        {
+            surface.AddLink(bounds, href);
+            return;
+        }
+
+        if (links is not null && links.TryResolve(href[1..], out var page, out var target))
+        {
+            surface.AddLink(bounds, page, target);
+        }
+    }
+
     static void PaintRun(Surface surface, TextRun run)
     {
         if (run.Text.Length == 0)
@@ -216,5 +275,19 @@ static class PdfPainter
             run.Style.FontSize,
             run.Text,
             shaped.Glyphs);
+
+        if (run.Style.Underline)
+        {
+            // Position and thickness come from the font's own `post` table rather than a fixed
+            // fraction of the size, which is what puts the rule clear of the descenders in one font
+            // and tight under the baseline in another.
+            surface.FillRectangle(
+                Rectangle.FromSize(
+                    run.X,
+                    run.Y + run.Face.UnderlineOffset(run.Style.FontSize),
+                    run.Width,
+                    run.Face.UnderlineThickness(run.Style.FontSize)),
+                run.Style.Color);
+        }
     }
 }

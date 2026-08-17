@@ -64,6 +64,12 @@ static class UserAgentStyles
         */
         ul ul, ul ol, ul menu, ol ul, ol ol, ol menu, menu ul, menu ol, menu menu { margin: 0; }
 
+        /*
+          Only an anchor WITH an href is underlined. A bare <a> is a target rather than a link,
+          and browsers leave it undecorated.
+        */
+        a[href] { text-decoration: underline; }
+
         code, kbd, samp { font-family: monospace; }
         th { font-weight: bold; text-align: center; }
         center { text-align: center; }

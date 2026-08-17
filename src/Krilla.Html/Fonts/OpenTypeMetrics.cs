@@ -34,9 +34,13 @@ sealed class OpenTypeMetrics
         int weight,
         bool italic,
         string familyName,
+        float underlineOffset,
+        float underlineThickness,
         ushort[] advances,
         CharacterMap characters)
     {
+        UnderlineOffset = underlineOffset;
+        UnderlineThickness = underlineThickness;
         UnitsPerEm = unitsPerEm;
         Ascender = ascender;
         Descender = descender;
@@ -75,6 +79,18 @@ sealed class OpenTypeMetrics
 
     /// <summary>The typographic family name, used to match a CSS <c>font-family</c>.</summary>
     public string FamilyName { get; }
+
+    /// <summary>
+    /// Distance below the baseline to the top of an underline, in design units.
+    /// </summary>
+    /// <remarks>
+    /// Positive downward, unlike the font's own value, which measures upward and is therefore
+    /// negative for every font that puts its underline where one belongs.
+    /// </remarks>
+    public float UnderlineOffset { get; }
+
+    /// <summary>Underline thickness, in design units.</summary>
+    public float UnderlineThickness { get; }
 
     /// <summary>
     /// The glyph for <paramref name="codepoint"/>, or 0 (<c>.notdef</c>) when the font has none.
@@ -153,6 +169,17 @@ sealed class OpenTypeMetrics
 
         var familyName = tables.TryGetValue("name", out var name) ? ReadFamilyName(data, name) : "";
 
+        // post carries the underline geometry. Defaults are the conventional fallbacks for a
+        // font without one: a tenth of an em below the baseline, a twentieth thick.
+        var underlineOffset = unitsPerEm / 10;
+        var underlineThickness = unitsPerEm / 20;
+
+        if (tables.TryGetValue("post", out var post) && post + 12 <= data.Length)
+        {
+            underlineOffset = -ReadInt16(data, post + 8);
+            underlineThickness = ReadInt16(data, post + 10);
+        }
+
         return new(
             unitsPerEm,
             ascender,
@@ -162,6 +189,8 @@ sealed class OpenTypeMetrics
             weight,
             italic,
             familyName,
+            underlineOffset,
+            underlineThickness,
             advances,
             characters);
     }

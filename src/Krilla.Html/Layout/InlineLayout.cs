@@ -121,7 +121,7 @@ static class InlineLayout
 
             if (item.ForcedBreak)
             {
-                tokens.Add(new("", item.Style, face, 0, TokenKind.Break));
+                tokens.Add(new("", item.Style, face, 0, TokenKind.Break, Link: item.Link));
                 continue;
             }
 
@@ -131,7 +131,8 @@ static class InlineLayout
                 // a word — a line can break before or after it, but never inside it.
                 var (width, height) = ReplacedSizing.Resolve(item.Style, image, contentWidth);
                 tokens.Add(new(
-                    "", item.Style, face, width, TokenKind.Replaced, image, height, item.Selector));
+                    "", item.Style, face, width, TokenKind.Replaced, image, height, item.Selector,
+                    item.Link));
                 continue;
             }
 
@@ -143,7 +144,7 @@ static class InlineLayout
 
                 if (character == '\n')
                 {
-                    tokens.Add(new("", item.Style, face, 0, TokenKind.Break));
+                    tokens.Add(new("", item.Style, face, 0, TokenKind.Break, Link: item.Link));
                     index++;
                     continue;
                 }
@@ -160,7 +161,7 @@ static class InlineLayout
                     // the page. Collapsed white space arrives here already reduced to one.
                     var text = item.Style.PreservesSpaces ? item.Text[start..index] : " ";
                     var width = TextMeasurer.Measure(face, text, item.Style.FontSize);
-                    tokens.Add(new(text, item.Style, face, width, TokenKind.Space));
+                    tokens.Add(new(text, item.Style, face, width, TokenKind.Space, Link: item.Link));
                     continue;
                 }
 
@@ -176,7 +177,8 @@ static class InlineLayout
                     item.Style,
                     face,
                     TextMeasurer.Measure(face, word, item.Style.FontSize),
-                    TokenKind.Word));
+                    TokenKind.Word,
+                    Link: item.Link));
             }
         }
 
@@ -270,6 +272,7 @@ static class InlineLayout
             var runEnd = runStart;
             while (runEnd + 1 < tokens.Count &&
                    tokens[runEnd + 1].Kind != TokenKind.Replaced &&
+                   tokens[runEnd + 1].Link == tokens[runStart].Link &&
                    ReferenceEquals(tokens[runEnd + 1].Style, tokens[runStart].Style) &&
                    ReferenceEquals(tokens[runEnd + 1].Face, tokens[runStart].Face) &&
                    extra == 0)
@@ -297,7 +300,8 @@ static class InlineLayout
                 tokens[runStart].Face,
                 x,
                 y + above,
-                runWidth));
+                runWidth,
+                tokens[runStart].Link));
 
             x += runWidth;
             runStart = runEnd + 1;
@@ -372,5 +376,6 @@ static class InlineLayout
         TokenKind Kind,
         ImageData? Image = null,
         float Height = 0,
-        string? Selector = null);
+        string? Selector = null,
+        string? Link = null);
 }

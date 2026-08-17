@@ -116,6 +116,20 @@ public sealed class FontFace :
     }
 
     /// <summary>
+    /// Distance from the baseline down to the top of an underline, in CSS pixels, rounded to a
+    /// whole pixel as browsers do.
+    /// </summary>
+    public float UnderlineOffset(float fontSize) =>
+        MathF.Round(metrics.UnderlineOffset * fontSize / metrics.UnitsPerEm);
+
+    /// <summary>
+    /// Underline thickness in CSS pixels, never less than one: a rule rounded away to nothing is
+    /// worse than one a little too thick.
+    /// </summary>
+    public float UnderlineThickness(float fontSize) =>
+        MathF.Max(1, MathF.Round(metrics.UnderlineThickness * fontSize / metrics.UnitsPerEm));
+
+    /// <summary>
     /// The advance of <paramref name="codepoint"/> at <paramref name="fontSize"/>, in the same
     /// units as the size.
     /// </summary>

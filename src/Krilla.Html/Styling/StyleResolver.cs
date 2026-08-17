@@ -81,6 +81,7 @@ static class StyleResolver
                 declaration.GetPropertyValue("font-style"),
                 UserAgentStyles.IsItalic(element.LocalName) || parent.Italic),
             LineHeight = ParseLineHeight(declaration.GetPropertyValue("line-height"), fontSize, rootFontSize),
+            Underline = ParseUnderline(declaration, parent.Underline),
             TextAlign = ParseTextAlign(declaration.GetPropertyValue("text-align"), parent.TextAlign),
             WhiteSpace = ParseWhiteSpace(declaration.GetPropertyValue("white-space"), parent.WhiteSpace)
         };
@@ -258,6 +259,41 @@ static class StyleResolver
         return length.Kind == LengthKind.Percent
             ? fontSize * length.Value / 100f
             : length.Resolve(fontSize);
+    }
+
+    /// <summary>
+    /// Whether an underline applies, from <c>text-decoration-line</c> or the
+    /// <c>text-decoration</c> shorthand.
+    /// </summary>
+    /// <remarks>
+    /// Both are read because which one the cascade reports depends on which the author wrote,
+    /// and the shorthand also carries colour and style keywords that have to be looked past.
+    /// Only underline is honoured; overline and line-through are not painted, so recognising
+    /// them would claim support that is not there.
+    /// </remarks>
+    static bool ParseUnderline(ICssStyleDeclaration declaration, bool inherited)
+    {
+        var value = declaration.GetPropertyValue("text-decoration-line");
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            value = declaration.GetPropertyValue("text-decoration");
+        }
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return inherited;
+        }
+
+        var text = value.ToLowerInvariant();
+
+        if (text.Contains("underline", StringComparison.Ordinal))
+        {
+            return true;
+        }
+
+        // An explicit `none` clears an inherited underline; anything else leaves it alone.
+        return !text.Contains("none", StringComparison.Ordinal) && inherited;
     }
 
     static TextAlignKind ParseTextAlign(string? value, TextAlignKind inherited) =>

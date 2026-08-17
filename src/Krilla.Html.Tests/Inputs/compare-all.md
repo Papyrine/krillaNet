@@ -1,4 +1,4 @@
-# All scenarios (35)
+# All scenarios (38)
 
 The browser reference (left) beside the page Krilla.Html produced (right). `AE` is the fraction of pixels that differ and `SSIM` is structural similarity; neither is asserted. The worst offset is the largest positional disagreement in CSS pixels between the rendered element geometry and the browser's, and is the number to watch — it reaches zero exactly when the layout is right.
 
@@ -33,6 +33,9 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [inline/text_align](#inline-text_align)
 - [inline/white_space_pre](#inline-white_space_pre)
 - [inline/wrapping](#inline-wrapping)
+- [link/external](#link-external)
+- [link/fragment](#link-fragment)
+- [link/wrapped](#link-wrapped)
 - [page/break_between_lines](#page-break_between_lines)
 - [page/multi_page_flow](#page-multi_page_flow)
 - [page/page_size](#page-page_size)
@@ -436,6 +439,67 @@ changes the paragraph height. The box comparison catches that far more sharply t
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
 | <img src="inline/wrapping/reference_0001.png" width="480"> | <img src="inline/wrapping/result%23page_0001.verified.png" width="480"> |
+
+
+## link/external
+
+Two external links. Neither the pixel nor the box comparison can see a link annotation — it paints
+nothing and is not an element box — so the annotations are read back out of the PDF and recorded in
+the snapshot instead. Those two metrics staying at zero is the separate check that adding links
+disturbed no layout.
+
+The rectangle covers the text's em box rather than the whole line, so a generous line-height does
+not make blank space clickable.
+
+**Boxes**: 4 matched, worst offset 0.00px, worst size 0.00px.
+
+Not rendered: `html > body:nth-child(2) > p:nth-child(1) > a:nth-child(1)`, `html > body:nth-child(2) > p:nth-child(2) > a:nth-child(1)`
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0003 · SSIM 1.0000** |
+| <img src="link/external/reference_0001.png" width="480"> | <img src="link/external/result%23page_0001.verified.png" width="480"> |
+
+
+## link/fragment
+
+An internal link, and a broken one. The filler pushes the target onto the second page, so resolving
+the fragment has to happen after pagination — a fragment names an element while a PDF internal link
+names a page and a point on it.
+
+The second anchor points at an id no element carries. It produces no annotation at all, rather than
+one aimed at page one: a link that silently goes somewhere wrong is worse than a link that is not
+there. Expect exactly one annotation.
+
+**Boxes**: 6 matched, worst offset 0.00px, worst size 0.00px.
+
+Not rendered: `html > body:nth-child(2) > p:nth-child(1) > a:nth-child(1)`, `html > body:nth-child(2) > p:nth-child(1) > a:nth-child(2)`
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0001 · SSIM 0.9999** |
+| <img src="link/fragment/reference_0001.png" width="480"> | <img src="link/fragment/result%23page_0001.verified.png" width="480"> |
+| **Page 2** | **Page 2. AE 0.0000 · SSIM 1.0000** |
+| <img src="link/fragment/reference_0002.png" width="480"> | <img src="link/fragment/result%23page_0002.verified.png" width="480"> |
+
+
+## link/wrapped
+
+An anchor spanning several lines. A PDF link is a rectangle, so one that wraps needs one annotation
+per line fragment rather than a single box around the lot — a single box would make the blank space
+at the end of each line clickable, and on a centred or short line would cover text that is not part
+of the link at all.
+
+Expect one annotation per line the anchor touches, each covering only its own fragment.
+
+**Boxes**: 3 matched, worst offset 0.00px, worst size 0.00px.
+
+Not rendered: `html > body:nth-child(2) > p:nth-child(1) > a:nth-child(1)`
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0003 · SSIM 0.9999** |
+| <img src="link/wrapped/reference_0001.png" width="480"> | <img src="link/wrapped/result%23page_0001.verified.png" width="480"> |
 
 
 ## page/break_between_lines

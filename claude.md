@@ -92,7 +92,7 @@ Mirrors Morph.PDFium: `KrillaNative.*.cs` partials of one `static partial class`
 
 ### The HTML converter (`src/Krilla.Html`)
 
-Three stages, each inspectable on its own: AngleSharp parses and runs the cascade, `Layout/` turns the styled tree into positioned boxes, and `Painting/PdfPainter` draws those boxes through `Krilla.Surface`. Implemented: block and inline layout, the box model, collapsing margins, line breaking, alignment, pagination, and images. Floats, positioned boxes, flex, grid and tables lay out as plain blocks — deliberately, so unimplemented CSS shows up in the corpus as a geometry difference rather than as missing content nothing measures.
+Three stages, each inspectable on its own: AngleSharp parses and runs the cascade, `Layout/` turns the styled tree into positioned boxes, and `Painting/PdfPainter` draws those boxes through `Krilla.Surface`. Implemented: block and inline layout, the box model, collapsing margins, line breaking, alignment, pagination, images, and links. Floats, positioned boxes, flex, grid and tables lay out as plain blocks — deliberately, so unimplemented CSS shows up in the corpus as a geometry difference rather than as missing content nothing measures.
 
 Three structural points worth knowing before changing anything:
 
@@ -144,8 +144,17 @@ Three of these were found the same way: a scenario sat at SSIM ~0.93 while its b
 
 - **Half-leading must be FLOORED, and the descent derived by subtraction.** With integer ascent and descent the exact half lands on .5 constantly — 16px text in a 24px line gives 3.5 — and a baseline at 17.5 rasterises one whole pixel lower than one at 17. Every glyph in the corpus was a pixel low until this was floored. `Below` is then `lineHeight - Above` rather than a second floor, or each line loses a pixel and the drift compounds into a wrong page count.
 - **`line-height: normal` needs the font's metrics rounded to whole pixels *before* summing.** Liberation Sans at 16px gives 14.48 + 3.39 + 0.52, which is 18.4 unrounded but 14 + 3 + 1 = 18 the way a browser does it. Four tenths of a pixel per line is invisible on one line and a whole line of drift down a page. This is the one place the engine imitates a specific implementation rather than a specification — CSS defines `normal` as UA-defined, so there is no correct value to compute and agreeing with the reference browser is the useful choice.
+- **A page break can be needed where no line offers one.** `Paginator` breaks before a line that would straddle the boundary, but a block taller than the page contains no lines at all — so there is no candidate anywhere inside it, the break lands after the whole block, and everything between the page edge and the block's end is never drawn. `NextTop` falls back to breaking at the page edge for exactly that case.
 - **A page ends where the next one begins, not at the bottom of the paper.** `Paginator` moves a straddling line whole to the next page, so the last line on a page can end well short of the sheet. `PdfPainter.Paint` therefore takes `pageEnd` separately from the page box: painting down to the paper instead draws that line here clipped in half AND again overleaf in full.
 - **Leading white space is only trimmed where white space collapses.** Under `pre` the indentation *is* leading spaces, and applying the `normal` trimming rule left-aligns every deliberately indented line.
+
+## Traps around links
+
+- **A link annotation is NOT painted through the transform stack.** krilla queues annotations and applies them when the page closes, so they never see the scale and translate the rest of the page is drawn through. `PdfPainter` converts to page points itself, and that conversion is the only place two coordinate spaces coexist on one page.
+- **One annotation per line fragment, not one per anchor.** A PDF link is a rectangle, so an anchor that wraps needs one per line — a single box round the lot would make the blank space at each line end clickable, and on a short line would cover text that is not part of the link.
+- **Fragment links resolve after pagination**, because a fragment names an element while a PDF internal link names a page and a point on it. `LinkTargets` is built once the page tops are known.
+- **An unresolved fragment produces no annotation at all**, rather than one aimed at page one. A link that silently goes somewhere wrong is worse than a link that is not there.
+- **Neither corpus measurement can see a link.** An annotation carries no appearance stream, so the pixel comparison is blind to it, and it is not an element box, so the geometry comparison is too. `CorpusRunner` reads them back out of the produced PDF and snapshots them — and the box and pixel numbers staying at zero alongside is the separate check that adding links disturbed no layout.
 
 ## Traps around replaced elements
 

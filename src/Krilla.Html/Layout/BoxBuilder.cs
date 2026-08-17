@@ -26,18 +26,23 @@ static class BoxBuilder
             IsRoot = true
         };
 
-        AddChildren(box, root, style, context);
+        AddChildren(box, root, style, context, link: null);
         return box;
     }
 
-    static void AddChildren(LayoutBox box, IElement element, ComputedStyle style, DocumentContext context)
+    static void AddChildren(
+        LayoutBox box,
+        IElement element,
+        ComputedStyle style,
+        DocumentContext context,
+        string? link)
     {
         var blocks = new List<LayoutBox>();
         var inlines = new List<InlineItem>();
 
         foreach (var node in element.ChildNodes)
         {
-            Collect(node, style, context, blocks, inlines);
+            Collect(node, style, context, blocks, inlines, link);
         }
 
         // A block container is either all-block or all-inline. When both turned up, the runs
@@ -91,7 +96,8 @@ static class BoxBuilder
         ComputedStyle style,
         DocumentContext context,
         List<LayoutBox> blocks,
-        List<InlineItem> inlines)
+        List<InlineItem> inlines,
+        string? link)
     {
         var source = element.GetAttribute("src");
         if (string.IsNullOrWhiteSpace(source) || context.Images.Resolve(source) is not {} image)
@@ -114,7 +120,7 @@ static class BoxBuilder
             return;
         }
 
-        inlines.Add(new("", sized, selector, Image: image));
+        inlines.Add(new("", sized, selector, Image: image, Link: link));
     }
 
     /// <summary>
@@ -189,14 +195,15 @@ static class BoxBuilder
         ComputedStyle parentStyle,
         DocumentContext context,
         List<LayoutBox> blocks,
-        List<InlineItem> inlines)
+        List<InlineItem> inlines,
+        string? link)
     {
         if (node is IText text)
         {
             var content = WhiteSpace.Process(text.Data, parentStyle);
             if (content.Length > 0)
             {
-                inlines.Add(new(content, StyleResolver.ForText(parentStyle), null));
+                inlines.Add(new(content, StyleResolver.ForText(parentStyle), null, Link: link));
             }
 
             return;
@@ -214,6 +221,14 @@ static class BoxBuilder
             return;
         }
 
+        // An anchor sets the link for its whole subtree. Nested anchors are invalid HTML and
+        // AngleSharp's parser unnests them, so the innermost simply wins here.
+        if (element.LocalName.Equals("a", StringComparison.OrdinalIgnoreCase) &&
+            element.GetAttribute("href") is {Length: > 0} href)
+        {
+            link = href;
+        }
+
         // A line break carries no text and no box of its own; it ends the line it is on. Handled
         // ahead of the display switch because white-space processing would otherwise turn its
         // newline into a collapsible space and lose it.
@@ -225,7 +240,7 @@ static class BoxBuilder
 
         if (element.LocalName.Equals("img", StringComparison.OrdinalIgnoreCase))
         {
-            AddImage(element, style, context, blocks, inlines);
+            AddImage(element, style, context, blocks, inlines, link);
             return;
         }
 
@@ -239,7 +254,7 @@ static class BoxBuilder
 
             foreach (var child in element.ChildNodes)
             {
-                Collect(child, style, context, blocks, inlines);
+                Collect(child, style, context, blocks, inlines, link);
             }
 
             // Only the runs this recursion added, and only those no nested inline has already
@@ -262,7 +277,7 @@ static class BoxBuilder
             Selector = SelectorPath.For(element)
         };
 
-        AddChildren(box, element, style, context);
+        AddChildren(box, element, style, context, link);
         blocks.Add(box);
     }
 

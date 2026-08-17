@@ -60,6 +60,10 @@ public static class HtmlConverter
 
         var tops = Paginator.PageTops(root, options.ContentHeight);
 
+        // After pagination, because a fragment names an element while a PDF internal link names a
+        // page and a point on it — and which page an element landed on is what pagination decides.
+        var links = LinkTargets.Build(root, tops, content, scale);
+
         for (var index = 0; index < tops.Count; index++)
         {
             using var page = pdf.StartPage(
@@ -71,7 +75,7 @@ public static class HtmlConverter
             // the end of the document.
             var end = index + 1 < tops.Count ? tops[index + 1] : float.PositiveInfinity;
 
-            PdfPainter.Paint(page.Surface, root, tops[index], end, content, scale);
+            PdfPainter.Paint(page.Surface, root, tops[index], end, content, scale, links);
         }
 
         return pdf.Finish();

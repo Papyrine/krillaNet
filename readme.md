@@ -35,7 +35,8 @@ Krilla has no font database, so the fonts a document may use are supplied by the
 discovered from the host. That is what makes output reproducible across machines.
 
 Implemented: block and inline layout, the box model, collapsing margins, line breaking, text
-alignment, pagination, and images. Floats, positioned boxes, flexbox, grid and tables lay out as
+alignment, pagination, images, and links — `<a href>` becomes a real PDF link annotation, and a
+`#fragment` becomes an internal jump to wherever that element paginated to. Floats, positioned boxes, flexbox, grid and tables lay out as
 plain blocks.
 
 Images resolve from `data:` URIs and from files relative to `BaseUrl`. Nothing is fetched over the

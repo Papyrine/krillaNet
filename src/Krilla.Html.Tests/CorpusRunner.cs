@@ -27,6 +27,7 @@ static class CorpusRunner
 
         var pdf = HtmlConverter.Convert(html, options);
         var pages = RenderPages(pdf);
+        var links = ReadLinks(pdf);
 
         var referencePages = CorpusLayout.ReferencePages(directory);
 
@@ -35,6 +36,7 @@ static class CorpusRunner
             ReferencePageCount = referencePages.Length,
             ResultingPageCount = pages.Count,
             Boxes = CompareBoxes(directory, html, options),
+            Links = links.Count == 0 ? null : links,
             PageDiffs = ComparePages(referencePages, pages)
         };
 
@@ -101,6 +103,49 @@ static class CorpusRunner
         }
 
         return pages;
+    }
+
+    /// <summary>
+    /// Reads the link annotations back out of the produced PDF.
+    /// </summary>
+    /// <remarks>
+    /// Converted from PDF space — points, origin bottom-left — into the corpus's CSS pixels with Y
+    /// increasing downward, so a link rectangle can be read straight against the box geometry it
+    /// covers.
+    /// </remarks>
+    static List<PdfLinkRecord> ReadLinks(byte[] pdf)
+    {
+        using var document = PdfiumDocument.Load(pdf);
+
+        var records = new List<PdfLinkRecord>();
+        const double pixelsPerPoint = 96d / 72d;
+
+        for (var index = 0; index < document.PageCount; index++)
+        {
+            using var page = document.LoadPage(index);
+
+            foreach (var link in page.GetLinks())
+            {
+                var target = link.Action?.Uri ??
+                             (link.Destination is {} destination
+                                 ? $"page {destination.PageIndex + 1}"
+                                 : "(none)");
+
+                var rect = link.Rectangle;
+
+                records.Add(new(
+                    index + 1,
+                    target,
+                    Math.Round(rect.Left * pixelsPerPoint, 2),
+                    // PDF measures up from the bottom of the page, the corpus measures down from
+                    // the top, so the annotation's TOP edge is the larger of the two Y values.
+                    Math.Round(CorpusLayout.PageHeight - rect.Top * pixelsPerPoint, 2),
+                    Math.Round((rect.Right - rect.Left) * pixelsPerPoint, 2),
+                    Math.Round((rect.Top - rect.Bottom) * pixelsPerPoint, 2)));
+            }
+        }
+
+        return records;
     }
 
     /// <summary>
