@@ -21,6 +21,8 @@ static class ReplacedSizing
     /// <summary>
     /// The content size for <paramref name="image"/> under <paramref name="style"/>.
     /// </summary>
+    /// <param name="style">The element's resolved style.</param>
+    /// <param name="image">The image being sized.</param>
     /// <param name="available">
     /// The width available for content, after this element's own padding and border. Percentages
     /// resolve against it.

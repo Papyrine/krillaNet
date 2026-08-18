@@ -10,7 +10,7 @@ namespace Krilla;
 /// whichever page is open at the time.
 /// </para>
 /// <para>
-/// State is set then used: assign <see cref="SetFill(Fill?)"/> and/or <see cref="SetStroke"/>, then
+/// State is set then used: assign <see cref="SetFill(Fill?)"/> and/or <see cref="SetStroke(Stroke?)"/>, then
 /// call <see cref="DrawPath"/>. Both can be active at once. With neither set, krilla fills
 /// black rather than drawing nothing.
 /// </para>
@@ -62,6 +62,21 @@ public sealed partial class Surface
         var paint = Paint.Solid(color);
         document.Track(paint);
         return SetFill(new Fill(paint));
+    }
+
+    /// <summary>
+    /// Sets the stroke to a solid colour of the given width.
+    /// </summary>
+    /// <remarks>
+    /// The counterpart to <see cref="SetFill(Color)"/>, and it allocates a paint on the same terms:
+    /// it lives until the surface's document is disposed, so a colour stroked repeatedly is better
+    /// served by one <see cref="Paint"/> reused.
+    /// </remarks>
+    public Surface SetStroke(Color color, float width = 1f)
+    {
+        var paint = Paint.Solid(color);
+        document.Track(paint);
+        return SetStroke(new Stroke(paint, width));
     }
 
     /// <summary>

@@ -35,8 +35,7 @@ static class UserAgentStyles
     /// </para>
     /// <para>
     /// Values are from the HTML Standard's rendering section, which is what browsers implement.
-    /// Only the properties this engine honours are listed; there is no value in encoding
-    /// <c>list-style-type</c> while list markers are not drawn.
+    /// Only the properties this engine honours are listed.
     /// </para>
     /// </remarks>
     public const string Corrections =
@@ -63,6 +62,19 @@ static class UserAgentStyles
           reads as one block rather than gaining a blank line at every level.
         */
         ul ul, ul ol, ul menu, ol ul, ol ol, ol menu, menu ul, menu ol, menu menu { margin: 0; }
+
+        /*
+          The marker a list shows, and how it changes with depth. Declared on the list rather than
+          on the item because that is where the HTML Standard puts it and where an author expects
+          to override it; `list-style-type` inherits, so it reaches the items either way.
+
+          Only unordered nesting cycles. An ordered list stays decimal however deep it is, which is
+          why there is no matching ol chain here.
+        */
+        ul, menu { list-style-type: disc; }
+        ol { list-style-type: decimal; }
+        ul ul, ul menu, ol ul, ol menu, menu ul, menu menu { list-style-type: circle; }
+        ul ul ul, ul ol ul, ol ul ul, ol ol ul, ul ul menu, ol ul menu { list-style-type: square; }
 
         /*
           Only an anchor WITH an href is underlined. A bare <a> is a target rather than a link,

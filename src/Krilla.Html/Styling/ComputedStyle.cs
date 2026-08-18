@@ -10,7 +10,17 @@ enum DisplayKind
     Block,
 
     /// <summary>An inline-level box, flowed into a line.</summary>
-    Inline
+    Inline,
+
+    /// <summary>
+    /// A block-level box that also generates a list marker.
+    /// </summary>
+    /// <remarks>
+    /// Lays out exactly as <see cref="Block"/> does. The marker is not a box in the tree: it sits
+    /// outside the principal box, so it neither affects the geometry of anything nor appears in
+    /// the browser's <c>getBoundingClientRect()</c> for the element.
+    /// </remarks>
+    ListItem
 }
 
 /// <summary>How lines are aligned within their containing block.</summary>
@@ -46,6 +56,44 @@ enum WhiteSpaceKind
 
     /// <summary>Collapse white space, never wrap.</summary>
     NoWrap
+}
+
+/// <summary>What a list item's marker shows.</summary>
+/// <remarks>
+/// The subset of <c>list-style-type</c> that is drawn. A value outside it falls back to
+/// <see cref="Disc"/> rather than to nothing, so an exotic counter style still marks its items.
+/// </remarks>
+enum ListStyleKind
+{
+    /// <summary>No marker at all.</summary>
+    None,
+
+    /// <summary>A filled circle.</summary>
+    Disc,
+
+    /// <summary>A hollow circle.</summary>
+    Circle,
+
+    /// <summary>A filled square.</summary>
+    Square,
+
+    /// <summary>1, 2, 3.</summary>
+    Decimal,
+
+    /// <summary>01, 02, 03 — padded to two digits.</summary>
+    DecimalLeadingZero,
+
+    /// <summary>a, b, c.</summary>
+    LowerAlpha,
+
+    /// <summary>A, B, C.</summary>
+    UpperAlpha,
+
+    /// <summary>i, ii, iii.</summary>
+    LowerRoman,
+
+    /// <summary>I, II, III.</summary>
+    UpperRoman
 }
 
 /// <summary>How a border edge is drawn.</summary>
@@ -177,6 +225,9 @@ sealed record ComputedStyle
     /// </remarks>
     public bool Underline { get; init; }
 
+    /// <summary>What marker a list item shows.</summary>
+    public ListStyleKind ListStyle { get; init; } = ListStyleKind.Disc;
+
     /// <summary>How lines are aligned.</summary>
     public TextAlignKind TextAlign { get; init; } = TextAlignKind.Left;
 
@@ -195,6 +246,10 @@ sealed record ComputedStyle
         (BorderRight > 0 && BorderRightColor is not null) ||
         (BorderBottom > 0 && BorderBottomColor is not null) ||
         (BorderLeft > 0 && BorderLeftColor is not null);
+
+    /// <summary>Whether this marker is a shape rather than a counter.</summary>
+    public bool HasSymbolMarker =>
+        ListStyle is ListStyleKind.Disc or ListStyleKind.Circle or ListStyleKind.Square;
 
     /// <summary>Whether this style preserves white space rather than collapsing it.</summary>
     public bool PreservesSpaces =>

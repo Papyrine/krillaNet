@@ -92,7 +92,7 @@ Mirrors Morph.PDFium: `KrillaNative.*.cs` partials of one `static partial class`
 
 ### The HTML converter (`src/Krilla.Html`)
 
-Three stages, each inspectable on its own: AngleSharp parses and runs the cascade, `Layout/` turns the styled tree into positioned boxes, and `Painting/PdfPainter` draws those boxes through `Krilla.Surface`. Implemented: block and inline layout, the box model, collapsing margins, line breaking, alignment, pagination, images, and links. Floats, positioned boxes, flex, grid and tables lay out as plain blocks — deliberately, so unimplemented CSS shows up in the corpus as a geometry difference rather than as missing content nothing measures.
+Three stages, each inspectable on its own: AngleSharp parses and runs the cascade, `Layout/` turns the styled tree into positioned boxes, and `Painting/PdfPainter` draws those boxes through `Krilla.Surface`. Implemented: block and inline layout, the box model, collapsing margins, line breaking, alignment, pagination, images, links, and list markers. Floats, positioned boxes, flex, grid and tables lay out as plain blocks — deliberately, so unimplemented CSS shows up in the corpus as a geometry difference rather than as missing content nothing measures.
 
 Three structural points worth knowing before changing anything:
 
@@ -113,7 +113,7 @@ It records two independent measurements, and **asserts neither**:
 - **`reference.boxes.json`** — the browser's `getBoundingClientRect()` per element, against our box tree. Integer-exact, localising ("this paragraph is 14px low" is a defect report), and — the practical reason it leads — computable without the native library, so it works on a machine with no Rust toolchain.
 - **`reference_0001.png`** — pixels, via AbsoluteError and SSIM.
 
-**Box geometry currently sits at zero across all 35 scenarios**, and most are pixel-identical too. The handful that are not each have a named cause rather than a mystery: `block/borders` (0.9997) is the four un-mitred corners it exists to expose, `ua/lists` (0.9984) is the list markers that are not drawn, and `image/inline_flow` (0.9998) is antialiasing on an image edge at a fractional position.
+**Box geometry currently sits at zero across all 41 scenarios**, and 33 read SSIM 1.0000. The handful that do not each have a named cause rather than a mystery: `text/kerning` (0.9945) and `text/ligatures` (0.9982) are sub-pixel glyph positioning, `image/inline_flow` (0.9998) is antialiasing on an image edge at a fractional position, and the rest are the same glyph positioning seen on fewer words. A scenario reading SSIM 1.0000 is not necessarily pixel-identical — six differ on a scattering of antialiased pixels, which is what `AE` is there to show.
 
 That the pixels go to *exactly* identical is worth understanding, because it is a consequence of a design choice and not a given. A Chromium **screenshot** would be rasterised by Skia and compared against a PDFium render of our PDF, and two rasterisers disagree about glyph edges no matter how correct the layout is — which would put a floor somewhere around 0.90–0.97 on any text-heavy page. Printing the reference instead means both sides are rasterised by PDFium, and that floor disappears entirely. **Do not switch the reference to a screenshot**; it would cost every exact match in the corpus and replace a hard signal with a fuzzy one.
 
@@ -168,6 +168,18 @@ Three of these were found the same way: a scenario sat at SSIM ~0.93 while its b
 - **`krilla_font_new` keeps the font bytes.** krilla's `Font` will not give them back (`font_data`, `index` and `variation_coordinates` are all `pub(crate)`), and shaping needs them. The same `Arc` goes to krilla, so this shares one allocation rather than holding a second copy of every font file.
 - **A glyph run is freed by `krilla_glyphs_free`, not `krilla_buffer_free`.** A glyph is 40 bytes with 8-byte alignment, so returning it through the `u8` path would hand the allocator the wrong layout.
 - **Whitespace-only inline content generates no box.** The newline between two block elements is collapsible whitespace, and wrapping it in an anonymous block gives every indented document a blank line before each section.
+
+## Traps around list markers
+
+There is no specification for any of this. CSS says a marker is placed "outside the principal box" and leaves every offset to the user agent, so — as with `line-height: normal` — there is no correct value to compute and agreeing with the reference browser is the only useful target. Every number in `ListMarkers` was measured out of headless Chromium across seventeen font sizes and three families, and each reproduces Chrome exactly at all of them.
+
+- **The arithmetic is integer, and the truncation is the point.** A symbol's side is `(ascent * 2 / 3 + 1) / 2` and its top is `ascent - 3 * (ascent - ascent * 2 / 3) / 2` above the baseline, both in whole pixels off the whole-pixel ascent. No rounded float expression reproduces the uneven steps this produces — 14px and 15px text share a four-pixel bullet, then 15px and 16px share a five-pixel one.
+- **Chrome's marker geometry is device-scale dependent.** The same page at a device scale factor of 8 puts its bullets somewhere else entirely, because the whole-pixel rounding happens in device pixels. Probe it at one device pixel per CSS pixel or the numbers you measure will not be the ones the corpus needs.
+- **A marker hangs off the item's BORDER edge, not its content edge.** So `padding-left` on an `<li>` indents its text and leaves the bullet where it was. Measured, and not what a reading of "outside the principal box" suggests.
+- **A marker sits on the item's first line, but is sized by the item's own font.** The two come from different places: the baseline is a layout result and may be several blocks down and below a margin that collapsed through, while the size follows the `<li>`'s own ascent. An item whose only child is 32px text still gets the bullet its own 16px style asks for. That is why `ListMarkers.Place` runs at the END of `BlockLayout.Layout`, after the subtree.
+- **A counter marker's text is `N. ` — with the trailing space — right-aligned so the END of the advance lands on the edge.** Dropping the space moves every number four and a half pixels right at 16px. It is shaped through `ShapedText` like any other run, so the glyphs painted are the ones measured.
+- **`circle` must be STROKED, not filled as a ring of two contours.** Both give the same nominal shape, but the corpus reference is Chrome's PDF rasterised by PDFium, so constructing the shape the way Chrome does is what makes the pixels agree — an annulus left a visible thickness difference along the top and bottom arcs, and stroking removed it. This is the general lesson the corpus keeps teaching: matching the browser's construction beats matching its description.
+- **A uniform border must be one ring, not four mitred trapezia.** Two antialiased edges meeting on a mitre diagonal do not composite to full coverage, so every corner pixel comes out part transparent — about six pixels per corner, measured. Browsers have the same special case for the same reason. `PaintBorders` mitres only when the four edges do not share a colour, which is the only time the diagonal is visible anyway.
 
 ## Things that will surprise you
 

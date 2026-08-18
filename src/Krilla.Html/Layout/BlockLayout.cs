@@ -23,6 +23,7 @@ static class BlockLayout
     /// Lays out <paramref name="box"/> with its border box starting at
     /// (<paramref name="x"/>, <paramref name="y"/>), and returns the border box height.
     /// </summary>
+    /// <param name="box">The box to lay out.</param>
     /// <param name="x">Left edge of the containing block's content box.</param>
     /// <param name="y">Top edge of this box's border box. Margins are the caller's business.</param>
     /// <param name="containingWidth">The containing block's content width.</param>
@@ -96,6 +97,11 @@ static class BlockLayout
 
         box.BorderBox = new(borderBoxX, y, borderBoxWidth, borderBoxHeight);
         box.ContentBox = new(contentX, contentY, contentWidth, height);
+
+        // After the box's own geometry, and after its subtree's: a marker hangs off the item's
+        // border edge and sits on the item's FIRST LINE, and that line may be several blocks down
+        // and below a margin that collapsed through. Neither is known any earlier than here.
+        ListMarkers.Place(box, fonts);
 
         return borderBoxHeight;
     }

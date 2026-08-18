@@ -20,7 +20,7 @@ namespace Krilla.Html.Styling;
 /// </para>
 /// <para>
 /// The cascaded style also carries no inherited values, which suits: inheritance happens here
-/// against <paramref name="parent"/>, where the resolved parent value is already known.
+/// against the parent style, where the resolved parent value is already known.
 /// </para>
 /// <para>
 /// Resolution order matters: <c>font-size</c> is computed first because every <c>em</c> in the
@@ -82,6 +82,7 @@ static class StyleResolver
                 UserAgentStyles.IsItalic(element.LocalName) || parent.Italic),
             LineHeight = ParseLineHeight(declaration.GetPropertyValue("line-height"), fontSize, rootFontSize),
             Underline = ParseUnderline(declaration, parent.Underline),
+            ListStyle = ParseListStyle(declaration.GetPropertyValue("list-style-type"), parent.ListStyle),
             TextAlign = ParseTextAlign(declaration.GetPropertyValue("text-align"), parent.TextAlign),
             WhiteSpace = ParseWhiteSpace(declaration.GetPropertyValue("white-space"), parent.WhiteSpace)
         };
@@ -190,6 +191,7 @@ static class StyleResolver
             "none" => DisplayKind.None,
             "inline" => DisplayKind.Inline,
             "block" => DisplayKind.Block,
+            "list-item" => DisplayKind.ListItem,
             // Nothing in the cascade said, so the element's own default decides. AngleSharp.Css
             // has no display for the inline elements, and treating that silence as `block` puts
             // every <b> and <span> on a line of its own.
@@ -199,6 +201,35 @@ static class StyleResolver
             // the corpus comparison as a geometry difference rather than as silently missing
             // content that nothing measures.
             _ => DisplayKind.Block
+        };
+
+    /// <summary>
+    /// The marker a list item shows, inheriting when the cascade said nothing.
+    /// </summary>
+    /// <remarks>
+    /// Inherited explicitly, like every other inherited property here, because the cascaded style
+    /// carries no inherited values. It matters more than usual for this one: the nesting defaults
+    /// are declared on <c>ul</c> and <c>ol</c> rather than on <c>li</c>, so a marker that does not
+    /// inherit is a marker that never reaches the item drawing it.
+    /// </remarks>
+    static ListStyleKind ParseListStyle(string? value, ListStyleKind inherited) =>
+        value?.Trim().ToLowerInvariant() switch
+        {
+            null or "" => inherited,
+            "none" => ListStyleKind.None,
+            "disc" => ListStyleKind.Disc,
+            "circle" => ListStyleKind.Circle,
+            "square" => ListStyleKind.Square,
+            "decimal" => ListStyleKind.Decimal,
+            "decimal-leading-zero" => ListStyleKind.DecimalLeadingZero,
+            "lower-alpha" or "lower-latin" => ListStyleKind.LowerAlpha,
+            "upper-alpha" or "upper-latin" => ListStyleKind.UpperAlpha,
+            "lower-roman" => ListStyleKind.LowerRoman,
+            "upper-roman" => ListStyleKind.UpperRoman,
+            // An unimplemented counter style still marks its items rather than losing them, on the
+            // same reasoning as an unimplemented `display`: a wrong marker is visible and a missing
+            // one is not.
+            _ => ListStyleKind.Disc
         };
 
     static int ParseWeight(string? value, int inherited)

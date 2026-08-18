@@ -14,23 +14,27 @@ it, that is stated, because an unmeasured gap is the more dangerous kind.
 
 ## Where the corpus stands
 
-40 scenarios across 7 categories. **Box geometry matches Chrome exactly on every one** — zero
-positional and zero size difference — and 30 are pixel-identical as well.
+41 scenarios across 7 categories. **Box geometry matches Chrome exactly on every one** — zero
+positional and zero size difference — and 33 read SSIM 1.0000.
 
-The ten that are not, with the cause of each. None is a mystery, and none should be "fixed" by
+The eight that do not, with the cause of each. None is a mystery, and none should be "fixed" by
 regenerating a baseline:
 
 | Scenario | AE | SSIM | Cause |
 | --- | --- | --- | --- |
 | `text/kerning` | 0.0201 | 0.9945 | Sub-pixel glyph positioning, below |
 | `text/ligatures` | 0.0099 | 0.9982 | Same |
-| `ua/lists` | 0.0003 | 0.9984 | List markers not drawn |
-| `page/break_between_lines` | 0.0017 | 0.9996 | Sub-pixel glyph positioning |
-| `block/borders` | 0.0003 | 0.9997 | Corners not mitred |
+| `page/break_between_lines` | 0.0017 | 0.9996 | Same |
 | `image/inline_flow` | 0.0007 | 0.9998 | Image edge at a fractional x |
 | `page/multi_page_flow` | 0.0016 | 0.9998 | Sub-pixel glyph positioning |
 | `link/fragment`, `link/wrapped` | 0.0001 | 0.9999 | Same |
 | `ua/blockquote_pre` | 0.0005 | 0.9999 | Same |
+
+SSIM 1.0000 is not the same as pixel-identical, and six scenarios sit in the gap: `block/borders`,
+`ua/lists`, `ua/list_markers`, `inline/justify`, `link/external` and `ua/headings` each differ on a
+scattering of antialiased pixels. For the first three the cause is named — a circle reaching the PDF
+as four cubics is not bit-identical to the curve Chrome emits, and a mitre diagonal is not
+bit-identical either — and none exceeds 14 levels of grey out of 255.
 
 ## Unimplemented layout
 
@@ -81,15 +85,19 @@ way the corpus does not yet report, because no scenario covers them.
   `inline/line_height_normal`, 4 in `inline/nested_inline`, 1 to 2 across `link/`. Inline images
   already report geometry this way, so the mechanism exists. Doing it properly means an inline box
   can carry a background, border and padding, which none currently can.
-- **Borders do not mitre.** Each edge is a rectangle spanning the full border box, so adjacent
-  edges overlap at the corners rather than meeting on a diagonal. Invisible for a uniform border,
-  which is why the corpus scenario deliberately uses four different widths and colours.
-  `block/borders` measures it at about 250 pixels, matching the four corner triangles.
 - **`border-style` is solid or nothing.** Dashed, dotted, double, groove and the rest all paint
   solid.
-- **List markers are not drawn.** `list-style-type` is ignored entirely, so an ordered list loses
-  its numbers. `ua/lists` measures the gap; the geometry is unaffected because a marker sits
-  outside the principal box.
+- **`list-style-position: inside` renders as `outside`.** The marker is drawn in the margin instead
+  of in the text flow, because doing it properly means shortening the item's first line, which is a
+  change to inline layout rather than to painting. Nothing measures it. Drawing the marker at the
+  content edge without shortening the line would overlap the text, which is why it renders as
+  `outside` rather than approximately right.
+- **`list-style-image` and the `type` content attribute are ignored.** `<ol type="a">` numbers in
+  decimal, because HTML's presentational-hint mapping for it is not applied — the same gap
+  `<img width>` used to have, and fixable the same way.
+- **An empty `<li>` is zero high**, where a browser gives it a line box for its marker to sit on.
+  The marker is still drawn, at the baseline that line would have had, so it lands on top of
+  whatever follows. Nothing measures it.
 - **No `overflow` handling.** Content larger than a box with an explicit height paints outside it
   and is never clipped, because only the page box clips.
 - **No `box-sizing: border-box`.** Only the initial `content-box` is honoured, and border-box is
@@ -134,10 +142,11 @@ work rather than as tidying.
 
 ## Infrastructure
 
-- **The corpus references are generated on one platform.** The font pinning and Chromium flags
-  exist to make them reproducible, and the claim is untested: generating on a second machine and
-  diffing the PNGs would settle it. Until then a platform-specific difference would look like a
-  layout regression.
+- **The corpus references are generated on one platform.** Regenerating all 41 on the machine that
+  produced them is now known to be byte-identical, so the generator is at least deterministic — but
+  that is the lesser half. The claim that matters is still untested: generating on a second machine,
+  with a different Chromium build, and diffing the PNGs. Until then a platform-specific difference
+  would look like a layout regression.
 - **`cargo deny` and `cargo about` have not been run against the rustybuzz dependency locally.**
   Both should be no-ops — the lock diff adds no package — but only CI has confirmed it.
 - **`Krilla.Html` is not in the release pack job** and has no `IntegrationTests` coverage, so

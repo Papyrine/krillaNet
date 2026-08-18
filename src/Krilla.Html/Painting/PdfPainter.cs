@@ -19,7 +19,7 @@ static class PdfPainter
 {
     /// <summary>
     /// Paints the slice of <paramref name="root"/> between <paramref name="pageTop"/> and
-    /// <paramref name="pageTop"/> plus <paramref name="pageHeight"/>.
+    /// <paramref name="pageEnd"/>.
     /// </summary>
     /// <param name="surface">The page being drawn.</param>
     /// <param name="root">The laid-out tree.</param>
@@ -30,6 +30,7 @@ static class PdfPainter
     /// </param>
     /// <param name="content">The page's content box, in layout units.</param>
     /// <param name="scale">Points per layout unit.</param>
+    /// <param name="links">Where each fragment identifier resolves to, or null.</param>
     /// <remarks>
     /// <paramref name="pageEnd"/> is not the same as the bottom of the page box, and the
     /// difference is the whole reason it is a parameter. A line that straddles the page boundary
@@ -93,6 +94,7 @@ static class PdfPainter
 
         PaintBackground(surface, box);
         PaintBorders(surface, box);
+        PaintMarker(surface, box, top, pageEnd);
 
         // A block-level image paints into its content box, which replaced sizing already gave the
         // right aspect ratio — so no fitting is needed here.
@@ -145,13 +147,27 @@ static class PdfPainter
     }
 
     /// <summary>
-    /// Paints the four border edges.
+    /// Paints the four border edges, mitred at the corners.
     /// </summary>
     /// <remarks>
-    /// Each edge is a filled rectangle spanning the full border box on its axis, so adjacent edges
-    /// overlap at the corners. Real CSS mitres them diagonally, which is visible only where two
-    /// edges differ in colour or where a border is thick; for uniform borders the rendering is
-    /// identical and the mitre is not worth the geometry.
+    /// <para>
+    /// Each edge is a trapezium running from its two outer corners to its two inner ones, so
+    /// adjacent edges meet along the diagonal between the outer corner and the padding box's
+    /// corner rather than overlapping in a square. That diagonal is what CSS specifies and what a
+    /// browser draws.
+    /// </para>
+    /// <para>
+    /// The diagonal is invisible whenever the four edges share a colour, however their widths
+    /// differ, which is exactly why it is worth being deliberate about: a border of one colour
+    /// proves nothing about the corners. <c>block/borders</c> uses four different widths and four
+    /// different colours for that reason. A border that does share one colour goes through
+    /// <see cref="PaintUniformBorder"/> instead, and has to.
+    /// </para>
+    /// <para>
+    /// The degenerate cases fall out rather than needing to be handled. An edge whose neighbours
+    /// are zero wide has its inner corners directly below its outer ones, which is the rectangle
+    /// the un-mitred version drew.
+    /// </para>
     /// </remarks>
     static void PaintBorders(Surface surface, LayoutBox box)
     {
@@ -161,35 +177,253 @@ static class PdfPainter
             return;
         }
 
-        var rect = box.BorderBox;
+        var outer = box.BorderBox;
+
+        // The padding box, which is where all four mitres converge. Clamped so that a border
+        // thicker than the box it surrounds collapses to a degenerate inner rectangle rather than
+        // an inside-out one.
+        var innerLeft = Math.Min(outer.X + style.BorderLeft, outer.Right);
+        var innerRight = Math.Max(outer.Right - style.BorderRight, innerLeft);
+        var innerTop = Math.Min(outer.Y + style.BorderTop, outer.Bottom);
+        var innerBottom = Math.Max(outer.Bottom - style.BorderBottom, innerTop);
+
+        if (UniformColor(style) is {} uniform)
+        {
+            PaintUniformBorder(surface, uniform, outer, innerLeft, innerTop, innerRight, innerBottom);
+            return;
+        }
 
         if (style.BorderTop > 0 && style.BorderTopColor is {} topColor)
         {
-            surface.FillRectangle(
-                Rectangle.FromSize(rect.X, rect.Y, rect.Width, style.BorderTop),
-                topColor);
+            FillPolygon(
+                surface,
+                topColor,
+                new(outer.X, outer.Y),
+                new(outer.Right, outer.Y),
+                new(innerRight, innerTop),
+                new(innerLeft, innerTop));
         }
 
         if (style.BorderBottom > 0 && style.BorderBottomColor is {} bottomColor)
         {
-            surface.FillRectangle(
-                Rectangle.FromSize(rect.X, rect.Bottom - style.BorderBottom, rect.Width, style.BorderBottom),
-                bottomColor);
+            FillPolygon(
+                surface,
+                bottomColor,
+                new(outer.Right, outer.Bottom),
+                new(outer.X, outer.Bottom),
+                new(innerLeft, innerBottom),
+                new(innerRight, innerBottom));
         }
 
         if (style.BorderLeft > 0 && style.BorderLeftColor is {} leftColor)
         {
-            surface.FillRectangle(
-                Rectangle.FromSize(rect.X, rect.Y, style.BorderLeft, rect.Height),
-                leftColor);
+            FillPolygon(
+                surface,
+                leftColor,
+                new(outer.X, outer.Bottom),
+                new(outer.X, outer.Y),
+                new(innerLeft, innerTop),
+                new(innerLeft, innerBottom));
         }
 
         if (style.BorderRight > 0 && style.BorderRightColor is {} rightColor)
         {
-            surface.FillRectangle(
-                Rectangle.FromSize(rect.Right - style.BorderRight, rect.Y, style.BorderRight, rect.Height),
-                rightColor);
+            FillPolygon(
+                surface,
+                rightColor,
+                new(outer.Right, outer.Y),
+                new(outer.Right, outer.Bottom),
+                new(innerRight, innerBottom),
+                new(innerRight, innerTop));
         }
+    }
+
+    /// <summary>
+    /// The colour all four edges share, or null when they do not all paint in one colour.
+    /// </summary>
+    /// <remarks>
+    /// An edge that does not paint at all disqualifies the box, because the shortcut below draws a
+    /// closed ring and a missing edge is a gap in it.
+    /// </remarks>
+    static Color? UniformColor(ComputedStyle style)
+    {
+        if (style.BorderTop <= 0 || style.BorderRight <= 0 ||
+            style.BorderBottom <= 0 || style.BorderLeft <= 0)
+        {
+            return null;
+        }
+
+        return style.BorderTopColor is {} color &&
+               style.BorderRightColor == color &&
+               style.BorderBottomColor == color &&
+               style.BorderLeftColor == color
+            ? color
+            : null;
+    }
+
+    /// <summary>
+    /// Paints a border whose four edges share a colour, as one ring.
+    /// </summary>
+    /// <remarks>
+    /// Not an optimisation — a correctness fix, and the reason a browser has the same special
+    /// case. Four separate trapezia abut along the mitre diagonals, and two antialiased edges
+    /// meeting on a diagonal do not composite to full coverage: each corner pixel comes out part
+    /// transparent, leaving a visible nick in what should be a solid corner. Measured against
+    /// Chrome it was about six pixels per corner. Drawn as one ring there are no internal edges to
+    /// seam, which is why the corners come out exact.
+    /// </remarks>
+    static void PaintUniformBorder(
+        Surface surface,
+        Color color,
+        Rect outer,
+        float innerLeft,
+        float innerTop,
+        float innerRight,
+        float innerBottom)
+    {
+        using var builder = new PathBuilder();
+
+        AddRectangle(builder, outer.X, outer.Y, outer.Right, outer.Bottom, clockwise: true);
+
+        // Wound the other way, so the non-zero rule cuts it out. Skipped when the border has
+        // swallowed the box whole and there is nothing left to cut.
+        if (innerRight > innerLeft && innerBottom > innerTop)
+        {
+            AddRectangle(builder, innerLeft, innerTop, innerRight, innerBottom, clockwise: false);
+        }
+
+        using var path = builder.Build();
+        surface.SetFill(color).DrawPath(path);
+    }
+
+    /// <summary>Adds a rectangular contour wound in the given direction.</summary>
+    /// <remarks>
+    /// Built from segments rather than through <see cref="PathBuilder.AddRectangle"/> because the
+    /// winding is the whole point here, and a rectangle primitive does not let the caller choose
+    /// it.
+    /// </remarks>
+    static void AddRectangle(
+        PathBuilder builder,
+        float left,
+        float top,
+        float right,
+        float bottom,
+        bool clockwise)
+    {
+        builder.MoveTo(left, top);
+
+        if (clockwise)
+        {
+            builder.LineTo(right, top);
+            builder.LineTo(right, bottom);
+            builder.LineTo(left, bottom);
+        }
+        else
+        {
+            builder.LineTo(left, bottom);
+            builder.LineTo(right, bottom);
+            builder.LineTo(right, top);
+        }
+
+        builder.Close();
+    }
+
+    /// <summary>Fills a closed polygon with a solid colour.</summary>
+    static void FillPolygon(Surface surface, Color color, params ReadOnlySpan<Point> points)
+    {
+        using var path = PdfPath.Polygon(points);
+        surface.SetFill(color).DrawPath(path);
+    }
+
+    /// <summary>
+    /// Draws a list item's marker.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Culled against where the NEXT page starts rather than against the paper, on the same
+    /// reasoning as a line box: a marker belongs to the line it sits on, and drawing it on the
+    /// sheet that line was moved off leaves a bullet with nothing beside it.
+    /// </para>
+    /// <para>
+    /// A counter marker is a positioned run like any other text, so it goes through
+    /// <see cref="PaintRun"/> and is drawn with the very glyphs it was measured with.
+    /// </para>
+    /// </remarks>
+    static void PaintMarker(Surface surface, LayoutBox box, float top, float pageEnd)
+    {
+        if (box.Marker is not {} marker ||
+            marker.Bounds.Bottom < top ||
+            marker.Bounds.Y >= pageEnd)
+        {
+            return;
+        }
+
+        if (marker.Run is {} run)
+        {
+            PaintRun(surface, run);
+            return;
+        }
+
+        var bounds = marker.Bounds;
+        var color = box.Style.Color;
+
+        if (marker.Kind == ListStyleKind.Square)
+        {
+            surface.FillRectangle(
+                Rectangle.FromSize(bounds.X, bounds.Y, bounds.Width, bounds.Height),
+                color);
+            return;
+        }
+
+        var centreX = bounds.X + bounds.Width / 2;
+        var centreY = bounds.Y + bounds.Height / 2;
+
+        using var builder = new PathBuilder();
+        AddCircle(builder, centreX, centreY, bounds.Width / 2);
+        using var path = builder.Build();
+
+        if (marker.Kind == ListStyleKind.Disc)
+        {
+            surface.SetFill(color).DrawPath(path);
+            return;
+        }
+
+        // A hollow marker is the SAME circle, stroked one unit wide rather than filled — which is
+        // why its ink reaches half a unit further out on every side than a disc of the same
+        // nominal size. Stroking rather than filling a ring of two contours is not a stylistic
+        // choice: it is what the browser puts in its PDF, and both sides of the corpus comparison
+        // are rasterised by PDFium, so constructing the shape the same way is what makes the
+        // pixels come out the same.
+        //
+        // The fill is cleared first because a path is drawn with whatever fill and stroke are
+        // active, and the stroke afterwards so nothing later on the page is outlined.
+        surface
+            .SetFill(null)
+            .SetStroke(color)
+            .DrawPath(path)
+            .SetStroke(null);
+    }
+
+    /// <summary>
+    /// Adds a circular contour, as the four cubics every renderer approximates a circle with.
+    /// </summary>
+    /// <remarks>
+    /// The control points sit <c>kappa</c> of the radius beyond each quadrant end, the constant
+    /// that makes a cubic hug a quarter circle to within about one part in ten thousand — far
+    /// below a pixel at any size a marker is drawn at.
+    /// </remarks>
+    static void AddCircle(PathBuilder builder, float x, float y, float radius)
+    {
+        const float kappa = 0.5522847498307936f;
+
+        var pull = radius * kappa;
+
+        builder.MoveTo(x + radius, y);
+        builder.CubicTo(x + radius, y + pull, x + pull, y + radius, x, y + radius);
+        builder.CubicTo(x - pull, y + radius, x - radius, y + pull, x - radius, y);
+        builder.CubicTo(x - radius, y - pull, x - pull, y - radius, x, y - radius);
+        builder.CubicTo(x + pull, y - radius, x + radius, y - pull, x + radius, y);
+        builder.Close();
     }
 
     /// <summary>

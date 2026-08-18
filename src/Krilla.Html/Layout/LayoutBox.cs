@@ -80,6 +80,16 @@ sealed class LayoutBox
     /// </remarks>
     public ImageData? Image { get; init; }
 
+    /// <summary>
+    /// The marker this box shows, when it is a list item.
+    /// </summary>
+    /// <remarks>
+    /// Carried on the item rather than modelled as a child box: a marker is placed outside the
+    /// principal box, so it neither takes part in layout nor has a counterpart in the browser
+    /// geometry the corpus compares against.
+    /// </remarks>
+    public ListMarker? Marker { get; init; }
+
     /// <summary>Child boxes, in document order.</summary>
     public List<LayoutBox> Children { get; } = [];
 
@@ -126,6 +136,8 @@ sealed class LayoutBox
     {
         BorderBox = BorderBox.Offset(dx, dy);
         ContentBox = ContentBox.Offset(dx, dy);
+
+        Marker?.Translate(dx, dy);
 
         foreach (var line in Lines)
         {

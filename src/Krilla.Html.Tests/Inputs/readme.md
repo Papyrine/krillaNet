@@ -29,9 +29,12 @@ toolchain. Zero means the box tree agrees with Chrome exactly.
 
 **Pixels** are AbsoluteError and SSIM against the printed reference.
 
-Both currently sit at zero across the corpus: every scenario matches Chrome's geometry exactly, and
-24 of 25 are pixel-identical. The exception is `block/borders` at SSIM 0.9997, whose residual is the
-four un-mitred corners that scenario exists to expose.
+Boxes currently sit at zero across the whole corpus: all 41 scenarios match Chrome's geometry
+exactly. Pixels are close behind — 33 read SSIM 1.0000, and the eight that do not are dominated by
+sub-pixel glyph positioning, which `text/kerning` exists to measure. SSIM 1.0000 is not quite the
+same as pixel-identical: a handful of scenarios reading 1.0000 still differ on a scattering of
+antialiased pixels, which is what the `AE` column is there to show. Each scenario's `notes.md` names
+its own residual.
 
 The pixels reach *exactly* identical because the reference is printed rather than screenshotted, so
 both sides are rasterised by PDFium. A screenshot would put Skia on one side and PDFium on the

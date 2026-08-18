@@ -40,9 +40,14 @@ static class BoxBuilder
         var blocks = new List<LayoutBox>();
         var inlines = new List<InlineItem>();
 
+        // One counter per element, whether or not it turns out to hold list items. It is the only
+        // thing that knows how many items have been generated so far, which is what makes a
+        // `display: none` item skip a number rather than consume one.
+        var numbering = ListNumbering.For(element);
+
         foreach (var node in element.ChildNodes)
         {
-            Collect(node, style, context, blocks, inlines, link);
+            Collect(node, style, context, blocks, inlines, link, numbering);
         }
 
         // A block container is either all-block or all-inline. When both turned up, the runs
@@ -196,7 +201,8 @@ static class BoxBuilder
         DocumentContext context,
         List<LayoutBox> blocks,
         List<InlineItem> inlines,
-        string? link)
+        string? link,
+        ListNumbering numbering)
     {
         if (node is IText text)
         {
@@ -254,7 +260,7 @@ static class BoxBuilder
 
             foreach (var child in element.ChildNodes)
             {
-                Collect(child, style, context, blocks, inlines, link);
+                Collect(child, style, context, blocks, inlines, link, numbering);
             }
 
             // Only the runs this recursion added, and only those no nested inline has already
@@ -274,11 +280,41 @@ static class BoxBuilder
         {
             Style = style,
             Element = element,
-            Selector = SelectorPath.For(element)
+            Selector = SelectorPath.For(element),
+            Marker = Marker(element, style, numbering)
         };
 
         AddChildren(box, element, style, context, link);
         blocks.Add(box);
+    }
+
+    /// <summary>
+    /// The marker a box shows, and null when it is not a list item or shows none.
+    /// </summary>
+    /// <remarks>
+    /// The counter advances even for an item whose <c>list-style-type</c> is <c>none</c>, which is
+    /// what CSS requires and what keeps a deliberately unmarked item from renumbering the ones
+    /// after it.
+    /// </remarks>
+    static ListMarker? Marker(IElement element, ComputedStyle style, ListNumbering numbering)
+    {
+        if (style.Display != DisplayKind.ListItem)
+        {
+            return null;
+        }
+
+        var ordinal = numbering.Take(element);
+
+        if (style.ListStyle == ListStyleKind.None)
+        {
+            return null;
+        }
+
+        return new()
+        {
+            Kind = style.ListStyle,
+            Ordinal = ordinal
+        };
     }
 
     /// <summary>
@@ -299,6 +335,7 @@ static class BoxBuilder
             FontWeight = parent.FontWeight,
             Italic = parent.Italic,
             LineHeight = parent.LineHeight,
+            ListStyle = parent.ListStyle,
             TextAlign = parent.TextAlign,
             WhiteSpace = parent.WhiteSpace
         };
