@@ -1,4 +1,4 @@
-# All scenarios (41)
+# All scenarios (46)
 
 The browser reference (left) beside the page Krilla.Html produced (right). `AE` is the fraction of pixels that differ and `SSIM` is structural similarity; neither is asserted. The worst offset is the largest positional disagreement in CSS pixels between the rendered element geometry and the browser's, and is the number to watch — it reaches zero exactly when the layout is right.
 
@@ -39,6 +39,11 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [page/break_between_lines](#page-break_between_lines)
 - [page/multi_page_flow](#page-multi_page_flow)
 - [page/page_size](#page-page_size)
+- [table/auto_widths](#table-auto_widths)
+- [table/fixed_layout](#table-fixed_layout)
+- [table/sections](#table-sections)
+- [table/spacing_borders](#table-spacing_borders)
+- [table/spans](#table-spans)
 - [text/kerning](#text-kerning)
 - [text/ligatures](#text-ligatures)
 - [ua/blockquote_pre](#ua-blockquote_pre)
@@ -550,6 +555,152 @@ step somewhere, and every multi-page scenario will be wrong in the same way.
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
 | <img src="page/page_size/reference_0001.png" width="480"> | <img src="page/page_size/result%23page_0001.verified.png" width="480"> |
+
+
+## table/auto_widths
+
+The automatic column algorithm, which is where a table's layout is decided and where the CSS
+specification stops being useful — 17.5.2 describes it as a sketch and leaves the distribution to
+the user agent. Every number here was measured out of Chrome.
+
+The four tables are the four regimes, and they are not variations on one rule:
+
+- `#content` has no declared width, so it shrinks to fit and each column takes its max-content
+  width.
+- `#wide` is wider than its content wants, and the surplus goes to each column in proportion to its
+  max-content width. Handing each column its maximum and giving the remainder to the last would
+  also fill the row, and looks nothing like a browser.
+- `#narrow` sits between the two intrinsic widths, and the rule changes: each column takes its
+  min-content width plus a share of the slack proportional to how much it could grow. Applying the
+  `#wide` rule here is visibly wrong.
+- `#floor` declares a width narrower than the content can be broken to. The declaration loses — a
+  table never renders narrower than the sum of its columns' min-content widths.
+
+`#narrow` also measures the min-content computation itself, since the column widths depend on which
+word in each cell is the longest.
+
+**Boxes**: 25 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| <img src="table/auto_widths/reference_0001.png" width="480"> | <img src="table/auto_widths/result%23page_0001.verified.png" width="480"> |
+
+
+## table/fixed_layout
+
+`table-layout: fixed` beside the automatic algorithm on the same markup, which is the only way to
+see that it is a different algorithm rather than a tuning of one.
+
+`#fixed` and `#auto` differ by one declaration and by nothing else. Fixed layout reads the first row
+and stops: the pinned column takes its declared width and the two automatic columns split what is
+left equally, whatever the second row contains. The automatic table reads every cell, so its second
+row — the long one — decides the first column's width and the three columns come out unequal.
+
+`#percent` measures a percentage column, which is where the two algorithms genuinely disagree about
+what a percentage means. Under the automatic algorithm the percentage is the whole column, border
+and padding included, because it has to compete with content widths that are measured that way.
+Under fixed layout there is no content to compete with, so it is the cell's `width` under ordinary
+content-box sizing and the padding is added on top. The difference is exactly the cell's padding,
+which is small enough to look like a rounding error and is not one.
+
+**Boxes**: 27 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| <img src="table/fixed_layout/reference_0001.png" width="480"> | <img src="table/fixed_layout/result%23page_0001.verified.png" width="480"> |
+
+
+## table/sections
+
+Row groups, captions and vertical alignment.
+
+- `#ordered` writes its sections in the order tfoot, thead, tbody and expects them rendered as
+  thead, tbody, tfoot. That reordering is the whole point of the elements — it lets a long table's
+  markup put the footer next to the data it summarises — and a table that renders sections in
+  source order looks right until a document uses `tfoot` early.
+- `#captioned` measures the caption's own box, which spans the table and sits above the grid with a
+  border-spacing gap below it.
+- `#captionwide` measures the rule that a table is never narrower than its caption's longest word.
+  A caption of one long word with a single narrow cell is the case where the caption alone decides
+  the table's width. It is the caption's MIN-content width that applies, not its maximum: a long
+  caption wraps rather than stretching the table out.
+- `#aligned` measures `vertical-align` in a row taller than three of its cells. The default is
+  `middle` rather than the `baseline` the property's initial value suggests, because the user-agent
+  stylesheet sets it on the table and the cells inherit — so a converter that honours only the
+  initial value puts every short cell's text at the top of its row.
+
+The render is not quite pixel-identical. Two words differ on a glyph each, which is the sub-pixel
+glyph positioning difference the todo records as the engine's largest residual. A table shows it
+more readily than most layouts because column widths are fractional by nature, so almost no cell
+starts on a whole pixel.
+
+**Boxes**: 33 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0002 · SSIM 1.0000** |
+| <img src="table/sections/reference_0001.png" width="480"> | <img src="table/sections/result%23page_0001.verified.png" width="480"> |
+
+
+## table/spacing_borders
+
+The separated border model: what `border-spacing` separates, and what a border and a background
+land on once it has.
+
+- `#spaced` sets both axes independently. The gap goes outside the first and last column as well as
+  between them, which is what makes a table with spacing wider than the sum of its columns.
+- `#framed` puts a border on the table and on two diagonally opposite cells, so the cell borders are
+  measured against the table's own rather than confused with it. The cell borders are inside the
+  spacing, not shared with a neighbour — that is what separated means.
+- `#painted` fills a row in one table and a cell in another. A row's box spans the whole grid rather
+  than only the cells in it, so a row background reaches across the spacing while a cell background
+  stops at the cell.
+- `#padded` gives one cell asymmetric padding, which has to widen its column and raise its row
+  without disturbing the other cells.
+
+`border-collapse: collapse` is not implemented and no scenario here asks for it. It is a different
+model rather than a variation on this one — collapsed borders are shared between neighbours, and
+half of each sits outside the cell it was declared on.
+
+The render is not quite pixel-identical, and the cause is worth naming because it is not a layout
+difference: the box geometry is exact. A column width is fractional, so a cell's border lands on a
+fractional pixel, and the two engines resolve that differently — Chrome snaps a box decoration to
+whole device pixels before painting it, while this draws the edge where the geometry puts it and
+lets it antialias. The difference is a fraction of one pixel along each border edge, never more
+than 40 levels of grey out of 255. It is the same effect `image/inline_flow` records for an image
+edge.
+
+**Boxes**: 31 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0003 · SSIM 0.9999** |
+| <img src="table/spacing_borders/reference_0001.png" width="480"> | <img src="table/spacing_borders/result%23page_0001.verified.png" width="480"> |
+
+
+## table/spans
+
+Cells covering more than one slot, which is what makes a table a grid rather than rows of boxes.
+
+- `#cols` has a spanning cell wider than the columns beneath it. The shortfall is shared in
+  proportion to what those columns already wanted, so the wide cell does not put its extra width
+  into a column with almost nothing in it. Sharing equally is the obvious alternative and is wrong.
+- `#rows` covers two rows with one cell, which is the case that breaks naive column assignment: the
+  second row's first cell belongs in the SECOND column, because the first is already taken. Getting
+  that wrong shears every row below a span sideways, and it would still look plausible.
+- `#stretch` forces the spanning cell taller than its rows need, and the extra is shared equally
+  between them — the opposite of how a column shortfall is shared, and measured rather than assumed.
+- `#mixed` combines both in one grid, so a row is entered with some columns already occupied and
+  some cells spanning onward from it.
+
+**Boxes**: 35 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| <img src="table/spans/reference_0001.png" width="480"> | <img src="table/spans/result%23page_0001.verified.png" width="480"> |
 
 
 ## text/kerning

@@ -83,8 +83,17 @@ static class UserAgentStyles
         a[href] { text-decoration: underline; }
 
         code, kbd, samp { font-family: monospace; }
-        th { font-weight: bold; text-align: center; }
         center { text-align: center; }
+
+        /*
+          The table defaults. AngleSharp already supplies the display roles and the 2px
+          border-spacing; what it omits is the one-pixel cell padding, without which every cell is
+          two pixels narrower and two shorter than a browser draws it — small enough to look like
+          rounding and large enough to move every column.
+        */
+        td, th { padding: 1px; }
+        th { font-weight: bold; text-align: center; }
+        caption { text-align: center; }
         """;
     /// <summary>
     /// Elements that are inline-level unless a stylesheet says otherwise.
@@ -133,6 +142,20 @@ static class UserAgentStyles
     /// <summary>Whether <paramref name="localName"/> forces a line break.</summary>
     public static bool IsLineBreak(string localName) =>
         localName.Equals("br", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
+    /// The <c>vertical-align</c> a table element starts from, or null to inherit.
+    /// </summary>
+    /// <remarks>
+    /// The user-agent sheet puts <c>middle</c> on the table and <c>inherit</c> on everything under
+    /// it, so a cell ends up middle-aligned unless a row or the table says otherwise. Supplied here
+    /// rather than as CSS because <c>inherit</c> as a declared keyword is not implemented, and
+    /// seeding the root of the table has the same effect for the one property that needs it.
+    /// </remarks>
+    public static VerticalAlignKind? DefaultVerticalAlign(string localName) =>
+        localName.Equals("table", StringComparison.OrdinalIgnoreCase)
+            ? VerticalAlignKind.Middle
+            : null;
 
     /// <summary>Whether <paramref name="localName"/> is bold by default.</summary>
     public static bool IsBold(string localName) =>

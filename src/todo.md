@@ -14,27 +14,28 @@ it, that is stated, because an unmeasured gap is the more dangerous kind.
 
 ## Where the corpus stands
 
-41 scenarios across 7 categories. **Box geometry matches Chrome exactly on every one** — zero
-positional and zero size difference — and 33 read SSIM 1.0000.
+46 scenarios across 8 categories. **Box geometry matches Chrome exactly on every one** — zero
+positional and zero size difference, and nothing unmatched — and 37 read SSIM 1.0000, of which 30
+are pixel-identical outright.
 
-The eight that do not, with the cause of each. None is a mystery, and none should be "fixed" by
-regenerating a baseline:
+The nine that read below 1.0000, with the cause of each. None is a mystery, and none should be
+"fixed" by regenerating a baseline:
 
 | Scenario | AE | SSIM | Cause |
 | --- | --- | --- | --- |
 | `text/kerning` | 0.0201 | 0.9945 | Sub-pixel glyph positioning, below |
 | `text/ligatures` | 0.0099 | 0.9982 | Same |
 | `page/break_between_lines` | 0.0017 | 0.9996 | Same |
-| `image/inline_flow` | 0.0007 | 0.9998 | Image edge at a fractional x |
+| `image/inline_flow` | 0.0007 | 0.9998 | Box edge at a fractional position, below |
 | `page/multi_page_flow` | 0.0016 | 0.9998 | Sub-pixel glyph positioning |
 | `link/fragment`, `link/wrapped` | 0.0001 | 0.9999 | Same |
 | `ua/blockquote_pre` | 0.0005 | 0.9999 | Same |
+| `table/spacing_borders` | 0.0003 | 0.9999 | Box edge at a fractional position |
 
-SSIM 1.0000 is not the same as pixel-identical, and six scenarios sit in the gap: `block/borders`,
-`ua/lists`, `ua/list_markers`, `inline/justify`, `link/external` and `ua/headings` each differ on a
-scattering of antialiased pixels. For the first three the cause is named — a circle reaching the PDF
-as four cubics is not bit-identical to the curve Chrome emits, and a mitre diagonal is not
-bit-identical either — and none exceeds 14 levels of grey out of 255.
+Seven more read SSIM 1.0000 while still differing on a scattering of antialiased pixels:
+`block/borders`, `ua/lists`, `ua/list_markers`, `table/sections`, `inline/justify`, `link/external`
+and `ua/headings`. Each is one of the two causes above, and none exceeds 40 levels of grey out of
+255.
 
 ## Unimplemented layout
 
@@ -43,10 +44,7 @@ content on the page and shows up as a geometry difference, where dropping the el
 nothing for the corpus to measure — but it means a real document using any of them is wrong in a
 way the corpus does not yet report, because no scenario covers them.
 
-- **Tables.** Probably the most valuable next piece: invoices, statements and reports are the
-  obvious use for HTML to PDF, and every one of them is a table. Needs the fixed and automatic
-  table layout algorithms, row and column spanning, and border collapsing. Large.
-- **Floats and `clear`.** Substantially harder than it looks, because a float shortens the line
+- **Floats and `clear`.** Probably the most valuable next piece now that tables are in. Substantially harder than it looks, because a float shortens the line
   boxes beside it, so float placement and line layout stop being separable.
 - **`position: relative` / `absolute` / `fixed`.** Absolute positioning needs a containing-block
   chain that tracks the nearest positioned ancestor; `fixed` in paged media needs a decision about
@@ -56,6 +54,12 @@ way the corpus does not yet report, because no scenario covers them.
 
 ## Text
 
+- **Box edges at fractional positions are not snapped.** A border or background edge that lands on
+  a fractional pixel is painted antialiased, where Chrome snaps a box decoration to whole device
+  pixels first. Measured by `table/spacing_borders` and `image/inline_flow`, and it shows up in
+  tables more than anywhere else because column widths are fractional by nature. Fixing it means
+  snapping at paint time, which touches every background and border in the corpus — worth doing
+  deliberately rather than alongside something else.
 - **Sub-pixel glyph positioning.** The largest residual left: `text/kerning` differs on 1.6% of
   pixels, and no whole-pixel shift improves it, so it is not an offset. The suspicion is
   accumulated float error against Chrome's `LayoutUnit`, which is a fixed-point 1/64px. Worth
@@ -105,6 +109,31 @@ way the corpus does not yet report, because no scenario covers them.
 - **Percentage heights resolve as `auto`.** Correct whenever the containing height is indefinite,
   which it usually is in paged media, but wrong for a box inside one with a definite height.
 - **No background images or gradients**, no `opacity`, no `transform`, no `border-radius`.
+
+## Tables
+
+Implemented: the automatic and fixed column algorithms, row and column spanning, row groups in
+render order, captions, the separated border model with `border-spacing`, and vertical alignment.
+Box geometry matches Chrome exactly across the five `table/` scenarios. What is missing:
+
+- **`border-collapse: collapse` lays out as separated.** A different model rather than a variation
+  on this one: collapsed borders are shared between neighbours, half of each sits outside the cell,
+  and conflicts between a cell's border and its table's resolve by a precedence rule. It is what
+  most real stylesheets set, so this is the largest remaining table gap. Nothing measures it.
+- **`<col>` and `<colgroup>` are ignored.** They generate no box and their `width` does not reach
+  column sizing, so a document that sizes its columns that way gets automatic widths instead. They
+  are also boxes the browser reports and this does not, so a scenario using them would show
+  unmatched boxes rather than a geometry difference.
+- **`vertical-align: baseline` on a cell renders as `top`.** Aligning a row's cells against each
+  other's first baselines needs a pass that does not exist. It is not the default — the user-agent
+  stylesheet makes cells `middle` — so this is only reachable by asking for it.
+- **A table is paginated like any other box.** A table taller than the page breaks between lines
+  wherever the scan lands, so a row can be cut in half and a `thead` does not repeat on the second
+  page. Repeating headers is the feature people expect from HTML-to-PDF conversion of a long table,
+  and it needs pagination to know what a table is.
+- **The `type` attribute on `<ol>`, and the `width`, `align` and `bgcolor` presentational
+  attributes on table elements, are not applied.** The same gap `<img width>` used to have, and
+  fixable the same way.
 
 ## Pagination
 

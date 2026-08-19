@@ -109,6 +109,82 @@ static class InlineLayout
     }
 
     /// <summary>
+    /// The min-content and max-content widths of <paramref name="items"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Measured from the same tokens line breaking uses, which is the point of putting it here
+    /// rather than in <see cref="IntrinsicWidths"/>: a column sized from one set of measurements
+    /// and filled by another would disagree with itself, and the disagreement would show as text
+    /// overflowing a column that was supposedly wide enough.
+    /// </para>
+    /// <para>
+    /// The maximum is the widest run between forced breaks. The minimum is the widest run between
+    /// break OPPORTUNITIES, which is not the same as the widest word: under a non-wrapping
+    /// white-space value a space is not an opportunity, so the whole run is unbreakable and the
+    /// two measurements converge.
+    /// </para>
+    /// </remarks>
+    public static (float Min, float Max) Intrinsic(List<InlineItem> items, FontSet fonts)
+    {
+        var min = 0f;
+        var max = 0f;
+        var segment = 0f;
+        var unbreakable = 0f;
+        var pendingSpace = 0f;
+        var started = false;
+
+        foreach (var token in Tokenize(items, fonts, 0))
+        {
+            if (token.Kind == TokenKind.Break)
+            {
+                max = Math.Max(max, segment);
+                min = Math.Max(min, unbreakable);
+                segment = 0;
+                unbreakable = 0;
+                pendingSpace = 0;
+                started = false;
+                continue;
+            }
+
+            if (token.Kind == TokenKind.Space)
+            {
+                // Leading white space collapses away and occupies nothing, exactly as it does when
+                // a line is flushed — unless it is preserved, where it is content.
+                if (!started && !token.Style.PreservesSpaces)
+                {
+                    continue;
+                }
+
+                if (token.Style.Wraps)
+                {
+                    // A break opportunity: it ends the current unbreakable run, and the space
+                    // itself only counts toward the maximum if a word follows it.
+                    min = Math.Max(min, unbreakable);
+                    unbreakable = 0;
+                    pendingSpace += token.Width;
+                }
+                else
+                {
+                    segment += token.Width;
+                    unbreakable += token.Width;
+                }
+
+                started = true;
+                continue;
+            }
+
+            segment += pendingSpace + token.Width;
+            unbreakable += token.Width;
+            pendingSpace = 0;
+            started = true;
+            min = Math.Max(min, unbreakable);
+        }
+
+        return (min, Math.Max(max, segment));
+    }
+
+    /// <summary>
     /// Turns the block's inline items into breakable tokens, measuring each.
     /// </summary>
     static List<Token> Tokenize(List<InlineItem> items, FontSet fonts, float contentWidth)

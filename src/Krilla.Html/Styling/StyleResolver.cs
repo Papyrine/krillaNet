@@ -83,6 +83,16 @@ static class StyleResolver
             LineHeight = ParseLineHeight(declaration.GetPropertyValue("line-height"), fontSize, rootFontSize),
             Underline = ParseUnderline(declaration, parent.Underline),
             ListStyle = ParseListStyle(declaration.GetPropertyValue("list-style-type"), parent.ListStyle),
+            BorderSpacingX = Spacing(declaration, "border-spacing", fontSize, rootFontSize, first: true)
+                             ?? parent.BorderSpacingX,
+            BorderSpacingY = Spacing(declaration, "border-spacing", fontSize, rootFontSize, first: false)
+                             ?? parent.BorderSpacingY,
+            TableLayout = declaration.GetPropertyValue("table-layout")?.Trim().ToLowerInvariant() == "fixed"
+                ? TableLayoutKind.Fixed
+                : TableLayoutKind.Auto,
+            VerticalAlign = ParseVerticalAlign(
+                declaration.GetPropertyValue("vertical-align"),
+                UserAgentStyles.DefaultVerticalAlign(element.LocalName) ?? parent.VerticalAlign),
             TextAlign = ParseTextAlign(declaration.GetPropertyValue("text-align"), parent.TextAlign),
             WhiteSpace = ParseWhiteSpace(declaration.GetPropertyValue("white-space"), parent.WhiteSpace)
         };
@@ -192,6 +202,14 @@ static class StyleResolver
             "inline" => DisplayKind.Inline,
             "block" => DisplayKind.Block,
             "list-item" => DisplayKind.ListItem,
+            "table" or "inline-table" => DisplayKind.Table,
+            "table-caption" => DisplayKind.TableCaption,
+            "table-header-group" => DisplayKind.TableHeaderGroup,
+            "table-row-group" => DisplayKind.TableRowGroup,
+            "table-footer-group" => DisplayKind.TableFooterGroup,
+            "table-row" => DisplayKind.TableRow,
+            "table-cell" => DisplayKind.TableCell,
+            "table-column" or "table-column-group" => DisplayKind.TableColumn,
             // Nothing in the cascade said, so the element's own default decides. AngleSharp.Css
             // has no display for the inline elements, and treating that silence as `block` puts
             // every <b> and <span> on a line of its own.
@@ -230,6 +248,59 @@ static class StyleResolver
             // same reasoning as an unimplemented `display`: a wrong marker is visible and a missing
             // one is not.
             _ => ListStyleKind.Disc
+        };
+
+    /// <summary>
+    /// One axis of <c>border-spacing</c>, which is one or two lengths.
+    /// </summary>
+    /// <remarks>
+    /// Null rather than zero when the property is absent, so the caller can tell "not declared"
+    /// from "declared as zero" and inherit only in the first case. A single length applies to both
+    /// axes, which is why the second falls back to the first rather than to zero.
+    /// </remarks>
+    static float? Spacing(
+        ICssStyleDeclaration declaration,
+        string property,
+        float fontSize,
+        float rootFontSize,
+        bool first)
+    {
+        var value = declaration.GetPropertyValue(property);
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        var parts = value.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        if (parts.Length == 0)
+        {
+            return null;
+        }
+
+        var part = first || parts.Length < 2 ? parts[0] : parts[1];
+        return CssValues.ParseLength(part, fontSize, rootFontSize, CssLength.Zero).Resolve(0);
+    }
+
+    /// <summary>
+    /// How a cell's content sits in a taller row.
+    /// </summary>
+    /// <remarks>
+    /// Treated as inherited, which <c>vertical-align</c> is not. The reason is the user-agent
+    /// stylesheet: it gives cells <c>vertical-align: inherit</c> so that a value set on a
+    /// <c>tr</c> or on the table reaches them, and inheriting here is what reproduces that without
+    /// implementing <c>inherit</c> as a general keyword. It is only ever read on a cell, so the
+    /// difference does not reach anything else.
+    /// </remarks>
+    static VerticalAlignKind ParseVerticalAlign(string? value, VerticalAlignKind inherited) =>
+        value?.Trim().ToLowerInvariant() switch
+        {
+            null or "" or "inherit" => inherited,
+            "top" => VerticalAlignKind.Top,
+            "middle" => VerticalAlignKind.Middle,
+            "bottom" => VerticalAlignKind.Bottom,
+            // The inline-level values — sub, super, text-top and the lengths — are not implemented,
+            // and land on the initial value rather than on something arbitrary.
+            _ => VerticalAlignKind.Baseline
         };
 
     static int ParseWeight(string? value, int inherited)

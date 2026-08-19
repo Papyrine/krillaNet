@@ -58,7 +58,7 @@ static class BoxBuilder
             return;
         }
 
-        box.Children.AddRange(blocks);
+        box.Children.AddRange(TableFixup(blocks, style));
 
         // Inline content that is nothing but collapsible white space generates no box at all.
         // Without this rule the newline between two block elements — which is to say, the
@@ -222,7 +222,9 @@ static class BoxBuilder
 
         var style = StyleResolver.Resolve(element, parentStyle, context);
 
-        if (style.Display == DisplayKind.None)
+        // A <col> or <colgroup> describes columns rather than generating one. Laying its (empty)
+        // content out as a block would put a stray box in the middle of the table.
+        if (style.Display is DisplayKind.None or DisplayKind.TableColumn)
         {
             return;
         }
@@ -289,6 +291,96 @@ static class BoxBuilder
     }
 
     /// <summary>
+    /// Wraps children a table or row cannot hold in the anonymous boxes CSS requires.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Unreachable from HTML, and reachable from CSS. The HTML parser guarantees a table's children
+    /// are sections and rows and that a row's children are cells — it moves anything else out of
+    /// the table entirely. But <c>display: table</c> in a stylesheet can put arbitrary blocks
+    /// inside one, and a table lays out its children by role rather than in order, so a child with
+    /// no role would simply never be positioned or painted.
+    /// </para>
+    /// <para>
+    /// Silently losing content is the one outcome worth going out of the way to avoid, which is why
+    /// this exists despite nothing in the corpus reaching it. The wrapper's geometry is not measured
+    /// against a browser and may not match one; the content being on the page at all is the point.
+    /// </para>
+    /// </remarks>
+    static List<LayoutBox> TableFixup(List<LayoutBox> blocks, ComputedStyle parent)
+    {
+        var wrapper = parent.Display switch
+        {
+            DisplayKind.Table => DisplayKind.TableRow,
+            DisplayKind.TableHeaderGroup or DisplayKind.TableRowGroup or DisplayKind.TableFooterGroup =>
+                DisplayKind.TableRow,
+            DisplayKind.TableRow => DisplayKind.TableCell,
+            _ => DisplayKind.None
+        };
+
+        if (wrapper == DisplayKind.None || blocks.All(_ => Belongs(_.Style.Display, parent.Display)))
+        {
+            return blocks;
+        }
+
+        var result = new List<LayoutBox>();
+        var stray = new List<LayoutBox>();
+
+        foreach (var child in blocks)
+        {
+            if (Belongs(child.Style.Display, parent.Display))
+            {
+                Flush();
+                result.Add(child);
+                continue;
+            }
+
+            stray.Add(child);
+        }
+
+        Flush();
+        return result;
+
+        void Flush()
+        {
+            if (stray.Count == 0)
+            {
+                return;
+            }
+
+            // A table needs two levels of wrapper — a row holding a cell — where a row needs only
+            // the cell.
+            var inner = new LayoutBox {Style = Anonymous(parent) with {Display = DisplayKind.TableCell}};
+            inner.Children.AddRange(stray);
+
+            if (wrapper == DisplayKind.TableCell)
+            {
+                result.Add(inner);
+            }
+            else
+            {
+                var row = new LayoutBox {Style = Anonymous(parent) with {Display = DisplayKind.TableRow}};
+                row.Children.Add(inner);
+                result.Add(row);
+            }
+
+            stray.Clear();
+        }
+    }
+
+    /// <summary>Whether a child's display is one its parent's table role can hold.</summary>
+    static bool Belongs(DisplayKind child, DisplayKind parent) =>
+        parent switch
+        {
+            DisplayKind.Table => child is DisplayKind.TableCaption or DisplayKind.TableHeaderGroup or
+                DisplayKind.TableRowGroup or DisplayKind.TableFooterGroup or DisplayKind.TableRow,
+            DisplayKind.TableHeaderGroup or DisplayKind.TableRowGroup or DisplayKind.TableFooterGroup =>
+                child == DisplayKind.TableRow,
+            DisplayKind.TableRow => child == DisplayKind.TableCell,
+            _ => true
+        };
+
+    /// <summary>
     /// The marker a box shows, and null when it is not a list item or shows none.
     /// </summary>
     /// <remarks>
@@ -336,6 +428,9 @@ static class BoxBuilder
             Italic = parent.Italic,
             LineHeight = parent.LineHeight,
             ListStyle = parent.ListStyle,
+            BorderSpacingX = parent.BorderSpacingX,
+            BorderSpacingY = parent.BorderSpacingY,
+            VerticalAlign = parent.VerticalAlign,
             TextAlign = parent.TextAlign,
             WhiteSpace = parent.WhiteSpace
         };

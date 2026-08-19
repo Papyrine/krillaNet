@@ -20,7 +20,73 @@ enum DisplayKind
     /// outside the principal box, so it neither affects the geometry of anything nor appears in
     /// the browser's <c>getBoundingClientRect()</c> for the element.
     /// </remarks>
-    ListItem
+    ListItem,
+
+    /// <summary>
+    /// A table wrapper, which lays out its descendants itself rather than as blocks.
+    /// </summary>
+    /// <remarks>
+    /// The one display value that changes how DESCENDANTS are laid out rather than only the box
+    /// carrying it. Everything from here down to <see cref="TableCell"/> is positioned by
+    /// <see cref="TableLayout"/> as one unit, because a column's width is a property of the whole
+    /// table and no single cell can know it.
+    /// </remarks>
+    Table,
+
+    /// <summary>A table's caption, laid out above the grid.</summary>
+    TableCaption,
+
+    /// <summary>A <c>thead</c>: rows that come first however the source ordered them.</summary>
+    TableHeaderGroup,
+
+    /// <summary>A <c>tbody</c>.</summary>
+    TableRowGroup,
+
+    /// <summary>A <c>tfoot</c>: rows that come last however the source ordered them.</summary>
+    TableFooterGroup,
+
+    /// <summary>A row of cells.</summary>
+    TableRow,
+
+    /// <summary>A cell, which is a block container sized by its column and row.</summary>
+    TableCell,
+
+    /// <summary>
+    /// A <c>col</c> or <c>colgroup</c>. Generates no box and contributes no content.
+    /// </summary>
+    /// <remarks>
+    /// Present so the box builder can drop them deliberately rather than laying their (empty)
+    /// content out as blocks. Their <c>width</c> contribution to column sizing is not read yet.
+    /// </remarks>
+    TableColumn
+}
+
+/// <summary>How a table's column widths are decided.</summary>
+enum TableLayoutKind
+{
+    /// <summary>From the content: columns size to what the cells contain.</summary>
+    Auto,
+
+    /// <summary>
+    /// From the first row and the specified widths alone, ignoring content.
+    /// </summary>
+    Fixed,
+}
+
+/// <summary>How a cell's content sits within a row taller than it.</summary>
+enum VerticalAlignKind
+{
+    /// <summary>Against the baseline of the row's first line.</summary>
+    Baseline,
+
+    /// <summary>Against the top of the row.</summary>
+    Top,
+
+    /// <summary>Centred in the row.</summary>
+    Middle,
+
+    /// <summary>Against the bottom of the row.</summary>
+    Bottom
 }
 
 /// <summary>How lines are aligned within their containing block.</summary>
@@ -228,6 +294,22 @@ sealed record ComputedStyle
     /// <summary>What marker a list item shows.</summary>
     public ListStyleKind ListStyle { get; init; } = ListStyleKind.Disc;
 
+    /// <summary>Horizontal gap between cells, in CSS pixels.</summary>
+    /// <remarks>
+    /// Inherited, which is not a quirk: <c>border-spacing</c> is set on the table and read by the
+    /// layout of its cells, so the value has to travel down the tree to reach where it is used.
+    /// </remarks>
+    public float BorderSpacingX { get; init; }
+
+    /// <summary>Vertical gap between rows, in CSS pixels.</summary>
+    public float BorderSpacingY { get; init; }
+
+    /// <summary>How this table's column widths are decided.</summary>
+    public TableLayoutKind TableLayout { get; init; } = TableLayoutKind.Auto;
+
+    /// <summary>How a cell's content sits within a taller row.</summary>
+    public VerticalAlignKind VerticalAlign { get; init; } = VerticalAlignKind.Baseline;
+
     /// <summary>How lines are aligned.</summary>
     public TextAlignKind TextAlign { get; init; } = TextAlignKind.Left;
 
@@ -246,6 +328,17 @@ sealed record ComputedStyle
         (BorderRight > 0 && BorderRightColor is not null) ||
         (BorderBottom > 0 && BorderBottomColor is not null) ||
         (BorderLeft > 0 && BorderLeftColor is not null);
+
+    /// <summary>Whether this box is laid out by the table algorithm rather than as a block.</summary>
+    public bool IsTablePart =>
+        Display is DisplayKind.Table or DisplayKind.TableCaption or DisplayKind.TableHeaderGroup or
+            DisplayKind.TableRowGroup or DisplayKind.TableFooterGroup or DisplayKind.TableRow or
+            DisplayKind.TableCell;
+
+    /// <summary>Whether this box holds rows rather than content.</summary>
+    public bool IsRowGroup =>
+        Display is DisplayKind.TableHeaderGroup or DisplayKind.TableRowGroup or
+            DisplayKind.TableFooterGroup;
 
     /// <summary>Whether this marker is a shape rather than a counter.</summary>
     public bool HasSymbolMarker =>

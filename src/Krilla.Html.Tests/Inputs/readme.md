@@ -29,11 +29,12 @@ toolchain. Zero means the box tree agrees with Chrome exactly.
 
 **Pixels** are AbsoluteError and SSIM against the printed reference.
 
-Boxes currently sit at zero across the whole corpus: all 41 scenarios match Chrome's geometry
-exactly. Pixels are close behind — 33 read SSIM 1.0000, and the eight that do not are dominated by
-sub-pixel glyph positioning, which `text/kerning` exists to measure. SSIM 1.0000 is not quite the
-same as pixel-identical: a handful of scenarios reading 1.0000 still differ on a scattering of
-antialiased pixels, which is what the `AE` column is there to show. Each scenario's `notes.md` names
+Boxes currently sit at zero across the whole corpus: all 46 scenarios match Chrome's geometry
+exactly, with nothing unmatched. Pixels are close behind — 37 read SSIM 1.0000 and 30 are identical
+outright. The nine below 1.0000 come down to two named causes: sub-pixel glyph positioning, which
+`text/kerning` exists to measure, and box edges landing on fractional pixels, which
+`table/spacing_borders` and `image/inline_flow` measure. SSIM 1.0000 is not quite the same as
+pixel-identical, which is what the `AE` column is there to show. Each scenario's `notes.md` names
 its own residual.
 
 The pixels reach *exactly* identical because the reference is printed rather than screenshotted, so

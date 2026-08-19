@@ -1,0 +1,12 @@
+/* Unconstrained: the table shrinks to its content and each column takes its max-content width. */
+#content { }
+
+/* Wider than the content wants: the surplus is shared in proportion to max-content. */
+#wide { width: 600px; }
+
+/* Between min-content and max-content: each column gets its minimum plus a share of the slack,
+   in proportion to how much it could grow. A different distribution from the case above. */
+#narrow { width: 150px; }
+
+/* Narrower than the content can survive: the declared width loses and the table overflows. */
+#floor { width: 10px; }

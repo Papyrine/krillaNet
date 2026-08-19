@@ -28,9 +28,27 @@ static class BlockLayout
     /// <param name="y">Top edge of this box's border box. Margins are the caller's business.</param>
     /// <param name="containingWidth">The containing block's content width.</param>
     /// <param name="fonts">The faces available for measuring text.</param>
-    public static float Layout(LayoutBox box, float x, float y, float containingWidth, FontSet fonts)
+    /// <param name="assignedWidth">
+    /// A width to use instead of resolving one, for a box whose width its container decided. Only
+    /// a table cell has one: its column settled the width before the cell was reached, and
+    /// resolving it here from <c>width: auto</c> would fill the table instead.
+    /// </param>
+    public static float Layout(
+        LayoutBox box,
+        float x,
+        float y,
+        float containingWidth,
+        FontSet fonts,
+        float? assignedWidth = null)
     {
         var style = box.Style;
+
+        // A table sizes its columns before it can size anything in them, so it takes over from
+        // here rather than being a block with unusual children.
+        if (style.Display == DisplayKind.Table)
+        {
+            return TableLayout.Layout(box, x, y, containingWidth, fonts);
+        }
 
         var paddingLeft = style.PaddingLeft.Resolve(containingWidth);
         var paddingRight = style.PaddingRight.Resolve(containingWidth);
@@ -53,9 +71,12 @@ static class BlockLayout
             replacedHeight = size.Height;
         }
 
-        var (marginLeft, contentWidth) = replacedWidth is {} fixedWidth
-            ? (ResolveReplacedMargin(style, containingWidth, surround, fixedWidth), fixedWidth)
-            : ResolveHorizontal(style, containingWidth, surround);
+        var (marginLeft, contentWidth) = (assignedWidth, replacedWidth) switch
+        {
+            ({} given, _) => (0f, Math.Max(0, given - surround)),
+            (_, {} fixedWidth) => (ResolveReplacedMargin(style, containingWidth, surround, fixedWidth), fixedWidth),
+            _ => ResolveHorizontal(style, containingWidth, surround)
+        };
 
         var borderBoxWidth = contentWidth + paddingLeft + paddingRight + style.BorderWidthX;
         var borderBoxX = x + marginLeft;
@@ -311,6 +332,7 @@ static class BlockLayout
     /// </remarks>
     static bool IsTopOpen(LayoutBox box, float containingWidth) =>
         !box.IsRoot &&
+        box.Style.Display != DisplayKind.Table &&
         box.Style.BorderTop == 0 &&
         box.Style.PaddingTop.Resolve(containingWidth) == 0;
 
@@ -323,6 +345,7 @@ static class BlockLayout
     /// </remarks>
     static bool IsBottomOpen(LayoutBox box, float containingWidth) =>
         !box.IsRoot &&
+        box.Style.Display != DisplayKind.Table &&
         box.Style.BorderBottom == 0 &&
         box.Style.PaddingBottom.Resolve(containingWidth) == 0 &&
         box.Style.Height.Kind != LengthKind.Absolute;
@@ -340,6 +363,7 @@ static class BlockLayout
     /// </remarks>
     static bool IsSelfCollapsing(LayoutBox box, float containingWidth) =>
         box.Image is null &&
+        box.Style.Display != DisplayKind.Table &&
         box.Style.BorderWidthY == 0 &&
         box.Style.PaddingTop.Resolve(containingWidth) == 0 &&
         box.Style.PaddingBottom.Resolve(containingWidth) == 0 &&
