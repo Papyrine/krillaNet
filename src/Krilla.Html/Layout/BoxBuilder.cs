@@ -105,8 +105,19 @@ static class BoxBuilder
         string? link)
     {
         var source = element.GetAttribute("src");
-        if (string.IsNullOrWhiteSpace(source) || context.Images.Resolve(source) is not {} image)
+
+        if (string.IsNullOrWhiteSpace(source))
         {
+            Diagnostic.Image(context.OnDiagnostic, element.LocalName, source, "has no source to resolve");
+            return;
+        }
+
+        if (context.Images.Resolve(source, out var reason) is not {} image)
+        {
+            // Worth reporting even though a browser with a broken src also draws nothing: here the
+            // cause is as likely to be policy or the resolver as a genuinely missing file, and
+            // those are indistinguishable from the output.
+            Diagnostic.Image(context.OnDiagnostic, element.LocalName, source, reason);
             return;
         }
 
@@ -226,7 +237,25 @@ static class BoxBuilder
         // content out as a block would put a stray box in the middle of the table.
         if (style.Display is DisplayKind.None or DisplayKind.TableColumn)
         {
+            // `display: none` stays silent: a browser draws nothing for it either, so nothing was
+            // lost. A column box is a loss — its width never reaches column sizing, so a table
+            // sized through <col> gets automatic widths instead.
+            if (style.Display == DisplayKind.TableColumn)
+            {
+                Diagnostic.Element(
+                    context.OnDiagnostic,
+                    element.LocalName,
+                    "generates no box, and its width does not reach column sizing");
+            }
+
             return;
+        }
+
+        // After the display check, so an element a browser draws nothing for either reports
+        // nothing: `display: none` is not a loss.
+        if (context.Reports)
+        {
+            UnsupportedAttributes.Report(element, context.OnDiagnostic);
         }
 
         // An anchor sets the link for its whole subtree. Nested anchors are invalid HTML and

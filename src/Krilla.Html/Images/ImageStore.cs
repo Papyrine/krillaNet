@@ -20,16 +20,36 @@ sealed class ImageStore :
 {
     readonly Dictionary<string, ImageData?> cache = new(StringComparer.Ordinal);
     readonly Func<string, byte[]?> resolver;
+    readonly ImagePolicy local;
+    readonly ImagePolicy web;
 
-    public ImageStore(Func<string, byte[]?> resolver) =>
+    public ImageStore(Func<string, byte[]?> resolver, ImagePolicy local, ImagePolicy web)
+    {
         this.resolver = resolver;
+        this.local = local;
+        this.web = web;
+    }
 
     /// <summary>
-    /// The image for <paramref name="source"/>, or null when it cannot be resolved or is not a
-    /// format krilla can decode.
+    /// The image for <paramref name="source"/>, or null when policy refuses it, it cannot be
+    /// resolved, or it is not a format krilla can decode.
     /// </summary>
-    public ImageData? Resolve(string source)
+    /// <param name="source">The <c>src</c> as written.</param>
+    /// <param name="reason">
+    /// Why nothing came back, when nothing did. The three causes are indistinguishable from the
+    /// output — each leaves the same gap on the page — so the caller reporting the gap needs to be
+    /// told which it was.
+    /// </param>
+    public ImageData? Resolve(string source, out string reason)
     {
+        reason = "did not resolve to an image, so no box was generated";
+
+        if (!Allowed(source))
+        {
+            reason = "was refused by the image policy, so no box was generated";
+            return null;
+        }
+
         if (cache.TryGetValue(source, out var cached))
         {
             return cached;
@@ -84,6 +104,31 @@ sealed class ImageStore :
             var path = ResolvePath(source, baseUrl);
             return path is not null && File.Exists(path) ? File.ReadAllBytes(path) : null;
         };
+
+    /// <summary>
+    /// Whether policy permits <paramref name="source"/> to be loaded at all.
+    /// </summary>
+    /// <remarks>
+    /// A <c>data:</c> URI is ungated: its bytes are already in the document, so loading one
+    /// reaches nothing the conversion did not already have. Everything else is either a web source
+    /// or a local one, and there is no third case — a relative <c>src</c> resolves against
+    /// <see cref="HtmlOptions.BaseUrl"/> to a file, so it is local.
+    /// </remarks>
+    bool Allowed(string source)
+    {
+        if (source.StartsWith("data:", StringComparison.OrdinalIgnoreCase))
+        {
+            return true;
+        }
+
+        var policy =
+            source.StartsWith("http://", StringComparison.OrdinalIgnoreCase) ||
+            source.StartsWith("https://", StringComparison.OrdinalIgnoreCase)
+                ? web
+                : local;
+
+        return policy.IsAllowed(source);
+    }
 
     /// <summary>
     /// Decodes a <c>data:</c> URI, which is the only source that carries its own bytes.

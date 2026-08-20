@@ -1,0 +1,32 @@
+﻿[
+  {
+    "Element": "div",
+    "Name": "break-before",
+    "Value": "page",
+    "Reason": "pages break between lines"
+  },
+  {
+    "Element": "div",
+    "Name": "page-break-after",
+    "Value": "always",
+    "Reason": "pages break between lines"
+  },
+  {
+    "Element": "div",
+    "Name": "break-inside",
+    "Value": "avoid",
+    "Reason": "pages break between lines"
+  },
+  {
+    "Element": "p",
+    "Name": "orphans",
+    "Value": "3",
+    "Reason": "pages break between lines"
+  },
+  {
+    "Element": "p",
+    "Name": "widows",
+    "Value": "3",
+    "Reason": "pages break between lines"
+  }
+]

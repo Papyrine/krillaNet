@@ -35,13 +35,39 @@ Krilla has no font database, so the fonts a document may use are supplied by the
 discovered from the host. That is what makes output reproducible across machines.
 
 Implemented: block and inline layout, the box model, collapsing margins, line breaking, text
-alignment, pagination, images, and links — `<a href>` becomes a real PDF link annotation, and a
-`#fragment` becomes an internal jump to wherever that element paginated to. Floats, positioned boxes, flexbox, grid and tables lay out as
-plain blocks.
+alignment, pagination, tables, images, and links — `<a href>` becomes a real PDF link annotation,
+and a `#fragment` becomes an internal jump to wherever that element paginated to. Floats,
+positioned boxes, flexbox and grid lay out as plain blocks.
 
 Images resolve from `data:` URIs and from files relative to `BaseUrl`. Nothing is fetched over the
 network by default — converting an untrusted document would otherwise issue requests to whatever
-hosts it names. Set `HtmlOptions.ImageResolver` to take that decision explicitly.
+hosts it names. Set `HtmlOptions.ImageResolver` to take that decision explicitly, and the two
+policies to bound what any resolver may load:
+
+```cs
+options.LocalImages = ImagePolicy.SafeDirectories(assetDirectory);
+options.WebImages = ImagePolicy.SafeDomains("cdn.example.com");
+```
+
+Both are checked before the resolver runs, so a refused source is never requested. A `data:` URI
+is never gated, since its bytes are already in the document.
+
+Because the engine implements a subset of CSS and lays the rest out as a plain block, a document
+using an unimplemented construct comes out wrong with nothing to say so. `OnDiagnostic` turns that
+into a report:
+
+```cs
+options.OnDiagnostic = diagnostic => Console.WriteLine(diagnostic);
+
+// <div> display: flex — laid out as a block
+// <table> border-collapse: collapse — laid out with the separated border model
+// <td> bgcolor: silver — not applied, because presentational attributes are not mapped onto the cascade
+// <img> src: logo.png — did not resolve to an image, so no box was generated
+```
+
+Unrecognised CSS is deliberately not reported. Listing every `cursor` and `content` an ordinary
+stylesheet carries would bury the signal, and would cost the invariant that makes the sink worth
+subscribing to: a conversion that reports nothing laid out every construct the way a browser would.
 
 Two limits worth knowing before reaching for it:
 

@@ -1,0 +1,50 @@
+﻿[
+  {
+    "Element": "div",
+    "Name": "border-style",
+    "Value": "dashed",
+    "Reason": "painted solid"
+  },
+  {
+    "Element": "div",
+    "Name": "border-top-left-radius",
+    "Value": "4px",
+    "Reason": "painted square"
+  },
+  {
+    "Element": "div",
+    "Name": "opacity",
+    "Value": "0.5",
+    "Reason": "painted opaque"
+  },
+  {
+    "Element": "div",
+    "Name": "text-decoration-line",
+    "Value": "line-through",
+    "Reason": "not painted"
+  },
+  {
+    "Element": "div",
+    "Name": "text-decoration-line",
+    "Value": "overline",
+    "Reason": "not painted"
+  },
+  {
+    "Element": "div",
+    "Name": "text-transform",
+    "Value": "uppercase",
+    "Reason": "the text is drawn as written"
+  },
+  {
+    "Element": "div",
+    "Name": "visibility",
+    "Value": "hidden",
+    "Reason": "painted anyway"
+  },
+  {
+    "Element": "div",
+    "Name": "background-image",
+    "Value": "linear-gradient(rgba(255, 0, 0, 1), rgba(0, 0, 255, 1))",
+    "Reason": "not painted"
+  }
+]

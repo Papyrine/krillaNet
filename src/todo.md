@@ -41,8 +41,14 @@ and `ua/headings`. Each is one of the two causes above, and none exceeds 40 leve
 
 Each of these currently lays out as a plain block. That is deliberate — a wrong box keeps the
 content on the page and shows up as a geometry difference, where dropping the element would leave
-nothing for the corpus to measure — but it means a real document using any of them is wrong in a
-way the corpus does not yet report, because no scenario covers them.
+nothing for the corpus to measure — but no scenario covers them, so the corpus still does not
+measure how wrong.
+
+They are no longer silent, which is the part that changed: every item below reports through
+`HtmlOptions.OnDiagnostic`, so a document using one says so at conversion time rather than only
+looking wrong afterwards. A report is not a substitute for a scenario — it says the construct was
+not rendered properly, not by how much — but it does mean the dangerous case, an unmeasured gap
+nothing announces, no longer applies to anything in this section.
 
 - **Floats and `clear`.** Probably the most valuable next piece now that tables are in. Substantially harder than it looks, because a float shortens the line
   boxes beside it, so float placement and line layout stop being separable.
@@ -76,9 +82,13 @@ way the corpus does not yet report, because no scenario covers them.
   and shaping each piece separately.
 - **`text-decoration`** covers underline only. Overline and line-through are parsed as "not
   underline" and drawn as nothing.
-- **`small` and `big`** are not honoured: the `smaller`/`larger` keywords fall through to the
-  inherited size. The HTML default stylesheet uses them, so `<small>` currently renders at full
-  size.
+- **Every `font-size` keyword falls through to the inherited size.** `medium`, `large`, `smaller`
+  and the rest are not lengths AngleSharp resolves, so none arrives as one. `<small>` and `<big>`
+  are unaffected — the cascade turns the default stylesheet's sizes for those into real lengths
+  before layout sees them — so this is only reachable by writing a keyword directly, which is
+  ordinary enough CSS to be worth closing. Reported through `OnDiagnostic`. Fixing it means the
+  CSS absolute-size table, measured against Chrome rather than assumed, plus a ratio for
+  `smaller`/`larger`.
 - **`ex` and `ch` units are approximated** at half an em. Exact values need the face's x-height
   and the advance of `0`, which means threading a face into length resolution.
 
@@ -93,12 +103,12 @@ way the corpus does not yet report, because no scenario covers them.
   solid.
 - **`list-style-position: inside` renders as `outside`.** The marker is drawn in the margin instead
   of in the text flow, because doing it properly means shortening the item's first line, which is a
-  change to inline layout rather than to painting. Nothing measures it. Drawing the marker at the
-  content edge without shortening the line would overlap the text, which is why it renders as
-  `outside` rather than approximately right.
+  change to inline layout rather than to painting. No scenario measures it, though it does report
+  through `OnDiagnostic`. Drawing the marker at the content edge without shortening the line would
+  overlap the text, which is why it renders as `outside` rather than approximately right.
 - **`list-style-image` and the `type` content attribute are ignored.** `<ol type="a">` numbers in
   decimal, because HTML's presentational-hint mapping for it is not applied — the same gap
-  `<img width>` used to have, and fixable the same way.
+  `<img width>` used to have, and fixable the same way. Both report through `OnDiagnostic`.
 - **An empty `<li>` is zero high**, where a browser gives it a line box for its marker to sit on.
   The marker is still drawn, at the baseline that line would have had, so it lands on top of
   whatever follows. Nothing measures it.
@@ -119,11 +129,12 @@ Box geometry matches Chrome exactly across the five `table/` scenarios. What is 
 - **`border-collapse: collapse` lays out as separated.** A different model rather than a variation
   on this one: collapsed borders are shared between neighbours, half of each sits outside the cell,
   and conflicts between a cell's border and its table's resolve by a precedence rule. It is what
-  most real stylesheets set, so this is the largest remaining table gap. Nothing measures it.
+  most real stylesheets set, so this is the largest remaining table gap. No scenario measures it,
+  though it does report through `OnDiagnostic`.
 - **`<col>` and `<colgroup>` are ignored.** They generate no box and their `width` does not reach
   column sizing, so a document that sizes its columns that way gets automatic widths instead. They
   are also boxes the browser reports and this does not, so a scenario using them would show
-  unmatched boxes rather than a geometry difference.
+  unmatched boxes rather than a geometry difference. Reported through `OnDiagnostic`.
 - **`vertical-align: baseline` on a cell renders as `top`.** Aligning a row's cells against each
   other's first baselines needs a pass that does not exist. It is not the default — the user-agent
   stylesheet makes cells `middle` — so this is only reachable by asking for it.
@@ -131,9 +142,12 @@ Box geometry matches Chrome exactly across the five `table/` scenarios. What is 
   wherever the scan lands, so a row can be cut in half and a `thead` does not repeat on the second
   page. Repeating headers is the feature people expect from HTML-to-PDF conversion of a long table,
   and it needs pagination to know what a table is.
-- **The `type` attribute on `<ol>`, and the `width`, `align` and `bgcolor` presentational
-  attributes on table elements, are not applied.** The same gap `<img width>` used to have, and
-  fixable the same way.
+- **Presentational attributes are not applied.** `<table width>`, `<td bgcolor>`, `<tr height>`,
+  `<p align>`, `<font color>` and `<ol type>` all reach the cascade as nothing, because AngleSharp
+  performs none of HTML's presentational-hint mapping. The same gap `<img width>` used to have, and
+  fixable the same way — `BoxBuilder.WithAttributeSize` is the shape of the fix. `UnsupportedAttributes`
+  holds the list, so every one of them reports through `OnDiagnostic` until then. Worth closing
+  rather than dismissing as legacy markup: reporting tools and mail merges emit exactly this.
 
 ## Pagination
 
@@ -153,6 +167,30 @@ Box geometry matches Chrome exactly across the five `table/` scenarios. What is 
   with no alt text, but an image that has alt text should carry it into the tag tree.
 - **No document outline** from headings, though `SetOutline` exists and a heading tree maps onto it
   directly.
+
+## Diagnostics
+
+`HtmlOptions.OnDiagnostic` reports constructs the engine recognised and did not render the way a
+browser would, and the invariant it carries is that a conversion reporting nothing rendered
+everything correctly. That invariant is only as good as the table behind it, so what the table does
+NOT cover belongs here:
+
+- **Nothing below the declaration level reports.** Missing UAX #14 line breaking, bidirectional
+  resolution and font fallback are properties of the text, not of a declaration anyone wrote, so no
+  amount of scanning the cascade finds them. A document in Arabic converts silently and wrongly.
+  The same is true of the `ex` and `ch` approximation and of sub-pixel glyph positioning.
+- **Structural gaps do not report.** An inline element generating no box, an empty `<li>` being
+  zero high, a table paginating between lines rather than between rows, `@page` being ignored
+  outright: each is a shape the engine does not produce rather than a value it declined to honour,
+  and there is no site in the cascade scan to hang them on.
+- **A percentage height resolving as `auto`** is correct whenever the containing height is
+  indefinite and wrong otherwise, and which of those applies is a layout result rather than a
+  declaration. Reporting it from `StyleResolver` would fire on documents that are perfectly correct,
+  which is the one thing the table must not do.
+- **Origin is not testable.** `ComputeCascadedStyle` does not say whether a declaration came from
+  the document or from the default stylesheet, so a UA rule the author never wrote can only be kept
+  quiet by naming the element. `hr` is the single case that needs it today; a second one would be a
+  reason to look for a real fix rather than to add another exemption.
 
 ## Known limitations that are workarounds, not bugs
 

@@ -14,11 +14,16 @@ sealed class DocumentContext :
 {
     readonly IStyleCollection styles;
 
-    DocumentContext(IStyleCollection styles, float rootFontSize, ImageStore images)
+    DocumentContext(
+        IStyleCollection styles,
+        float rootFontSize,
+        ImageStore images,
+        Action<HtmlDiagnostic>? onDiagnostic)
     {
         this.styles = styles;
         RootFontSize = rootFontSize;
         Images = images;
+        OnDiagnostic = onDiagnostic;
     }
 
     /// <summary>The root element's font size in CSS pixels.</summary>
@@ -26,6 +31,19 @@ sealed class DocumentContext :
 
     /// <summary>Images resolved from <c>src</c> attributes, deduplicated across the document.</summary>
     public ImageStore Images { get; }
+
+    /// <summary>Where unrendered constructs are reported, or null when nobody subscribed.</summary>
+    public Action<HtmlDiagnostic>? OnDiagnostic { get; }
+
+    /// <summary>
+    /// Whether anything is listening, so the work of finding what to report is worth doing.
+    /// </summary>
+    /// <remarks>
+    /// Checked before the scan rather than inside it. <see cref="UnsupportedCss"/> costs a cascade
+    /// lookup per property per element, which a caller who is not subscribed should not pay for.
+    /// </remarks>
+    [MemberNotNullWhen(true, nameof(OnDiagnostic))]
+    public bool Reports => OnDiagnostic is not null;
 
     /// <summary>
     /// Builds a context for <paramref name="document"/>.
@@ -50,9 +68,15 @@ sealed class DocumentContext :
                      throw new InvalidOperationException("The document has no view to resolve styles against.");
 
         var images = new ImageStore(
-            options.ImageResolver ?? ImageStore.DefaultResolver(options.BaseUrl));
+            options.ImageResolver ?? ImageStore.DefaultResolver(options.BaseUrl),
+            options.LocalImages,
+            options.WebImages);
 
-        return new(window.GetStyleCollection(device), options.RootFontSize, images);
+        return new(
+            window.GetStyleCollection(device),
+            options.RootFontSize,
+            images,
+            options.OnDiagnostic);
     }
 
     /// <summary>

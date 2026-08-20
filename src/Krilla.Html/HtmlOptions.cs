@@ -65,6 +65,36 @@ public sealed class HtmlOptions
     public Func<string, byte[]?>? ImageResolver { get; set; }
 
     /// <summary>
+    /// Which local files images may be loaded from. Defaults to allowing any.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Narrow it with <see cref="ImagePolicy.SafeDirectories"/> when converting a document that is
+    /// not trusted. Every <c>src</c> in such a document is a path chosen by whoever wrote it, and
+    /// the bytes it names end up inside a PDF that is usually then sent somewhere — so an
+    /// unrestricted conversion is a way to read a file off the converting machine and have it
+    /// delivered.
+    /// </para>
+    /// <para>
+    /// The default is permissive because refusing by default would break the ordinary case of
+    /// converting a document alongside its own images. The narrowing is one call.
+    /// </para>
+    /// </remarks>
+    public ImagePolicy LocalImages { get; set; } = ImagePolicy.AllowAll();
+
+    /// <summary>
+    /// Which web hosts images may be loaded from, for a resolver that fetches. Defaults to
+    /// allowing any.
+    /// </summary>
+    /// <remarks>
+    /// The default resolver never fetches, so this constrains nothing until
+    /// <see cref="ImageResolver"/> is set to one that does — at which point
+    /// <see cref="ImagePolicy.SafeDomains"/> is the allow-list that keeps a document from naming
+    /// hosts of its own choosing.
+    /// </remarks>
+    public ImagePolicy WebImages { get; set; } = ImagePolicy.AllowAll();
+
+    /// <summary>
     /// The root font size in CSS pixels, which <c>rem</c> resolves against and which an element
     /// without a <c>font-size</c> inherits. Browsers default to 16.
     /// </summary>
@@ -72,6 +102,32 @@ public sealed class HtmlOptions
 
     /// <summary>Metadata written into the PDF.</summary>
     public DocumentMetadata? Metadata { get; set; }
+
+    /// <summary>
+    /// Optional sink for constructs the converter recognised and did not render the way a browser
+    /// would — a declaration it laid out as something else, an attribute it could not apply, an
+    /// element it generates no box for, an image that resolved to nothing. Called as each happens,
+    /// on the converting thread.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The engine implements a subset of CSS and lays out the rest as a plain block. That keeps
+    /// content on the page, which beats dropping it, but it means a document using an
+    /// unimplemented construct comes out wrong with nothing to say so. Subscribing turns those
+    /// into reports, so a conversion can be checked rather than eyeballed.
+    /// </para>
+    /// <para>
+    /// The invariant worth having: a conversion that reports nothing laid out every construct in
+    /// the document the way a browser would. Unrecognised CSS is deliberately NOT reported —
+    /// listing every <c>cursor</c> and <c>content</c> an ordinary stylesheet carries would bury
+    /// the signal and cost that invariant its meaning.
+    /// </para>
+    /// <para>
+    /// Default is null, under which nothing is reported and the scan that finds these is skipped
+    /// entirely rather than running and discarding its results.
+    /// </para>
+    /// </remarks>
+    public Action<HtmlDiagnostic>? OnDiagnostic { get; set; }
 
     /// <summary>US Letter, 8.5 x 11 inches.</summary>
     public static HtmlOptions Letter => new();

@@ -47,7 +47,7 @@ static class StyleResolver
             families = [.. parent.FontFamilies];
         }
 
-        return new()
+        var style = new ComputedStyle
         {
             Display = ParseDisplay(declaration.GetPropertyValue("display"), element.LocalName),
             MarginTop = Length(declaration, "margin-top", fontSize, rootFontSize),
@@ -96,6 +96,15 @@ static class StyleResolver
             TextAlign = ParseTextAlign(declaration.GetPropertyValue("text-align"), parent.TextAlign),
             WhiteSpace = ParseWhiteSpace(declaration.GetPropertyValue("white-space"), parent.WhiteSpace)
         };
+
+        // After the style, not before: the scan reports against what the element resolved to, and
+        // a table cell has to be recognised as one before its vertical-align can be judged.
+        if (context.Reports)
+        {
+            UnsupportedCss.Report(element, declaration, style, context.OnDiagnostic);
+        }
+
+        return style;
     }
 
     /// <summary>
@@ -119,7 +128,13 @@ static class StyleResolver
 
         // A relative font-size resolves against the PARENT's size, unlike every other em in the
         // same declaration, which resolves against the size being computed here.
-        var length = CssValues.ParseLength(value, parent.FontSize, rootFontSize, CssLength.Zero);
+        //
+        // The fallback is None rather than Zero so that the `_` branch below can catch an
+        // unparseable value. Zero is an ABSOLUTE length, so it took the first branch instead and
+        // returned a font size of 0 — which is not a smaller size, it is an invisible one. Every
+        // keyword lands here (`medium`, `large`, `smaller`, `inherit`: none is a length AngleSharp
+        // resolves), so `font-size: large` deleted the text of the element it was written on.
+        var length = CssValues.ParseLength(value, parent.FontSize, rootFontSize, CssLength.None);
         return length.Kind switch
         {
             LengthKind.Absolute => length.Value,
