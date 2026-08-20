@@ -8,19 +8,10 @@
     <PackageVersion Include="AngleSharp.Css" Version="1.0.1" />
     <PackageVersion Include="MarkdownSnippets.MsBuild" Version="28.4.2" />
     <PackageVersion Include="Microsoft.NET.Test.Sdk" Version="18.9.0" />
-    <!--
-      Playwright drives the reference renders in Krilla.Html.RefGen only. It is deliberately
-      absent from Krilla.Html.Tests: references are generated out of band and committed, so a
-      normal test run never needs a browser.
-    -->
     <PackageVersion Include="Microsoft.Playwright" Version="1.62.0" />
     <PackageVersion Include="Microsoft.Sbom.Targets" Version="4.1.5" />
-    <!--
-      Referenced directly rather than through Verify.PDFium: the corpus comparison needs explicit
-      control of DPI and the anti-aliasing flags, which only the RenderOptions overload exposes.
-    -->
     <PackageVersion Include="Morph.PDFium" Version="1.3.0" />
-    <PackageVersion Include="ProjectDefaults" Version="1.0.179" />
+    <PackageVersion Include="ProjectDefaults" Version="1.0.180" />
     <PackageVersion Include="TUnit" Version="1.65.38" />
     <PackageVersion Include="Verify" Version="31.28.0" />
     <PackageVersion Include="Verify.TUnit" Version="31.28.0" />
