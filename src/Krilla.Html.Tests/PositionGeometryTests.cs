@@ -118,7 +118,7 @@ public class PositionGeometryTests
         }
 
         builder.AppendLine($"FAILURES {failures}");
-        await Verify(builder.ToString());
+        await Verify(builder);
     }
 
     static float Round(float value) =>

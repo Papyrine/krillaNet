@@ -60,6 +60,6 @@ public class BoxFidelityTests
                 $"unmatched {result.MissingFromRender.Count + result.NotInReference.Count}\n");
         }
 
-        return Verify(report.ToString());
+        return Verify(report);
     }
 }
