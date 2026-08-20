@@ -348,6 +348,19 @@ sealed record ComputedStyle
     /// </summary>
     public float? LineHeight { get; init; }
 
+    /// <summary>
+    /// A unitless <c>line-height</c>, kept as the number rather than as a length.
+    /// </summary>
+    /// <remarks>
+    /// The distinction is the whole of why inheriting <c>line-height</c> needs care. A number is
+    /// inherited AS A NUMBER and re-resolved against each descendant's own font size, so
+    /// <c>line-height: 1.5</c> on a container gives 24px to 16px text inside it and 48px to 32px
+    /// text. A length is inherited as the length, so every descendant gets the same spacing
+    /// whatever its font size. Storing only the resolved pixels would collapse the two and give
+    /// the container's spacing to text of every size.
+    /// </remarks>
+    public float? LineHeightScale { get; init; }
+
     /// <summary>Whether text is underlined.</summary>
     /// <remarks>
     /// Treated as inherited, which <c>text-decoration</c> strictly is not — CSS says a decoration
@@ -460,5 +473,7 @@ sealed record ComputedStyle
     /// face's own metrics.
     /// </summary>
     public float ResolveLineHeight(FontFace face) =>
-        LineHeight ?? face.NormalLineHeight(FontSize);
+        LineHeightScale is {} scale
+            ? scale * FontSize
+            : LineHeight ?? face.NormalLineHeight(FontSize);
 }

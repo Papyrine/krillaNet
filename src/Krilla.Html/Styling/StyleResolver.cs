@@ -47,6 +47,12 @@ static class StyleResolver
             families = [.. parent.FontFamilies];
         }
 
+        var lineHeight = ParseLineHeight(
+            declaration.GetPropertyValue("line-height"),
+            fontSize,
+            rootFontSize,
+            parent);
+
         var style = new ComputedStyle
         {
             Display = ParseDisplay(declaration.GetPropertyValue("display"), element.LocalName),
@@ -80,7 +86,8 @@ static class StyleResolver
             Italic = ParseItalic(
                 declaration.GetPropertyValue("font-style"),
                 UserAgentStyles.IsItalic(element.LocalName) || parent.Italic),
-            LineHeight = ParseLineHeight(declaration.GetPropertyValue("line-height"), fontSize, rootFontSize),
+            LineHeight = lineHeight.Absolute,
+            LineHeightScale = lineHeight.Scale,
             Underline = ParseUnderline(declaration, parent.Underline),
             ListStyle = ParseListStyle(declaration.GetPropertyValue("list-style-type"), parent.ListStyle),
             BorderSpacingX = Spacing(declaration, "border-spacing", fontSize, rootFontSize, first: true)
@@ -408,24 +415,56 @@ static class StyleResolver
     /// descendant's size, whereas a length inherits as a fixed pixel value. Only the former is
     /// resolved here because AngleSharp has already inherited whichever one applies.
     /// </remarks>
-    static float? ParseLineHeight(string? value, float fontSize, float rootFontSize)
+    /// <summary>
+    /// The line height, inheriting when the cascade said nothing.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Inherited explicitly, like every other inherited property here, because the cascaded style
+    /// carries no inherited values. Missing it left <c>line-height</c> applying to the one element
+    /// that declared it and to nothing inside — so <c>body { line-height: 1.6 }</c>, which is how
+    /// nearly every stylesheet sets line spacing, did nothing at all.
+    /// </para>
+    /// <para>
+    /// A unitless value is carried down AS THE NUMBER rather than as the pixels it resolved to
+    /// here, since CSS re-resolves it against each descendant's own font size. Inheriting the
+    /// pixels would give 32px text the spacing computed for its 16px ancestor.
+    /// </para>
+    /// <para>
+    /// An explicit <c>normal</c> is not the same as saying nothing: it stops the inheritance and
+    /// returns to the font's own metrics, so the two cases are separated here rather than both
+    /// falling through.
+    /// </para>
+    /// </remarks>
+    static (float? Absolute, float? Scale) ParseLineHeight(
+        string? value,
+        float fontSize,
+        float rootFontSize,
+        ComputedStyle parent)
     {
         var text = value?.Trim();
 
-        if (string.IsNullOrEmpty(text) || text.Equals("normal", StringComparison.OrdinalIgnoreCase))
+        if (string.IsNullOrEmpty(text))
         {
-            return null;
+            return (parent.LineHeight, parent.LineHeightScale);
+        }
+
+        if (text.Equals("normal", StringComparison.OrdinalIgnoreCase))
+        {
+            return (null, null);
         }
 
         if (CssValues.TryParseNumber(text, out var multiplier))
         {
-            return multiplier * fontSize;
+            return (null, multiplier);
         }
 
         var length = CssValues.ParseLength(text, fontSize, rootFontSize, CssLength.Zero);
-        return length.Kind == LengthKind.Percent
-            ? fontSize * length.Value / 100f
-            : length.Resolve(fontSize);
+        return (
+            length.Kind == LengthKind.Percent
+                ? fontSize * length.Value / 100f
+                : length.Resolve(fontSize),
+            null);
     }
 
     /// <summary>

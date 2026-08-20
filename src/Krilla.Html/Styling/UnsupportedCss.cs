@@ -103,7 +103,8 @@ static class UnsupportedCss
         foreach (var (property, noOp, reason) in ignored)
         {
             if (Set(declaration, property) is {} value &&
-                value != noOp)
+                value != noOp &&
+                !IsInitial(value))
             {
                 Diagnostic.Property(sink, name, property, value, reason);
             }
@@ -159,7 +160,8 @@ static class UnsupportedCss
         foreach (var corner in corners)
         {
             if (Set(declaration, corner) is {} value &&
-                !IsZero(value))
+                !IsZero(value) &&
+                !IsInitial(value))
             {
                 Diagnostic.Property(sink, element, corner, value, "painted square");
                 return;
@@ -196,7 +198,9 @@ static class UnsupportedCss
         for (var index = 0; index < sides.Length; index++)
         {
             var value = Set(declaration, $"border-{sides[index]}-style");
-            styles[index] = value is null or "none" or "hidden" or "solid" ? null : value;
+            styles[index] = value is null or "none" or "hidden" or "solid" || IsInitial(value)
+                ? null
+                : value;
         }
 
         // One report for the shorthand the author almost certainly wrote, rather than four for the
@@ -291,4 +295,28 @@ static class UnsupportedCss
 
     static bool IsZero(string value) =>
         value is "0" or "0px" or "0%" or "0em" or "0rem";
+
+    /// <summary>
+    /// Whether the value is the keyword meaning the property's own initial value.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Silent everywhere in the table above, because for every property listed there the no-op
+    /// value IS the initial value — the property is not read at all, which is the same as leaving
+    /// it initial. Reporting <c>initial</c> would say a document renders wrongly for asking for the
+    /// default.
+    /// </para>
+    /// <para>
+    /// It arrives more often than writing it out would suggest. A shorthand that omits a component
+    /// sets that component to <c>initial</c>, so <c>border: 0</c> gives a
+    /// <c>border-style: initial</c> the author never typed — which is how this was found, on an
+    /// imported test that used it five times.
+    /// </para>
+    /// <para>
+    /// Deliberately not applied to <c>display</c> or <c>font-size</c>: their initial values are
+    /// <c>inline</c> and <c>medium</c>, neither of which this engine treats as a no-op.
+    /// </para>
+    /// </remarks>
+    static bool IsInitial(string value) =>
+        value == "initial";
 }

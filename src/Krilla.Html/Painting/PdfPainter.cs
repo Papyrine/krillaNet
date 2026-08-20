@@ -29,6 +29,7 @@ static class PdfPainter
     /// page.
     /// </param>
     /// <param name="content">The page's content box, in layout units.</param>
+    /// <param name="page">The whole page, in points. What the canvas background covers.</param>
     /// <param name="scale">Points per layout unit.</param>
     /// <param name="links">Where each fragment identifier resolves to, or null.</param>
     /// <remarks>
@@ -44,9 +45,15 @@ static class PdfPainter
         float pageTop,
         float pageEnd,
         Rect content,
+        Size page,
         float scale,
         LinkTargets? links = null)
     {
+        // The canvas, before anything else and outside the transform stack below, because it is
+        // measured in page points rather than layout units and covers the margins as well as the
+        // content.
+        PaintCanvas(surface, root, page);
+
         // Link annotations are queued and applied when the page closes, so they never see the
         // transform stack below and have to be given page coordinates directly. Everything else on
         // this page is painted in layout units through that stack, so the two coordinate spaces
@@ -120,6 +127,52 @@ static class PdfPainter
             }
         }
     }
+
+    /// <summary>
+    /// Fills the whole page with the background that propagates to the canvas.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// CSS 2.1 §14.2: the root element's background is not painted on the root box, it is handed
+    /// to the canvas and covers the entire surface — margins, and every part of the page the root
+    /// box does not reach. A document whose content stops halfway down still has a coloured page
+    /// below it.
+    /// </para>
+    /// <para>
+    /// When the root has no background of its own, <c>body</c>'s is taken instead and body then
+    /// paints none. That transfer is what makes <c>body { background: … }</c> colour a whole page,
+    /// which is how nearly every real document sets its background.
+    /// </para>
+    /// <para>
+    /// Nothing in the corpus caught this for a long time, because <c>Inputs/reset.css</c> paints
+    /// the root white and the page under it was white already. Acid1 found it in one render.
+    /// </para>
+    /// </remarks>
+    static void PaintCanvas(Surface surface, LayoutBox root, Size page)
+    {
+        if (CanvasBackground(root) is not {} color)
+        {
+            return;
+        }
+
+        // The root box then paints this colour again over its own area, which is left alone: a
+        // Color here is opaque by construction — Rgb, Gray and Cmyk, with no alpha — so the second
+        // fill is provably identical to the first rather than merely close to it.
+        surface.FillRectangle(Rectangle.FromSize(0, 0, page.Width, page.Height), color);
+    }
+
+    /// <summary>
+    /// The colour the canvas takes, from the root or else from <c>body</c>.
+    /// </summary>
+    static Color? CanvasBackground(LayoutBox root) =>
+        root.Style.BackgroundColor ?? Body(root)?.Style.BackgroundColor;
+
+    /// <summary>
+    /// The <c>body</c> box, whose background propagates when the root has none.
+    /// </summary>
+    static LayoutBox? Body(LayoutBox root) =>
+        root.Children.FirstOrDefault(
+            _ => _.Element?.LocalName.Equals("body", StringComparison.OrdinalIgnoreCase) == true);
 
     static void PaintBox(
         Surface surface,

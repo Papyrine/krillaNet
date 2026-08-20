@@ -1,0 +1,100 @@
+[
+  {
+    "selector": "html",
+    "x": 0,
+    "y": 0,
+    "width": 816,
+    "height": 335
+  },
+  {
+    "selector": "html > body:nth-child(2)",
+    "x": 15,
+    "y": 15,
+    "width": 490,
+    "height": 20
+  },
+  {
+    "selector": "html > body:nth-child(2) > dl:nth-child(1)",
+    "x": 20,
+    "y": 20,
+    "width": 480,
+    "height": 10
+  },
+  {
+    "selector": "html > body:nth-child(2) > dl:nth-child(1) > dt:nth-child(1)",
+    "x": 25,
+    "y": 25,
+    "width": 79.98,
+    "height": 310
+  },
+  {
+    "selector": "html > body:nth-child(2) > dl:nth-child(1) > dd:nth-child(2)",
+    "x": 115,
+    "y": 25,
+    "width": 380,
+    "height": 310
+  },
+  {
+    "selector": "html > body:nth-child(2) > dl:nth-child(1) > dd:nth-child(2) > ul:nth-child(1)",
+    "x": 135,
+    "y": 45,
+    "width": 340,
+    "height": 0
+  },
+  {
+    "selector": "html > body:nth-child(2) > dl:nth-child(1) > dd:nth-child(2) > ul:nth-child(1) > li:nth-child(1)",
+    "x": 135,
+    "y": 45,
+    "width": 80,
+    "height": 120
+  },
+  {
+    "selector": "html > body:nth-child(2) > dl:nth-child(1) > dd:nth-child(2) > ul:nth-child(1) > li:nth-child(2)",
+    "x": 225,
+    "y": 45,
+    "width": 159.97,
+    "height": 110
+  },
+  {
+    "selector": "html > body:nth-child(2) > dl:nth-child(1) > dd:nth-child(2) > ul:nth-child(1) > li:nth-child(2) > p:nth-child(1)",
+    "x": 235,
+    "y": 55,
+    "width": 139.97,
+    "height": 10
+  },
+  {
+    "selector": "html > body:nth-child(2) > dl:nth-child(1) > dd:nth-child(2) > ul:nth-child(1) > li:nth-child(3)",
+    "x": 394.97,
+    "y": 45,
+    "width": 80,
+    "height": 120
+  },
+  {
+    "selector": "html > body:nth-child(2) > dl:nth-child(1) > dd:nth-child(2) > ul:nth-child(1) > li:nth-child(4)",
+    "x": 135,
+    "y": 175,
+    "width": 120,
+    "height": 120
+  },
+  {
+    "selector": "html > body:nth-child(2) > dl:nth-child(1) > dd:nth-child(2) > blockquote:nth-child(2)",
+    "x": 275,
+    "y": 175,
+    "width": 70,
+    "height": 140
+  },
+  {
+    "selector": "html > body:nth-child(2) > dl:nth-child(1) > dd:nth-child(2) > blockquote:nth-child(2) > address:nth-child(1)",
+    "x": 280,
+    "y": 195,
+    "width": 50,
+    "height": 10
+  },
+  {
+    "selector": "html > body:nth-child(2) > dl:nth-child(1) > dd:nth-child(2) > h1:nth-child(3)",
+    "x": 355,
+    "y": 175,
+    "width": 120,
+    "height": 120
+  }
+]

@@ -75,7 +75,15 @@ public static class HtmlConverter
             // the end of the document.
             var end = index + 1 < tops.Count ? tops[index + 1] : float.PositiveInfinity;
 
-            PdfPainter.Paint(page.Surface, root, tops[index], end, content, scale, links);
+            PdfPainter.Paint(
+                page.Surface,
+                root,
+                tops[index],
+                end,
+                content,
+                new(options.PageWidth * scale, options.PageHeight * scale),
+                scale,
+                links);
         }
 
         return pdf.Finish();

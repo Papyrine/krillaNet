@@ -14,11 +14,11 @@ it, that is stated, because an unmeasured gap is the more dangerous kind.
 
 ## Where the corpus stands
 
-53 scenarios across 10 categories. **Box geometry matches Chrome exactly on every one** — zero
-positional and zero size difference, and nothing unmatched — and 42 read SSIM 1.0000, of which 32
+54 scenarios across 10 categories. **Box geometry matches Chrome exactly on every one** — zero
+positional and zero size difference, and nothing unmatched — and 43 read SSIM 1.0000, of which 32
 are pixel-identical outright.
 
-The nine that read below 1.0000, with the cause of each. None is a mystery, and none should be
+The eleven that read below 1.0000, with the cause of each. None is a mystery, and none should be
 "fixed" by regenerating a baseline:
 
 | Scenario | AE | SSIM | Cause |
@@ -34,9 +34,10 @@ The nine that read below 1.0000, with the cause of each. None is a mystery, and 
 | `float/shrink_to_fit` | 0.0000 | 0.9999 | Box edge at a fractional position |
 | `position/absolute` | 0.0005 | 0.9999 | Box edge at a fractional position |
 
-Eleven more read SSIM 1.0000 while still differing on a scattering of antialiased pixels:
-`block/borders`, `ua/lists`, `ua/list_markers`, `table/sections`, `inline/justify`, `link/external`,
-`ua/headings`, `float/basic`, `float/clear`, `position/relative` and `position/anchors`. Each is one of the two causes above, and none exceeds 40 levels of grey out of
+Twelve more read SSIM 1.0000 while still differing on a scattering of antialiased pixels:
+`block/borders`, `ua/lists`, `ua/list_markers`, `ua/acid1`, `table/sections`, `inline/justify`,
+`link/external`, `ua/headings`, `float/basic`, `float/clear`, `position/relative` and
+`position/anchors`. Each is one of the two causes above, and none exceeds 40 levels of grey out of
 255.
 
 ## Unimplemented layout
