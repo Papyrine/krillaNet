@@ -17,10 +17,10 @@ CSS 2.1 §9.5.2 makes clearance a separate quantity that also stops the margin c
 and the engine applies clearance after the collapsed margin instead. The difference appears only
 when the cleared box has a margin big enough to clear the float unaided; `src/todo.md` records it.
 
-**Boxes**: 14 matched, worst offset 0.00px, worst size 0.00px.
-
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |
-| **Page 1** | **Page 1. AE 0.0002 · SSIM 1.0000** |
-| <img src="reference_0001.png" width="480"> | <img src="result%23page_0001.verified.png" width="480"> |
+| **Page 1** | **Page 1** |
+| <img src="reference_0001.png" width="480"> | <img src="result%23page_0001.00.verified.png" width="480"> |
+| **Page 2** _(no page)_ | **Page 2** |
+|  | <img src="result%23page_0001.01.verified.png" width="480"> |
 

@@ -1,0 +1,10 @@
+﻿{
+  "PageCount": 1,
+  "Pages": [
+    {
+      "Width": 612.0,
+      "Height": 792.0,
+      "Text": "Plain text, then a link to the docs, then more text.\nAn email link on its own line."
+    }
+  ]
+}

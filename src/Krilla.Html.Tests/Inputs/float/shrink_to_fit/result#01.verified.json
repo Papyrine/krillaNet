@@ -1,0 +1,10 @@
+﻿{
+  "PageCount": 1,
+  "Pages": [
+    {
+      "Width": 612.0,
+      "Height": 792.0,
+      "Text": "Alpha beta gamma delta epsilon\nzeta eta theta.\nShrink to fit this text\nAfter the wide float.\nAlpha beta gamma delta epsilon zeta eta theta iota\nkappa lambda mu nu xi omicron pi rho sigma\nBeside a float\nthat cannot be\nsqueezed.\nUnbreakablesequenceofletters\nPushed below the float entirely."
+    }
+  ]
+}

@@ -1,0 +1,15 @@
+﻿{
+  "PageCount": 2,
+  "Pages": [
+    {
+      "Width": 612.0,
+      "Height": 792.0,
+      "Text": "Jump to the target, and a link to nothing."
+    },
+    {
+      "Width": 612.0,
+      "Height": 792.0,
+      "Text": "The target\nContent under the target."
+    }
+  ]
+}

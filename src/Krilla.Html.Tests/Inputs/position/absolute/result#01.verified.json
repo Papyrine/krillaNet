@@ -1,0 +1,10 @@
+﻿{
+  "PageCount": 1,
+  "Pages": [
+    {
+      "Width": 612.0,
+      "Height": 792.0,
+      "Text": "After the frame, unaffected by anything inside it.\nThe frame is sized by this paragraph\nalone.\nTL\nBR Stretched between left and\nright. Shrinks"
+    }
+  ]
+}
