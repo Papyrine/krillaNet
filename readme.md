@@ -3,7 +3,7 @@
 [![Build status](https://github.com/Papyrine/krillaNet/actions/workflows/build.yml/badge.svg)](https://github.com/Papyrine/krillaNet/actions/workflows/build.yml)
 [![NuGet Status](https://img.shields.io/nuget/v/Krilla.svg?label=Krilla)](https://www.nuget.org/packages/Krilla/)
 
-A .NET wrapper over [krilla](https://github.com/LaurenzV/krilla), the Rust PDF-writing library that backs [typst](https://typst.app). Creates PDF documents: pages, vector paths, gradients, text, and images. No external dependency — the native library ships inside the package.
+A .NET wrapper over [krilla](https://github.com/LaurenzV/krilla), the Rust PDF-writing library that backs [typst](https://typst.app). Creates PDF documents: pages, vector paths, gradients, text, and images, and converts HTML to PDF through the companion [Krilla.Html](https://www.nuget.org/packages/Krilla.Html/) package. No external dependency — the native library ships inside the package.
 
 Krilla *writes* PDFs. To read, render or edit an existing one, use [Morph.PDFium](https://github.com/Papyrine/Morph.PDFium).
 
