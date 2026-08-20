@@ -1,0 +1,34 @@
+﻿--- p1 relative moves the box and nothing else
+    ok  #a want [0, 0, 400, 20] got [0, 0, 400, 20]
+    ok  #b want [30, 30, 400, 20] got [30, 30, 400, 20]
+    ok  #c want [0, 40, 400, 20] got [0, 40, 400, 20]
+--- p2 absolute with auto offsets takes the static position
+    ok  #a want [0, 0, 400, 20] got [0, 0, 400, 20]
+    ok  #b want [0, 20, 61.39, 18] got [0, 20, 61.38, 18]
+    ok  #c want [0, 20, 400, 20] got [0, 20, 400, 20]
+--- p3 containing block is the padding box
+    ok  #rel want [40, 0, 230, 110] got [40, 0, 230, 110]
+    ok  #abs want [45, 5, 30, 30] got [45, 5, 30, 30]
+    ok  #br want [235, 75, 30, 30] got [235, 75, 30, 30]
+--- p4 absolute with auto width shrinks to fit
+    ok  #rel want [0, 0, 300, 60] got [0, 0, 300, 60]
+    ok  #abs want [0, 0, 106.7, 18] got [0, 0, 106.7, 18]
+--- p5 left and right together stretch an auto width
+    ok  #rel want [0, 0, 300, 40] got [0, 0, 300, 40]
+    ok  #abs want [20, 0, 230, 20] got [20, 0, 230, 20]
+--- p6 no positioned ancestor uses the page
+    ok  #abs want [7, 5, 20, 20] got [7, 5, 20, 20]
+    ok  #flow want [0, 0, 400, 20] got [0, 0, 400, 20]
+--- p7 an absolute box adds nothing to its parent height
+    ok  #par want [0, 0, 200, 18] got [0, 0, 200, 18]
+    ok  #abs want [0, 0, 20, 200] got [0, 0, 20, 200]
+    ok  #p want [0, 0, 200, 18] got [0, 0, 200, 18]
+--- p8 relative bottom and right move the other way
+    ok  #a want [-10, -5, 400, 20] got [-10, -5, 400, 20]
+--- p9 percentage offsets resolve per axis
+    ok  #rel want [0, 0, 200, 100] got [0, 0, 200, 100]
+    ok  #abs want [100, 25, 10, 10] got [100, 25, 10, 10]
+--- p10 a static ancestor in between is skipped
+    ok  #rel want [0, 0, 320, 100] got [0, 0, 320, 100]
+    ok  #abs want [0, 0, 20, 20] got [0, 0, 20, 20]
+FAILURES 0

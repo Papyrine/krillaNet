@@ -1,0 +1,35 @@
+﻿{
+  "ReferencePageCount": 2,
+  "ResultingPageCount": 2,
+  "Boxes": {
+    "Matched": 6,
+    "MissingFromRender": [
+      "html > body:nth-child(2) > p:nth-child(1) > a:nth-child(1)",
+      "html > body:nth-child(2) > p:nth-child(1) > a:nth-child(2)"
+    ]
+  },
+  "Links": [
+    {
+      "Page": 1,
+      "Target": "page 2",
+      "Y": 3.0,
+      "Width": 128.96,
+      "Height": 17.0
+    }
+  ],
+  "PageDiffs": [
+    {
+      "Page": 1,
+      "AbsoluteError": 0.0001,
+      "Ssim": 0.9999,
+      "ReferenceFile": "reference_0001.png",
+      "RenderedFile": "result#page_0001.verified.png"
+    },
+    {
+      "Page": 2,
+      "Ssim": 1.0,
+      "ReferenceFile": "reference_0002.png",
+      "RenderedFile": "result#page_0002.verified.png"
+    }
+  ]
+}

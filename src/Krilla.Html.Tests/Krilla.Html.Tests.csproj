@@ -1,0 +1,38 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <TestingPlatformDotnetTestSupport>true</TestingPlatformDotnetTestSupport>
+    <!--
+      Both properties exist for pdfium, not for krilla. Morph.PDFium pulls the bblanchon packages,
+      which carry twelve RIDs of native, and without these the SDK unpacks every one of them.
+      Krilla's own native needs neither — it arrives across the ProjectReference already flattened
+      and already scoped to this machine — but setting them does not disturb it, because
+      Krilla.Native.targets resolves the host from $(NETCoreSdkPortableRuntimeIdentifier) rather
+      than from $(RuntimeIdentifier).
+    -->
+    <UseCurrentRuntimeIdentifier>true</UseCurrentRuntimeIdentifier>
+    <AppendRuntimeIdentifierToOutputPath>false</AppendRuntimeIdentifierToOutputPath>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="MarkdownSnippets.MsBuild" PrivateAssets="all" />
+    <PackageReference Include="TUnit" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="Verify.TUnit" />
+    <PackageReference Include="Verify" />
+    <PackageReference Include="Verify.DiffPlex" />
+    <!--
+      Morph.PDFium directly rather than Verify.PDFium, which is what Krilla.Tests uses. The corpus
+      renders each page itself so it can pin the DPI and switch anti-aliasing off, and only the
+      RenderOptions overload exposes either. Those two settings are what make the pixel metric
+      comparable to a browser screenshot at all.
+    -->
+    <PackageReference Include="Morph.PDFium" />
+    <PackageReference Include="Argon" />
+    <PackageReference Include="DiffEngine" />
+    <PackageReference Include="EmptyFiles" />
+    <PackageReference Include="SimpleInfoName" />
+    <PackageReference Include="ProjectDefaults" PrivateAssets="all" />
+    <ProjectReference Include="..\Krilla.Html\Krilla.Html.csproj" />
+  </ItemGroup>
+</Project>

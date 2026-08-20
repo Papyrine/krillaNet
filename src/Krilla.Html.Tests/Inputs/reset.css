@@ -1,0 +1,40 @@
+/*
+  Prepended to every scenario, and to the reference the browser renders from.
+
+  What remains here is only what makes the two engines COMPARABLE at all. Anything that merely
+  makes a scenario simpler lives in flatten.css, which a scenario can opt out of.
+
+  THE BASE FONT. Bound to the bundled faces by name so that both sides resolve the same files.
+  The browser gets @font-face rules pointing at these same files, injected by the reference
+  generator. Without this Chromium falls back to whatever the host has installed, text reflows
+  between machines, and every number the corpus records becomes noise.
+
+  This file used to disable kerning and ligatures too. It no longer has to: text is shaped through
+  krilla's own rustybuzz rather than measured by summing raw hmtx advances, so a browser's advances
+  and ours come from the same algorithm. Those two lines were the corpus's largest concession, and
+  removing them is what lets it measure text the way a real document is written.
+
+  Changing anything here invalidates every committed reference. Re-run Krilla.Html.RefGen after.
+*/
+
+html {
+  font-family: "Liberation Sans";
+  font-size: 16px;
+  color: #000000;
+  background-color: #ffffff;
+}
+
+/*
+  The monospace elements, bound by name for the same reason as the base font above.
+
+  These need naming separately because the default stylesheet gives them the GENERIC family
+  `monospace`, and a generic cannot be pinned: the reference generator's @font-face rules bind
+  real family names, and a generic name is not legal as an @font-face family. So Chromium resolves
+  `monospace` against whatever the host has installed and the reference stops being reproducible.
+
+  The consequence is that "does <pre> default to monospace" is a question this corpus cannot ask.
+  Its margins and white-space handling are still measured; only the family binding is out of reach.
+*/
+pre, code, kbd, samp {
+  font-family: "Liberation Mono";
+}

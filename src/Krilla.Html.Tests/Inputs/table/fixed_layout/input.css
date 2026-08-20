@@ -1,0 +1,6 @@
+#fixed { width: 420px; table-layout: fixed; }
+#auto { width: 420px; }
+#percent { width: 400px; }
+
+.pinned { width: 90px; }
+.quarter { width: 25%; }

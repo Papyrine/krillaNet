@@ -1,0 +1,41 @@
+/*
+  Prepended after reset.css, unless a scenario directory contains a `no-flatten` marker file.
+
+  It removes the default stylesheet from the picture so a scenario measures the layout algorithm
+  rather than the defaults table. Without it, every block scenario would also be asserting that
+  Krilla.Html and Chromium agree about what margin a paragraph has by default — a real question,
+  but a different one, and one that would make every scenario fail for a reason unrelated to what
+  it tests.
+
+  The `ua/` category is exactly the scenarios that DO ask that question, so it opts out.
+
+  Note the type selectors below rather than relying on `*` alone. CSS resolves ORIGIN before
+  specificity, so an author `*` rule beats a UA `p` rule outright and a browser zeroes these
+  margins from the universal rule alone. AngleSharp.Css compares specificity across origins
+  instead, so its own UA sheet would win there and the two engines would disagree about where the
+  document starts and about the gap between every pair of paragraphs. Matching the UA selectors'
+  specificity settles it identically in both.
+
+  That is a real limitation for consumers too, not a corpus quirk: a caller relying on
+  `* { margin: 0 }` to clear UA margins will see the same difference. It is noted in the readme.
+*/
+
+* {
+  margin: 0;
+  padding: 0;
+  border: none;
+  box-sizing: content-box;
+}
+
+html, body, div, p, pre, blockquote, figure, form, fieldset, hr, address,
+h1, h2, h3, h4, h5, h6,
+ul, ol, li, dl, dt, dd, menu,
+table, thead, tbody, tfoot, tr, th, td {
+  margin: 0;
+  padding: 0;
+}
+
+html {
+  text-align: left;
+  white-space: normal;
+}

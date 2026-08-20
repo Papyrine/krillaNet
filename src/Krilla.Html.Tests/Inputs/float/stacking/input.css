@@ -1,0 +1,18 @@
+#fit, #drop, #rights, #both { width: 400px; margin-bottom: 40px; }
+p { background-color: #f4f4f4; }
+
+/* Two left floats that fit side by side. */
+#a { float: left; width: 100px; height: 40px; background-color: #cfd8e8; }
+#b { float: left; width: 120px; height: 40px; background-color: #b8c8de; }
+
+/* Two left floats that do not: the second drops below the first and returns to the left edge. */
+#c { float: left; width: 250px; height: 40px; background-color: #cfd8e8; }
+#d { float: left; width: 200px; height: 30px; background-color: #b8c8de; }
+
+/* Right floats stack right to left, so the FIRST in source sits furthest right. */
+#e { float: right; width: 100px; height: 40px; background-color: #e8d8cf; }
+#f { float: right; width: 100px; height: 40px; background-color: #dec8b8; }
+
+/* One of each: the band between them is what the text gets. */
+#g { float: left; width: 90px; height: 40px; background-color: #cfd8e8; }
+#h { float: right; width: 90px; height: 40px; background-color: #e8d8cf; }

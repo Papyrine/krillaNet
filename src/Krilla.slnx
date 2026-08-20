@@ -17,4 +17,7 @@
   </Folder>
   <Project Path="Krilla/Krilla.csproj" />
   <Project Path="Krilla.Tests/Krilla.Tests.csproj" />
+  <Project Path="Krilla.Html/Krilla.Html.csproj" />
+  <Project Path="Krilla.Html.Tests/Krilla.Html.Tests.csproj" />
+  <Project Path="Krilla.Html.RefGen/Krilla.Html.RefGen.csproj" />
 </Solution>

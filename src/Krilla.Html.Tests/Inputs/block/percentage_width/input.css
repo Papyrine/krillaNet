@@ -1,0 +1,3 @@
+#outer { width: 600px; padding: 20px; background-color: #eeeeee; }
+#half { width: 50%; height: 40px; background-color: #90b0d0; }
+#quarter { width: 25%; height: 40px; margin-left: 25%; background-color: #d0b090; }

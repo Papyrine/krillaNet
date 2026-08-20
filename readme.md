@@ -15,6 +15,78 @@ Krilla *writes* PDFs. To read, render or edit an existing one, use [Morph.PDFium
 [Krilla](https://www.nuget.org/packages/Krilla/)
 
 
+## HTML to PDF
+
+`Krilla.Html` converts HTML to PDF on top of this library. [AngleSharp](https://anglesharp.github.io/)
+parses the markup and runs the CSS cascade, `Krilla.Html` lays the result out, and Krilla writes the
+PDF.
+
+```cs
+using var fonts = new FontSet()
+    .AddDirectory("fonts");
+
+var pdf = HtmlConverter.Convert("<h1>Hello</h1><p>World</p>", new()
+{
+    Fonts = fonts
+});
+```
+
+Krilla has no font database, so the fonts a document may use are supplied by the caller rather than
+discovered from the host. That is what makes output reproducible across machines.
+
+Implemented: block and inline layout, the box model, collapsing margins, line breaking, text
+alignment, pagination, tables, floats, relative and absolute positioning, images, and links —
+`<a href>` becomes a real PDF link annotation, and a `#fragment` becomes an internal jump to
+wherever that element paginated to. Flexbox and grid lay out as plain blocks.
+
+Images resolve from `data:` URIs and from files relative to `BaseUrl`. Nothing is fetched over the
+network by default — converting an untrusted document would otherwise issue requests to whatever
+hosts it names. Set `HtmlOptions.ImageResolver` to take that decision explicitly, and the two
+policies to bound what any resolver may load:
+
+```cs
+options.LocalImages = ImagePolicy.SafeDirectories(assetDirectory);
+options.WebImages = ImagePolicy.SafeDomains("cdn.example.com");
+```
+
+Both are checked before the resolver runs, so a refused source is never requested. A `data:` URI
+is never gated, since its bytes are already in the document.
+
+Because the engine implements a subset of CSS and lays the rest out as a plain block, a document
+using an unimplemented construct comes out wrong with nothing to say so. `OnDiagnostic` turns that
+into a report:
+
+```cs
+options.OnDiagnostic = diagnostic => Console.WriteLine(diagnostic);
+
+// <div> display: flex — laid out as a block
+// <table> border-collapse: collapse — laid out with the separated border model
+// <td> bgcolor: silver — not applied, because presentational attributes are not mapped onto the cascade
+// <img> src: logo.png — did not resolve to an image, so no box was generated
+```
+
+Unrecognised CSS is deliberately not reported. Listing every `cursor` and `content` an ordinary
+stylesheet carries would bury the signal, and would cost the invariant that makes the sink worth
+subscribing to: a conversion that reports nothing laid out every construct the way a browser would.
+
+Two limits worth knowing before reaching for it:
+
+- Text is shaped through krilla's own shaper, so kerning and ligatures are applied. Bidirectional
+  resolution, font fallback and complex-script shaping are still missing, so a run is shaped with
+  one font and one script.
+- AngleSharp compares CSS specificity across cascade origins, where the specification resolves
+  origin first. A reset relying on `* { margin: 0 }` will not clear the default margins on `body`
+  and `p`; name the elements explicitly instead.
+
+The default stylesheet AngleSharp ships is the HTML 4.01 one, which disagrees with browsers on most
+block elements — headings, paragraph spacing, and list indentation in particular. `Krilla.Html`
+appends corrections from the HTML Standard's rendering section, so an unstyled document matches a
+browser.
+
+Layout fidelity is measured against Chrome scenario by scenario — see
+[the corpus](/src/Krilla.Html.Tests/Inputs/readme.md).
+
+
 ## Usage
 
 Every snippet below is a test, and the image under it is that test's snapshot: the first page

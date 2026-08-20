@@ -1,0 +1,3 @@
+/* A rowspan cell taller than the rows it covers pushes them apart, sharing the shortfall equally —
+   the opposite of the column rule, which shares proportionally. */
+.deep { height: 100px; }

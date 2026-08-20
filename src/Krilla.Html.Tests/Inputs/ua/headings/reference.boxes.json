@@ -1,0 +1,58 @@
+[
+  {
+    "selector": "html",
+    "x": 0,
+    "y": 0,
+    "width": 816,
+    "height": 288.16
+  },
+  {
+    "selector": "html > body:nth-child(2)",
+    "x": 8,
+    "y": 21.44,
+    "width": 800,
+    "height": 241.75
+  },
+  {
+    "selector": "html > body:nth-child(2) > h1:nth-child(1)",
+    "x": 8,
+    "y": 21.44,
+    "width": 800,
+    "height": 37
+  },
+  {
+    "selector": "html > body:nth-child(2) > h2:nth-child(2)",
+    "x": 8,
+    "y": 79.88,
+    "width": 800,
+    "height": 28
+  },
+  {
+    "selector": "html > body:nth-child(2) > h3:nth-child(3)",
+    "x": 8,
+    "y": 127.78,
+    "width": 800,
+    "height": 22
+  },
+  {
+    "selector": "html > body:nth-child(2) > h4:nth-child(4)",
+    "x": 8,
+    "y": 171.05,
+    "width": 800,
+    "height": 18
+  },
+  {
+    "selector": "html > body:nth-child(2) > h5:nth-child(5)",
+    "x": 8,
+    "y": 211.22,
+    "width": 800,
+    "height": 15
+  },
+  {
+    "selector": "html > body:nth-child(2) > h6:nth-child(6)",
+    "x": 8,
+    "y": 251.19,
+    "width": 800,
+    "height": 12
+  }
+]

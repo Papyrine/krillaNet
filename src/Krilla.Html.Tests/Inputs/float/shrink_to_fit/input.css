@@ -1,0 +1,17 @@
+#fits, #clamped, #floor, #overflow { width: 400px; margin-bottom: 40px; }
+p { background-color: #f4f4f4; }
+#short, #long, #word, #wide { float: left; background-color: #cfd8e8; }
+
+/* Max-content: the float takes exactly the width of its one line. */
+#short { }
+
+/* Wider than the container, so it takes what is available and wraps inside itself. */
+#long { }
+
+/* A single unbreakable word wider than nothing else: the float cannot go below its min-content
+   width, whatever is available. */
+#floor { width: 120px; }
+
+/* Wider than the containing block. The float overflows rather than shrinking, and the paragraph
+   beside it has no band left at all, so its line descends below the float. */
+#wide { width: 460px; height: 30px; }

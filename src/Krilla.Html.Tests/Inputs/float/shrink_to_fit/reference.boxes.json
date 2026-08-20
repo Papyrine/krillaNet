@@ -1,0 +1,100 @@
+[
+  {
+    "selector": "html",
+    "x": 0,
+    "y": 0,
+    "width": 816,
+    "height": 370
+  },
+  {
+    "selector": "html > body:nth-child(2)",
+    "x": 0,
+    "y": 0,
+    "width": 816,
+    "height": 330
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(1)",
+    "x": 0,
+    "y": 0,
+    "width": 400,
+    "height": 36
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(1) > div:nth-child(1)",
+    "x": 0,
+    "y": 0,
+    "width": 139.61,
+    "height": 18
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(1) > p:nth-child(2)",
+    "x": 0,
+    "y": 0,
+    "width": 400,
+    "height": 36
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(2)",
+    "x": 0,
+    "y": 76,
+    "width": 400,
+    "height": 54
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(2) > div:nth-child(1)",
+    "x": 0,
+    "y": 76,
+    "width": 400,
+    "height": 36
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(2) > p:nth-child(2)",
+    "x": 0,
+    "y": 76,
+    "width": 400,
+    "height": 54
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(3)",
+    "x": 0,
+    "y": 170,
+    "width": 120,
+    "height": 72
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(3) > div:nth-child(1)",
+    "x": 0,
+    "y": 170,
+    "width": 217.03,
+    "height": 18
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(3) > p:nth-child(2)",
+    "x": 0,
+    "y": 170,
+    "width": 120,
+    "height": 72
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(4)",
+    "x": 0,
+    "y": 282,
+    "width": 400,
+    "height": 48
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(4) > div:nth-child(1)",
+    "x": 0,
+    "y": 282,
+    "width": 460,
+    "height": 30
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(4) > p:nth-child(2)",
+    "x": 0,
+    "y": 282,
+    "width": 400,
+    "height": 48
+  }
+]

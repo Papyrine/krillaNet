@@ -1,0 +1,271 @@
+/// <summary>
+/// Checks on <see cref="HtmlOptions.OnDiagnostic"/>.
+///
+/// The invariant it exists to carry is that a conversion reporting nothing laid out every
+/// construct in the document the way a browser would. That makes the silent cases as much a part
+/// of the contract as the reported ones, and worth as many tests: a sink that reports a document
+/// which converts correctly is worse than no sink, because it trains the reader to ignore it.
+/// </summary>
+public class DiagnosticTests
+{
+    [Test]
+    public async Task OrdinaryMarkupReportsNothing()
+    {
+        // Everything the corpus proves is rendered correctly. Deliberately includes an <hr>, whose
+        // inset border arrives from the default stylesheet rather than from the document, and a
+        // <small>, whose size the cascade resolves before it reaches the engine.
+        var reports = Collect(
+            """
+            <h1>Heading</h1>
+            <p>A paragraph with <b>bold</b>, <i>italic</i> and <a href="#x">a link</a>.</p>
+            <hr>
+            <ul><li>One</li><li>Two</li></ul>
+            <ol start="3"><li>Three</li></ol>
+            <blockquote><small>Quoted</small></blockquote>
+            <table><tr><th>Head</th></tr><tr><td>Cell</td></tr></table>
+            """);
+
+        await Assert.That(reports).IsEmpty();
+    }
+
+    /// <summary>
+    /// Every corpus scenario converts without reporting anything.
+    /// </summary>
+    /// <remarks>
+    /// The strongest test of the invariant available here, and the one that keeps the false
+    /// positive rate at zero as the table grows. These are 46 documents whose box geometry is
+    /// independently proven to match Chrome exactly, so a report against any of them is a false
+    /// positive by construction rather than by opinion — no judgement call about whether the
+    /// reported construct "really" renders wrongly.
+    ///
+    /// It found two while it was being written: a <c>&lt;hr&gt;</c> reported four times over a
+    /// border style the default stylesheet supplies rather than the document, and a plain
+    /// <c>&lt;small&gt;</c> reported a font size the cascade had already resolved correctly.
+    /// </remarks>
+    [Test]
+    public async Task TheCorpusReportsNothing()
+    {
+        var reports = new List<(string Scenario, HtmlDiagnostic Report)>();
+
+        foreach (var directory in CorpusLayout.Directories())
+        {
+            var options = CorpusRunner.Options(directory);
+            options.OnDiagnostic = report => reports.Add((CorpusLayout.Name(directory), report));
+
+            HtmlConverter.Convert(CorpusLayout.Html(directory), options);
+        }
+
+        await Assert.That(reports).IsEmpty();
+    }
+
+    [Test]
+    public async Task UnrecognisedCssIsSilent()
+    {
+        // Properties the engine has no opinion about. Reporting these would bury the ones it does,
+        // which is the whole reason the table is a list rather than a sweep of the cascade.
+        var reports = Collect(
+            "<p>Text</p>",
+            "p { cursor: pointer; content: 'x'; scroll-behavior: smooth; caret-color: red; }");
+
+        await Assert.That(reports).IsEmpty();
+    }
+
+    [Test]
+    public async Task DisplayNoneIsSilent()
+    {
+        // A browser draws nothing for it either, so nothing was lost.
+        var reports = Collect("<p style=\"display: none\">Hidden</p>");
+
+        await Assert.That(reports).IsEmpty();
+    }
+
+    [Test]
+    public async Task NoOpValuesAreSilent()
+    {
+        // What a reset stylesheet writes. Each is the value that makes ignoring the property
+        // correct, so each renders exactly as asked.
+        var reports = Collect(
+            "<p>Text</p>",
+            """
+            p {
+              float: none; clear: none; position: static; box-sizing: content-box;
+              overflow: visible; visibility: visible; opacity: 1; transform: none;
+              text-transform: none; letter-spacing: normal; word-spacing: normal;
+            }
+            """);
+
+        await Assert.That(reports).IsEmpty();
+    }
+
+    [Test]
+    public async Task NothingIsBuiltWithoutASink()
+    {
+        // The scan is skipped rather than run and discarded, so this is really a check that a
+        // document full of unsupported css converts without the reporting path throwing.
+        var options = CorpusRunner.Options();
+
+        await Assert.That(options.OnDiagnostic).IsNull();
+
+        var pdf = HtmlConverter.Convert(Page("<div style=\"float: left\">Floated</div>", null), options);
+
+        await Assert.That(pdf).IsNotEmpty();
+    }
+
+    [Test]
+    public Task UnsupportedLayoutIsReported() =>
+        Verify(
+            Collect(
+                """
+                <div style="display: flex"><span>a</span></div>
+                <div style="display: grid"><span>b</span></div>
+                <div style="display: inline-block">c</div>
+                <div style="position: fixed">e</div>
+                <div style="box-sizing: border-box">f</div>
+                <table style="border-collapse: collapse"><tr><td>g</td></tr></table>
+                """));
+
+    [Test]
+    public Task UnsupportedPaintingIsReported() =>
+        Verify(
+            Collect(
+                """
+                <div style="border: 2px dashed red">a</div>
+                <div style="border-radius: 4px; border: 1px solid red">b</div>
+                <div style="opacity: 0.5">c</div>
+                <div style="text-decoration: line-through">d</div>
+                <div style="text-decoration: overline">e</div>
+                <div style="text-transform: uppercase">f</div>
+                <div style="visibility: hidden">g</div>
+                <div style="background-image: linear-gradient(red, blue)">h</div>
+                """));
+
+    [Test]
+    public Task PaginationPropertiesAreReported() =>
+        Verify(
+            Collect(
+                """
+                <div style="break-before: page">a</div>
+                <div style="page-break-after: always">b</div>
+                <div style="break-inside: avoid">c</div>
+                <p style="orphans: 3; widows: 3">d</p>
+                """));
+
+    [Test]
+    public Task PresentationalAttributesAreReported() =>
+        Verify(
+            Collect(
+                """
+                <table width="300" cellpadding="8" bgcolor="silver">
+                  <tr height="40"><td align="right" valign="bottom" nowrap>a</td></tr>
+                </table>
+                <ol type="a"><li>b</li></ol>
+                <p align="center">c</p>
+                <font color="red" size="6">d</font>
+                """));
+
+    [Test]
+    public Task ColumnsAndUnresolvedImagesAreReported() =>
+        Verify(
+            Collect(
+                """
+                <table>
+                  <colgroup><col width="200"><col></colgroup>
+                  <tr><td>a</td><td>b</td></tr>
+                </table>
+                <img src="does-not-exist.png" alt="missing">
+                """));
+
+    /// <summary>
+    /// A font-size keyword falls back to the inherited size, and reports that it did.
+    /// </summary>
+    /// <remarks>
+    /// A regression test with a specific failure behind it: the fallback used to be an absolute
+    /// zero, so every keyword — <c>medium</c> and <c>large</c> as much as <c>smaller</c> — resolved
+    /// to a font size of 0 and the element rendered as nothing at all. The box height is what
+    /// catches that; the report only says the size is not the right one.
+    /// </remarks>
+    [Test]
+    [Arguments("xx-small")]
+    [Arguments("small")]
+    [Arguments("medium")]
+    [Arguments("large")]
+    [Arguments("xx-large")]
+    [Arguments("smaller")]
+    [Arguments("larger")]
+    public async Task AFontSizeKeywordKeepsItsText(string keyword)
+    {
+        var reports = Collect($"<p style=\"font-size: {keyword}\">Text</p>");
+
+        await Assert.That(reports.Select(_ => _.Name)).Contains("font-size");
+
+        var boxes = BoxDump.Measure(
+            Page($"<p style=\"font-size: {keyword}\">Text</p>", null),
+            CorpusRunner.Options());
+
+        // Not zero, which is what an invisible element measures.
+        await Assert.That(boxes[^1].Height).IsGreaterThan(0);
+    }
+
+    [Test]
+    public async Task InheritIsSilentBecauseTheFallbackIsWhatItAsksFor()
+    {
+        var reports = Collect("<p style=\"font-size: inherit\">Text</p>");
+
+        await Assert.That(reports).IsEmpty();
+    }
+
+    [Test]
+    public async Task ADiagnosticReadsAsASentence()
+    {
+        var reports = Collect("<div style=\"overflow: hidden\">a</div>");
+
+        var report = reports.Single();
+
+        await Assert.That(report.Kind).IsEqualTo(HtmlDiagnosticKind.UnsupportedProperty);
+        await Assert.That(report.Element).IsEqualTo("div");
+        await Assert.That(report.Name).IsEqualTo("overflow");
+        await Assert.That(report.Value).IsEqualTo("hidden");
+        await Assert.That(report.ToString()).IsEqualTo("<div> overflow: hidden — not clipped");
+    }
+
+    /// <summary>
+    /// A property stops reporting once it is implemented.
+    /// </summary>
+    /// <remarks>
+    /// The table is a list of what the engine gets wrong, so an entry that outlives its bug turns
+    /// the sink into noise — and worse, into noise that says a correct document is broken. This is
+    /// the check that the removal happens; <c>float</c> earned it by being the first entry ever
+    /// removed.
+    /// </remarks>
+    [Test]
+    public async Task ImplementedPropertiesStopReporting()
+    {
+        var reports = Collect(
+            """
+            <div style="float: left; width: 50px; height: 20px"></div>
+            <p style="clear: left">text</p>
+            <div style="position: relative; top: 2px">shifted</div>
+            <div style="position: absolute; top: 0; left: 0">out of flow</div>
+            """);
+
+        await Assert.That(reports).IsEmpty();
+    }
+
+    static List<HtmlDiagnostic> Collect(string body, string? css = null)
+    {
+        var reports = new List<HtmlDiagnostic>();
+        var options = CorpusRunner.Options();
+        options.OnDiagnostic = reports.Add;
+
+        // Through the whole conversion rather than layout alone, so a report raised while painting
+        // would be caught here too.
+        HtmlConverter.Convert(Page(body, css), options);
+        return reports;
+    }
+
+    static string Page(string body, string? css) =>
+        $"""
+         <!doctype html>
+         <html><head><style>{css}</style></head><body>{body}</body></html>
+         """;
+}

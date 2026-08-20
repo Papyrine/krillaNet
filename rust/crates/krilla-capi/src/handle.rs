@@ -184,6 +184,59 @@ pub unsafe fn string_out(
     unsafe { buffer_out(text.into_bytes(), out_ptr, out_len) }
 }
 
+/// Transfers an owned glyph run to the caller, per R5.
+///
+/// The typed counterpart to [`buffer_out`], and separate from it on purpose: a glyph is 40
+/// bytes with 8-byte alignment, so freeing one through the `u8` path would hand the allocator
+/// the wrong layout.
+///
+/// # Safety
+///
+/// `out_ptr` and `out_len` must be non-null and writable.
+pub unsafe fn glyphs_out(
+    glyphs: Vec<crate::types::KrillaGlyph>,
+    out_ptr: *mut *mut crate::types::KrillaGlyph,
+    out_len: *mut usize,
+) -> Result<(), i32> {
+    if out_ptr.is_null() || out_len.is_null() {
+        return Err(status::NULL_ARGUMENT);
+    }
+
+    let boxed = glyphs.into_boxed_slice();
+    let len = boxed.len();
+
+    // `Box::into_raw`, for the same reason as `buffer_out`: `as_mut_ptr()` on a live `Box`
+    // retags and invalidates the pointer for the caller's first read.
+    let ptr = Box::into_raw(boxed).cast::<crate::types::KrillaGlyph>();
+
+    // SAFETY: both pointers checked non-null immediately above.
+    unsafe {
+        out_ptr.write(ptr);
+        out_len.write(len);
+    }
+
+    Ok(())
+}
+
+/// Releases a glyph run produced by [`glyphs_out`].
+///
+/// # Safety
+///
+/// `ptr` and `len` must be exactly what a successful call wrote, and must not have been freed
+/// already.
+pub unsafe fn free_glyphs(ptr: *mut crate::types::KrillaGlyph, len: usize) {
+    if ptr.is_null() || len == 0 {
+        return;
+    }
+
+    // SAFETY: R5 — the allocation came from `glyphs_out`'s `Box::into_raw`, with the same
+    // length and element type. `ptr::slice_from_raw_parts_mut` rather than the reference form,
+    // so the allocation is not retagged on its way to being freed.
+    unsafe {
+        drop(Box::from_raw(std::ptr::slice_from_raw_parts_mut(ptr, len)));
+    }
+}
+
 /// Releases a buffer produced by any export that writes `ptr` + `len` out-parameters.
 ///
 /// Covers both `krilla_buffer_free` and `krilla_string_free`; they are distinct exports only

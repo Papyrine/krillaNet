@@ -1,0 +1,9 @@
+#spaced { border-spacing: 14px 6px; }
+
+#framed { border: 5px solid #204080; }
+#framed .cell { border: 3px solid #c04020; }
+
+#painted .stripe { background-color: #e8e0f0; }
+#painted .fill { background-color: #f0e0c0; }
+
+#padded .roomy { padding: 12px 20px; }

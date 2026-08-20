@@ -1,0 +1,10 @@
+.roman { list-style-type: upper-roman; }
+.alpha { list-style-type: lower-alpha; }
+.unmarked { list-style-type: none; }
+
+/* The marker hangs off the item's BORDER edge, so padding on the item moves its text and
+   leaves the bullet where it was. */
+.padded li { padding-left: 24px; }
+
+/* A symbol is sized from the item's own ascent, so it grows with the text. */
+.large { font-size: 32px; }

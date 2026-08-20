@@ -14,6 +14,18 @@ static partial class KrillaNative
     internal static partial int krilla_font_units_per_em(IntPtr font, out float unitsPerEm);
 
     [LibraryImport(library)]
+    internal static partial int krilla_font_shape(
+        IntPtr font,
+        ReadOnlySpan<byte> text,
+        nuint textLength,
+        int textDirection,
+        out IntPtr glyphs,
+        out nuint glyphCount);
+
+    [LibraryImport(library)]
+    internal static partial int krilla_glyphs_free(IntPtr glyphs, nuint glyphCount);
+
+    [LibraryImport(library)]
     internal static partial int krilla_surface_draw_text(
         IntPtr document,
         ulong token,

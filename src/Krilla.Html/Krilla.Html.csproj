@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <Description>Converts HTML to PDF via Krilla</Description>
+    <PackageTags>PDF, HTML, krilla, Convert, Render, AngleSharp</PackageTags>
+    <PackageReadmeFile>nuget-readme.md</PackageReadmeFile>
+  </PropertyGroup>
+  <ItemGroup>
+    <PackageReference Include="ProjectDefaults" PrivateAssets="all" />
+    <!-- AngleSharp parses and builds the DOM; AngleSharp.Css runs the cascade over it. Neither
+         lays out, which is the whole of Layout/. -->
+    <PackageReference Include="AngleSharp" />
+    <PackageReference Include="AngleSharp.Css" />
+    <None Include="nuget-readme.md" Pack="true" PackagePath="\" />
+    <ProjectReference Include="..\Krilla\Krilla.csproj" />
+  </ItemGroup>
+</Project>

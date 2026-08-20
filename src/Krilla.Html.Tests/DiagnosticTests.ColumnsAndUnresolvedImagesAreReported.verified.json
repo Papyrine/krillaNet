@@ -1,0 +1,15 @@
+﻿[
+  {
+    "Kind": "UnsupportedElement",
+    "Element": "colgroup",
+    "Name": "colgroup",
+    "Reason": "generates no box, and its width does not reach column sizing"
+  },
+  {
+    "Kind": "UnresolvedImage",
+    "Element": "img",
+    "Name": "src",
+    "Value": "does-not-exist.png",
+    "Reason": "did not resolve to an image, so no box was generated"
+  }
+]

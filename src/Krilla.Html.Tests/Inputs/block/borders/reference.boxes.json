@@ -1,0 +1,23 @@
+[
+  {
+    "selector": "html",
+    "x": 0,
+    "y": 0,
+    "width": 816,
+    "height": 184
+  },
+  {
+    "selector": "html > body:nth-child(2)",
+    "x": 0,
+    "y": 20,
+    "width": 816,
+    "height": 144
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(1)",
+    "x": 20,
+    "y": 20,
+    "width": 320,
+    "height": 144
+  }
+]

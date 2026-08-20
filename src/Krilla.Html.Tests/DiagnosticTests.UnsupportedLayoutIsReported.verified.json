@@ -1,0 +1,38 @@
+﻿[
+  {
+    "Element": "div",
+    "Name": "display",
+    "Value": "flex",
+    "Reason": "laid out as a block"
+  },
+  {
+    "Element": "div",
+    "Name": "display",
+    "Value": "grid",
+    "Reason": "laid out as a block"
+  },
+  {
+    "Element": "div",
+    "Name": "display",
+    "Value": "inline-block",
+    "Reason": "laid out as a block"
+  },
+  {
+    "Element": "div",
+    "Name": "position",
+    "Value": "fixed",
+    "Reason": "placed once rather than repeated on every page"
+  },
+  {
+    "Element": "div",
+    "Name": "box-sizing",
+    "Value": "border-box",
+    "Reason": "sized as content-box, so border and padding add to the width"
+  },
+  {
+    "Element": "table",
+    "Name": "border-collapse",
+    "Value": "collapse",
+    "Reason": "laid out with the separated border model"
+  }
+]
