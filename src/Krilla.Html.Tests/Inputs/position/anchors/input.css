@@ -1,0 +1,16 @@
+#outer, #pct, #unanchored { width: 300px; margin-bottom: 30px; }
+
+/* The static #inner contributes nothing: #deep anchors to #outer's padding box, and the
+   30px margin between them is skipped entirely. */
+#outer { position: relative; padding: 12px; background-color: #f4f4f4; height: 60px; }
+#static { margin: 30px; }
+#deep { position: absolute; top: 0; left: 0; background-color: #cfd8e8; }
+
+/* A percentage offset resolves against WIDTH horizontally and HEIGHT vertically. */
+#pct { position: relative; height: 80px; background-color: #f4f4f4; }
+#half { position: absolute; left: 50%; top: 25%; background-color: #e8d8cf; }
+
+/* No positioned ancestor, so the containing block is the page. This lands near the top of the
+   page rather than near the box that declares it. */
+#unanchored { height: 40px; background-color: #f4f4f4; }
+#page { position: absolute; top: 4px; left: 200px; background-color: #d8e8cf; }

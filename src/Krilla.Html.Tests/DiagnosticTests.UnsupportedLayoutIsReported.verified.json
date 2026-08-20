@@ -20,8 +20,8 @@
   {
     "Element": "div",
     "Name": "position",
-    "Value": "absolute",
-    "Reason": "laid out in flow"
+    "Value": "fixed",
+    "Reason": "placed once rather than repeated on every page"
   },
   {
     "Element": "div",

@@ -1,0 +1,13 @@
+#flow, #corners, #nested { width: 400px; margin-bottom: 30px; }
+div div { height: 24px; background-color: #eef; }
+
+/* Moves, and leaves its space occupied: #c sits where it would have sat regardless. */
+#b { position: relative; top: 10px; left: 40px; background-color: #cfd8e8; }
+
+/* bottom and right move the box AWAY from those edges, so they read as up and left. */
+#up { position: relative; bottom: 8px; background-color: #e8d8cf; }
+#over { position: relative; right: 30px; background-color: #d8e8cf; }
+
+/* The offset applies to the whole subtree. */
+#outer { position: relative; top: 6px; left: 20px; background-color: #f0e8b0; height: auto; }
+#inner { background-color: #f8f0d0; }

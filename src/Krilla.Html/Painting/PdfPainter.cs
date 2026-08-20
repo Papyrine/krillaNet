@@ -70,6 +70,55 @@ static class PdfPainter
         using var ___ = surface.PushTransform(Matrix.Translate(content.X, content.Y - pageTop));
 
         PaintBox(surface, root, pageTop, pageTop + content.Height, pageEnd, links, toPage);
+
+        // Absolutely positioned boxes are painted here rather than where they were declared,
+        // because they belong to the stacking layer of the page and not to the flow position of
+        // whichever box happened to contain them. Painting one inside its declaring parent buries
+        // it under any later sibling — and the box it is anchored to is frequently an ancestor of
+        // that sibling, so the burial is the normal case rather than a corner one.
+        //
+        // Tree order settles two of them, since nothing here establishes a stacking context and
+        // z-index is not implemented.
+        foreach (var positioned in Hoisted(root))
+        {
+            PaintBox(surface, positioned, pageTop, pageTop + content.Height, pageEnd, links, toPage);
+        }
+    }
+
+    /// <summary>
+    /// Every absolutely positioned box under <paramref name="box"/>, in document order.
+    /// </summary>
+    /// <remarks>
+    /// Includes those nested inside other positioned boxes, which land after their ancestor by
+    /// virtue of the walk order and so paint on top of it.
+    /// </remarks>
+    static IEnumerable<LayoutBox> Hoisted(LayoutBox box)
+    {
+        foreach (var child in box.Children)
+        {
+            foreach (var positioned in Hoisted(child))
+            {
+                yield return positioned;
+            }
+        }
+
+        foreach (var floated in box.Floats)
+        {
+            foreach (var positioned in Hoisted(floated.Box))
+            {
+                yield return positioned;
+            }
+        }
+
+        foreach (var entry in box.Positioned)
+        {
+            yield return entry.Box;
+
+            foreach (var positioned in Hoisted(entry.Box))
+            {
+                yield return positioned;
+            }
+        }
     }
 
     static void PaintBox(
@@ -104,6 +153,26 @@ static class PdfPainter
             PaintImage(surface, replaced, box.ContentBox);
         }
 
+        // The order below is CSS 2.1 Appendix E, which is not document order and is not negotiable
+        // once boxes overlap: in-flow blocks, then floats, then inline content, then everything
+        // positioned. Painting a positioned box in document order buries it under whichever
+        // sibling happens to follow — which is the opposite of what positioning it was for, and
+        // shows up as a background covering the box that was meant to sit on top.
+        //
+        // z-index is not implemented, so document order settles two boxes in the same layer.
+        foreach (var child in box.Children)
+        {
+            if (!child.Style.IsPositioned)
+            {
+                PaintBox(surface, child, top, bottom, pageEnd, links, toPage);
+            }
+        }
+
+        foreach (var floated in box.Floats)
+        {
+            PaintBox(surface, floated.Box, top, bottom, pageEnd, links, toPage);
+        }
+
         foreach (var line in box.Lines)
         {
             // Bounded by where the next page starts, not by the paper. A line at or past the break
@@ -127,17 +196,12 @@ static class PdfPainter
 
         foreach (var child in box.Children)
         {
-            PaintBox(surface, child, top, bottom, pageEnd, links, toPage);
+            if (child.Style.IsPositioned)
+            {
+                PaintBox(surface, child, top, bottom, pageEnd, links, toPage);
+            }
         }
 
-        // Floats last, so a float overlaps the in-flow content beside it rather than being buried
-        // under a later sibling background. CSS 2.1 Appendix E puts floats in their own stacking
-        // layer above in-flow blocks and below in-flow inline content; painting them after the
-        // block children gets the half of that which matters without a stacking implementation.
-        foreach (var floated in box.Floats)
-        {
-            PaintBox(surface, floated.Box, top, bottom, pageEnd, links, toPage);
-        }
     }
 
     static void PaintBackground(Surface surface, LayoutBox box)

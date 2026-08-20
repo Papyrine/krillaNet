@@ -18,7 +18,14 @@ namespace Krilla.Html.Layout;
 /// counts toward the height — and reappears only in the band <see cref="InlineLayout"/> asks for
 /// when placing each line. Block boxes beside a float are deliberately NOT narrowed or moved:
 /// CSS gives them their full width and lets them overlap, and only the line boxes inside them
-/// wrap. Positioned boxes are still not implemented.
+/// wrap.
+/// </para>
+/// <para>
+/// Positioned boxes: a relative one is laid out in flow and shifted at the end of
+/// <see cref="Layout"/>, taking its subtree with it and leaving every measurement made against it
+/// untouched. An absolute one is skipped by flow entirely — this class only records where flow
+/// WOULD have put it, since that is where it goes when its offsets are auto — and
+/// <see cref="AbsoluteLayout"/> places it afterwards.
 /// </para>
 /// </remarks>
 static class BlockLayout
@@ -113,6 +120,7 @@ static class BlockLayout
             // a float written between two words belongs on the line carrying those words, and this
             // box has not flowed any lines yet to know where that is.
             PlaceFloats(box, 0, box.Floats.Count, contentX, contentY, contentWidth, fonts, floats);
+            NoteStatic(box, 0, box.Positioned.Count, contentX, contentY);
 
             contentHeight = InlineLayout.Layout(box, contentX, contentY, contentWidth, fonts, floats);
 
@@ -157,6 +165,16 @@ static class BlockLayout
         // and below a margin that collapsed through. Neither is known any earlier than here.
         ListMarkers.Place(box, fonts);
 
+        // Relative positioning is applied last and to the whole subtree, because it is a paint-time
+        // shift rather than a layout one: the box keeps the space it was given, the height returned
+        // is the height before the offset, and nothing measured against it moves. That is what
+        // makes it cheap — it invalidates no measurement, so no ancestor has to be told.
+        //
+        // Floats inside the subtree move with it while the entries recorded for them in the float
+        // context do not, which is also right: content outside flows as though the offset had never
+        // happened.
+        Relocate(box, containingWidth);
+
         return borderBoxHeight;
     }
 
@@ -177,6 +195,7 @@ static class BlockLayout
         var openTop = IsTopOpen(parent, contentWidth);
         var first = true;
         var placed = 0;
+        var noted = 0;
 
         for (var index = 0; index < parent.Children.Count; index++)
         {
@@ -186,6 +205,11 @@ static class BlockLayout
             // far. A float written after two paragraphs starts below them, and one written before
             // any of them starts at the top.
             placed = PlaceFloats(parent, placed, index, contentX, contentY + y, contentWidth, fonts, floats);
+
+            // The same position, recorded rather than used. An absolutely positioned box takes no
+            // space, so this is the only moment where "the place flow would have given it" exists —
+            // and that is where it goes when its offsets are auto.
+            noted = NoteStatic(parent, noted, index, contentX, contentY + y);
 
             pending = pending.Merge(LeadingMargin(child, contentWidth));
 
@@ -212,8 +236,10 @@ static class BlockLayout
             first = false;
         }
 
-        // Floats declared after the last in-flow child, which is where a trailing float lands.
+        // Out-of-flow boxes declared after the last in-flow child, which is where a trailing float
+        // lands and where a trailing absolute box would have gone.
         PlaceFloats(parent, placed, parent.Floats.Count, contentX, contentY + y, contentWidth, fonts, floats);
+        NoteStatic(parent, noted, parent.Positioned.Count, contentX, contentY + y);
 
         // A trailing margin escapes downward only when nothing stops it: no bottom border, no
         // bottom padding, and an auto height. Otherwise it is trapped inside and counts toward
@@ -224,6 +250,58 @@ static class BlockLayout
         }
 
         return y;
+    }
+
+    /// <summary>
+    /// Applies a relatively positioned box's offsets to it and its subtree.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// CSS 2.1 §9.4.3: <c>top</c> wins over <c>bottom</c> and <c>left</c> over <c>right</c> when
+    /// both are given, and a lone <c>bottom</c> or <c>right</c> moves the box the other way — the
+    /// offsets name the direction the box moves AWAY from that edge, so `bottom: 5px` lifts it.
+    /// </para>
+    /// <para>
+    /// Percentages resolve against the containing block's WIDTH on all four sides, vertical ones
+    /// included. That reads like a mistake and is what the specification says.
+    /// </para>
+    /// </remarks>
+    static void Relocate(LayoutBox box, float containingWidth)
+    {
+        if (box.Style.Position != PositionKind.Relative)
+        {
+            return;
+        }
+
+        var style = box.Style;
+
+        var dx = style.Left.ResolveOrNull(containingWidth) ??
+                 -style.Right.ResolveOrNull(containingWidth) ??
+                 0;
+
+        var dy = style.Top.ResolveOrNull(containingWidth) ??
+                 -style.Bottom.ResolveOrNull(containingWidth) ??
+                 0;
+
+        if (dx != 0 || dy != 0)
+        {
+            box.Translate(dx, dy);
+        }
+    }
+
+    /// <summary>
+    /// Records the static position of the absolutely positioned boxes declared between two in-flow
+    /// positions, and returns how many have now been recorded.
+    /// </summary>
+    static int NoteStatic(LayoutBox parent, int from, int until, float x, float y)
+    {
+        while (from < parent.Positioned.Count && parent.Positioned[from].Index <= until)
+        {
+            parent.Positioned[from].Box.StaticPosition = (x, y);
+            from++;
+        }
+
+        return from;
     }
 
     /// <summary>
@@ -323,7 +401,7 @@ static class BlockLayout
     /// its longest unbreakable word, which is why a narrow container leaves a float overflowing
     /// rather than mangled.
     /// </remarks>
-    static float? ShrinkToFit(LayoutBox box, float contentWidth, FontSet fonts)
+    public static float? ShrinkToFit(LayoutBox box, float contentWidth, FontSet fonts)
     {
         // A replaced float sizes from its image, and a declared width needs no help. Both are
         // handled by the ordinary path, which also applies the aspect ratio.

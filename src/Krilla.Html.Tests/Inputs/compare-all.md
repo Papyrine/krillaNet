@@ -1,4 +1,4 @@
-# All scenarios (50)
+# All scenarios (53)
 
 The browser reference (left) beside the page Krilla.Html produced (right). `AE` is the fraction of pixels that differ and `SSIM` is structural similarity; neither is asserted. The worst offset is the largest positional disagreement in CSS pixels between the rendered element geometry and the browser's, and is the number to watch — it reaches zero exactly when the layout is right.
 
@@ -43,6 +43,9 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [page/break_between_lines](#page-break_between_lines)
 - [page/multi_page_flow](#page-multi_page_flow)
 - [page/page_size](#page-page_size)
+- [position/absolute](#position-absolute)
+- [position/anchors](#position-anchors)
+- [position/relative](#position-relative)
 - [table/auto_widths](#table-auto_widths)
 - [table/fixed_layout](#table-fixed_layout)
 - [table/sections](#table-sections)
@@ -667,6 +670,81 @@ step somewhere, and every multi-page scenario will be wrong in the same way.
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
 | <img src="page/page_size/reference_0001.png" width="480"> | <img src="page/page_size/result%23page_0001.verified.png" width="480"> |
+
+
+## position/absolute
+
+Absolute positioning against a nearest positioned ancestor.
+
+`#frame` carries a 5px border and 10px padding so that the containing block is identifiable rather
+than merely plausible. The containing block is the PADDING box: `#tl` at `top: 0; left: 0` lands
+inside the border and outside the padding. Using the border box puts it 5px out in both axes and
+using the content box puts it 10px in, and a frame with neither border nor padding cannot tell the
+three apart — which is why this scenario has both.
+
+- `#tl` and `#br` anchor to opposite corners, so the bottom-right one also measures that a `bottom`
+  or `right` offset is applied after the box has been sized rather than before.
+- `#stretch` gives both `left` and `right` with an auto width, the one arrangement where an
+  absolute box fills its containing block instead of shrinking.
+- `#fit` gives only `left`, so it shrinks to fit its content, the same rule a float follows.
+- `#body` is the only in-flow content, so the frame's height comes from it alone. None of the four
+  absolute boxes contributes to it, though two are taller than it — which `#after` records by
+  sitting where the frame ends rather than where its contents do.
+
+**Boxes**: 9 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0005 · SSIM 0.9999** |
+| <img src="position/absolute/reference_0001.png" width="480"> | <img src="position/absolute/result%23page_0001.verified.png" width="480"> |
+
+
+## position/anchors
+
+Which box an absolute box is positioned against, in the three arrangements that differ.
+
+- `#deep` is two levels down, inside a `#static` carrying a 30px margin, and anchors to `#outer` —
+  skipping the static parent entirely. Its margin, its position and its padding contribute nothing.
+  This is what makes `position: relative` on an outer element the standard way to anchor something
+  nested, and an implementation that walked to the DOM parent would land 30px out in both axes.
+- `#half` measures which dimension a percentage offset resolves against, and the answer is not one
+  of them: `left` resolves against the containing block's WIDTH and `top` against its HEIGHT. A
+  single square container cannot tell those apart, so `#pct` is deliberately not square.
+- `#page` has no positioned ancestor at all, so its containing block is the page rather than the box
+  that declares it. It is written inside a box most of the way down the page and lands near the top,
+  which looks like a bug until the rule is known.
+
+**Boxes**: 9 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| <img src="position/anchors/reference_0001.png" width="480"> | <img src="position/anchors/result%23page_0001.verified.png" width="480"> |
+
+
+## position/relative
+
+Relative positioning, which moves a box without moving anything else.
+
+- `#flow` is the point of the whole value: `#b` shifts down and right, and `#c` sits exactly where
+  it would have sat had `#b` never moved. The space `#b` was given stays given. An implementation
+  that treated the offset as part of layout would push `#c` down and pass a scenario containing
+  only one box.
+- `#corners` covers the pair that reads backwards. `bottom` and `right` name the edge the box moves
+  AWAY from, so `bottom: 8px` lifts a box and `right: 30px` pulls it left. Guessing the sign here is
+  a coin toss and the corpus is the coin.
+- `#nested` offsets a parent and measures the child, since the shift applies to the whole subtree
+  rather than to one border box.
+
+The heights are declared rather than derived so that a wrong offset shows as a moved box and not as
+a reflow, which keeps the failure legible.
+
+**Boxes**: 12 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0001 · SSIM 1.0000** |
+| <img src="position/relative/reference_0001.png" width="480"> | <img src="position/relative/result%23page_0001.verified.png" width="480"> |
 
 
 ## table/auto_widths

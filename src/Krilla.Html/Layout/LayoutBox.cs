@@ -119,6 +119,28 @@ sealed class LayoutBox
     public List<FloatChild> Floats { get; } = [];
 
     /// <summary>
+    /// The absolutely positioned boxes this box contains, out of flow.
+    /// </summary>
+    /// <remarks>
+    /// Held against the box they were DECLARED in rather than the one they are positioned against,
+    /// which are usually not the same. The declaring parent is what knows their static position —
+    /// where flow would have put them, which is where they go when their offsets are auto — and
+    /// the containing block is found later, by <see cref="AbsoluteLayout"/> walking the ancestor
+    /// chain.
+    /// </remarks>
+    public List<FloatChild> Positioned { get; } = [];
+
+    /// <summary>
+    /// Where flow would have put this box, for an absolutely positioned box whose offsets are
+    /// auto.
+    /// </summary>
+    /// <remarks>
+    /// Recorded during normal layout because that is the only moment it exists: the box takes no
+    /// space, so nothing afterwards can reconstruct where it would have gone.
+    /// </remarks>
+    public (float X, float Y)? StaticPosition { get; set; }
+
+    /// <summary>
     /// The border box: the outer edge of the border, which is also the padding box's outer edge
     /// when there is no border.
     /// </summary>
@@ -155,6 +177,14 @@ sealed class LayoutBox
                 yield return descendant;
             }
         }
+
+        foreach (var positioned in Positioned)
+        {
+            foreach (var descendant in positioned.Box.Descendants())
+            {
+                yield return descendant;
+            }
+        }
     }
 
     /// <summary>Moves this box and everything under it by the given offset.</summary>
@@ -182,6 +212,14 @@ sealed class LayoutBox
         foreach (var floated in Floats)
         {
             floated.Box.Translate(dx, dy);
+        }
+
+        // Moves with the box that declared it, which keeps a recorded static position meaningful
+        // while flow is still settling. Absolute layout runs afterwards and positions against a
+        // containing block, so anything it has already placed is unaffected by construction.
+        foreach (var positioned in Positioned)
+        {
+            positioned.Box.Translate(dx, dy);
         }
     }
 }

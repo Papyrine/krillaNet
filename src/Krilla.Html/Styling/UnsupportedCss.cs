@@ -31,7 +31,6 @@ static class UnsupportedCss
     /// </summary>
     static readonly (string Property, string NoOp, string Reason)[] ignored =
     [
-        ("position", "static", "laid out in flow"),
         ("box-sizing", "content-box", "sized as content-box, so border and padding add to the width"),
         ("border-collapse", "separate", "laid out with the separated border model"),
         ("overflow", "visible", "not clipped"),
@@ -110,6 +109,7 @@ static class UnsupportedCss
             }
         }
 
+        Fixed(declaration, name, sink);
         Radius(declaration, name, sink);
         BorderStyles(declaration, name, sink);
         Decoration(declaration, name, sink);
@@ -126,6 +126,23 @@ static class UnsupportedCss
             !displays.Contains(value))
         {
             Diagnostic.Property(sink, element, "display", value, "laid out as a block");
+        }
+    }
+
+    /// <summary>
+    /// <c>position: fixed</c>, which is placed once rather than repeated.
+    /// </summary>
+    /// <remarks>
+    /// The only positioning value still reported. It is laid out correctly against the page, so
+    /// the geometry is right — what is undecided is paged media: CSS says a fixed box repeats on
+    /// every page, and this places it on the one page its position falls on. A running header
+    /// written that way appears once.
+    /// </remarks>
+    static void Fixed(ICssStyleDeclaration declaration, string element, Action<HtmlDiagnostic> sink)
+    {
+        if (Set(declaration, "position") is "fixed")
+        {
+            Diagnostic.Property(sink, element, "position", "fixed", "placed once rather than repeated on every page");
         }
     }
 

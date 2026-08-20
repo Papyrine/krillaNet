@@ -119,7 +119,7 @@ public class DiagnosticTests
                 <div style="display: flex"><span>a</span></div>
                 <div style="display: grid"><span>b</span></div>
                 <div style="display: inline-block">c</div>
-                <div style="position: absolute">e</div>
+                <div style="position: fixed">e</div>
                 <div style="box-sizing: border-box">f</div>
                 <table style="border-collapse: collapse"><tr><td>g</td></tr></table>
                 """));
@@ -217,15 +217,15 @@ public class DiagnosticTests
     [Test]
     public async Task ADiagnosticReadsAsASentence()
     {
-        var reports = Collect("<div style=\"position: absolute\">a</div>");
+        var reports = Collect("<div style=\"overflow: hidden\">a</div>");
 
         var report = reports.Single();
 
         await Assert.That(report.Kind).IsEqualTo(HtmlDiagnosticKind.UnsupportedProperty);
         await Assert.That(report.Element).IsEqualTo("div");
-        await Assert.That(report.Name).IsEqualTo("position");
-        await Assert.That(report.Value).IsEqualTo("absolute");
-        await Assert.That(report.ToString()).IsEqualTo("<div> position: absolute — laid out in flow");
+        await Assert.That(report.Name).IsEqualTo("overflow");
+        await Assert.That(report.Value).IsEqualTo("hidden");
+        await Assert.That(report.ToString()).IsEqualTo("<div> overflow: hidden — not clipped");
     }
 
     /// <summary>
@@ -244,6 +244,8 @@ public class DiagnosticTests
             """
             <div style="float: left; width: 50px; height: 20px"></div>
             <p style="clear: left">text</p>
+            <div style="position: relative; top: 2px">shifted</div>
+            <div style="position: absolute; top: 0; left: 0">out of flow</div>
             """);
 
         await Assert.That(reports).IsEmpty();

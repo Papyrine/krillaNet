@@ -124,6 +124,38 @@ enum WhiteSpaceKind
     NoWrap
 }
 
+/// <summary>How a box is positioned relative to normal flow.</summary>
+enum PositionKind
+{
+    /// <summary>Positioned by flow alone. The offsets do not apply.</summary>
+    Static,
+
+    /// <summary>
+    /// Laid out in flow, then painted offset. The space it occupied stays occupied.
+    /// </summary>
+    /// <remarks>
+    /// The offset is applied after layout and affects nothing else — a sibling sits where it would
+    /// have sat had the box never moved, and the parent keeps the height it would have had. That
+    /// is the whole of what makes relative positioning cheap: it never invalidates a measurement.
+    /// </remarks>
+    Relative,
+
+    /// <summary>
+    /// Taken out of flow and positioned against the nearest positioned ancestor.
+    /// </summary>
+    Absolute,
+
+    /// <summary>
+    /// Taken out of flow and positioned against the viewport.
+    /// </summary>
+    /// <remarks>
+    /// Laid out as <see cref="Absolute"/> against the page. What paged media should do with it —
+    /// repeat it on every page, as the specification says, or place it once — is not settled here,
+    /// so it reports through <see cref="HtmlOptions.OnDiagnostic"/>.
+    /// </remarks>
+    Fixed
+}
+
 /// <summary>Which side a box floats to, if any.</summary>
 /// <remarks>
 /// A float is taken out of normal flow: it does not advance its parent's flow position and does
@@ -350,6 +382,29 @@ sealed record ComputedStyle
 
     /// <summary>How white space and wrapping are handled.</summary>
     public WhiteSpaceKind WhiteSpace { get; init; } = WhiteSpaceKind.Normal;
+
+    /// <summary>How this box is positioned.</summary>
+    public PositionKind Position { get; init; } = PositionKind.Static;
+
+    /// <summary>Offset from the containing block's top edge.</summary>
+    public CssLength Top { get; init; } = CssLength.Auto;
+
+    /// <summary>Offset from the containing block's right edge.</summary>
+    public CssLength Right { get; init; } = CssLength.Auto;
+
+    /// <summary>Offset from the containing block's bottom edge.</summary>
+    public CssLength Bottom { get; init; } = CssLength.Auto;
+
+    /// <summary>Offset from the containing block's left edge.</summary>
+    public CssLength Left { get; init; } = CssLength.Auto;
+
+    /// <summary>Whether this box is taken out of flow by positioning.</summary>
+    public bool IsAbsolute => Position is PositionKind.Absolute or PositionKind.Fixed;
+
+    /// <summary>
+    /// Whether this box is the containing block for absolutely positioned descendants.
+    /// </summary>
+    public bool IsPositioned => Position != PositionKind.Static;
 
     /// <summary>Which side this box floats to.</summary>
     public FloatKind Float { get; init; } = FloatKind.None;

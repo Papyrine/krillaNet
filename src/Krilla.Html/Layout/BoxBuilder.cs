@@ -40,6 +40,7 @@ static class BoxBuilder
         var blocks = new List<LayoutBox>();
         var inlines = new List<InlineItem>();
         var floats = new List<FloatChild>();
+        var positioned = new List<FloatChild>();
 
         // One counter per element, whether or not it turns out to hold list items. It is the only
         // thing that knows how many items have been generated so far, which is what makes a
@@ -48,10 +49,11 @@ static class BoxBuilder
 
         foreach (var node in element.ChildNodes)
         {
-            Collect(node, style, context, blocks, inlines, floats, link, numbering);
+            Collect(node, style, context, blocks, inlines, floats, positioned, link, numbering);
         }
 
         box.Floats.AddRange(floats);
+        box.Positioned.AddRange(positioned);
 
         // A block container is either all-block or all-inline. When both turned up, the runs
         // between block siblings become anonymous blocks so ordering is preserved.
@@ -80,11 +82,17 @@ static class BoxBuilder
             // the first block child, and putting it first preserves reading order for that case.
             box.Children.Insert(0, anonymous);
 
-            // Every float counted the in-flow children ahead of it as it was collected, and one
-            // more has just appeared in front of all of them.
-            for (var index = 0; index < box.Floats.Count; index++)
+            // Every out-of-flow box counted the in-flow children ahead of it as it was
+            // collected, and one more has now appeared in front of all of them.
+            Shift(box.Floats);
+            Shift(box.Positioned);
+
+            static void Shift(List<FloatChild> boxes)
             {
-                box.Floats[index] = box.Floats[index] with {Index = box.Floats[index].Index + 1};
+                for (var index = 0; index < boxes.Count; index++)
+                {
+                    boxes[index] = boxes[index] with {Index = boxes[index].Index + 1};
+                }
             }
         }
     }
@@ -113,6 +121,7 @@ static class BoxBuilder
         List<LayoutBox> blocks,
         List<InlineItem> inlines,
         List<FloatChild> floats,
+        List<FloatChild> positioned,
         string? link)
     {
         var source = element.GetAttribute("src");
@@ -150,6 +159,12 @@ static class BoxBuilder
             if (sized.IsFloating)
             {
                 floats.Add(new(box, blocks.Count));
+                return;
+            }
+
+            if (sized.IsAbsolute)
+            {
+                positioned.Add(new(box, blocks.Count));
                 return;
             }
 
@@ -234,6 +249,7 @@ static class BoxBuilder
         List<LayoutBox> blocks,
         List<InlineItem> inlines,
         List<FloatChild> floats,
+        List<FloatChild> positioned,
         string? link,
         ListNumbering numbering)
     {
@@ -289,10 +305,16 @@ static class BoxBuilder
             style = style with {Float = FloatKind.None};
         }
 
-        // CSS 2.1 §9.7: floating makes a box block-level whatever `display` asked for, so
-        // `float: left` on a <span> generates a block box rather than runs in a line. Table and
-        // list-item displays are already block-level and keep their own layout mode.
-        if (style is {IsFloating: true, Display: DisplayKind.Inline})
+        // CSS 2.1 §9.7: absolute positioning wins over floating outright, and both make a box
+        // block-level whatever `display` asked for — so `float: left` or `position: absolute` on a
+        // <span> generates a block box rather than runs in a line. Table and list-item displays are
+        // already block-level and keep their own layout mode.
+        if (style.IsAbsolute)
+        {
+            style = style with {Float = FloatKind.None};
+        }
+
+        if (style is {Display: DisplayKind.Inline} and ({IsFloating: true} or {IsAbsolute: true}))
         {
             style = style with {Display = DisplayKind.Block};
         }
@@ -316,7 +338,7 @@ static class BoxBuilder
 
         if (element.LocalName.Equals("img", StringComparison.OrdinalIgnoreCase))
         {
-            AddImage(element, style, context, blocks, inlines, floats, link);
+            AddImage(element, style, context, blocks, inlines, floats, positioned, link);
             return;
         }
 
@@ -330,7 +352,7 @@ static class BoxBuilder
 
             foreach (var child in element.ChildNodes)
             {
-                Collect(child, style, context, blocks, inlines, floats, link, numbering);
+                Collect(child, style, context, blocks, inlines, floats, positioned, link, numbering);
             }
 
             // Only the runs this recursion added, and only those no nested inline has already
@@ -361,6 +383,15 @@ static class BoxBuilder
             // Recorded against the number of in-flow siblings already collected, which is where in
             // the flow the float was declared and therefore how far down the page it starts.
             floats.Add(new(box, blocks.Count));
+            return;
+        }
+
+        if (style.IsAbsolute)
+        {
+            // Same index, for a different reason: an absolute box with auto offsets goes where
+            // flow would have put it, so the flow position it was declared at has to survive even
+            // though the box never takes part in flow.
+            positioned.Add(new(box, blocks.Count));
             return;
         }
 

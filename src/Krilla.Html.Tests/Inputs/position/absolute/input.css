@@ -1,0 +1,19 @@
+#frame {
+  position: relative;
+  width: 300px;
+  margin-left: 40px;
+  padding: 10px;
+  border: 5px solid #446;
+  background-color: #f4f4f4;
+}
+#after { width: 400px; }
+
+/* The containing block is the frame's PADDING box: inside the border, outside the padding. */
+#tl { position: absolute; top: 0; left: 0; width: 40px; height: 20px; background-color: #cfd8e8; }
+#br { position: absolute; bottom: 0; right: 0; width: 40px; height: 20px; background-color: #e8d8cf; }
+
+/* left and right together are the one case where an auto width stretches. */
+#stretch { position: absolute; left: 60px; right: 60px; top: 30px; background-color: #d8e8cf; }
+
+/* Otherwise an auto width shrinks to fit, as a float does. */
+#fit { position: absolute; top: 55px; left: 60px; background-color: #f0e8b0; }

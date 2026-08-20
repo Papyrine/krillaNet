@@ -112,6 +112,16 @@ public static class HtmlConverter
         // once, when painting.
         var top = root.Style.MarginTop.Resolve(options.ContentWidth);
         BlockLayout.Layout(root, 0, top, options.ContentWidth, fonts);
+
+        // After flow, never during it. An absolute box is positioned against an ancestor that is
+        // sized by flowing the very children that may declare it, so the only order without a
+        // circle is to finish flow and then descend. The initial containing block is the page
+        // content area, which is what paged media has instead of a viewport.
+        AbsoluteLayout.Place(
+            root,
+            new(0, 0, options.ContentWidth, options.ContentHeight),
+            fonts);
+
         return new(root, context);
     }
 

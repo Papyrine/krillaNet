@@ -14,8 +14,8 @@ it, that is stated, because an unmeasured gap is the more dangerous kind.
 
 ## Where the corpus stands
 
-50 scenarios across 9 categories. **Box geometry matches Chrome exactly on every one** — zero
-positional and zero size difference, and nothing unmatched — and 40 read SSIM 1.0000, of which 31
+53 scenarios across 10 categories. **Box geometry matches Chrome exactly on every one** — zero
+positional and zero size difference, and nothing unmatched — and 42 read SSIM 1.0000, of which 32
 are pixel-identical outright.
 
 The nine that read below 1.0000, with the cause of each. None is a mystery, and none should be
@@ -32,10 +32,11 @@ The nine that read below 1.0000, with the cause of each. None is a mystery, and 
 | `ua/blockquote_pre` | 0.0005 | 0.9999 | Same |
 | `table/spacing_borders` | 0.0003 | 0.9999 | Box edge at a fractional position |
 | `float/shrink_to_fit` | 0.0000 | 0.9999 | Box edge at a fractional position |
+| `position/absolute` | 0.0005 | 0.9999 | Box edge at a fractional position |
 
-Nine more read SSIM 1.0000 while still differing on a scattering of antialiased pixels:
+Eleven more read SSIM 1.0000 while still differing on a scattering of antialiased pixels:
 `block/borders`, `ua/lists`, `ua/list_markers`, `table/sections`, `inline/justify`, `link/external`,
-`ua/headings`, `float/basic` and `float/clear`. Each is one of the two causes above, and none exceeds 40 levels of grey out of
+`ua/headings`, `float/basic`, `float/clear`, `position/relative` and `position/anchors`. Each is one of the two causes above, and none exceeds 40 levels of grey out of
 255.
 
 ## Unimplemented layout
@@ -51,11 +52,8 @@ looking wrong afterwards. A report is not a substitute for a scenario — it say
 not rendered properly, not by how much — but it does mean the dangerous case, an unmeasured gap
 nothing announces, no longer applies to anything in this section.
 
-- **`position: relative` / `absolute` / `fixed`.** The most valuable next piece now that floats are
-  in. Absolute positioning needs a containing-block chain that tracks the nearest positioned
-  ancestor; `fixed` in paged media needs a decision about what "the viewport" means on paper.
-- **Flexbox**, then **grid**. Modern documents use them, and the block substrate they wanted —
-  tables and floats — is now underneath them.
+- **Flexbox**, then **grid**. The most valuable next piece now that positioning is in, and the
+  block substrate they wanted — tables, floats and positioned boxes — is underneath them.
 
 ## Text
 
@@ -175,6 +173,29 @@ matches Chrome exactly across the four `float/` scenarios. What is missing:
 - **The band a line is given is sampled over the strut height**, not the line height it turns out to
   have. A line made taller by an image or a larger inline font could overlap a float that begins
   a little below its top edge. Sampling correctly means laying the line out twice.
+## Positioning
+
+Implemented: `relative` with all four offsets, `absolute` against the nearest positioned ancestor
+or the page, the static position for auto offsets, shrink-to-fit and left-plus-right widths,
+per-axis percentage offsets, and CSS 2.1 Appendix E paint order. Box geometry matches Chrome
+exactly across the three `position/` scenarios. What is missing:
+
+- **`position: fixed` is placed once rather than repeated on every page.** Its geometry against the
+  page is right, so the difference is entirely about paged media: CSS repeats a fixed box on each
+  page, which is what would make it usable for a running header. Reported through `OnDiagnostic`.
+  This is the one gap in this section with a real use behind it.
+- **No `z-index`, and nothing establishes a stacking context.** Two positioned boxes that overlap
+  are ordered by their position in the tree, so a document that layers deliberately gets the
+  ordering it wrote rather than the one it asked for. Nothing measures it.
+- **Auto margins on an absolute box resolve to zero rather than centring it.** CSS centres a box
+  whose width and both offsets are given and whose margins are both auto, which is one of the two
+  standard centring idioms. Nothing measures it.
+- **An absolute box does not paginate.** It is placed once at a document position, so one taller
+  than the remaining space on its page is cut at the page edge rather than continued. The same is
+  true of a float, and both are the same missing piece.
+- **`min-height` and `max-height` are not read**, on positioned boxes or on anything else, so an
+  absolute box sized between two offsets ignores them.
+
 ## Pagination
 
 - **No `break-before` / `break-after` / `break-inside`**, and no orphans or widows. A break falls

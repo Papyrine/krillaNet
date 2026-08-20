@@ -96,7 +96,12 @@ static class StyleResolver
             TextAlign = ParseTextAlign(declaration.GetPropertyValue("text-align"), parent.TextAlign),
             WhiteSpace = ParseWhiteSpace(declaration.GetPropertyValue("white-space"), parent.WhiteSpace),
             Float = ParseFloat(declaration.GetPropertyValue("float")),
-            Clear = ParseClear(declaration.GetPropertyValue("clear"))
+            Clear = ParseClear(declaration.GetPropertyValue("clear")),
+            Position = ParsePosition(declaration.GetPropertyValue("position")),
+            Top = Length(declaration, "top", fontSize, rootFontSize, CssLength.Auto),
+            Right = Length(declaration, "right", fontSize, rootFontSize, CssLength.Auto),
+            Bottom = Length(declaration, "bottom", fontSize, rootFontSize, CssLength.Auto),
+            Left = Length(declaration, "left", fontSize, rootFontSize, CssLength.Auto)
         };
 
         // After the style, not before: the scan reports against what the element resolved to, and
@@ -236,6 +241,22 @@ static class StyleResolver
             // the corpus comparison as a geometry difference rather than as silently missing
             // content that nothing measures.
             _ => DisplayKind.Block
+        };
+
+    /// <summary>
+    /// How a box is positioned. Not inherited.
+    /// </summary>
+    /// <remarks>
+    /// <c>sticky</c> resolves to <c>relative</c>: it behaves as one until a scroll position it can
+    /// never reach on paper, so that is not an approximation but what it computes to in print.
+    /// </remarks>
+    static PositionKind ParsePosition(string? value) =>
+        value?.Trim().ToLowerInvariant() switch
+        {
+            "relative" or "sticky" => PositionKind.Relative,
+            "absolute" => PositionKind.Absolute,
+            "fixed" => PositionKind.Fixed,
+            _ => PositionKind.Static
         };
 
     /// <summary>

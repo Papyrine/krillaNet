@@ -1,0 +1,65 @@
+[
+  {
+    "selector": "html",
+    "x": 0,
+    "y": 0,
+    "width": 816,
+    "height": 294
+  },
+  {
+    "selector": "html > body:nth-child(2)",
+    "x": 0,
+    "y": 0,
+    "width": 816,
+    "height": 264
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(1)",
+    "x": 0,
+    "y": 0,
+    "width": 324,
+    "height": 84
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(1) > div:nth-child(1)",
+    "x": 42,
+    "y": 42,
+    "width": 240,
+    "height": 0
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(1) > div:nth-child(1) > div:nth-child(1)",
+    "x": 0,
+    "y": 0,
+    "width": 212.58,
+    "height": 18
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(2)",
+    "x": 0,
+    "y": 114,
+    "width": 300,
+    "height": 80
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(2) > div:nth-child(1)",
+    "x": 150,
+    "y": 134,
+    "width": 150,
+    "height": 36
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(3)",
+    "x": 0,
+    "y": 224,
+    "width": 300,
+    "height": 40
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(3) > div:nth-child(1)",
+    "x": 200,
+    "y": 4,
+    "width": 215.27,
+    "height": 18
+  }
+]
