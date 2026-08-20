@@ -10,26 +10,31 @@ Krilla *writes* PDFs. To read, render or edit an existing one, use [Morph.PDFium
 **See [Milestones](../../milestones?state=closed) for release notes.**
 
 
-## NuGet package
+## NuGet packages
 
-[Krilla](https://www.nuget.org/packages/Krilla/)
+ * [Krilla](https://www.nuget.org/packages/Krilla/) — writes PDFs.
+ * [Krilla.Html](https://www.nuget.org/packages/Krilla.Html/) — converts HTML to PDF on top of it.
 
 
 ## HTML to PDF
 
-`Krilla.Html` converts HTML to PDF on top of this library. [AngleSharp](https://anglesharp.github.io/)
-parses the markup and runs the CSS cascade, `Krilla.Html` lays the result out, and Krilla writes the
-PDF.
+[Krilla.Html](https://www.nuget.org/packages/Krilla.Html/) converts HTML to PDF on top of this
+library. [AngleSharp](https://anglesharp.github.io/) parses the markup and runs the CSS cascade,
+`Krilla.Html` lays the result out, and Krilla writes the PDF.
 
+<!-- snippet: HtmlToPdf -->
+<a id='snippet-HtmlToPdf'></a>
 ```cs
 using var fonts = new FontSet()
-    .AddDirectory("fonts");
+    .AddDirectory(fontDirectory);
 
 var pdf = HtmlConverter.Convert("<h1>Hello</h1><p>World</p>", new()
 {
     Fonts = fonts
 });
 ```
+<sup><a href='/src/Krilla.Html.Tests/Samples.cs#L19-L29' title='Snippet source file'>snippet source</a> | <a href='#snippet-HtmlToPdf' title='Start of snippet'>anchor</a></sup>
+<!-- endSnippet -->
 
 Krilla has no font database, so the fonts a document may use are supplied by the caller rather than
 discovered from the host. That is what makes output reproducible across machines.
@@ -44,10 +49,14 @@ network by default — converting an untrusted document would otherwise issue re
 hosts it names. Set `HtmlOptions.ImageResolver` to take that decision explicitly, and the two
 policies to bound what any resolver may load:
 
+<!-- snippet: ImagePolicies -->
+<a id='snippet-ImagePolicies'></a>
 ```cs
 options.LocalImages = ImagePolicy.SafeDirectories(assetDirectory);
 options.WebImages = ImagePolicy.SafeDomains("cdn.example.com");
 ```
+<sup><a href='/src/Krilla.Html.Tests/Samples.cs#L48-L53' title='Snippet source file'>snippet source</a> | <a href='#snippet-ImagePolicies' title='Start of snippet'>anchor</a></sup>
+<!-- endSnippet -->
 
 Both are checked before the resolver runs, so a refused source is never requested. A `data:` URI
 is never gated, since its bytes are already in the document.
@@ -56,14 +65,18 @@ Because the engine implements a subset of CSS and lays the rest out as a plain b
 using an unimplemented construct comes out wrong with nothing to say so. `OnDiagnostic` turns that
 into a report:
 
+<!-- snippet: Diagnostics -->
+<a id='snippet-Diagnostics'></a>
 ```cs
 options.OnDiagnostic = diagnostic => Console.WriteLine(diagnostic);
 
 // <div> display: flex — laid out as a block
 // <table> border-collapse: collapse — laid out with the separated border model
-// <td> bgcolor: silver — not applied, because presentational attributes are not mapped onto the cascade
+// <p> align: left — not applied, because presentational attributes are not mapped onto the cascade
 // <img> src: logo.png — did not resolve to an image, so no box was generated
 ```
+<sup><a href='/src/Krilla.Html.Tests/Samples.cs#L73-L82' title='Snippet source file'>snippet source</a> | <a href='#snippet-Diagnostics' title='Start of snippet'>anchor</a></sup>
+<!-- endSnippet -->
 
 Unrecognised CSS is deliberately not reported. Listing every `cursor` and `content` an ordinary
 stylesheet carries would bury the signal, and would cost the invariant that makes the sink worth

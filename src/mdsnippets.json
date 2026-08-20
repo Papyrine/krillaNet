@@ -1,6 +1,6 @@
 {
   "$schema": "https://raw.githubusercontent.com/SimonCropp/MarkdownSnippets/master/schema.json",
-  "TocExcludes": [ "NuGet package", "Release Notes", "Icon" ],
+  "TocExcludes": [ "NuGet packages", "Release Notes", "Icon" ],
   "MaxWidth": 100,
   "Convention": "InPlaceOverwrite",
   "ValidateContent": true,
