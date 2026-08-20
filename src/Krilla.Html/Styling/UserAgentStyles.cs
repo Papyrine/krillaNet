@@ -105,12 +105,13 @@ static class UserAgentStyles
     /// flowing with it. The replaced elements still missing (<c>input</c>, <c>svg</c>, <c>video</c>)
     /// are absent because they need more than a display value to lay out.
     /// </remarks>
-    static readonly HashSet<string> inline = new(StringComparer.OrdinalIgnoreCase)
-    {
+    static readonly HashSet<string> inline =
+    [
+        with(StringComparer.OrdinalIgnoreCase),
         "a", "abbr", "b", "bdi", "bdo", "br", "cite", "code", "data", "dfn", "em", "i", "img",
         "kbd", "label", "mark", "q", "rp", "rt", "ruby", "s", "samp", "small", "span", "strong",
         "sub", "sup", "time", "u", "var", "wbr"
-    };
+    ];
 
     /// <summary>
     /// Elements that generate no box, whatever their content.
@@ -120,10 +121,11 @@ static class UserAgentStyles
     /// most of these. Without it a stylesheet's own text would be laid out as content, which is
     /// both wrong and extremely obvious.
     /// </remarks>
-    static readonly HashSet<string> hidden = new(StringComparer.OrdinalIgnoreCase)
-    {
+    static readonly HashSet<string> hidden =
+    [
+        with(StringComparer.OrdinalIgnoreCase),
         "head", "link", "meta", "script", "style", "title", "base", "template"
-    };
+    ];
 
     /// <summary>
     /// The display for <paramref name="localName"/>, or null when there is no default to apply and

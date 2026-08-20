@@ -28,7 +28,7 @@ static class CssValues
             return fallback;
         }
 
-        var text = value.Trim();
+        var text = value.AsSpan().Trim();
 
         if (text.Equals("auto", StringComparison.OrdinalIgnoreCase))
         {
@@ -47,13 +47,26 @@ static class CssValues
                 : fallback;
         }
 
-        var (number, unit) = SplitUnit(text);
-        if (!TryParseNumber(number, out var amount))
+        var split = UnitStart(text);
+        if (!TryParseNumber(text[..split], out var amount))
         {
             return fallback;
         }
 
-        return unit switch
+        var unit = text[split..].Trim();
+
+        // No unit below is longer than three characters, so anything longer cannot match one and
+        // takes the fallback either way. Which is what lets the case folding CSS asks for happen
+        // in a fixed buffer rather than in a string nobody keeps.
+        if (unit.Length > 3)
+        {
+            return fallback;
+        }
+
+        Span<char> lower = stackalloc char[3];
+        unit.ToLowerInvariant(lower);
+
+        return lower[..unit.Length] switch
         {
             "px" or "" => CssLength.Pixels(amount),
             "pt" => CssLength.Pixels(amount * PixelsPerPoint),
@@ -221,7 +234,7 @@ static class CssValues
             .Split([',', ' ', '/', '\t'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)];
     }
 
-    static bool TryParseComponent(string text, out byte value)
+    static bool TryParseComponent(ReadOnlySpan<char> text, out byte value)
     {
         value = 0;
 
@@ -245,8 +258,13 @@ static class CssValues
         return true;
     }
 
-    /// <summary>Splits a dimension into its number and its unit.</summary>
-    static (string Number, string Unit) SplitUnit(string text)
+    /// <summary>Where a dimension's unit begins, everything before it being the number.</summary>
+    /// <remarks>
+    /// An index rather than the two pieces, because a tuple cannot hold a
+    /// <see cref="ReadOnlySpan{T}"/> - <c>ValueTuple</c>'s parameters do not allow a ref struct -
+    /// and the caller can slice for itself.
+    /// </remarks>
+    static int UnitStart(ReadOnlySpan<char> text)
     {
         var index = 0;
         while (index < text.Length &&
@@ -263,11 +281,11 @@ static class CssValues
             index++;
         }
 
-        return (text[..index], text[index..].Trim().ToLowerInvariant());
+        return index;
     }
 
     /// <summary>Parses a number in the invariant culture, as CSS always uses.</summary>
-    public static bool TryParseNumber(string text, out float value) =>
+    public static bool TryParseNumber(ReadOnlySpan<char> text, out float value) =>
         float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value);
 
     /// <summary>

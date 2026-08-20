@@ -105,7 +105,7 @@ static class TableLayout
         }
 
         var natural = MeasureCells(grid, widths, contentWidth, spacingX, fonts);
-        SetRowHeights(grid, natural, spacingY, containingWidth);
+        SetRowHeights(grid, natural, spacingY);
         PlaceRows(grid, ref top, spacingY);
 
         var contentHeight = top;
@@ -205,7 +205,7 @@ static class TableLayout
         // can be settled without measuring any content, so a long table lays out in one pass and
         // its columns do not shift as more rows arrive. It needs a declared table width to divide
         // up, and falls back to the automatic algorithm without one.
-        if (table.TableLayout == TableLayoutKind.Fixed && !table.Width.IsAuto)
+        if (table is {TableLayout: TableLayoutKind.Fixed, Width.IsAuto: false})
         {
             MeasureFirstRow(grid, sizes);
             return sizes;
@@ -476,7 +476,7 @@ static class TableLayout
         {
             (null, null) => slack / 2,
             (null, not null) => Math.Max(0, slack - marginRight.Value),
-            _ => marginLeft!.Value
+            _ => marginLeft.Value
         };
     }
 
@@ -566,7 +566,7 @@ static class TableLayout
     /// Equally rather than proportionally, which is the opposite of the column rule and is what
     /// Chrome does — measured, not assumed.
     /// </remarks>
-    static void SetRowHeights(TableGrid grid, CellHeight[] natural, float spacingY, float containingWidth)
+    static void SetRowHeights(TableGrid grid, CellHeight[] natural, float spacingY)
     {
         foreach (var row in grid.Rows)
         {

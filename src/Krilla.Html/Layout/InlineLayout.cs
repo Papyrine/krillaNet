@@ -258,7 +258,7 @@ static class InlineLayout
 
             if (item.ForcedBreak)
             {
-                tokens.Add(new("", item.Style, face, 0, TokenKind.Break, Link: item.Link));
+                tokens.Add(new(item.Style, face, 0, TokenKind.Break, Link: item.Link));
                 continue;
             }
 
@@ -268,7 +268,7 @@ static class InlineLayout
                 // a word — a line can break before or after it, but never inside it.
                 var (width, height) = ReplacedSizing.Resolve(item.Style, image, contentWidth);
                 tokens.Add(new(
-                    "", item.Style, face, width, TokenKind.Replaced, image, height, item.Selector,
+                    item.Style, face, width, TokenKind.Replaced, image, height, item.Selector,
                     item.Link));
                 continue;
             }
@@ -284,7 +284,7 @@ static class InlineLayout
 
                 if (character == '\n')
                 {
-                    tokens.Add(new("", item.Style, face, 0, TokenKind.Break, Link: item.Link));
+                    tokens.Add(new(item.Style, face, 0, TokenKind.Break, Link: item.Link));
                     index++;
                     continue;
                 }
@@ -304,7 +304,6 @@ static class InlineLayout
                     var end = item.Style.PreservesSpaces ? index : start + 1;
 
                     tokens.Add(new(
-                        item.Text[start..end],
                         item.Style,
                         face,
                         shaped.Width(start, end),
@@ -322,7 +321,6 @@ static class InlineLayout
                 }
 
                 tokens.Add(new(
-                    item.Text[start..index],
                     item.Style,
                     face,
                     shaped.Width(start, index),
@@ -534,7 +532,6 @@ static class InlineLayout
     }
 
     readonly record struct Token(
-        string Text,
         ComputedStyle Style,
         FontFace Face,
         float Width,

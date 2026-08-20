@@ -320,7 +320,7 @@ static class PdfPainter
             return;
         }
 
-        if (style.BorderTop > 0 && style.BorderTopColor is {} topColor)
+        if (style is {BorderTop: > 0, BorderTopColor: {} topColor})
         {
             FillPolygon(
                 surface,
@@ -331,7 +331,7 @@ static class PdfPainter
                 new(innerLeft, innerTop));
         }
 
-        if (style.BorderBottom > 0 && style.BorderBottomColor is {} bottomColor)
+        if (style is {BorderBottom: > 0, BorderBottomColor: {} bottomColor})
         {
             FillPolygon(
                 surface,
@@ -342,7 +342,7 @@ static class PdfPainter
                 new(innerRight, innerBottom));
         }
 
-        if (style.BorderLeft > 0 && style.BorderLeftColor is {} leftColor)
+        if (style is {BorderLeft: > 0, BorderLeftColor: {} leftColor})
         {
             FillPolygon(
                 surface,
@@ -353,7 +353,7 @@ static class PdfPainter
                 new(innerLeft, innerBottom));
         }
 
-        if (style.BorderRight > 0 && style.BorderRightColor is {} rightColor)
+        if (style is {BorderRight: > 0, BorderRightColor: {} rightColor})
         {
             FillPolygon(
                 surface,

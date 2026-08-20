@@ -216,7 +216,7 @@ static class BoxBuilder
 
         // A bare number is pixels, per the HTML standard's rules for dimension attributes; a
         // trailing percent sign is the one unit they accept.
-        var text = value.Trim();
+        var text = value.AsSpan().Trim();
 
         if (text.EndsWith('%'))
         {
@@ -300,7 +300,7 @@ static class BoxBuilder
         // cell out of the grid it belongs to, so the table would lay out around a hole and the
         // content would be positioned as though it were a block of its own — content corruption
         // from one declaration CSS says to ignore. A whole `display: table` still floats.
-        if (style.IsFloating && style.IsTablePart && style.Display != DisplayKind.Table)
+        if (style is {IsFloating: true, IsTablePart: true} && style.Display != DisplayKind.Table)
         {
             style = style with {Float = FloatKind.None};
         }

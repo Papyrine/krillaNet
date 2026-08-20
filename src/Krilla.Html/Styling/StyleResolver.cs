@@ -190,7 +190,7 @@ static class StyleResolver
         var value = declaration.GetPropertyValue($"border-{side}-width");
 
         // The keyword widths, which CSS fixes at these pixel values.
-        var keyword = value?.Trim().ToLowerInvariant();
+        var keyword = value.Trim().ToLowerInvariant();
         if (keyword is "thin")
         {
             return 1;

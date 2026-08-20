@@ -141,7 +141,7 @@ public sealed class DocumentMetadata
         Status.Check(setter(handle, utf8, (nuint) utf8.Length), $"Setting the {what}");
     }
 
-    static unsafe void SetList(
+    static void SetList(
         IntPtr handle,
         IReadOnlyList<string>? values,
         ListSetter setter,

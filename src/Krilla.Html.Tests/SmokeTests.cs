@@ -167,7 +167,7 @@ public class SmokeTests
         var temporary = Path.GetTempFileName();
         try
         {
-            File.WriteAllBytes(temporary, png);
+            await File.WriteAllBytesAsync(temporary, png);
             await Assert.That(PageComparison.CountColors(temporary)).IsGreaterThan(4);
         }
         finally

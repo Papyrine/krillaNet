@@ -47,7 +47,7 @@ public class BaselineHealthTests
     /// Entries are asserted to be STILL blank, so a page that gets fixed and regenerated forces
     /// its own removal from this list rather than rotting here.
     /// </remarks>
-    static readonly HashSet<string> knownBlank = new(StringComparer.OrdinalIgnoreCase);
+    static readonly HashSet<string> knownBlank = [with(StringComparer.OrdinalIgnoreCase)];
 
     [Test]
     public async Task PagesAreNotBlank()

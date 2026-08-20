@@ -171,8 +171,7 @@ public class StructureTests
     public async Task AGraphicIsEmittedOnceAndReferenced()
     {
         using var document = new KrillaDocument();
-        var repeated = 0;
-        var single = 0;
+        int repeated;
 
         using (var page = document.StartPage(300, 300))
         {
@@ -203,7 +202,7 @@ public class StructureTests
             page.Surface.DrawGraphic(graphic);
         }
 
-        single = comparison.Finish().Length;
+        var single = comparison.Finish().Length;
 
         // Twenty placements cost barely more than one, because only the transforms repeat.
         await Assert.That(repeated).IsLessThan(single * 2);

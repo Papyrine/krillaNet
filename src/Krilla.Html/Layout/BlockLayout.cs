@@ -462,7 +462,7 @@ static class BlockLayout
             // Both specified is the over-constrained case, and it shares its outcome with the
             // auto-right case: the left margin is honoured and the right absorbs the difference.
             // For left-to-right text that is what CSS 2.1 §10.3.3 requires.
-            _ => (marginLeft!.Value, used)
+            _ => (marginLeft.Value, used)
         };
     }
 
@@ -488,7 +488,7 @@ static class BlockLayout
         {
             (null, null) => slack / 2,
             (null, not null) => Math.Max(0, slack - marginRight.Value),
-            _ => marginLeft!.Value
+            _ => marginLeft.Value
         };
     }
 

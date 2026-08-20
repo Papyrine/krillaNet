@@ -328,7 +328,7 @@ sealed record ComputedStyle
     public Color? BackgroundColor { get; init; }
 
     /// <summary>Text colour.</summary>
-    public Color Color { get; init; } = Krilla.Color.Black;
+    public Color Color { get; init; } = Color.Black;
 
     /// <summary><c>font-family</c>, in preference order.</summary>
     public IReadOnlyList<string> FontFamilies { get; init; } = [];

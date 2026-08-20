@@ -19,15 +19,15 @@
       Referenced directly rather than through Verify.PDFium: the corpus comparison needs explicit
       control of DPI and the anti-aliasing flags, which only the RenderOptions overload exposes.
     -->
-    <PackageVersion Include="Morph.PDFium" Version="1.2.1" />
-    <PackageVersion Include="ProjectDefaults" Version="1.0.176" />
-    <PackageVersion Include="TUnit" Version="1.65.0" />
+    <PackageVersion Include="Morph.PDFium" Version="1.3.0" />
+    <PackageVersion Include="ProjectDefaults" Version="1.0.179" />
+    <PackageVersion Include="TUnit" Version="1.65.38" />
     <PackageVersion Include="Verify" Version="31.28.0" />
     <PackageVersion Include="Verify.TUnit" Version="31.28.0" />
     <PackageVersion Include="Verify.DiffPlex" Version="3.3.1" />
-    <PackageVersion Include="Verify.PDFium" Version="1.4.0" />
+    <PackageVersion Include="Verify.PDFium" Version="1.4.1" />
     <PackageVersion Include="Argon" Version="0.35.2" />
-    <PackageVersion Include="DiffEngine" Version="20.0.0-beta.25" />
+    <PackageVersion Include="DiffEngine" Version="20.0.0-beta.30" />
     <PackageVersion Include="EmptyFiles" Version="8.18.2" />
     <PackageVersion Include="SimpleInfoName" Version="3.2.0" />
   </ItemGroup>

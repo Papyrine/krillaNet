@@ -131,7 +131,7 @@ sealed class ImageData :
             }
 
             // Standalone markers carry no length field.
-            if (marker is 0xD8 or 0x01 || (marker >= 0xD0 && marker <= 0xD7))
+            if (marker is 0xD8 or 0x01 or >= 0xD0 and <= 0xD7)
             {
                 offset += 2;
                 continue;
@@ -146,10 +146,7 @@ sealed class ImageData :
             // Any Start Of Frame carries the dimensions. The excluded values in these ranges are
             // DHT, JPG and DAC, which are not frame headers despite sitting among them.
             var isStartOfFrame =
-                (marker >= 0xC0 && marker <= 0xC3) ||
-                (marker >= 0xC5 && marker <= 0xC7) ||
-                (marker >= 0xC9 && marker <= 0xCB) ||
-                (marker >= 0xCD && marker <= 0xCF);
+                marker is >= 0xC0 and <= 0xC3 or >= 0xC5 and <= 0xC7 or >= 0xC9 and <= 0xCB or >= 0xCD and <= 0xCF;
 
             if (isStartOfFrame)
             {
