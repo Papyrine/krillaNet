@@ -1,0 +1,16 @@
+#wrap, #wrap2, #wrap3 { width: 400px; margin-bottom: 40px; }
+
+/* The line boxes beside a float start where its MARGIN box ends, not its border box. */
+#left { float: left; width: 100px; height: 60px; background-color: #cfd8e8; }
+
+#right { float: right; width: 100px; height: 60px; background-color: #e8d8cf; }
+
+/* Taller than the text beside it, so the float overflows its parent: a block does not grow to
+   contain its floats. */
+#tall { float: left; width: 90px; height: 80px; background-color: #d8e8cf; }
+
+/* A BLOCK beside a float keeps its full width and overlaps it. Only line boxes are shortened,
+   which is the single most surprising thing about floats. */
+#block { background-color: #f0e8b0; }
+
+p { background-color: #f4f4f4; }

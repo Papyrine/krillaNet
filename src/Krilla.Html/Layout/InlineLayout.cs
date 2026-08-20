@@ -26,7 +26,13 @@ static class InlineLayout
     /// Lines are positioned relative to the content box origin; the caller translates them once
     /// the block's own position is settled.
     /// </remarks>
-    public static float Layout(LayoutBox box, float contentWidth, FontSet fonts)
+    public static float Layout(
+        LayoutBox box,
+        float contentX,
+        float contentY,
+        float contentWidth,
+        FontSet fonts,
+        FloatContext floats)
     {
         box.Lines.Clear();
 
@@ -42,13 +48,23 @@ static class InlineLayout
         var currentWidth = 0f;
         Token? pendingSpace = null;
 
+        // The height the band is sampled over. The strut is the line-height of the block itself,
+        // which is every line height unless something taller sits on the line — and the band has
+        // to be known before the line is filled, so the final height is not available to use.
+        var strutFace = fonts.Resolve(box.Style.FontFamilies, box.Style.FontWeight, box.Style.Italic);
+        var (strutAbove, strutBelow) = Extents(box.Style, strutFace);
+        var strut = strutAbove + strutBelow;
+
+        var band = OpenLine(floats, contentX, contentY, contentWidth, strut, ref y);
+
         foreach (var token in tokens)
         {
             if (token.Kind == TokenKind.Break)
             {
                 // A forced break ends the line even when empty, which is what produces the blank
                 // line for a double newline in preformatted text.
-                Flush(box, current, currentWidth, contentWidth, fonts, ref y, forced: true);
+                Flush(box, current, currentWidth, band, fonts, ref y, forced: true);
+                band = OpenLine(floats, contentX, contentY, contentWidth, strut, ref y);
                 current = [];
                 currentWidth = 0;
                 pendingSpace = null;
@@ -77,12 +93,17 @@ static class InlineLayout
 
             if (wraps &&
                 current.Count > 0 &&
-                currentWidth + spaceWidth + token.Width > contentWidth)
+                currentWidth + spaceWidth + token.Width > band.Width)
             {
                 // The pending space is deliberately dropped rather than carried down: it sits at
                 // the break, and a trailing space must not affect where the previous line's
                 // alignment puts its content.
-                Flush(box, current, currentWidth, contentWidth, fonts, ref y, forced: false);
+                Flush(box, current, currentWidth, band, fonts, ref y, forced: false);
+
+                // The next line sits further down the page, so the floats beside it need not be
+                // the same ones. Asked again rather than reused, which is what lets text close up
+                // underneath a float that has ended.
+                band = OpenLine(floats, contentX, contentY, contentWidth, strut, ref y);
                 current = [token];
                 currentWidth = token.Width;
                 pendingSpace = null;
@@ -102,10 +123,50 @@ static class InlineLayout
 
         if (current.Count > 0)
         {
-            Flush(box, current, currentWidth, contentWidth, fonts, ref y, forced: true);
+            Flush(box, current, currentWidth, band, fonts, ref y, forced: true);
         }
 
         return y;
+    }
+
+    /// <summary>
+    /// The horizontal room a line starting at <paramref name="y"/> has, moving it down past floats
+    /// that leave it none.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Answered relative to the content box, because that is the space lines are built in. The
+    /// float context works in absolute coordinates, and the conversion happens here.
+    /// </para>
+    /// <para>
+    /// The descent is CSS 2.1 §9.5: a line box shortened to nothing is shifted downward until
+    /// either it fits or no floats remain. It applies only once the band has closed completely — a
+    /// band merely too narrow for the next word lets that word overflow, which is what a browser
+    /// does with a long word beside a float.
+    /// </para>
+    /// </remarks>
+    static Band OpenLine(
+        FloatContext floats,
+        float contentX,
+        float contentY,
+        float contentWidth,
+        float strut,
+        ref float y)
+    {
+        var edge = contentX + contentWidth;
+
+        while (true)
+        {
+            var top = contentY + y;
+            var (left, right) = floats.Band(top, top + strut, contentX, edge);
+
+            if (right > left || floats.NextBottomBelow(top) is not {} next)
+            {
+                return new(left - contentX, Math.Max(0, right - left));
+            }
+
+            y = next - contentY;
+        }
     }
 
     /// <summary>
@@ -284,7 +345,7 @@ static class InlineLayout
         LayoutBox box,
         List<Token> tokens,
         float width,
-        float contentWidth,
+        Band band,
         FontSet fonts,
         ref float y,
         bool forced)
@@ -325,21 +386,26 @@ static class InlineLayout
         }
 
         var height = above + below;
-        line.Bounds = new(0, y, contentWidth, height);
+
+        // The line box is the BAND, not the content box: beside a float a line starts where the
+        // float ends and is only as wide as what is left. Alignment follows from that — a
+        // right-aligned line beside a left float ends at the content edge but begins inside the
+        // band, which is measurably what a browser does rather than an interpretation of it.
+        line.Bounds = new(band.Left, y, band.Width, height);
         line.Baseline = above;
 
         var x = box.Style.TextAlign switch
         {
-            TextAlignKind.Center => (contentWidth - width) / 2,
-            TextAlignKind.Right => contentWidth - width,
+            TextAlignKind.Center => band.Left + (band.Width - width) / 2,
+            TextAlignKind.Right => band.Left + band.Width - width,
             // The last line of a justified block is not stretched, so it aligns to the start edge
             // like any other left-aligned line.
-            TextAlignKind.Justify when !forced => 0,
-            _ => 0
+            TextAlignKind.Justify when !forced => band.Left,
+            _ => band.Left
         };
 
         var justify = box.Style.TextAlign == TextAlignKind.Justify && !forced;
-        var extra = justify ? ExtraSpacePerGap(tokens, contentWidth - width) : 0;
+        var extra = justify ? ExtraSpacePerGap(tokens, band.Width - width) : 0;
 
         // Adjacent tokens sharing a style become one run: fewer glyph draws, and the painted text
         // stays one selectable unit in the PDF.
@@ -481,3 +547,14 @@ static class InlineLayout
         int TextStart = 0,
         int TextEnd = 0);
 }
+
+/// <summary>
+/// The horizontal room available to one line, relative to its block content box.
+/// </summary>
+/// <param name="Left">Offset of the line box from the content box left edge.</param>
+/// <param name="Width">How wide the line box is.</param>
+/// <remarks>
+/// Without floats this is always (0, contentWidth). With them it is what the floats beside this
+/// particular line have left over, which differs line by line down the same block.
+/// </remarks>
+readonly record struct Band(float Left, float Width);

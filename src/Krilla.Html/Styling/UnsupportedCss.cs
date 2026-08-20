@@ -31,8 +31,6 @@ static class UnsupportedCss
     /// </summary>
     static readonly (string Property, string NoOp, string Reason)[] ignored =
     [
-        ("float", "none", "laid out in flow"),
-        ("clear", "none", "ignored, because nothing floats"),
         ("position", "static", "laid out in flow"),
         ("box-sizing", "content-box", "sized as content-box, so border and padding add to the width"),
         ("border-collapse", "separate", "laid out with the separated border model"),

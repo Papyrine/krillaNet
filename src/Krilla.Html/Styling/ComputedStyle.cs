@@ -124,6 +124,41 @@ enum WhiteSpaceKind
     NoWrap
 }
 
+/// <summary>Which side a box floats to, if any.</summary>
+/// <remarks>
+/// A float is taken out of normal flow: it does not advance its parent's flow position and does
+/// not contribute to its parent's height. What it does do is shorten the LINE boxes beside it —
+/// block boxes beside a float keep their full width and simply overlap it, which is what CSS
+/// requires and what makes floats worth the trouble.
+/// </remarks>
+enum FloatKind
+{
+    /// <summary>In normal flow.</summary>
+    None,
+
+    /// <summary>Floated to the left edge of the containing block.</summary>
+    Left,
+
+    /// <summary>Floated to the right edge.</summary>
+    Right
+}
+
+/// <summary>Which floats a box must be placed below.</summary>
+enum ClearKind
+{
+    /// <summary>Placed wherever flow puts it.</summary>
+    None,
+
+    /// <summary>Below every left float in the formatting context.</summary>
+    Left,
+
+    /// <summary>Below every right float.</summary>
+    Right,
+
+    /// <summary>Below every float on either side.</summary>
+    Both
+}
+
 /// <summary>What a list item's marker shows.</summary>
 /// <remarks>
 /// The subset of <c>list-style-type</c> that is drawn. A value outside it falls back to
@@ -315,6 +350,15 @@ sealed record ComputedStyle
 
     /// <summary>How white space and wrapping are handled.</summary>
     public WhiteSpaceKind WhiteSpace { get; init; } = WhiteSpaceKind.Normal;
+
+    /// <summary>Which side this box floats to.</summary>
+    public FloatKind Float { get; init; } = FloatKind.None;
+
+    /// <summary>Which floats this box must clear.</summary>
+    public ClearKind Clear { get; init; } = ClearKind.None;
+
+    /// <summary>Whether this box is taken out of flow by a float.</summary>
+    public bool IsFloating => Float != FloatKind.None;
 
     /// <summary>Sum of the left and right border widths.</summary>
     public float BorderWidthX => BorderLeft + BorderRight;

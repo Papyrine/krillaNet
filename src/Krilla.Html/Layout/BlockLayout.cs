@@ -13,8 +13,12 @@ namespace Krilla.Html.Layout;
 /// know the final value.
 /// </para>
 /// <para>
-/// Floats and positioned boxes are not implemented. Everything is in normal flow, so nothing
-/// shortens a line box and nothing escapes its parent.
+/// Floats take part, through a <see cref="FloatContext"/> threaded down the tree. A float is
+/// removed from the stacking that this class does — it neither advances the flow position nor
+/// counts toward the height — and reappears only in the band <see cref="InlineLayout"/> asks for
+/// when placing each line. Block boxes beside a float are deliberately NOT narrowed or moved:
+/// CSS gives them their full width and lets them overlap, and only the line boxes inside them
+/// wrap. Positioned boxes are still not implemented.
 /// </para>
 /// </remarks>
 static class BlockLayout
@@ -29,9 +33,15 @@ static class BlockLayout
     /// <param name="containingWidth">The containing block's content width.</param>
     /// <param name="fonts">The faces available for measuring text.</param>
     /// <param name="assignedWidth">
-    /// A width to use instead of resolving one, for a box whose width its container decided. Only
-    /// a table cell has one: its column settled the width before the cell was reached, and
-    /// resolving it here from <c>width: auto</c> would fill the table instead.
+    /// A width to use instead of resolving one, for a box whose width its container decided. A
+    /// table cell has one, its column having settled the width before the cell was reached; so
+    /// does a float, whose shrink-to-fit width is computed before it is positioned. Resolving
+    /// either here from <c>width: auto</c> would fill the containing block instead.
+    /// </param>
+    /// <param name="floats">
+    /// The floats in the enclosing block formatting context, which lines are placed around and new
+    /// floats are placed clear of. Null starts a fresh context, which is what a box establishing
+    /// its own formatting context wants.
     /// </param>
     public static float Layout(
         LayoutBox box,
@@ -39,9 +49,16 @@ static class BlockLayout
         float y,
         float containingWidth,
         FontSet fonts,
-        float? assignedWidth = null)
+        float? assignedWidth = null,
+        FloatContext? floats = null)
     {
         var style = box.Style;
+
+        // A box that establishes its own formatting context sees no float from outside it and
+        // leaks none outward. Everything else shares its parent's, which is what lets a float
+        // declared in one block shorten the lines of a later sibling.
+        var ownsFloats = floats is null;
+        floats ??= new();
 
         // A table sizes its columns before it can size anything in them, so it takes over from
         // here rather than being a block with unusual children.
@@ -91,7 +108,13 @@ static class BlockLayout
         }
         else if (box.IsInlineContainer)
         {
-            contentHeight = InlineLayout.Layout(box, contentWidth, fonts);
+            // Every float this box declares is placed before its lines are flowed, because each
+            // line asks the context how much room is left beside them. They go at the content top:
+            // a float written between two words belongs on the line carrying those words, and this
+            // box has not flowed any lines yet to know where that is.
+            PlaceFloats(box, 0, box.Floats.Count, contentX, contentY, contentWidth, fonts, floats);
+
+            contentHeight = InlineLayout.Layout(box, contentX, contentY, contentWidth, fonts, floats);
 
             // Inline layout works from a zero origin so it never has to know where the block
             // ended up; the lines are moved into place once, here.
@@ -102,7 +125,17 @@ static class BlockLayout
         }
         else
         {
-            contentHeight = LayoutChildren(box, contentX, contentY, contentWidth, fonts);
+            contentHeight = LayoutChildren(box, contentX, contentY, contentWidth, fonts, floats);
+        }
+
+        // A box that established this formatting context grows to contain the floats in it; every
+        // other box lets them overflow. That asymmetry is CSS 2.1 §10.6.7 and it is measurable:
+        // in `float/basic` the root reaches 304px to enclose a float that hangs out of a wrapper
+        // ending at 260px, and the wrapper stays 260px. Getting it backwards either clips a
+        // trailing float off the last page or pads every block that holds one.
+        if (ownsFloats)
+        {
+            contentHeight = Math.Max(contentHeight, floats.Bottom(contentY) - contentY);
         }
 
         // A percentage height resolves against the containing block's height, which is not known
@@ -136,15 +169,24 @@ static class BlockLayout
         float contentX,
         float contentY,
         float contentWidth,
-        FontSet fonts)
+        FontSet fonts,
+        FloatContext floats)
     {
         var y = 0f;
         var pending = CollapsedMargin.Empty;
         var openTop = IsTopOpen(parent, contentWidth);
         var first = true;
+        var placed = 0;
 
-        foreach (var child in parent.Children)
+        for (var index = 0; index < parent.Children.Count; index++)
         {
+            var child = parent.Children[index];
+
+            // Floats declared ahead of this child go down first, at the flow position reached so
+            // far. A float written after two paragraphs starts below them, and one written before
+            // any of them starts at the top.
+            placed = PlaceFloats(parent, placed, index, contentX, contentY + y, contentWidth, fonts, floats);
+
             pending = pending.Merge(LeadingMargin(child, contentWidth));
 
             if (first && openTop)
@@ -155,10 +197,23 @@ static class BlockLayout
             }
 
             y += pending.Value;
-            y += Layout(child, contentX, contentY + y, contentWidth, fonts);
+
+            // Clearance, applied after the collapsed margin has been added rather than instead of
+            // it: `clear` moves the box down to the bottom of the floats it names, and a margin
+            // that already carried it further stands. Simplified against CSS 2.1 §9.5.2, which
+            // introduces clearance as a separate quantity that also stops the margin collapsing
+            // through — that distinction shows up only when a cleared box has a margin large
+            // enough to clear the float by itself.
+            var cleared = floats.ClearTo(child.Style.Clear, contentY + y);
+            y = cleared - contentY;
+
+            y += Layout(child, contentX, contentY + y, contentWidth, fonts, floats: floats);
             pending = TrailingMargin(child, contentWidth);
             first = false;
         }
+
+        // Floats declared after the last in-flow child, which is where a trailing float lands.
+        PlaceFloats(parent, placed, parent.Floats.Count, contentX, contentY + y, contentWidth, fonts, floats);
 
         // A trailing margin escapes downward only when nothing stops it: no bottom border, no
         // bottom padding, and an auto height. Otherwise it is trapped inside and counts toward
@@ -169,6 +224,122 @@ static class BlockLayout
         }
 
         return y;
+    }
+
+    /// <summary>
+    /// Places the floats declared between two in-flow positions, and returns how many have now
+    /// been placed.
+    /// </summary>
+    /// <remarks>
+    /// Called as the flow advances rather than once up front, because a float starts at the
+    /// position it was declared at. <paramref name="top"/> is that position in absolute
+    /// coordinates.
+    /// </remarks>
+    static int PlaceFloats(
+        LayoutBox parent,
+        int from,
+        int until,
+        float contentX,
+        float top,
+        float contentWidth,
+        FontSet fonts,
+        FloatContext floats)
+    {
+        while (from < parent.Floats.Count && parent.Floats[from].Index <= until)
+        {
+            PlaceFloat(parent.Floats[from].Box, contentX, top, contentWidth, fonts, floats);
+            from++;
+        }
+
+        return from;
+    }
+
+    /// <summary>
+    /// Sizes one float, finds it a position, and moves it there.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Laid out first and positioned second, which is the only order available: the height decides
+    /// which vertical positions it fits in, and the height is not known until its contents have
+    /// been flowed. So it is laid out at a provisional origin, measured, placed, and translated by
+    /// the difference.
+    /// </para>
+    /// <para>
+    /// A float establishes its own formatting context, so its contents are flowed against a fresh
+    /// <see cref="FloatContext"/> — the floats outside it are not in its way, and its own do not
+    /// reach out.
+    /// </para>
+    /// <para>
+    /// Auto margins on a float compute to zero rather than centring it (CSS 2.1 §9.5), which is
+    /// why they are resolved directly here instead of through
+    /// <see cref="ResolveHorizontal"/>.
+    /// </para>
+    /// </remarks>
+    static void PlaceFloat(
+        LayoutBox box,
+        float contentX,
+        float top,
+        float contentWidth,
+        FontSet fonts,
+        FloatContext floats)
+    {
+        var style = box.Style;
+        var marginTop = style.MarginTop.Resolve(contentWidth);
+        var marginBottom = style.MarginBottom.Resolve(contentWidth);
+        var marginLeft = style.MarginLeft.Resolve(contentWidth);
+        var marginRight = style.MarginRight.Resolve(contentWidth);
+
+        var height = Layout(box, 0, 0, contentWidth, fonts, ShrinkToFit(box, contentWidth, fonts));
+        var width = box.BorderBox.Width;
+
+        // Clearance first, then the sideways search: a float carrying `clear` starts below what it
+        // clears and is only then pushed as far to its side as it will go.
+        //
+        // The flow position is where the MARGIN box goes, not the border box. Adding the top
+        // margin here as well as when translating below would apply it twice, and a float with
+        // `margin-top: 10px` would sit 20px down.
+        var start = floats.ClearTo(style.Clear, top);
+
+        var margin = floats.Place(
+            style.Float,
+            start,
+            width + marginLeft + marginRight,
+            height + marginTop + marginBottom,
+            contentX,
+            contentX + contentWidth);
+
+        box.Translate(
+            margin.X + marginLeft - box.BorderBox.X,
+            margin.Y + marginTop - box.BorderBox.Y);
+    }
+
+    /// <summary>
+    /// The border-box width a float takes, or null to let the ordinary rules decide.
+    /// </summary>
+    /// <remarks>
+    /// CSS 2.1 §10.3.5 gives a float with an auto width its shrink-to-fit width:
+    /// <c>min(max(min-content, available), max-content)</c>. In words, it takes what it wants
+    /// unless that will not fit, in which case it takes what is left — but never squeezes below
+    /// its longest unbreakable word, which is why a narrow container leaves a float overflowing
+    /// rather than mangled.
+    /// </remarks>
+    static float? ShrinkToFit(LayoutBox box, float contentWidth, FontSet fonts)
+    {
+        // A replaced float sizes from its image, and a declared width needs no help. Both are
+        // handled by the ordinary path, which also applies the aspect ratio.
+        if (box.Image is not null || box.Style.Width.Kind != LengthKind.Auto)
+        {
+            return null;
+        }
+
+        var available = Math.Max(
+            0,
+            contentWidth -
+            box.Style.MarginLeft.Resolve(contentWidth) -
+            box.Style.MarginRight.Resolve(contentWidth));
+
+        var (min, max) = IntrinsicWidths.Measure(box, fonts);
+        return Math.Min(Math.Max(min, available), max);
     }
 
     /// <summary>

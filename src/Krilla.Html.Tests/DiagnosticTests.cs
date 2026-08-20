@@ -119,7 +119,6 @@ public class DiagnosticTests
                 <div style="display: flex"><span>a</span></div>
                 <div style="display: grid"><span>b</span></div>
                 <div style="display: inline-block">c</div>
-                <div style="float: right">d</div>
                 <div style="position: absolute">e</div>
                 <div style="box-sizing: border-box">f</div>
                 <table style="border-collapse: collapse"><tr><td>g</td></tr></table>
@@ -218,15 +217,36 @@ public class DiagnosticTests
     [Test]
     public async Task ADiagnosticReadsAsASentence()
     {
-        var reports = Collect("<div style=\"float: left\">a</div>");
+        var reports = Collect("<div style=\"position: absolute\">a</div>");
 
         var report = reports.Single();
 
         await Assert.That(report.Kind).IsEqualTo(HtmlDiagnosticKind.UnsupportedProperty);
         await Assert.That(report.Element).IsEqualTo("div");
-        await Assert.That(report.Name).IsEqualTo("float");
-        await Assert.That(report.Value).IsEqualTo("left");
-        await Assert.That(report.ToString()).IsEqualTo("<div> float: left — laid out in flow");
+        await Assert.That(report.Name).IsEqualTo("position");
+        await Assert.That(report.Value).IsEqualTo("absolute");
+        await Assert.That(report.ToString()).IsEqualTo("<div> position: absolute — laid out in flow");
+    }
+
+    /// <summary>
+    /// A property stops reporting once it is implemented.
+    /// </summary>
+    /// <remarks>
+    /// The table is a list of what the engine gets wrong, so an entry that outlives its bug turns
+    /// the sink into noise — and worse, into noise that says a correct document is broken. This is
+    /// the check that the removal happens; <c>float</c> earned it by being the first entry ever
+    /// removed.
+    /// </remarks>
+    [Test]
+    public async Task ImplementedPropertiesStopReporting()
+    {
+        var reports = Collect(
+            """
+            <div style="float: left; width: 50px; height: 20px"></div>
+            <p style="clear: left">text</p>
+            """);
+
+        await Assert.That(reports).IsEmpty();
     }
 
     static List<HtmlDiagnostic> Collect(string body, string? css = null)

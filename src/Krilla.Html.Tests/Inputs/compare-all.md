@@ -1,4 +1,4 @@
-# All scenarios (46)
+# All scenarios (50)
 
 The browser reference (left) beside the page Krilla.Html produced (right). `AE` is the fraction of pixels that differ and `SSIM` is structural similarity; neither is asserted. The worst offset is the largest positional disagreement in CSS pixels between the rendered element geometry and the browser's, and is the number to watch — it reaches zero exactly when the layout is right.
 
@@ -16,6 +16,10 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [block/max_width](#block-max_width)
 - [block/nested_blocks](#block-nested_blocks)
 - [block/percentage_width](#block-percentage_width)
+- [float/basic](#float-basic)
+- [float/clear](#float-clear)
+- [float/shrink_to_fit](#float-shrink_to_fit)
+- [float/stacking](#float-stacking)
 - [image/block_centred](#image-block_centred)
 - [image/data_uri](#image-data_uri)
 - [image/inline_flow](#image-inline_flow)
@@ -202,6 +206,114 @@ Percentage margins resolve against that same width, not against the height.
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
 | <img src="block/percentage_width/reference_0001.png" width="480"> | <img src="block/percentage_width/result%23page_0001.verified.png" width="480"> |
+
+
+## float/basic
+
+What a float does to the text beside it, and what it deliberately does not do to the boxes.
+
+Three things are measured here, and the third is the one that catches an implementation out:
+
+- `#left` and `#right` shorten the line boxes of the paragraph beside them. The paragraph's own
+  border box is unchanged and still spans the full 400px — a fact readily missed, because the text
+  inside it moves and the box does not.
+- `#tall` is taller than the single line beside it, so it hangs out of the bottom of `#wrap3`. A
+  block does not grow to contain a float, and a document relying on that will overlap whatever
+  follows. That is correct rather than a defect, and `#wrap3` records how far it overflows.
+- `#block` sits beside the same float and is NOT moved or narrowed. CSS shortens line boxes, not
+  block boxes, so an ordinary block overlaps the float. An implementation that narrowed the
+  block instead would look plausible on this page and be wrong everywhere.
+
+The backgrounds are what makes the difference between the second and third points visible in the
+pixels rather than only in the geometry.
+
+**Boxes**: 12 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0001 · SSIM 1.0000** |
+| <img src="float/basic/reference_0001.png" width="480"> | <img src="float/basic/result%23page_0001.verified.png" width="480"> |
+
+
+## float/clear
+
+`clear`, in the three forms that behave differently.
+
+- `#sides` has floats of different heights on either side. `#cl` clears only the left one, so it
+  drops to 40px and still has the right float beside it, shortening its line. `#cr` clears the
+  right one, which is lower, so it drops further. Treating `clear` as "below every float" would put
+  both at the same place and pass a scenario with only one float in it.
+- `#chain` puts `clear: left` on a FLOAT. `#f2` has room beside `#f1` and descends anyway, because
+  clearance applies before the sideways search rather than instead of it.
+- `#margins` clears a float whose bottom margin is larger than its height. Clearance measures to the
+  margin box, so `#cm` lands 40px below the visible box rather than against it — which is also the
+  check that the float context stores margin boxes rather than border boxes.
+
+What is deliberately NOT measured here is clearance interacting with a large collapsed margin.
+CSS 2.1 §9.5.2 makes clearance a separate quantity that also stops the margin collapsing through,
+and the engine applies clearance after the collapsed margin instead. The difference appears only
+when the cleared box has a margin big enough to clear the float unaided; `src/todo.md` records it.
+
+**Boxes**: 14 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0002 · SSIM 1.0000** |
+| <img src="float/clear/reference_0001.png" width="480"> | <img src="float/clear/result%23page_0001.verified.png" width="480"> |
+
+
+## float/shrink_to_fit
+
+How wide a float with no declared width becomes, which CSS 2.1 §10.3.5 gives as
+`min(max(min-content, available), max-content)`.
+
+The three terms of that formula each need a case to be distinguishable, and this has one for each:
+
+- `#short` is narrower than the container, so it takes its max-content width — the width of its
+  text with no wrapping at all. This measures the text advance itself, not merely the algorithm.
+- `#long` wants more than 400px, so it takes what is available and wraps inside itself. An
+  implementation using max-content unconditionally overflows here.
+- `#word` is a single unbreakable word inside a 120px container. Neither term of the outer minimum
+  can go below min-content, so the float overflows its parent rather than breaking the word.
+- `#overflow` is wider than the container outright, so it hangs out to the right AND leaves the
+  paragraph beside it no band at all. That paragraph descends below the float instead of drawing
+  its line in zero width, which is the CSS 2.1 §9.5 rule for a line box shortened to nothing.
+
+The last is worth the scenario on its own: a shortened line and a line with nowhere to go are
+different code paths, and only one of them is exercised by every other case here.
+
+**Boxes**: 14 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 0.9999** |
+| <img src="float/shrink_to_fit/reference_0001.png" width="480"> | <img src="float/shrink_to_fit/result%23page_0001.verified.png" width="480"> |
+
+
+## float/stacking
+
+Where a second float goes when a first is already there. Four arrangements, because the rule is not
+one rule.
+
+- `#fit` places two left floats side by side, the second starting where the first ends.
+- `#drop` makes them 450px between them in a 400px container, so the second cannot fit beside the
+  first. It descends to the first float's bottom edge and returns to the left edge — it does not
+  shrink, and it does not overlap.
+- `#rights` stacks two right floats, and the order is the one that surprises: the float written
+  FIRST sits furthest right. Reading the source left to right gives the painted order right to
+  left.
+- `#both` puts one on each side and leaves the paragraph the band between them.
+
+`#drop` is the case that decides whether the placement search is a search at all. Handing each float
+the next free position along one axis gets `#fit` right and `#drop` wrong, and a single scenario
+covering only `#fit` would never notice.
+
+**Boxes**: 18 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| <img src="float/stacking/reference_0001.png" width="480"> | <img src="float/stacking/result%23page_0001.verified.png" width="480"> |
 
 
 ## image/block_centred

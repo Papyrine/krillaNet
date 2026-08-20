@@ -14,8 +14,8 @@ it, that is stated, because an unmeasured gap is the more dangerous kind.
 
 ## Where the corpus stands
 
-46 scenarios across 8 categories. **Box geometry matches Chrome exactly on every one** — zero
-positional and zero size difference, and nothing unmatched — and 37 read SSIM 1.0000, of which 30
+50 scenarios across 9 categories. **Box geometry matches Chrome exactly on every one** — zero
+positional and zero size difference, and nothing unmatched — and 40 read SSIM 1.0000, of which 31
 are pixel-identical outright.
 
 The nine that read below 1.0000, with the cause of each. None is a mystery, and none should be
@@ -31,10 +31,11 @@ The nine that read below 1.0000, with the cause of each. None is a mystery, and 
 | `link/fragment`, `link/wrapped` | 0.0001 | 0.9999 | Same |
 | `ua/blockquote_pre` | 0.0005 | 0.9999 | Same |
 | `table/spacing_borders` | 0.0003 | 0.9999 | Box edge at a fractional position |
+| `float/shrink_to_fit` | 0.0000 | 0.9999 | Box edge at a fractional position |
 
-Seven more read SSIM 1.0000 while still differing on a scattering of antialiased pixels:
-`block/borders`, `ua/lists`, `ua/list_markers`, `table/sections`, `inline/justify`, `link/external`
-and `ua/headings`. Each is one of the two causes above, and none exceeds 40 levels of grey out of
+Nine more read SSIM 1.0000 while still differing on a scattering of antialiased pixels:
+`block/borders`, `ua/lists`, `ua/list_markers`, `table/sections`, `inline/justify`, `link/external`,
+`ua/headings`, `float/basic` and `float/clear`. Each is one of the two causes above, and none exceeds 40 levels of grey out of
 255.
 
 ## Unimplemented layout
@@ -50,13 +51,11 @@ looking wrong afterwards. A report is not a substitute for a scenario — it say
 not rendered properly, not by how much — but it does mean the dangerous case, an unmeasured gap
 nothing announces, no longer applies to anything in this section.
 
-- **Floats and `clear`.** Probably the most valuable next piece now that tables are in. Substantially harder than it looks, because a float shortens the line
-  boxes beside it, so float placement and line layout stop being separable.
-- **`position: relative` / `absolute` / `fixed`.** Absolute positioning needs a containing-block
-  chain that tracks the nearest positioned ancestor; `fixed` in paged media needs a decision about
-  what "the viewport" means on paper.
-- **Flexbox**, then **grid**. Modern documents use them, but neither is worth starting before the
-  block substrate has tables and floats.
+- **`position: relative` / `absolute` / `fixed`.** The most valuable next piece now that floats are
+  in. Absolute positioning needs a containing-block chain that tracks the nearest positioned
+  ancestor; `fixed` in paged media needs a decision about what "the viewport" means on paper.
+- **Flexbox**, then **grid**. Modern documents use them, and the block substrate they wanted —
+  tables and floats — is now underneath them.
 
 ## Text
 
@@ -149,6 +148,33 @@ Box geometry matches Chrome exactly across the five `table/` scenarios. What is 
   holds the list, so every one of them reports through `OnDiagnostic` until then. Worth closing
   rather than dismissing as legacy markup: reporting tools and mail merges emit exactly this.
 
+## Floats
+
+Implemented: placement on both sides, stacking and descent, shrink-to-fit width, `clear` on blocks
+and on floats, line boxes shortened by the floats they overlap, lines descending past a float that
+leaves them no room, and containment by the box establishing the formatting context. Box geometry
+matches Chrome exactly across the four `float/` scenarios. What is missing:
+
+- **A float declared part-way through inline content is placed at the top of its block**, where a
+  browser puts it on the line being built when it was reached. The common arrangements are exact —
+  a float before the text, or as a child of a block whose other children are blocks — and this is
+  the one that is not. It shows as the float sitting higher up the page than it should, taking a
+  line or two of text with it. Nothing measures it.
+- **Nothing establishes a formatting context except the root, a float and a table cell.** CSS also
+  gives one to `overflow` other than `visible`, to `inline-block`, and to a table — and the
+  clearfix idiom that every real stylesheet uses to contain floats is `overflow: hidden` on the
+  parent. Until that works, a document written to that idiom has floats hanging out of the box that
+  was supposed to hold them.
+- **A block beside a float is never pushed aside**, which is right for an ordinary block and wrong
+  for one that establishes a formatting context: CSS says a table or a `overflow: hidden` block must
+  not overlap a float, and narrows or moves it instead. Blocked on the point above.
+- **Clearance is applied after the collapsed margin rather than as a quantity of its own.** CSS 2.1
+  §9.5.2 introduces clearance separately and stops the margin collapsing through it. The difference
+  appears only when a cleared box carries a margin large enough to clear the float unaided, which is
+  why `float/clear` stays away from it.
+- **The band a line is given is sampled over the strut height**, not the line height it turns out to
+  have. A line made taller by an image or a larger inline font could overlap a float that begins
+  a little below its top edge. Sampling correctly means laying the line out twice.
 ## Pagination
 
 - **No `break-before` / `break-after` / `break-inside`**, and no orphans or widows. A break falls

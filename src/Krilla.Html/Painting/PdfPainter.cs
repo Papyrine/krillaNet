@@ -87,6 +87,7 @@ static class PdfPainter
         // a parent that misses the page says nothing about where its children are.
         if (box.Children.Count == 0 &&
             box.Lines.Count == 0 &&
+            box.Floats.Count == 0 &&
             (box.BorderBox.Bottom < top || box.BorderBox.Y > bottom))
         {
             return;
@@ -127,6 +128,15 @@ static class PdfPainter
         foreach (var child in box.Children)
         {
             PaintBox(surface, child, top, bottom, pageEnd, links, toPage);
+        }
+
+        // Floats last, so a float overlaps the in-flow content beside it rather than being buried
+        // under a later sibling background. CSS 2.1 Appendix E puts floats in their own stacking
+        // layer above in-flow blocks and below in-flow inline content; painting them after the
+        // block children gets the half of that which matters without a stacking implementation.
+        foreach (var floated in box.Floats)
+        {
+            PaintBox(surface, floated.Box, top, bottom, pageEnd, links, toPage);
         }
     }
 

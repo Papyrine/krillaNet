@@ -106,6 +106,19 @@ sealed class LayoutBox
     public List<LineBox> Lines { get; } = [];
 
     /// <summary>
+    /// The floats this box contains, out of flow, each with the position in the flow where it was
+    /// declared.
+    /// </summary>
+    /// <remarks>
+    /// Held apart from <see cref="Children"/> rather than mixed in, because a float takes no part
+    /// in the flow those describe: it neither advances the stacking position nor contributes to
+    /// the height. Keeping it out also preserves the rule that a block container holds either
+    /// block children or inline content — a float inside a paragraph would otherwise turn that
+    /// paragraph into a mixed container and force an anonymous box around every run of its text.
+    /// </remarks>
+    public List<FloatChild> Floats { get; } = [];
+
+    /// <summary>
     /// The border box: the outer edge of the border, which is also the padding box's outer edge
     /// when there is no border.
     /// </summary>
@@ -118,6 +131,11 @@ sealed class LayoutBox
     public bool IsInlineContainer => Inlines.Count > 0;
 
     /// <summary>Every box in this subtree, this one first.</summary>
+    /// <remarks>
+    /// Floats are included. They are out of FLOW, which is a statement about how they are
+    /// positioned, not about whether they exist — everything walking the tree to paint, to
+    /// paginate or to compare against a browser needs to see them.
+    /// </remarks>
     public IEnumerable<LayoutBox> Descendants()
     {
         yield return this;
@@ -125,6 +143,14 @@ sealed class LayoutBox
         foreach (var child in Children)
         {
             foreach (var descendant in child.Descendants())
+            {
+                yield return descendant;
+            }
+        }
+
+        foreach (var floated in Floats)
+        {
+            foreach (var descendant in floated.Box.Descendants())
             {
                 yield return descendant;
             }
@@ -148,8 +174,28 @@ sealed class LayoutBox
         {
             child.Translate(dx, dy);
         }
+
+        // Floats move with their container even though they were positioned absolutely. A table
+        // cell lays its contents out at a provisional origin and is moved once its row height is
+        // known, and a float left behind would part company with the lines that were shortened
+        // around it.
+        foreach (var floated in Floats)
+        {
+            floated.Box.Translate(dx, dy);
+        }
     }
 }
+
+/// <summary>
+/// A float, and where in its container's flow it was declared.
+/// </summary>
+/// <param name="Box">The floated box.</param>
+/// <param name="Index">
+/// The number of in-flow children that precede it. A float is placed at the flow position it was
+/// declared at rather than at the top of its container, so a float written after two paragraphs
+/// starts below them.
+/// </param>
+readonly record struct FloatChild(LayoutBox Box, int Index);
 
 /// <summary>A run of text waiting to be flowed into lines.</summary>
 /// <param name="Text">The text, after white-space processing.</param>

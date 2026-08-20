@@ -39,6 +39,7 @@ static class BoxBuilder
     {
         var blocks = new List<LayoutBox>();
         var inlines = new List<InlineItem>();
+        var floats = new List<FloatChild>();
 
         // One counter per element, whether or not it turns out to hold list items. It is the only
         // thing that knows how many items have been generated so far, which is what makes a
@@ -47,8 +48,10 @@ static class BoxBuilder
 
         foreach (var node in element.ChildNodes)
         {
-            Collect(node, style, context, blocks, inlines, link, numbering);
+            Collect(node, style, context, blocks, inlines, floats, link, numbering);
         }
+
+        box.Floats.AddRange(floats);
 
         // A block container is either all-block or all-inline. When both turned up, the runs
         // between block siblings become anonymous blocks so ordering is preserved.
@@ -76,6 +79,13 @@ static class BoxBuilder
             // Prepended rather than appended: the mixed case in practice is leading text before
             // the first block child, and putting it first preserves reading order for that case.
             box.Children.Insert(0, anonymous);
+
+            // Every float counted the in-flow children ahead of it as it was collected, and one
+            // more has just appeared in front of all of them.
+            for (var index = 0; index < box.Floats.Count; index++)
+            {
+                box.Floats[index] = box.Floats[index] with {Index = box.Floats[index].Index + 1};
+            }
         }
     }
 
@@ -102,6 +112,7 @@ static class BoxBuilder
         DocumentContext context,
         List<LayoutBox> blocks,
         List<InlineItem> inlines,
+        List<FloatChild> floats,
         string? link)
     {
         var source = element.GetAttribute("src");
@@ -126,13 +137,23 @@ static class BoxBuilder
 
         if (style.Display == DisplayKind.Block)
         {
-            blocks.Add(new()
+            var box = new LayoutBox
             {
                 Style = sized,
                 Element = element,
                 Selector = selector,
                 Image = image
-            });
+            };
+
+            // A floated image is the commonest float in real documents, and it arrives here rather
+            // than through the general element path because an <img> never has children to build.
+            if (sized.IsFloating)
+            {
+                floats.Add(new(box, blocks.Count));
+                return;
+            }
+
+            blocks.Add(box);
             return;
         }
 
@@ -212,6 +233,7 @@ static class BoxBuilder
         DocumentContext context,
         List<LayoutBox> blocks,
         List<InlineItem> inlines,
+        List<FloatChild> floats,
         string? link,
         ListNumbering numbering)
     {
@@ -258,6 +280,23 @@ static class BoxBuilder
             UnsupportedAttributes.Report(element, context.OnDiagnostic);
         }
 
+        // `float` does not apply to the boxes inside a table. Honouring it would take a row or a
+        // cell out of the grid it belongs to, so the table would lay out around a hole and the
+        // content would be positioned as though it were a block of its own — content corruption
+        // from one declaration CSS says to ignore. A whole `display: table` still floats.
+        if (style.IsFloating && style.IsTablePart && style.Display != DisplayKind.Table)
+        {
+            style = style with {Float = FloatKind.None};
+        }
+
+        // CSS 2.1 §9.7: floating makes a box block-level whatever `display` asked for, so
+        // `float: left` on a <span> generates a block box rather than runs in a line. Table and
+        // list-item displays are already block-level and keep their own layout mode.
+        if (style is {IsFloating: true, Display: DisplayKind.Inline})
+        {
+            style = style with {Display = DisplayKind.Block};
+        }
+
         // An anchor sets the link for its whole subtree. Nested anchors are invalid HTML and
         // AngleSharp's parser unnests them, so the innermost simply wins here.
         if (element.LocalName.Equals("a", StringComparison.OrdinalIgnoreCase) &&
@@ -277,7 +316,7 @@ static class BoxBuilder
 
         if (element.LocalName.Equals("img", StringComparison.OrdinalIgnoreCase))
         {
-            AddImage(element, style, context, blocks, inlines, link);
+            AddImage(element, style, context, blocks, inlines, floats, link);
             return;
         }
 
@@ -291,7 +330,7 @@ static class BoxBuilder
 
             foreach (var child in element.ChildNodes)
             {
-                Collect(child, style, context, blocks, inlines, link, numbering);
+                Collect(child, style, context, blocks, inlines, floats, link, numbering);
             }
 
             // Only the runs this recursion added, and only those no nested inline has already
@@ -316,6 +355,15 @@ static class BoxBuilder
         };
 
         AddChildren(box, element, style, context, link);
+
+        if (style.IsFloating)
+        {
+            // Recorded against the number of in-flow siblings already collected, which is where in
+            // the flow the float was declared and therefore how far down the page it starts.
+            floats.Add(new(box, blocks.Count));
+            return;
+        }
+
         blocks.Add(box);
     }
 

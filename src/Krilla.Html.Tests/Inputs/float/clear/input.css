@@ -1,0 +1,19 @@
+#sides, #chain, #margins { width: 400px; margin-bottom: 40px; }
+p { background-color: #f4f4f4; }
+
+#l { float: left; width: 80px; height: 40px; background-color: #cfd8e8; }
+#r { float: right; width: 80px; height: 70px; background-color: #e8d8cf; }
+
+/* Clears the left float only, so it still sits beside the taller right one. */
+#cl { clear: left; }
+
+/* Clears the right float, which is lower, so it lands lower still. */
+#cr { clear: right; }
+
+/* `clear` on a FLOAT: #f2 starts below #f1 rather than beside it, though there is room. */
+#f1 { float: left; width: 80px; height: 40px; background-color: #cfd8e8; }
+#f2 { float: left; clear: left; width: 80px; height: 30px; background-color: #b8c8de; }
+
+/* Clearance measures to the MARGIN box, so the 40px below the float holds #cm down. */
+#m { float: left; width: 80px; height: 30px; margin-bottom: 40px; background-color: #d8e8cf; }
+#cm { clear: left; }

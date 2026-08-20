@@ -94,7 +94,9 @@ static class StyleResolver
                 declaration.GetPropertyValue("vertical-align"),
                 UserAgentStyles.DefaultVerticalAlign(element.LocalName) ?? parent.VerticalAlign),
             TextAlign = ParseTextAlign(declaration.GetPropertyValue("text-align"), parent.TextAlign),
-            WhiteSpace = ParseWhiteSpace(declaration.GetPropertyValue("white-space"), parent.WhiteSpace)
+            WhiteSpace = ParseWhiteSpace(declaration.GetPropertyValue("white-space"), parent.WhiteSpace),
+            Float = ParseFloat(declaration.GetPropertyValue("float")),
+            Clear = ParseClear(declaration.GetPropertyValue("clear"))
         };
 
         // After the style, not before: the scan reports against what the element resolved to, and
@@ -234,6 +236,33 @@ static class StyleResolver
             // the corpus comparison as a geometry difference rather than as silently missing
             // content that nothing measures.
             _ => DisplayKind.Block
+        };
+
+    /// <summary>
+    /// Which side a box floats to. Not inherited.
+    /// </summary>
+    static FloatKind ParseFloat(string? value) =>
+        value?.Trim().ToLowerInvariant() switch
+        {
+            "left" => FloatKind.Left,
+            "right" => FloatKind.Right,
+            // `inline-start` and `inline-end` resolve against the writing direction, which is
+            // always left-to-right here, so they are their physical equivalents.
+            "inline-start" => FloatKind.Left,
+            "inline-end" => FloatKind.Right,
+            _ => FloatKind.None
+        };
+
+    /// <summary>
+    /// Which floats a box must clear. Not inherited.
+    /// </summary>
+    static ClearKind ParseClear(string? value) =>
+        value?.Trim().ToLowerInvariant() switch
+        {
+            "left" or "inline-start" => ClearKind.Left,
+            "right" or "inline-end" => ClearKind.Right,
+            "both" => ClearKind.Both,
+            _ => ClearKind.None
         };
 
     /// <summary>

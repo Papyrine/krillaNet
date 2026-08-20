@@ -19,12 +19,6 @@
   },
   {
     "Element": "div",
-    "Name": "float",
-    "Value": "right",
-    "Reason": "laid out in flow"
-  },
-  {
-    "Element": "div",
     "Name": "position",
     "Value": "absolute",
     "Reason": "laid out in flow"
