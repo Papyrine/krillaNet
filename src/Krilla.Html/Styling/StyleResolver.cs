@@ -94,9 +94,7 @@ static class StyleResolver
                              ?? parent.BorderSpacingX,
             BorderSpacingY = Spacing(declaration, "border-spacing", fontSize, rootFontSize, first: false)
                              ?? parent.BorderSpacingY,
-            TableLayout = declaration.GetPropertyValue("table-layout")?.Trim().ToLowerInvariant() == "fixed"
-                ? TableLayoutKind.Fixed
-                : TableLayoutKind.Auto,
+            TableLayout = ParseTableLayout(declaration.GetPropertyValue("table-layout")),
             VerticalAlign = ParseVerticalAlign(
                 declaration.GetPropertyValue("vertical-align"),
                 UserAgentStyles.DefaultVerticalAlign(element.LocalName) ?? parent.VerticalAlign),
@@ -352,6 +350,14 @@ static class StyleResolver
         var part = first || parts.Length < 2 ? parts[0] : parts[1];
         return CssValues.ParseLength(part, fontSize, rootFontSize, CssLength.Zero).Resolve(0);
     }
+
+    /// <summary>
+    /// Which column algorithm a table uses. Anything but <c>fixed</c> is the automatic one.
+    /// </summary>
+    static TableLayoutKind ParseTableLayout(string value) =>
+        value.AsSpan().Trim().Equals("fixed", StringComparison.OrdinalIgnoreCase)
+            ? TableLayoutKind.Fixed
+            : TableLayoutKind.Auto;
 
     /// <summary>
     /// How a cell's content sits in a taller row.
