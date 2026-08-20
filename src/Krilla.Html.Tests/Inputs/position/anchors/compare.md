@@ -13,10 +13,10 @@ Which box an absolute box is positioned against, in the three arrangements that 
   that declares it. It is written inside a box most of the way down the page and lands near the top,
   which looks like a bug until the rule is known.
 
+**Boxes**: 9 matched, worst offset 0.00px, worst size 0.00px.
+
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |
-| **Page 1** | **Page 1** |
-| <img src="reference_0001.png" width="480"> | <img src="result%23page_0001.00.verified.png" width="480"> |
-| **Page 2** _(no page)_ | **Page 2** |
-|  | <img src="result%23page_0001.01.verified.png" width="480"> |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| <img src="reference_0001.png" width="480"> | <img src="result%23page_0001.verified.png" width="480"> |
 

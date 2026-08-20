@@ -21,8 +21,13 @@
     <PackageReference Include="Verify.TUnit" />
     <PackageReference Include="Verify" />
     <PackageReference Include="Verify.DiffPlex" />
+    <!--
+      Morph.PDFium directly rather than Verify.PDFium, which is what Krilla.Tests uses. The corpus
+      renders each page itself so it can pin the DPI and switch anti-aliasing off, and only the
+      RenderOptions overload exposes either. Those two settings are what make the pixel metric
+      comparable to a browser screenshot at all.
+    -->
     <PackageReference Include="Morph.PDFium" />
-    <PackageReference Include="Verify.PDFium" />
     <PackageReference Include="Argon" />
     <PackageReference Include="DiffEngine" />
     <PackageReference Include="EmptyFiles" />

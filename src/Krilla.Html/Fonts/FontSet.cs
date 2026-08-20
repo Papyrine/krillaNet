@@ -23,16 +23,8 @@ public sealed class FontSet :
     readonly List<FontFace> owned = [];
 
     /// <summary>
-    /// The face whose family is used when nothing else matches. Defaults to the first face
-    /// registered, or to a regular upright one when <see cref="AddDirectory"/> supplied them.
+    /// The face used when nothing else matches. Defaults to the first face registered.
     /// </summary>
-    /// <remarks>
-    /// Its FAMILY rather than the face itself, so weight and style still resolve against it: an
-    /// element asking for bold gets this family's bold face when one is registered. Setting this to
-    /// a bold or an italic face therefore selects that family and not that face, which is what a
-    /// default font means — a document does not become entirely bold because its default happened
-    /// to be named by a bold face. A face whose family holds nothing else is returned as itself.
-    /// </remarks>
     public FontFace? Fallback { get; set; }
 
     /// <summary>
@@ -75,34 +67,18 @@ public sealed class FontSet :
 
     /// <summary>Registers every font file in <paramref name="directory"/>.</summary>
     /// <remarks>
-    /// Enumerated in a fixed order so nothing depends on the order the file system happens to
-    /// return, and the <see cref="Fallback"/> is then taken to be a regular upright face rather
-    /// than whichever file sorted first. A directory holding <c>Bold</c> ahead of <c>Regular</c>
-    /// alphabetically — which is most of them — would otherwise name the document's default with a
-    /// bold face.
+    /// Enumerated in a fixed order so the fallback — the first face registered — does not depend
+    /// on the order the file system happens to return.
     /// </remarks>
     public FontSet AddDirectory(string directory)
     {
-        // Only when the caller has not already chosen one, so a directory added after an explicit
-        // Fallback does not silently take it over.
-        var chooseFallback = Fallback is null;
-
         var files = Directory.EnumerateFiles(directory)
             .Where(IsFontFile)
             .OrderBy(_ => _, StringComparer.OrdinalIgnoreCase);
 
-        var added = new List<FontFace>();
-
         foreach (var file in files)
         {
-            var face = FontFace.LoadFile(file);
-            Add(face);
-            added.Add(face);
-        }
-
-        if (chooseFallback && added.Count > 0)
-        {
-            Fallback = Select(added, 400, italic: false);
+            Add(FontFace.LoadFile(file));
         }
 
         return this;
@@ -135,17 +111,10 @@ public sealed class FontSet :
             }
         }
 
-        var fallback = Fallback ??
-                       throw new InvalidOperationException(
-                           "No fonts are registered. Krilla has no font database, so a FontSet " +
-                           "must be populated before HTML can be converted.");
-
-        // Its family, not the face itself. Returning the face loses weight and style for every
-        // element that reaches here — and in a document setting no font-family anywhere that is
-        // every element, so an unstyled <h1> came out unbolded and an <em> upright.
-        return families.TryGetValue(fallback.Family, out var fallbackFaces)
-            ? Select(fallbackFaces, weight, italic)
-            : fallback;
+        return Fallback ??
+               throw new InvalidOperationException(
+                   "No fonts are registered. Krilla has no font database, so a FontSet must be " +
+                   "populated before HTML can be converted.");
     }
 
     string? ResolveGeneric(string family) =>

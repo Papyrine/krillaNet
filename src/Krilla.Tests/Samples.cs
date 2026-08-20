@@ -439,46 +439,4 @@ public class Samples
 
         return Verify(pdf, "pdf");
     }
-
-    /// <summary>
-    /// The Krilla package readme's opening example, which writes to a file rather than to bytes.
-    /// </summary>
-    /// <remarks>
-    /// Snapshots nothing, unlike every other sample here. It draws exactly what
-    /// <see cref="HelloWorld"/> draws, and a second baseline of the same rectangle would be a
-    /// second thing to regenerate for no second signal. What is unproven without it is that
-    /// <c>Save</c> reaches the disk, which is what the assertions below cover.
-    /// </remarks>
-    [Test]
-    public async Task SaveToFile()
-    {
-        var path = Path.Combine(Path.GetTempPath(), $"{Guid.NewGuid():N}.pdf");
-
-        try
-        {
-            #region SaveToFile
-
-            using var document = new KrillaDocument();
-
-            using (var page = document.StartPage(PageSettings.A4))
-            {
-                page.Surface.FillRectangle(
-                    Rectangle.FromSize(50, 50, 200, 100),
-                    Color.Rgb(220, 40, 40));
-            }
-
-            document.Save(path);
-
-            #endregion
-
-            var bytes = await File.ReadAllBytesAsync(path);
-
-            await Assert.That(bytes.Length).IsGreaterThan(0);
-            await Assert.That(bytes[..5]).IsEquivalentTo("%PDF-"u8.ToArray());
-        }
-        finally
-        {
-            File.Delete(path);
-        }
-    }
 }

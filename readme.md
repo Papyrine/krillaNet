@@ -2,7 +2,6 @@
 
 [![Build status](https://github.com/Papyrine/krillaNet/actions/workflows/build.yml/badge.svg)](https://github.com/Papyrine/krillaNet/actions/workflows/build.yml)
 [![NuGet Status](https://img.shields.io/nuget/v/Krilla.svg?label=Krilla)](https://www.nuget.org/packages/Krilla/)
-[![NuGet Status](https://img.shields.io/nuget/v/Krilla.Html.svg?label=Krilla.Html)](https://www.nuget.org/packages/Krilla.Html/)
 
 A .NET wrapper over [krilla](https://github.com/LaurenzV/krilla), the Rust PDF-writing library that backs [typst](https://typst.app). Creates PDF documents: pages, vector paths, gradients, text, and images. No external dependency — the native library ships inside the package.
 
@@ -29,28 +28,16 @@ library. [AngleSharp](https://anglesharp.github.io/) parses the markup and runs 
 using var fonts = new FontSet()
     .AddDirectory(fontDirectory);
 
-fonts.Serif = "Liberation Serif";
-fonts.SansSerif = "Liberation Sans";
-fonts.Monospace = "Liberation Mono";
-
-var pdf = HtmlConverter.Convert(
-    "<h1>Hello</h1><p>World</p>",
-    new()
-    {
-        Fonts = fonts
-    });
+var pdf = HtmlConverter.Convert("<h1>Hello</h1><p>World</p>", new()
+{
+    Fonts = fonts
+});
 ```
-<sup><a href='/src/Krilla.Html.Tests/Samples.cs#L22-L38' title='Snippet source file'>snippet source</a> | <a href='#snippet-HtmlToPdf' title='Start of snippet'>anchor</a></sup>
+<sup><a href='/src/Krilla.Html.Tests/Samples.cs#L19-L29' title='Snippet source file'>snippet source</a> | <a href='#snippet-HtmlToPdf' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
-| [<img src="/src/Krilla.Html.Tests/Samples.HtmlToPdf%23page_0001.verified.png" width="190" alt="Rendered output of the HtmlToPdf sample">](/src/Krilla.Html.Tests/Samples.HtmlToPdf.verified.pdf) |
-| --- |
-
 Krilla has no font database, so the fonts a document may use are supplied by the caller rather than
-discovered from the host. That is what makes output reproducible across machines. Bind the generic
-families and an unstyled document renders the way a browser renders it: the default family is a
-serif, and weight and style resolve within whichever family a document lands on, so the `<h1>`
-above is bold without either the markup or the caller saying so.
+discovered from the host. That is what makes output reproducible across machines.
 
 Implemented: block and inline layout, the box model, collapsing margins, line breaking, text
 alignment, pagination, tables, floats, relative and absolute positioning, images, and links —
@@ -68,7 +55,7 @@ policies to bound what any resolver may load:
 options.LocalImages = ImagePolicy.SafeDirectories(assetDirectory);
 options.WebImages = ImagePolicy.SafeDomains("cdn.example.com");
 ```
-<sup><a href='/src/Krilla.Html.Tests/Samples.cs#L56-L61' title='Snippet source file'>snippet source</a> | <a href='#snippet-ImagePolicies' title='Start of snippet'>anchor</a></sup>
+<sup><a href='/src/Krilla.Html.Tests/Samples.cs#L48-L53' title='Snippet source file'>snippet source</a> | <a href='#snippet-ImagePolicies' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
 Both are checked before the resolver runs, so a refused source is never requested. A `data:` URI
@@ -88,7 +75,7 @@ options.OnDiagnostic = diagnostic => Console.WriteLine(diagnostic);
 // <p> align: left — not applied, because presentational attributes are not mapped onto the cascade
 // <img> src: logo.png — did not resolve to an image, so no box was generated
 ```
-<sup><a href='/src/Krilla.Html.Tests/Samples.cs#L81-L90' title='Snippet source file'>snippet source</a> | <a href='#snippet-Diagnostics' title='Start of snippet'>anchor</a></sup>
+<sup><a href='/src/Krilla.Html.Tests/Samples.cs#L73-L82' title='Snippet source file'>snippet source</a> | <a href='#snippet-Diagnostics' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
 Unrecognised CSS is deliberately not reported. Listing every `cursor` and `content` an ordinary

@@ -40,17 +40,6 @@ static class UserAgentStyles
     /// </remarks>
     public const string Corrections =
         """
-        /*
-          The default font family. The HTML Standard leaves it user-agent defined and browsers use
-          a serif, so an unstyled document is serif here too.
-
-          A real declaration rather than a FontSet default, for two reasons. It goes through the
-          generic mapping like any other `serif`, so a caller binding the generics gets them
-          honoured on a document that names no family at all. And it is overridden by an author
-          `font-family` in the ordinary way, rather than by a rule the cascade cannot see.
-        */
-        html { font-family: serif; }
-
         h1 { font-size: 2em; margin: 0.67em 0; font-weight: bold; }
         h2 { font-size: 1.5em; margin: 0.83em 0; font-weight: bold; }
         h3 { font-size: 1.17em; margin: 1em 0; font-weight: bold; }

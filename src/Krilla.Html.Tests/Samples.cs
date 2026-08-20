@@ -2,19 +2,16 @@
 /// Tests that double as the readme's usage snippets, via MarkdownSnippets.
 /// </summary>
 /// <remarks>
-/// The same arrangement as Krilla.Tests' Samples: each one snapshots its output, so the readme can
-/// show the PDF a snippet actually produces rather than asserting it looks right. That also makes
-/// the two impossible to drift apart — changing a snippet regenerates the artefact the readme
-/// links to.
-///
-/// The samples that configure rather than convert snapshot nothing, because there is no artefact
-/// to show. They assert instead, and the assertion sits directly below the region so the prose the
-/// readme prints beside the snippet stays pinned to what the converter really does.
+/// The same arrangement as Krilla.Tests' Samples, minus the snapshot: a conversion here is a whole
+/// PDF of paginated text, and pinning its bytes would make every layout change in the engine a
+/// readme baseline to regenerate. The corpus already measures fidelity, so what these have to
+/// establish is only that the code the readme shows compiles and does what the prose beside it
+/// says.
 /// </remarks>
 public class Samples
 {
     [Test]
-    public Task HtmlToPdf()
+    public async Task HtmlToPdf()
     {
         // The readme reads "fonts"; the test needs the faces the rest of the suite loads.
         var fontDirectory = CorpusLayout.FontsDirectory;
@@ -24,20 +21,15 @@ public class Samples
         using var fonts = new FontSet()
             .AddDirectory(fontDirectory);
 
-        fonts.Serif = "Liberation Serif";
-        fonts.SansSerif = "Liberation Sans";
-        fonts.Monospace = "Liberation Mono";
-
-        var pdf = HtmlConverter.Convert(
-            "<h1>Hello</h1><p>World</p>",
-            new()
-            {
-                Fonts = fonts
-            });
+        var pdf = HtmlConverter.Convert("<h1>Hello</h1><p>World</p>", new()
+        {
+            Fonts = fonts
+        });
 
         #endregion
 
-        return Verify(pdf, extension: "pdf");
+        using var document = PdfiumDocument.Load(pdf);
+        await Assert.That(document.PageCount).IsEqualTo(1);
     }
 
     [Test]
@@ -106,13 +98,12 @@ public class Samples
             """,
             options);
 
-        await Assert.That(reported)
-            .IsEquivalentTo(
-            [
-                "<div> display: flex — laid out as a block",
-                "<table> border-collapse: collapse — laid out with the separated border model",
-                "<p> align: left — not applied, because presentational attributes are not mapped onto the cascade",
-                "<img> src: logo.png — did not resolve to an image, so no box was generated"
-            ]);
+        await Assert.That(reported).IsEquivalentTo(
+        [
+            "<div> display: flex — laid out as a block",
+            "<table> border-collapse: collapse — laid out with the separated border model",
+            "<p> align: left — not applied, because presentational attributes are not mapped onto the cascade",
+            "<img> src: logo.png — did not resolve to an image, so no box was generated"
+        ]);
     }
 }
