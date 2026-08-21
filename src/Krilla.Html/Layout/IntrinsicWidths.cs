@@ -83,7 +83,16 @@ static class IntrinsicWidths
 
         if (box.IsInlineContainer)
         {
-            return InlineLayout.Intrinsic(box.Inlines, fonts);
+            var (textMin, textMax) = InlineLayout.Intrinsic(box.Inlines, fonts);
+
+            // The first line starts that far in, so both widths need room for it or a column sized
+            // from them wraps a cell that was supposed to fit. A hanging indent asks for no extra
+            // room, and a percentage resolves to zero for the reason the class header gives.
+            var indent = box.Style.TextIndent.Kind == LengthKind.Absolute
+                ? Math.Max(0, box.Style.TextIndent.Value)
+                : 0;
+
+            return (textMin + indent, textMax + indent);
         }
 
         var min = 0f;

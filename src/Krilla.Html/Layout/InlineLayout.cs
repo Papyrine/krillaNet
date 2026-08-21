@@ -57,6 +57,16 @@ static class InlineLayout
 
         var band = OpenLine(floats, contentX, contentY, contentWidth, strut, ref y);
 
+        // `text-indent` applies to the FIRST line of a block container and to no other, which is
+        // why it is applied here rather than inside OpenLine — every later line reopens through
+        // that method and must not pick it up. It narrows the band from the start edge rather than
+        // shifting it, so alignment still measures against the room the line actually has. A
+        // negative value widens it the other way, hanging the first line outside the content box.
+        if (box.Style.TextIndent.Resolve(contentWidth) is var indent and not 0)
+        {
+            band = new(band.Left + indent, Math.Max(0, band.Width - indent));
+        }
+
         foreach (var token in tokens)
         {
             if (token.Kind == TokenKind.Break)

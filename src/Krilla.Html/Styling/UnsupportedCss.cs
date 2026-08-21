@@ -48,6 +48,8 @@ static class UnsupportedCss
         ("font-variant", "normal", "the regular face is used"),
         ("font-stretch", "normal", "the regular face is used"),
         ("text-shadow", "none", "not painted"),
+        ("box-shadow", "none", "not painted"),
+        ("caption-side", "top", "the caption is laid out above the grid"),
         ("writing-mode", "horizontal-tb", "laid out horizontally"),
         ("direction", "ltr", "laid out left to right"),
         ("column-count", "auto", "laid out in one column"),

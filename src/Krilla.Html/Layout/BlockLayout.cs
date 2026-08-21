@@ -152,8 +152,10 @@ static class BlockLayout
         // paginated document.
         //
         // A replaced box's height already came from the aspect ratio, so it wins over both.
-        var height = replacedHeight ??
-                     (style.Height.Kind == LengthKind.Absolute ? style.Height.Value : contentHeight);
+        var height = ClampHeight(
+            replacedHeight ??
+            (style.Height.Kind == LengthKind.Absolute ? style.Height.Value : contentHeight),
+            style);
 
         var borderBoxHeight = height + paddingTop + paddingBottom + style.BorderWidthY;
 
@@ -509,6 +511,33 @@ static class BlockLayout
         return width;
     }
 
+    /// <summary>Applies <c>min-height</c> and <c>max-height</c>, in that precedence.</summary>
+    /// <remarks>
+    /// Percentages are skipped rather than resolved, for the reason a percentage <c>height</c> is:
+    /// the containing height is indefinite throughout a paginated document, and CSS says a
+    /// percentage against an indefinite containing height behaves as though it were not there.
+    ///
+    /// Nothing is clipped by a maximum — <c>overflow</c> is not implemented and is reported — so a
+    /// box shortened here keeps drawing its content past its own bottom edge, which is what
+    /// <c>overflow: visible</c> asks for anyway.
+    /// </remarks>
+    static float ClampHeight(float height, ComputedStyle style)
+    {
+        if (style.MaxHeight.Kind == LengthKind.Absolute)
+        {
+            height = Math.Min(height, Math.Max(0, style.MaxHeight.Value));
+        }
+
+        // After max-height, so a minimum taller than the maximum wins — the order CSS specifies,
+        // and the one `Clamp` uses for the horizontal pair.
+        if (style.MinHeight.Kind == LengthKind.Absolute)
+        {
+            height = Math.Max(height, style.MinHeight.Value);
+        }
+
+        return height;
+    }
+
     /// <summary>
     /// The margin that collapses out through <paramref name="box"/>'s top edge.
     /// </summary>
@@ -617,6 +646,7 @@ static class BlockLayout
         box.Style.PaddingTop.Resolve(containingWidth) == 0 &&
         box.Style.PaddingBottom.Resolve(containingWidth) == 0 &&
         box.Style.Height.Resolve(0) == 0 &&
+        box.Style.MinHeight.Resolve(0) == 0 &&
         !box.IsInlineContainer &&
         box.Children.All(_ => IsSelfCollapsing(_, containingWidth));
 }
