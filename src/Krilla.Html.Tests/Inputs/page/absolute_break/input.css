@@ -1,0 +1,7 @@
+#frame { position: relative; height: 1400px; background-color: #f4f4f4; }
+
+/* Past the 1056 boundary, so it belongs to page two even though it was declared at the top of a
+   frame that begins on page one. */
+#pinned { position: absolute; top: 1150px; left: 40px; width: 220px; background-color: #cfd8e8; font-size: 16px; line-height: 24px; }
+
+p { font-size: 16px; line-height: 24px; }

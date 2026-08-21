@@ -29,14 +29,33 @@ public class DiagnosticTests
     }
 
     /// <summary>
+    /// Scenarios that report, and are meant to.
+    /// </summary>
+    /// <remarks>
+    /// Asserted to be STILL reporting, so a construct that becomes fully supported forces its own
+    /// removal from this list rather than rotting here.
+    /// </remarks>
+    static readonly HashSet<string> expectedReports =
+    [
+        with(StringComparer.OrdinalIgnoreCase),
+
+        // The one construct the corpus deliberately contains that is not fully honoured: CSS says
+        // a fixed box repeats on every page and this places it on the one page its position falls
+        // on. The scenario is a single page, so the unimplemented half is a no-op there and the
+        // geometry is exact — but the report is about the construct, and the reporter cannot know
+        // the page count from the cascade.
+        "position/fixed"
+    ];
+
+    /// <summary>
     /// Every corpus scenario converts without reporting anything.
     /// </summary>
     /// <remarks>
     /// The strongest test of the invariant available here, and the one that keeps the false
-    /// positive rate at zero as the table grows. These are 46 documents whose box geometry is
-    /// independently proven to match Chrome exactly, so a report against any of them is a false
-    /// positive by construction rather than by opinion — no judgement call about whether the
-    /// reported construct "really" renders wrongly.
+    /// positive rate at zero as the table grows. Every scenario has box geometry independently
+    /// proven to match Chrome exactly, so a report against one outside
+    /// <see cref="expectedReports"/> is a false positive by construction rather than by opinion —
+    /// no judgement call about whether the reported construct "really" renders wrongly.
     ///
     /// It found two while it was being written: a <c>&lt;hr&gt;</c> reported four times over a
     /// border style the default stylesheet supplies rather than the document, and a plain
@@ -46,16 +65,31 @@ public class DiagnosticTests
     public async Task TheCorpusReportsNothing()
     {
         var reports = new List<(string Scenario, HtmlDiagnostic Report)>();
+        var reporting = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
 
         foreach (var directory in CorpusLayout.Directories())
         {
+            var name = CorpusLayout.Name(directory);
             var options = CorpusRunner.Options(directory);
-            options.OnDiagnostic = report => reports.Add((CorpusLayout.Name(directory), report));
+            options.OnDiagnostic = report =>
+            {
+                reporting.Add(name);
+
+                if (!expectedReports.Contains(name))
+                {
+                    reports.Add((name, report));
+                }
+            };
 
             HtmlConverter.Convert(CorpusLayout.Html(directory), options);
         }
 
         await Assert.That(reports).IsEmpty();
+
+        await Assert.That(expectedReports.Except(reporting))
+            .IsEmpty()
+            .Because("these are listed as expected to report but now report nothing, so they " +
+                     "should be removed from the list");
     }
 
     [Test]

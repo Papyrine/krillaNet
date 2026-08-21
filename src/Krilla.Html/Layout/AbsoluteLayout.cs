@@ -23,6 +23,13 @@ namespace Krilla.Html.Layout;
 /// <c>position: relative</c> on an outer element the standard way to anchor something several
 /// levels down.
 /// </para>
+/// <para>
+/// A FIXED box skips every ancestor, positioned or not: its containing block is the initial one,
+/// which in paged media is the page. That is the single thing distinguishing it from an absolute
+/// box, so treating the two alike is wrong by exactly the offset of the nearest positioned
+/// ancestor — invisible whenever there is none, which is most documents.
+/// <c>position/fixed</c> measures it.
+/// </para>
 /// </remarks>
 static class AbsoluteLayout
 {
@@ -36,9 +43,9 @@ static class AbsoluteLayout
     /// </param>
     /// <param name="fonts">The faces available for measuring text.</param>
     public static void Place(LayoutBox root, Rect initial, FontSet fonts) =>
-        Descend(root, initial, fonts);
+        Descend(root, initial, initial, fonts);
 
-    static void Descend(LayoutBox box, Rect containing, FontSet fonts)
+    static void Descend(LayoutBox box, Rect containing, Rect initial, FontSet fonts)
     {
         // A positioned box becomes the containing block for everything below it; a static one
         // passes its own containing block straight through.
@@ -46,20 +53,24 @@ static class AbsoluteLayout
 
         foreach (var child in box.Children)
         {
-            Descend(child, inner, fonts);
+            Descend(child, inner, initial, fonts);
         }
 
         foreach (var floated in box.Floats)
         {
-            Descend(floated.Box, inner, fonts);
+            Descend(floated.Box, inner, initial, fonts);
         }
 
         foreach (var positioned in box.Positioned)
         {
+            // A fixed box is anchored to the page rather than to whatever it happens to sit
+            // inside, so the ancestor chain this walk has been accumulating does not apply to it.
+            var against = positioned.Box.Style.Position == PositionKind.Fixed ? initial : inner;
+
             // Placed before descending into it, because its own descendants are positioned against
             // the box it has just been given.
-            Position(positioned.Box, inner, fonts);
-            Descend(positioned.Box, inner, fonts);
+            Position(positioned.Box, against, fonts);
+            Descend(positioned.Box, against, initial, fonts);
         }
     }
 

@@ -52,11 +52,19 @@ static class BoxBuilder
             Collect(node, style, context, blocks, inlines, floats, positioned, link, numbering);
         }
 
+        // A run with no block after it never met a boundary to be closed at. Only when a block
+        // turned up at all: with none, the container is all-inline and the runs stay runs.
+        if (blocks.Count > 0)
+        {
+            CloseRun(blocks, inlines, style);
+        }
+
         box.Floats.AddRange(floats);
         box.Positioned.AddRange(positioned);
 
         // A block container is either all-block or all-inline. When both turned up, the runs
-        // between block siblings become anonymous blocks so ordering is preserved.
+        // between block siblings became anonymous blocks as they were collected, so `blocks` is
+        // already in source order and nothing here has to reorder it.
         if (blocks.Count == 0)
         {
             box.Inlines.AddRange(inlines);
@@ -64,37 +72,52 @@ static class BoxBuilder
         }
 
         box.Children.AddRange(TableFixup(blocks, style));
+    }
 
-        // Inline content that is nothing but collapsible white space generates no box at all.
-        // Without this rule the newline between two block elements — which is to say, the
-        // formatting of every readable HTML document — becomes an anonymous block holding one
-        // space, and that block is a full line tall. A document indented for legibility would gain
-        // a blank line before each of its sections.
-        if (inlines.Count > 0 && inlines.Any(_ => HasContent(_, style)))
+    /// <summary>
+    /// Closes the run of inline content collected so far into an anonymous block, at the point a
+    /// block-level sibling ends it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// One anonymous block per contiguous run, appended in source order. Gathering every run in a
+    /// container into a SINGLE anonymous block and putting it first is a whole line cheaper and is
+    /// right only while the mixed case is leading text before the first block child — text AFTER
+    /// one is hoisted above it, which reorders the document. <c>block/anonymous</c> measures it.
+    /// </para>
+    /// <para>
+    /// Inline content that is nothing but collapsible white space generates no box at all. Without
+    /// that rule the newline between two block elements — which is to say, the formatting of every
+    /// readable HTML document — becomes an anonymous block holding one space, and that block is a
+    /// full line tall. A document indented for legibility would gain a blank line before each of
+    /// its sections. The run is cleared either way: whether or not it earned a box, it is over.
+    /// </para>
+    /// <para>
+    /// A float or an absolute box does NOT close a run, and must not: it is out of flow, so the
+    /// text either side of it belongs to one paragraph that flows around it. That is also what
+    /// keeps the index each one recorded correct — a float declared inside a run belongs at the
+    /// top of the anonymous block that run becomes, which is the child count it was recorded
+    /// against before the run closed.
+    /// </para>
+    /// </remarks>
+    static void CloseRun(List<LayoutBox> blocks, List<InlineItem> inlines, ComputedStyle parent)
+    {
+        if (inlines.Count == 0)
+        {
+            return;
+        }
+
+        if (inlines.Any(_ => HasContent(_, parent)))
         {
             var anonymous = new LayoutBox
             {
-                Style = Anonymous(style)
+                Style = Anonymous(parent)
             };
             anonymous.Inlines.AddRange(inlines);
-
-            // Prepended rather than appended: the mixed case in practice is leading text before
-            // the first block child, and putting it first preserves reading order for that case.
-            box.Children.Insert(0, anonymous);
-
-            // Every out-of-flow box counted the in-flow children ahead of it as it was
-            // collected, and one more has now appeared in front of all of them.
-            Shift(box.Floats);
-            Shift(box.Positioned);
-
-            static void Shift(List<FloatChild> boxes)
-            {
-                for (var index = 0; index < boxes.Count; index++)
-                {
-                    boxes[index] = boxes[index] with {Index = boxes[index].Index + 1};
-                }
-            }
+            blocks.Add(anonymous);
         }
+
+        inlines.Clear();
     }
 
     /// <summary>
@@ -117,6 +140,7 @@ static class BoxBuilder
     static void AddImage(
         IElement element,
         ComputedStyle style,
+        ComputedStyle parentStyle,
         DocumentContext context,
         List<LayoutBox> blocks,
         List<InlineItem> inlines,
@@ -168,6 +192,7 @@ static class BoxBuilder
                 return;
             }
 
+            CloseRun(blocks, inlines, parentStyle);
             blocks.Add(box);
             return;
         }
@@ -338,7 +363,7 @@ static class BoxBuilder
 
         if (element.LocalName.Equals("img", StringComparison.OrdinalIgnoreCase))
         {
-            AddImage(element, style, context, blocks, inlines, floats, positioned, link);
+            AddImage(element, style, parentStyle, context, blocks, inlines, floats, positioned, link);
             return;
         }
 
@@ -395,6 +420,9 @@ static class BoxBuilder
             return;
         }
 
+        // The one thing that ends a run of inline content, which is why this is the only place
+        // besides the end of the container that closes one.
+        CloseRun(blocks, inlines, parentStyle);
         blocks.Add(box);
     }
 

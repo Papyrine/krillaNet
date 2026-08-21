@@ -1,0 +1,15 @@
+#around, #dropped, #pair { width: 400px; margin-bottom: 40px; }
+p { font-size: 16px; line-height: 24px; background-color: #f4f4f4; }
+
+/* Line shortening measures to the MARGIN box. The text starts 20px past the border edge, and the
+   float's own left margin holds it 12px in from the container. */
+#spaced { float: left; width: 80px; height: 50px; margin: 0 20px 10px 12px; background-color: #cfd8e8; }
+
+/* The flow position is where the MARGIN box goes, not the border box. Adding the top margin when
+   choosing the position AND again when translating the box puts this 48px down instead of 24px. */
+#low { float: left; width: 80px; height: 40px; margin-top: 24px; background-color: #d8e8cf; }
+
+/* 210 and 210 exceed 400, so the second drops below the first — though the two border boxes are
+   only 340 wide together and would sit side by side without the margins. */
+#a { float: left; width: 170px; height: 40px; margin-right: 40px; background-color: #e8d8cf; }
+#b { float: left; width: 170px; height: 30px; margin-right: 40px; background-color: #dec8b8; }
