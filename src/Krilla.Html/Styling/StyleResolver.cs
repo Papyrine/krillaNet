@@ -231,6 +231,7 @@ static class StyleResolver
         {
             "none" => DisplayKind.None,
             "inline" => DisplayKind.Inline,
+            "inline-block" => DisplayKind.InlineBlock,
             "block" => DisplayKind.Block,
             "list-item" => DisplayKind.ListItem,
             "table" or "inline-table" => DisplayKind.Table,
@@ -245,10 +246,10 @@ static class StyleResolver
             // has no display for the inline elements, and treating that silence as `block` puts
             // every <b> and <span> on a line of its own.
             null or "" => UserAgentStyles.Display(localName) ?? DisplayKind.Block,
-            // Everything not yet implemented — flex, grid, table, inline-block — lays out as a
-            // block. A wrong box beats no box: it keeps the content on the page and shows up in
-            // the corpus comparison as a geometry difference rather than as silently missing
-            // content that nothing measures.
+            // Everything not yet implemented — flex, grid, and the rest — lays out as a block. A
+            // wrong box beats no box: it keeps the content on the page and shows up in the corpus
+            // comparison as a geometry difference rather than as silently missing content that
+            // nothing measures.
             _ => DisplayKind.Block
         };
 

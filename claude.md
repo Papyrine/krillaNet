@@ -92,7 +92,7 @@ Mirrors Morph.PDFium: `KrillaNative.*.cs` partials of one `static partial class`
 
 ### The HTML converter (`src/Krilla.Html`)
 
-Three stages, each inspectable on its own: AngleSharp parses and runs the cascade, `Layout/` turns the styled tree into positioned boxes, and `Painting/PdfPainter` draws those boxes through `Krilla.Surface`. Implemented: block and inline layout, tables, floats, relative and absolute positioning, the box model, collapsing margins, line breaking, alignment, pagination, images, links, and list markers. Flex and grid lay out as plain blocks — deliberately, so unimplemented CSS shows up in the corpus as a geometry difference rather than as missing content nothing measures.
+Three stages, each inspectable on its own: AngleSharp parses and runs the cascade, `Layout/` turns the styled tree into positioned boxes, and `Painting/PdfPainter` draws those boxes through `Krilla.Surface`. Implemented: block and inline layout, inline-block, tables, floats, relative and absolute positioning, the box model, collapsing margins, line breaking, alignment, pagination, images, links, and list markers. Flex and grid lay out as plain blocks — deliberately, so unimplemented CSS shows up in the corpus as a geometry difference rather than as missing content nothing measures.
 
 Three structural points worth knowing before changing anything:
 
@@ -116,7 +116,7 @@ It records two independent measurements, and **asserts neither**:
 - **`reference.boxes.json`** — the browser's `getBoundingClientRect()` per element, against our box tree. Integer-exact, localising ("this paragraph is 14px low" is a defect report), and — the practical reason it leads — computable without the native library, so it works on a machine with no Rust toolchain.
 - **`reference_0001.png`** — pixels, via AbsoluteError and SSIM.
 
-**Box geometry currently sits at zero across all 70 scenarios**, and 52 read SSIM 1.0000. Four of them got there by finding a defect first, which is the argument for adding a scenario for anything the engine implements rather than only for what it implements well: `block/anonymous` found trailing inline content hoisted above a block sibling, `position/fixed` found a fixed box resolved against the nearest positioned ancestor, `table/empty` found edge spacing on a section with no columns, and `page/table_break` found a break taken at the line inside a table row. Each is written up in its own `notes.md`. The remaining pixel residuals each have a named cause rather than a mystery: `ua/hr` (0.9911) is Chrome's `inset` rule painted solid, `text/kerning` (0.9945) and `text/ligatures` (0.9982) are sub-pixel glyph positioning, `image/inline_flow` (0.9998) is antialiasing on an image edge at a fractional position, and the rest are the same glyph positioning seen on fewer words. A scenario reading SSIM 1.0000 is not necessarily pixel-identical — fifteen differ on a scattering of antialiased pixels, which is what `AE` is there to show. Thirty-seven are identical outright.
+**Box geometry currently sits at zero across all 72 scenarios**, and 52 read SSIM 1.0000. Four of them got there by finding a defect first, which is the argument for adding a scenario for anything the engine implements rather than only for what it implements well: `block/anonymous` found trailing inline content hoisted above a block sibling, `position/fixed` found a fixed box resolved against the nearest positioned ancestor, `table/empty` found edge spacing on a section with no columns, and `page/table_break` found a break taken at the line inside a table row. Each is written up in its own `notes.md`. The remaining pixel residuals each have a named cause rather than a mystery: `ua/hr` (0.9911) is Chrome's `inset` rule painted solid, `text/kerning` (0.9945) and `text/ligatures` (0.9982) are sub-pixel glyph positioning, `image/inline_flow` (0.9998) is antialiasing on an image edge at a fractional position, and the rest are the same glyph positioning seen on fewer words. A scenario reading SSIM 1.0000 is not necessarily pixel-identical — fifteen differ on a scattering of antialiased pixels, which is what `AE` is there to show. Thirty-seven are identical outright.
 
 That the pixels go to *exactly* identical is worth understanding, because it is a consequence of a design choice and not a given. A Chromium **screenshot** would be rasterised by Skia and compared against a PDFium render of our PDF, and two rasterisers disagree about glyph edges no matter how correct the layout is — which would put a floor somewhere around 0.90–0.97 on any text-heavy page. Printing the reference instead means both sides are rasterised by PDFium, and that floor disappears entirely. **Do not switch the reference to a screenshot**; it would cost every exact match in the corpus and replace a hard signal with a fuzzy one.
 
@@ -202,6 +202,38 @@ Three of these were found the same way: a scenario sat at SSIM ~0.93 while its b
 - **Fragment links resolve after pagination**, because a fragment names an element while a PDF internal link names a page and a point on it. `LinkTargets` is built once the page tops are known.
 - **An unresolved fragment produces no annotation at all**, rather than one aimed at page one. A link that silently goes somewhere wrong is worse than a link that is not there.
 - **Neither corpus measurement can see a link.** An annotation carries no appearance stream, so the pixel comparison is blind to it, and it is not an element box, so the geometry comparison is too. `CorpusRunner` reads them back out of the produced PDF and snapshots them — and the box and pixel numbers staying at zero alongside is the separate check that adding links disturbed no layout.
+
+## Traps around inline-block
+
+The second atomic inline, and everything awkward about it comes from having a box tree where an
+image has a rectangle. `inline/inline_block` and `inline/inline_block_sizing` measure the rules
+below; both are exact against Chrome.
+
+- **Its baseline is its LAST in-flow line's, not its first** (CSS 2.1 §10.8.1). A two-line
+  inline-block hangs UPWARD so the text beside it lines up with its second line, which is the
+  opposite of what reading "aligns on the baseline" suggests. Taking the first line's puts the box
+  a whole line too low, and looks entirely plausible on the one-line case that is most of them.
+- **With no in-flow line box it falls back to the bottom MARGIN edge** — which is exactly an
+  image's rule, reached from the other direction. An empty one, or one holding nothing but an
+  image, therefore behaves like the atomic inline the engine already had.
+- **It is measured to its MARGIN box on the line**, the same rule floats follow. `Token.Width` is
+  the margin box, so a row of them wraps on the margins rather than the borders.
+- **It is laid out in `InlineLayout`, not `BlockLayout`.** A line cannot be filled until the box's
+  size is known, and its size is a whole layout of its own — including a fresh `FloatContext`,
+  since it establishes its own block formatting context and so contains its floats.
+- **It is always given an ASSIGNED width, never the ordinary horizontal resolution.** That path
+  reads `margin: auto` as a request to centre, which is what it means for a block in flow and not
+  what it means here: an auto margin on an inline-block is zero.
+- **`Intrinsic` must not lay it out.** The intrinsic pass runs to decide a column's width, so
+  sizing the box against a width nobody has settled is both wasted and wrong — hence `Tokenize`'s
+  `measuring` flag, and `Token.MinWidth` alongside `Token.Width`, since a box already sized to the
+  room available cannot report how far it could be squeezed.
+- **It hangs off the LINE, not off `Children`** (`LineBox.Boxes`), which keeps the rule that a
+  block container is all-block or all-inline — the same reason `LayoutBox.Floats` is a list of its
+  own. Everything walking the tree has to reach it through there: `Descendants`, the painter,
+  `AbsoluteLayout` and `PdfPainter.Hoisted` all do, and each was a separate line of code. Miss one
+  and an absolute box inside an inline-block is never placed, or a fragment link into one resolves
+  to nothing.
 
 ## Traps around replaced elements
 

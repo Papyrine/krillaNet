@@ -339,7 +339,8 @@ static class BoxBuilder
             style = style with {Float = FloatKind.None};
         }
 
-        if (style is {Display: DisplayKind.Inline} and ({IsFloating: true} or {IsAbsolute: true}))
+        if (style is {Display: DisplayKind.Inline or DisplayKind.InlineBlock} and
+                     ({IsFloating: true} or {IsAbsolute: true}))
         {
             style = style with {Display = DisplayKind.Block};
         }
@@ -417,6 +418,16 @@ static class BoxBuilder
             // flow would have put it, so the flow position it was declared at has to survive even
             // though the box never takes part in flow.
             positioned.Add(new(box, blocks.Count));
+            return;
+        }
+
+        // An atomic inline joins the line rather than the flow, so it does NOT close the run: the
+        // text before and after it belongs to the same paragraph, exactly as it does around an
+        // image. Its own contents were collected the way a block's are, which is the whole of what
+        // inline-block means.
+        if (style.IsAtomicInline)
+        {
+            inlines.Add(new("", style, SelectorPath.For(element), Box: box, Link: link));
             return;
         }
 

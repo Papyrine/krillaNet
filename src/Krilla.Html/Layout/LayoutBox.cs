@@ -157,6 +157,10 @@ sealed class LayoutBox
     /// Floats are included. They are out of FLOW, which is a statement about how they are
     /// positioned, not about whether they exist — everything walking the tree to paint, to
     /// paginate or to compare against a browser needs to see them.
+    ///
+    /// So are the <c>inline-block</c> boxes held by <see cref="LineBox.Boxes"/>, which are not in
+    /// <see cref="Children"/> and would otherwise be invisible to every caller here: the box dump
+    /// would report no geometry for one, and a fragment link inside one would resolve to nothing.
     /// </remarks>
     public IEnumerable<LayoutBox> Descendants()
     {
@@ -167,6 +171,17 @@ sealed class LayoutBox
             foreach (var descendant in child.Descendants())
             {
                 yield return descendant;
+            }
+        }
+
+        foreach (var line in Lines)
+        {
+            foreach (var atomic in line.Boxes)
+            {
+                foreach (var descendant in atomic.Descendants())
+                {
+                    yield return descendant;
+                }
             }
         }
 
@@ -256,13 +271,19 @@ readonly record struct FloatChild(LayoutBox Box, int Index);
 /// looked up later because an anchor's text is flattened into the line's runs, so by painting time
 /// there is nothing left to ask which element it came from.
 /// </param>
+/// <param name="Box">
+/// A whole box tree, when this item is an <c>inline-block</c>. The other atomic inline: it takes a
+/// box on the line the way an image does, and differs in having contents of its own that were laid
+/// out in their own formatting context before the line was filled.
+/// </param>
 sealed record InlineItem(
     string Text,
     ComputedStyle Style,
     string? Selector,
     bool ForcedBreak = false,
     ImageData? Image = null,
-    string? Link = null);
+    string? Link = null,
+    LayoutBox? Box = null);
 
 /// <summary>One laid-out line, and the glyph runs positioned on it.</summary>
 sealed class LineBox
@@ -276,8 +297,20 @@ sealed class LineBox
     /// <summary>The runs on this line, left to right.</summary>
     public List<TextRun> Runs { get; } = [];
 
-    /// <summary>The atomic inlines on this line — images, currently.</summary>
+    /// <summary>The images on this line.</summary>
     public List<InlineImage> Images { get; } = [];
+
+    /// <summary>
+    /// The <c>inline-block</c> boxes on this line, each already laid out.
+    /// </summary>
+    /// <remarks>
+    /// Held by the line rather than by the containing box's <see cref="LayoutBox.Children"/>,
+    /// which keeps the rule that a block container is all-block or all-inline — the same reason
+    /// <see cref="LayoutBox.Floats"/> is a list of its own. Everything walking the tree has to
+    /// reach them through here: <see cref="LayoutBox.Descendants"/> does, and so do the painter,
+    /// the absolute-positioning pass and the box dump.
+    /// </remarks>
+    public List<LayoutBox> Boxes { get; } = [];
 
     /// <summary>Moves the line and its contents by the given offset.</summary>
     public void Translate(float dx, float dy)
@@ -299,6 +332,11 @@ sealed class LineBox
             {
                 Bounds = Images[index].Bounds.Offset(dx, dy)
             };
+        }
+
+        foreach (var box in Boxes)
+        {
+            box.Translate(dx, dy);
         }
     }
 }

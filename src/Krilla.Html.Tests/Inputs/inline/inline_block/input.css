@@ -1,0 +1,10 @@
+p { width: 420px; font-size: 16px; line-height: 24px; margin-bottom: 24px; background-color: #f4f4f4; }
+
+/* Shrink-to-fit, and its own baseline on the line's. */
+.box { display: inline-block; background-color: #cfd8e8; }
+
+/* No line box of its own, so its bottom MARGIN edge sits on the baseline — an image's rule. */
+.empty { display: inline-block; width: 30px; height: 30px; background-color: #e8d8cf; }
+
+/* The box model applies on all four sides, and the horizontal margins hold the text away. */
+.model { display: inline-block; padding: 6px 10px; border: 3px solid #204060; margin: 4px 8px; background-color: #d8e8cf; }

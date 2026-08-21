@@ -1,0 +1,11 @@
+div { width: 300px; font-size: 16px; line-height: 24px; margin-bottom: 24px; background-color: #f4f4f4; }
+
+/* Shrink-to-fit: each takes its max-content width and no more. */
+.cell { display: inline-block; background-color: #cfd8e8; }
+
+/* Three 90px boxes and their margins exceed 300, so the third wraps to a second line. */
+.wide { display: inline-block; width: 90px; margin-right: 8px; background-color: #d8e8cf; }
+
+/* Wider than the container wants to give it, so it takes what is left and wraps inside itself —
+   min(max(min-content, available), max-content), the rule a float follows. */
+.squeeze { display: inline-block; background-color: #e8d8cf; }
