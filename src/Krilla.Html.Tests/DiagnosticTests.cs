@@ -152,7 +152,6 @@ public class DiagnosticTests
                 """
                 <div style="display: flex"><span>a</span></div>
                 <div style="display: grid"><span>b</span></div>
-                <div style="display: inline-block">c</div>
                 <div style="position: fixed">e</div>
                 <div style="box-sizing: border-box">f</div>
                 <table style="border-collapse: collapse"><tr><td>g</td></tr></table>
@@ -282,6 +281,7 @@ public class DiagnosticTests
             <div style="position: absolute; top: 0; left: 0">out of flow</div>
             <div style="min-height: 40px; max-height: 80px">held open</div>
             <p style="text-indent: 2em">indented</p>
+            <span style="display: inline-block; width: 40px">atomic</span>
             """);
 
         await Assert.That(reports).IsEmpty();

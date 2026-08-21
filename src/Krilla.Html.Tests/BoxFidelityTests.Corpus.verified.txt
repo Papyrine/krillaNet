@@ -32,6 +32,8 @@ image/sized                      matched  5  offset    0.00  size    0.00  diffe
 inline/font_size_em              matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
 inline/font_style                matched  4  offset    0.00  size    0.00  differing  0  unmatched 0
 inline/font_weight               matched  4  offset    0.00  size    0.00  differing  0  unmatched 0
+inline/inline_block              matched 10  offset    0.00  size    0.00  differing  0  unmatched 1
+inline/inline_block_sizing       matched 14  offset    0.00  size    0.00  differing  0  unmatched 0
 inline/justify                   matched  3  offset    0.00  size    0.00  differing  0  unmatched 0
 inline/line_height               matched  4  offset    0.00  size    0.00  differing  0  unmatched 0
 inline/line_height_normal        matched  3  offset    0.00  size    0.00  differing  0  unmatched 2

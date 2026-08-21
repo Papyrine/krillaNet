@@ -61,6 +61,16 @@ static class AbsoluteLayout
             Descend(floated.Box, inner, initial, fonts);
         }
 
+        // An inline-block is reached through the line that holds it rather than through Children,
+        // and an absolute box declared inside one still has to be placed.
+        foreach (var line in box.Lines)
+        {
+            foreach (var atomic in line.Boxes)
+            {
+                Descend(atomic, inner, initial, fonts);
+            }
+        }
+
         foreach (var positioned in box.Positioned)
         {
             // A fixed box is anchored to the page rather than to whatever it happens to sit

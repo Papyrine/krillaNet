@@ -13,6 +13,17 @@ enum DisplayKind
     Inline,
 
     /// <summary>
+    /// An inline-level box whose contents are laid out as a block.
+    /// </summary>
+    /// <remarks>
+    /// An atomic inline, like an image: it occupies one unbreakable box on a line rather than
+    /// contributing runs to it, and a line can break before or after it but never inside. Unlike
+    /// an image it has a box tree of its own, which is laid out in a formatting context of its own
+    /// and reached through the line rather than through <see cref="LayoutBox.Children"/>.
+    /// </remarks>
+    InlineBlock,
+
+    /// <summary>
     /// A block-level box that also generates a list marker.
     /// </summary>
     /// <remarks>
@@ -440,6 +451,11 @@ sealed record ComputedStyle
     /// Whether this box is the containing block for absolutely positioned descendants.
     /// </summary>
     public bool IsPositioned => Position != PositionKind.Static;
+
+    /// <summary>
+    /// Whether this box is laid out as one unbreakable box on a line rather than in flow.
+    /// </summary>
+    public bool IsAtomicInline => Display == DisplayKind.InlineBlock;
 
     /// <summary>Which side this box floats to.</summary>
     public FloatKind Float { get; init; } = FloatKind.None;

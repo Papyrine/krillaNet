@@ -13,12 +13,6 @@
   },
   {
     "Element": "div",
-    "Name": "display",
-    "Value": "inline-block",
-    "Reason": "laid out as a block"
-  },
-  {
-    "Element": "div",
     "Name": "position",
     "Value": "fixed",
     "Reason": "placed once rather than repeated on every page"

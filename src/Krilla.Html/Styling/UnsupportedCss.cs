@@ -87,7 +87,7 @@ static class UnsupportedCss
     /// </summary>
     static readonly string[] displays =
     [
-        "none", "inline", "block", "list-item",
+        "none", "inline", "inline-block", "block", "list-item",
         "table", "inline-table", "table-caption", "table-header-group", "table-row-group",
         "table-footer-group", "table-row", "table-cell", "table-column", "table-column-group"
     ];

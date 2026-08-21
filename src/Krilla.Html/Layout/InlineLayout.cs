@@ -205,7 +205,7 @@ static class InlineLayout
         var pendingSpace = 0f;
         var started = false;
 
-        foreach (var token in Tokenize(items, fonts, 0))
+        foreach (var token in Tokenize(items, fonts, 0, measuring: true))
         {
             if (token.Kind == TokenKind.Break)
             {
@@ -245,8 +245,13 @@ static class InlineLayout
                 continue;
             }
 
+            // An inline-block contributes its max-content width to the maximum and its
+            // min-content width to the minimum. Every other token is unbreakable, so the one
+            // number serves for both.
+            var floor = token.Kind == TokenKind.Box ? token.MinWidth : token.Width;
+
             segment += pendingSpace + token.Width;
-            unbreakable += token.Width;
+            unbreakable += floor;
             pendingSpace = 0;
             started = true;
             min = Math.Max(min, unbreakable);
@@ -258,7 +263,11 @@ static class InlineLayout
     /// <summary>
     /// Turns the block's inline items into breakable tokens, measuring each.
     /// </summary>
-    static List<Token> Tokenize(List<InlineItem> items, FontSet fonts, float contentWidth)
+    static List<Token> Tokenize(
+        List<InlineItem> items,
+        FontSet fonts,
+        float contentWidth,
+        bool measuring = false)
     {
         var tokens = new List<Token>();
 
@@ -269,6 +278,12 @@ static class InlineLayout
             if (item.ForcedBreak)
             {
                 tokens.Add(new(item.Style, face, 0, TokenKind.Break, Link: item.Link));
+                continue;
+            }
+
+            if (item.Box is {} inline)
+            {
+                tokens.Add(InlineBlock(item, inline, face, fonts, contentWidth, measuring));
                 continue;
             }
 
@@ -346,6 +361,128 @@ static class InlineLayout
     }
 
     /// <summary>
+    /// Lays out one <c>inline-block</c> and measures it as a token.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Laid out here rather than in <see cref="BlockLayout"/> because the line cannot be filled
+    /// until the box's size is known, and its size is a whole layout of its own. It gets a fresh
+    /// <see cref="FloatContext"/> by taking the default: an inline-block establishes its own block
+    /// formatting context, so it sees no float from outside and grows to contain those inside it.
+    /// </para>
+    /// <para>
+    /// Sized to the containing block's width rather than to the band left beside a float, which
+    /// is the same approximation an inline image gets and for the same reason: tokenising happens
+    /// once, before any line has been opened, and which band the box lands in is not yet known.
+    /// </para>
+    /// <para>
+    /// The box is moved so its MARGIN box starts at the origin, which is what lets
+    /// <see cref="Flush"/> place it with a single translate rather than carrying the margins
+    /// through to the call site.
+    /// </para>
+    /// </remarks>
+    static Token InlineBlock(
+        InlineItem item,
+        LayoutBox box,
+        FontFace face,
+        FontSet fonts,
+        float contentWidth,
+        bool measuring)
+    {
+        var style = box.Style;
+        var marginLeft = style.MarginLeft.Resolve(contentWidth);
+        var marginRight = style.MarginRight.Resolve(contentWidth);
+        var marginTop = style.MarginTop.Resolve(contentWidth);
+        var marginBottom = style.MarginBottom.Resolve(contentWidth);
+        var horizontal = marginLeft + marginRight;
+
+        var (minimum, maximum) = IntrinsicWidths.Measure(box, fonts);
+
+        if (measuring)
+        {
+            // The intrinsic pass wants both extremes and no layout: it runs to decide a column's
+            // width, so laying the box out now would size it against a width nobody has settled.
+            return new(
+                item.Style, face, maximum + horizontal, TokenKind.Box,
+                Selector: item.Selector, Link: item.Link, MinWidth: minimum + horizontal);
+        }
+
+        var available = Math.Max(0, contentWidth - horizontal);
+
+        // Always an assigned width, never the ordinary horizontal resolution: that path reads
+        // `margin: auto` as a request to centre, which is what it means for a block in flow and
+        // not what it means here — an auto margin on an inline-block is zero.
+        var assigned = BlockLayout.ShrinkToFit(box, available, fonts) ??
+                       Declared(style, available);
+
+        var height = BlockLayout.Layout(box, 0, 0, available, fonts, assigned);
+
+        box.Translate(marginLeft - box.BorderBox.X, marginTop - box.BorderBox.Y);
+
+        return new(
+            item.Style,
+            face,
+            box.BorderBox.Width + horizontal,
+            TokenKind.Box,
+            Height: height + marginTop + marginBottom,
+            Selector: item.Selector,
+            Link: item.Link,
+            Box: box,
+            Baseline: LastBaseline(box) ?? height + marginTop + marginBottom,
+            MinWidth: minimum + horizontal);
+    }
+
+    /// <summary>
+    /// The border-box width a declared <c>width</c> asks for, or null when it is auto.
+    /// </summary>
+    static float? Declared(ComputedStyle style, float available) =>
+        style.Width.ResolveOrNull(available) is {} width
+            ? Math.Max(0, width) +
+              style.PaddingLeft.Resolve(available) +
+              style.PaddingRight.Resolve(available) +
+              style.BorderWidthX
+            : null;
+
+    /// <summary>
+    /// The baseline an <c>inline-block</c> aligns on, measured down from its margin-box top, or
+    /// null when it has no in-flow line box to take one from.
+    /// </summary>
+    /// <remarks>
+    /// The LAST line box, not the first: a two-line inline-block sits with its second line on the
+    /// text baseline beside it, which is why one in a sentence pushes the line's top up rather
+    /// than hanging below.
+    ///
+    /// In-flow only. A float is out of flow and offers no baseline, and a nested atomic inline
+    /// sits inside a line that has already been counted, so descending into either would take a
+    /// baseline from a box that does not own one.
+    /// </remarks>
+    static float? LastBaseline(LayoutBox box)
+    {
+        float? baseline = null;
+        var lowest = float.NegativeInfinity;
+
+        Walk(box);
+        return baseline;
+
+        void Walk(LayoutBox current)
+        {
+            foreach (var line in current.Lines)
+            {
+                if (line.Bounds.Bottom >= lowest)
+                {
+                    lowest = line.Bounds.Bottom;
+                    baseline = line.Bounds.Y + line.Baseline;
+                }
+            }
+
+            foreach (var child in current.Children)
+            {
+                Walk(child);
+            }
+        }
+    }
+
+    /// <summary>
     /// Turns the accumulated tokens into a line, positions its runs, and advances
     /// <paramref name="y"/> past it.
     /// </summary>
@@ -361,7 +498,7 @@ static class InlineLayout
         // Trailing spaces hang outside the line box: they must not push a right-aligned line left
         // or shift a centred one. Preserved white space is exempt, being content rather than
         // separation.
-        var lastContent = tokens.FindLastIndex(_ => _.Kind is TokenKind.Word or TokenKind.Replaced);
+        var lastContent = tokens.FindLastIndex(_ => _.Kind == TokenKind.Word || IsAtomic(_.Kind));
         if (lastContent >= 0 && !box.Style.PreservesSpaces)
         {
             for (var index = tokens.Count - 1; index > lastContent; index--)
@@ -381,13 +518,20 @@ static class InlineLayout
 
         foreach (var token in tokens)
         {
-            // An atomic inline sits its bottom margin edge on the baseline, which is what
-            // `vertical-align: baseline` means for a replaced element. So it reaches its whole
-            // height above the baseline and nothing below — and a tall image consequently pushes
-            // the line's top up rather than growing it downward.
-            var (tokenAbove, tokenBelow) = token.Kind == TokenKind.Replaced
-                ? (token.Height, 0f)
-                : Extents(token.Style, token.Face);
+            // A replaced inline sits its bottom margin edge on the baseline, which is what
+            // `vertical-align: baseline` means for one. So it reaches its whole height above the
+            // baseline and nothing below — and a tall image consequently pushes the line's top up
+            // rather than growing it downward.
+            //
+            // An inline-block is the case that shows why that is a special rule rather than the
+            // general one: it has a baseline of its own, taken from its last line, so part of it
+            // sits BELOW the line's baseline and the text beside it lines up with its text.
+            var (tokenAbove, tokenBelow) = token.Kind switch
+            {
+                TokenKind.Replaced => (token.Height, 0f),
+                TokenKind.Box => (token.Baseline, token.Height - token.Baseline),
+                _ => Extents(token.Style, token.Face)
+            };
 
             above = Math.Max(above, tokenAbove);
             below = Math.Max(below, tokenBelow);
@@ -434,9 +578,21 @@ static class InlineLayout
                 continue;
             }
 
+            // An inline-block was laid out with its margin box at the origin, so one translate
+            // puts the whole tree where the line wants it: its own baseline onto the line's.
+            if (tokens[runStart] is {Kind: TokenKind.Box, Box: {} inline} atomic)
+            {
+                inline.Translate(x, y + above - atomic.Baseline);
+                line.Boxes.Add(inline);
+
+                x += atomic.Width;
+                runStart++;
+                continue;
+            }
+
             var runEnd = runStart;
             while (runEnd + 1 < tokens.Count &&
-                   tokens[runEnd + 1].Kind != TokenKind.Replaced &&
+                   !IsAtomic(tokens[runEnd + 1].Kind) &&
                    tokens[runEnd + 1].Link == tokens[runStart].Link &&
                    ReferenceEquals(tokens[runEnd + 1].Style, tokens[runStart].Style) &&
                    ReferenceEquals(tokens[runEnd + 1].Face, tokens[runStart].Face) &&
@@ -537,10 +693,35 @@ static class InlineLayout
         Space,
         Break,
 
-        /// <summary>An atomic inline — an image — which occupies a box rather than glyphs.</summary>
-        Replaced
+        /// <summary>An image, which occupies a box rather than glyphs.</summary>
+        Replaced,
+
+        /// <summary>An <c>inline-block</c>, which occupies a box holding a tree of its own.</summary>
+        Box
     }
 
+    /// <summary>
+    /// Whether a token is an atomic inline: one unbreakable box on the line, interrupting the run
+    /// of glyphs around it rather than joining it.
+    /// </summary>
+    static bool IsAtomic(TokenKind kind) =>
+        kind is TokenKind.Replaced or TokenKind.Box;
+
+    /// <summary>One measured, unbreakable piece of a line.</summary>
+    /// <remarks>
+    /// <c>Width</c> is the token's advance, and for an atomic inline it is the MARGIN box: a
+    /// horizontal margin holds the text around it away exactly as the box itself does.
+    /// <c>Height</c> is the margin box too.
+    ///
+    /// <c>Baseline</c> is where an <c>inline-block</c> aligns, measured down from the top of its
+    /// margin box. CSS 2.1 §10.8.1 puts it on the baseline of the box's LAST in-flow line, or on
+    /// its bottom margin edge when it has none — which is what makes an empty one, or one holding
+    /// nothing but an image, sit on the line the way an image does.
+    ///
+    /// <c>MinWidth</c> is an <c>inline-block</c>'s min-content width, which is not derivable from
+    /// <c>Width</c>: the box has already been sized to the room available, and
+    /// <see cref="Intrinsic"/> needs to know how far it could be squeezed.
+    /// </remarks>
     readonly record struct Token(
         ComputedStyle Style,
         FontFace Face,
@@ -552,7 +733,10 @@ static class InlineLayout
         string? Link = null,
         ShapedText? Shaped = null,
         int TextStart = 0,
-        int TextEnd = 0);
+        int TextEnd = 0,
+        LayoutBox? Box = null,
+        float Baseline = 0,
+        float MinWidth = 0);
 }
 
 /// <summary>

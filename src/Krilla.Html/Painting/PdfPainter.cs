@@ -140,6 +140,19 @@ static class PdfPainter
             }
         }
 
+        // An inline-block hangs off a line rather than off Children, and a positioned box declared
+        // inside one belongs to this context all the same.
+        foreach (var line in box.Lines)
+        {
+            foreach (var atomic in line.Boxes)
+            {
+                foreach (var positioned in Hoisted(atomic))
+                {
+                    yield return positioned;
+                }
+            }
+        }
+
         foreach (var entry in box.Positioned)
         {
             yield return entry.Box;
@@ -304,6 +317,15 @@ static class PdfPainter
             foreach (var image in line.Images)
             {
                 PaintImage(surface, image.Image, image.Bounds);
+            }
+
+            // Appendix E step 7.2.1: an inline-block paints as though it established a stacking
+            // context, so its whole subtree goes down here as one unit rather than being spread
+            // across this layer's phases. Its positioned descendants are the exception, and are
+            // collected by `Hoisted` into the page's own list.
+            foreach (var atomic in line.Boxes)
+            {
+                PaintLayer(surface, atomic, page);
             }
         }
 
