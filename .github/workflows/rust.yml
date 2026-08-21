@@ -103,19 +103,30 @@ jobs:
         run: cargo deny check licenses bans advisories sources
 
       - name: Install cargo-about
+        # Pinned, because THIRD-PARTY-NOTICES.md is this tool's output compared byte for byte.
+        # On `latest` a cargo-about release changes the file with no dependency having moved,
+        # and the check fails on a commit that touched nothing — the same reason the Rust
+        # dependencies are pinned exactly. Bump this and regenerate in one deliberate commit.
         uses: taiki-e/install-action@v2
         with:
-          tool: cargo-about
+          tool: cargo-about@0.9.2
 
       - name: Check third-party notices are current
         # Regenerates the notices and fails on any difference, rather than auto-committing the
         # way on-push-do-docs.yml does for mdsnippets. The distinction is deliberate: a stale
         # documentation snippet is a nuisance, a stale licence notice is a distribution
         # obligation going unmet, and it deserves a human looking at the diff.
+        #
+        # --strip-trailing-cr because cargo-about copies each licence file in verbatim and a
+        # few crates ship theirs with CRLF endings — imagesize, unicode-script and
+        # fontconfig-parser, today. .gitattributes normalises the committed file to LF, so a
+        # byte-exact diff reports those three as changed on every run whatever anyone commits.
+        # Without this the check cannot pass, and a check that can only fail is worse than
+        # none: it trains you to ignore the one signal that a licence obligation went unmet.
         run: |
           set -euo pipefail
           cargo about generate --config about.toml about.hbs -o /tmp/notices.md
-          if ! diff -u ../src/Krilla/THIRD-PARTY-NOTICES.md /tmp/notices.md; then
+          if ! diff -u --strip-trailing-cr ../src/Krilla/THIRD-PARTY-NOTICES.md /tmp/notices.md; then
             echo "::error::THIRD-PARTY-NOTICES.md is out of date. Regenerate it with: cargo about generate --config about.toml about.hbs -o ../src/Krilla/THIRD-PARTY-NOTICES.md"
             exit 1
           fi

@@ -76,12 +76,12 @@ jobs:
           # Per-arch rather than a lipo'd universal binary: NuGet wants separate RID slots, so
           # a universal file would double the package size for nothing.
           - rid: osx-x64
-            os: macos-14
+            os: macos-15
             target: x86_64-apple-darwin
             file: libkrilla_capi.dylib
 
           - rid: osx-arm64
-            os: macos-14
+            os: macos-15
             target: aarch64-apple-darwin
             file: libkrilla_capi.dylib
 
@@ -97,11 +97,24 @@ jobs:
           workspaces: rust
           key: ${{ matrix.rid }}
 
-      - name: Install zig and cargo-zigbuild
+      # install-action carries a manifest for cargo-zigbuild but none for zig itself, and its
+      # cargo-binstall fallback then looks for a crates.io crate called `zig`, which does not
+      # exist — so asking it for both fails the leg before it builds anything. Zig comes from
+      # setup-zig instead, which is what cargo-zigbuild's own CI uses. The version is pinned
+      # because zig supplies the linker and the bundled glibc stubs: it is part of what the
+      # shipped binary is built from, the same reason the Rust dependencies are pinned exactly.
+      - name: Install cargo-zigbuild
         if: matrix.zig-target != ''
         uses: taiki-e/install-action@v2
         with:
-          tool: cargo-zigbuild,zig
+          tool: cargo-zigbuild
+
+      - name: Install zig
+        if: matrix.zig-target != ''
+        uses: mlugg/setup-zig@v2
+        with:
+          version: 0.15.1
+          cache-key: ${{ matrix.rid }}
 
       # -- Build ---------------------------------------------------------------------------
 
@@ -186,7 +199,12 @@ jobs:
           fi
 
       - name: Check macOS signature
-        if: runner.os == 'macOS'
+        # arm64 only, and that is not an oversight. The requirement belongs to arm64 — macOS
+        # refuses to load unsigned arm64 code — and the linker ad-hoc signs on exactly that
+        # basis, so the x86_64 leg built on the same Apple Silicon runner comes out unsigned
+        # and is perfectly loadable, natively on Intel and under Rosetta. Running the check
+        # against x86_64 fails every time and says nothing about the binary.
+        if: matrix.target == 'aarch64-apple-darwin'
         run: |
           set -euo pipefail
           lib="rust/target/${{ matrix.target }}/release/${{ matrix.file }}"
