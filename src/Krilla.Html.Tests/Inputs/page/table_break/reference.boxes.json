@@ -1,0 +1,163 @@
+[
+  {
+    "selector": "html",
+    "x": 0,
+    "y": 0,
+    "width": 816,
+    "height": 1180
+  },
+  {
+    "selector": "html > body:nth-child(2)",
+    "x": 0,
+    "y": 0,
+    "width": 816,
+    "height": 1180
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(1)",
+    "x": 0,
+    "y": 0,
+    "width": 816,
+    "height": 950
+  },
+  {
+    "selector": "html > body:nth-child(2) > table:nth-child(2)",
+    "x": 0,
+    "y": 950,
+    "width": 500,
+    "height": 230
+  },
+  {
+    "selector": "html > body:nth-child(2) > table:nth-child(2) > tbody:nth-child(1)",
+    "x": 2,
+    "y": 952,
+    "width": 496,
+    "height": 226
+  },
+  {
+    "selector": "html > body:nth-child(2) > table:nth-child(2) > tbody:nth-child(1) > tr:nth-child(1)",
+    "x": 2,
+    "y": 952,
+    "width": 496,
+    "height": 36
+  },
+  {
+    "selector": "html > body:nth-child(2) > table:nth-child(2) > tbody:nth-child(1) > tr:nth-child(1) > td:nth-child(1)",
+    "x": 2,
+    "y": 952,
+    "width": 236.92,
+    "height": 36
+  },
+  {
+    "selector": "html > body:nth-child(2) > table:nth-child(2) > tbody:nth-child(1) > tr:nth-child(1) > td:nth-child(2)",
+    "x": 240.92,
+    "y": 952,
+    "width": 257.08,
+    "height": 36
+  },
+  {
+    "selector": "html > body:nth-child(2) > table:nth-child(2) > tbody:nth-child(1) > tr:nth-child(2)",
+    "x": 2,
+    "y": 990,
+    "width": 496,
+    "height": 36
+  },
+  {
+    "selector": "html > body:nth-child(2) > table:nth-child(2) > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(1)",
+    "x": 2,
+    "y": 990,
+    "width": 236.92,
+    "height": 36
+  },
+  {
+    "selector": "html > body:nth-child(2) > table:nth-child(2) > tbody:nth-child(1) > tr:nth-child(2) > td:nth-child(2)",
+    "x": 240.92,
+    "y": 990,
+    "width": 257.08,
+    "height": 36
+  },
+  {
+    "selector": "html > body:nth-child(2) > table:nth-child(2) > tbody:nth-child(1) > tr:nth-child(3)",
+    "x": 2,
+    "y": 1028,
+    "width": 496,
+    "height": 36
+  },
+  {
+    "selector": "html > body:nth-child(2) > table:nth-child(2) > tbody:nth-child(1) > tr:nth-child(3) > td:nth-child(1)",
+    "x": 2,
+    "y": 1028,
+    "width": 236.92,
+    "height": 36
+  },
+  {
+    "selector": "html > body:nth-child(2) > table:nth-child(2) > tbody:nth-child(1) > tr:nth-child(3) > td:nth-child(2)",
+    "x": 240.92,
+    "y": 1028,
+    "width": 257.08,
+    "height": 36
+  },
+  {
+    "selector": "html > body:nth-child(2) > table:nth-child(2) > tbody:nth-child(1) > tr:nth-child(4)",
+    "x": 2,
+    "y": 1066,
+    "width": 496,
+    "height": 36
+  },
+  {
+    "selector": "html > body:nth-child(2) > table:nth-child(2) > tbody:nth-child(1) > tr:nth-child(4) > td:nth-child(1)",
+    "x": 2,
+    "y": 1066,
+    "width": 236.92,
+    "height": 36
+  },
+  {
+    "selector": "html > body:nth-child(2) > table:nth-child(2) > tbody:nth-child(1) > tr:nth-child(4) > td:nth-child(2)",
+    "x": 240.92,
+    "y": 1066,
+    "width": 257.08,
+    "height": 36
+  },
+  {
+    "selector": "html > body:nth-child(2) > table:nth-child(2) > tbody:nth-child(1) > tr:nth-child(5)",
+    "x": 2,
+    "y": 1104,
+    "width": 496,
+    "height": 36
+  },
+  {
+    "selector": "html > body:nth-child(2) > table:nth-child(2) > tbody:nth-child(1) > tr:nth-child(5) > td:nth-child(1)",
+    "x": 2,
+    "y": 1104,
+    "width": 236.92,
+    "height": 36
+  },
+  {
+    "selector": "html > body:nth-child(2) > table:nth-child(2) > tbody:nth-child(1) > tr:nth-child(5) > td:nth-child(2)",
+    "x": 240.92,
+    "y": 1104,
+    "width": 257.08,
+    "height": 36
+  },
+  {
+    "selector": "html > body:nth-child(2) > table:nth-child(2) > tbody:nth-child(1) > tr:nth-child(6)",
+    "x": 2,
+    "y": 1142,
+    "width": 496,
+    "height": 36
+  },
+  {
+    "selector": "html > body:nth-child(2) > table:nth-child(2) > tbody:nth-child(1) > tr:nth-child(6) > td:nth-child(1)",
+    "x": 2,
+    "y": 1142,
+    "width": 236.92,
+    "height": 36
+  },
+  {
+    "selector": "html > body:nth-child(2) > table:nth-child(2) > tbody:nth-child(1) > tr:nth-child(6) > td:nth-child(2)",
+    "x": 240.92,
+    "y": 1142,
+    "width": 257.08,
+    "height": 36
+  }
+]

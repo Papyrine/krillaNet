@@ -29,13 +29,21 @@ toolchain. Zero means the box tree agrees with Chrome exactly.
 
 **Pixels** are AbsoluteError and SSIM against the printed reference.
 
-Boxes currently sit at zero across the whole corpus: all 54 scenarios match Chrome's geometry
-exactly, with nothing unmatched. Pixels are close behind — 43 read SSIM 1.0000 and 32 are identical
-outright. The eleven below 1.0000 come down to two named causes: sub-pixel glyph positioning, which
-`text/kerning` exists to measure, and box edges landing on fractional pixels, which
-`table/spacing_borders` and `image/inline_flow` measure. SSIM 1.0000 is not quite the same as
-pixel-identical, which is what the `AE` column is there to show. Each scenario's `notes.md` names
-its own residual.
+Boxes sit at zero across the whole corpus: all 67 scenarios match Chrome's geometry exactly, with
+nothing unmatched. Pixels are close behind — 50 read SSIM 1.0000 and 37 are identical outright.
+
+Four defects reached that state rather than starting there, each found by the scenario named for
+it: `block/anonymous` hoisted trailing inline content above a block sibling, `position/fixed`
+resolved a fixed box against the nearest positioned ancestor instead of the page, `table/empty`
+applied edge spacing to a section with no columns, and `page/table_break` broke at the line inside
+a table row rather than at the row's edge while leaving a sliver of the moved row behind. Each
+scenario's `notes.md` records what it found and what changed.
+
+The seventeen below 1.0000 come down to named causes: `ua/hr` (0.9911) is Chrome's `inset` rule
+painted solid, and the rest are sub-pixel glyph positioning, which `text/kerning` exists to
+measure, and box edges landing on fractional pixels, which `table/spacing_borders` and
+`image/inline_flow` measure. SSIM 1.0000 is not quite the same as pixel-identical, which is what
+the `AE` column is there to show. Each scenario's `notes.md` names its own residual.
 
 The pixels reach *exactly* identical because the reference is printed rather than screenshotted, so
 both sides are rasterised by PDFium. A screenshot would put Skia on one side and PDFium on the

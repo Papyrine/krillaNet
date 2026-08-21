@@ -1,0 +1,9 @@
+#reach { width: 400px; }
+p { font-size: 16px; line-height: 24px; background-color: #f4f4f4; }
+
+/* Ten pixels tall, so it is clear of every line but the first, and only 60 wide. */
+#early { float: left; width: 60px; height: 10px; background-color: #cfd8e8; }
+
+/* Cleared below #early, so it begins at y=10 — inside the first line rather than above it — and
+   it is far wider than #early. That width difference is what makes the two readings diverge. */
+#late { float: left; clear: left; width: 220px; height: 80px; background-color: #d8e8cf; }

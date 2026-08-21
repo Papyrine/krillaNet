@@ -1,0 +1,6 @@
+#spacer { height: 900px; background-color: #eaeaea; }
+
+/* Runs 900..1200, so the 1056 boundary falls inside it. */
+#tall { float: left; width: 120px; height: 300px; background-color: #cfd8e8; }
+
+p { font-size: 16px; line-height: 24px; background-color: #f4f4f4; }

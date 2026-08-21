@@ -1,0 +1,6 @@
+#grid { display: table; background-color: #f4f4f4; font-size: 16px; line-height: 24px; }
+.row { display: table-row; }
+.cell { display: table-cell; padding: 4px; background-color: #cfd8e8; }
+
+/* Neither a row nor a cell, so the table has to invent both to hold it. */
+#loose { background-color: #e8d8cf; }

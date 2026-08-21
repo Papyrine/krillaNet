@@ -1,0 +1,10 @@
+/* Taller than the 1056px page, and holding no lines at all — so there is no break candidate
+   anywhere inside it. */
+#tall { height: 1400px; background-color: #dde5f0; }
+
+/* A block child, so page one is not one flat colour and `BaselineHealthTests` can tell a page
+   that rendered a full-page fill from a page that rendered nothing. It generates no line either,
+   so the block stays free of break candidates. */
+#mark { height: 40px; background-color: #204060; }
+
+p { font-size: 16px; line-height: 24px; background-color: #f4f4f4; }

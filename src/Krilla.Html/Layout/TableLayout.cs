@@ -708,8 +708,13 @@ static class TableLayout
         float contentWidth,
         float spacingX)
     {
-        var left = contentX + spacingX;
-        var width = Math.Max(0, contentWidth - 2 * spacingX);
+        // No columns means no edge spacing, for the reason the table's own width uses: the
+        // separated model puts a gap OUTSIDE the first and last columns, and with no columns there
+        // is nothing for it to be outside of. Adding it anyway leaves the section of an empty
+        // table two pixels along from an origin that occupies nothing.
+        var edge = grid.ColumnCount == 0 ? 0 : spacingX;
+        var left = contentX + edge;
+        var width = Math.Max(0, contentWidth - 2 * edge);
 
         foreach (var row in grid.Rows)
         {

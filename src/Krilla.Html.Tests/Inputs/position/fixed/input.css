@@ -1,0 +1,12 @@
+div, p { font-size: 16px; line-height: 24px; }
+
+/* No positioned ancestor, so the containing block is the page either way. */
+#corner { position: fixed; top: 24px; right: 24px; width: 170px; background-color: #cfd8e8; }
+
+#frame { position: relative; width: 300px; height: 120px; margin: 200px 0 0 120px; background-color: #f4f4f4; }
+
+/* A fixed box's containing block is the PAGE, not the nearest positioned ancestor — which is the
+   one thing that distinguishes it from an absolute box. */
+#inner { position: fixed; top: 300px; left: 40px; width: 220px; background-color: #e8d8cf; }
+
+p { background-color: #f0f0f0; }

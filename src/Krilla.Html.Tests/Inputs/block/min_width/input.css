@@ -1,0 +1,12 @@
+#floor, #fight, #pct { width: 400px; margin-bottom: 20px; background-color: #f4f4f4; }
+div { font-size: 16px; line-height: 24px; }
+
+/* The declared width loses: 200, not 50. */
+#held { width: 50px; min-width: 200px; background-color: #cfd8e8; }
+
+/* min-width is applied AFTER max-width, so a minimum wider than the maximum wins outright: 180,
+   not 100 and not 300. Reversing the two gives 100 and looks entirely plausible. */
+#both { width: 300px; max-width: 100px; min-width: 180px; background-color: #e8d8cf; }
+
+/* Resolved against the containing block like every other percentage: 60% of 400 is 240. */
+#relative { width: 40px; min-width: 60%; background-color: #d8e8cf; }

@@ -68,6 +68,13 @@ static class PdfPainter
 
         // Content is clipped to the page box so a box straddling a break stops at the edge rather
         // than painting over the margin, and so the next page's slice starts clean.
+        //
+        // To the paper, deliberately, and not to the break: a box the break falls INSIDE is
+        // fragmented, and a browser fills the rest of the page with that fragment rather than
+        // stopping it where the last line did. `page/multi_page_flow` measures exactly that — its
+        // fifth paragraph keeps its background to the bottom edge with a line moved overleaf. The
+        // boxes that must not paint here are the ones moved whole, which `PaintBox` culls by their
+        // top edge.
         using var clipPath = PdfPath.Rectangle(
             Rectangle.FromSize(content.X, content.Y, content.Width, content.Height));
         using var __ = surface.PushClip(clipPath);
@@ -195,16 +202,28 @@ static class PdfPainter
             return;
         }
 
-        PaintBackground(surface, box);
-        PaintBorders(surface, box);
-        PaintMarker(surface, box, top, pageEnd);
-
-        // A block-level image paints into its content box, which replaced sizing already gave the
-        // right aspect ratio — so no fitting is needed here.
-        if (box.Image is {} replaced)
+        // A box beginning at or after the break was moved WHOLE to the next page and does not
+        // appear on this one at all — which is a different thing from a box the break falls
+        // inside, whose fragment here fills the rest of the page. Hence a test on the top edge
+        // rather than a clip at the break: the clip would truncate the straddling case too, and a
+        // browser paints that one down to the paper.
+        //
+        // Bounding only the lines is what left a table row moved overleaf with a sliver of its
+        // cell backgrounds stranded at the foot of the page before. `page/table_break` measures it.
+        if (box.BorderBox.Y < pageEnd)
         {
-            PaintImage(surface, replaced, box.ContentBox);
+            PaintBackground(surface, box);
+            PaintBorders(surface, box);
+
+            // A block-level image paints into its content box, which replaced sizing already gave
+            // the right aspect ratio — so no fitting is needed here.
+            if (box.Image is {} replaced)
+            {
+                PaintImage(surface, replaced, box.ContentBox);
+            }
         }
+
+        PaintMarker(surface, box, top, pageEnd);
 
         // The order below is CSS 2.1 Appendix E, which is not document order and is not negotiable
         // once boxes overlap: in-flow blocks, then floats, then inline content, then everything

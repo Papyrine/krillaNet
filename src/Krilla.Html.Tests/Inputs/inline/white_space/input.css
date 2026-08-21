@@ -1,0 +1,10 @@
+div { font-family: "Liberation Mono"; font-size: 14px; line-height: 20px; width: 300px; margin-bottom: 20px; }
+
+/* Preserves white space and newlines, and wraps. */
+#wrap { white-space: pre-wrap; background-color: #f0f0f0; }
+
+/* Collapses white space, honours newlines, and wraps. */
+#line { white-space: pre-line; background-color: #e8e8e8; }
+
+/* Collapses white space and never wraps, so the text overflows the box. */
+#nowrap { white-space: nowrap; background-color: #e0e0e0; }

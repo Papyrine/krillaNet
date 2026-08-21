@@ -1,10 +1,11 @@
-# All scenarios (54)
+# All scenarios (67)
 
 The browser reference (left) beside the page Krilla.Html produced (right). `AE` is the fraction of pixels that differ and `SSIM` is structural similarity; neither is asserted. The worst offset is the largest positional disagreement in CSS pixels between the rendered element geometry and the browser's, and is the number to watch — it reaches zero exactly when the layout is right.
 
 <details>
 <summary>Contents</summary>
 
+- [block/anonymous](#block-anonymous)
 - [block/auto_margins](#block-auto_margins)
 - [block/auto_width](#block-auto_width)
 - [block/background_color](#block-background_color)
@@ -14,10 +15,13 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [block/margin_collapse_blocked](#block-margin_collapse_blocked)
 - [block/margin_collapse_parent](#block-margin_collapse_parent)
 - [block/max_width](#block-max_width)
+- [block/min_width](#block-min_width)
 - [block/nested_blocks](#block-nested_blocks)
 - [block/percentage_width](#block-percentage_width)
 - [float/basic](#float-basic)
 - [float/clear](#float-clear)
+- [float/margins](#float-margins)
+- [float/mid_line](#float-mid_line)
 - [float/shrink_to_fit](#float-shrink_to_fit)
 - [float/stacking](#float-stacking)
 - [image/block_centred](#image-block_centred)
@@ -35,18 +39,26 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [inline/nested_inline](#inline-nested_inline)
 - [inline/simple_text](#inline-simple_text)
 - [inline/text_align](#inline-text_align)
+- [inline/white_space](#inline-white_space)
 - [inline/white_space_pre](#inline-white_space_pre)
 - [inline/wrapping](#inline-wrapping)
 - [link/external](#link-external)
 - [link/fragment](#link-fragment)
 - [link/wrapped](#link-wrapped)
+- [page/absolute_break](#page-absolute_break)
 - [page/break_between_lines](#page-break_between_lines)
+- [page/float_break](#page-float_break)
 - [page/multi_page_flow](#page-multi_page_flow)
 - [page/page_size](#page-page_size)
+- [page/table_break](#page-table_break)
+- [page/tall_block](#page-tall_block)
 - [position/absolute](#position-absolute)
 - [position/anchors](#position-anchors)
+- [position/fixed](#position-fixed)
 - [position/relative](#position-relative)
+- [table/anonymous](#table-anonymous)
 - [table/auto_widths](#table-auto_widths)
+- [table/empty](#table-empty)
 - [table/fixed_layout](#table-fixed_layout)
 - [table/sections](#table-sections)
 - [table/spacing_borders](#table-spacing_borders)
@@ -56,11 +68,52 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [ua/acid1](#ua-acid1)
 - [ua/blockquote_pre](#ua-blockquote_pre)
 - [ua/headings](#ua-headings)
+- [ua/hr](#ua-hr)
 - [ua/lists](#ua-lists)
 - [ua/list_markers](#ua-list_markers)
 - [ua/paragraphs](#ua-paragraphs)
 
 </details>
+
+## block/anonymous
+
+# block/anonymous
+
+A block container is all-block or all-inline. When a document mixes the two — a text node beside a
+block sibling, which `BoxBuilder` calls the formatting of every readable HTML document — the stray
+inline content is wrapped in an anonymous block so ordering is preserved.
+
+Nothing in the corpus contained that arrangement. Every container was one or the other:
+`ua/acid1`'s `<li>` holds a bare `<p>`, and the text that looks adjacent to a block elsewhere is
+collapsible whitespace that generates no box at all.
+
+The anonymous boxes are not elements, so they do not appear in `getBoundingClientRect()` and the
+geometry comparison sees only `#mixed` and `#inner`. The pixels are what measure them: the two
+runs of text have to sit above and below the block child, in source order, at the line positions
+an anonymous block would give them.
+
+It found a defect immediately. `BoxBuilder` gathered ALL of a container's stray inline content
+into a SINGLE anonymous block and inserted it at index 0, which is right only while the mixed case
+is leading text before the first block child: the trailing run was hoisted above `#inner` along
+with the leading one, putting it at y=120 where Chrome puts it at y=72. The container's height was
+identical either way, which is why nothing else in the corpus could have shown it.
+
+`BoxBuilder.CloseRun` now closes one anonymous block per contiguous run, appended in source order,
+and the index bookkeeping that used to shift every float and positioned box by one went with it —
+a run closes only at a block-level sibling, and an out-of-flow box declared inside a run belongs at
+the top of the block that run becomes, which is the count it was already recorded against.
+
+What to look at when it moves: `#inner` back at y=120 is the single-block behaviour returning.
+Text overlapping `#inner` is an anonymous block contributing no height. `#mixed` taller or shorter
+than 144px is a line count changing, which is a different bug from this one.
+
+**Boxes**: 4 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0002 · SSIM 1.0000** |
+| <img src="block/anonymous/reference_0001.png" width="480"> | <img src="block/anonymous/result%23page_0001.verified.png" width="480"> |
+
 
 ## block/auto_margins
 
@@ -186,6 +239,35 @@ back to the margins. A naive clamp leaves the box at the left edge.
 | <img src="block/max_width/reference_0001.png" width="480"> | <img src="block/max_width/result%23page_0001.verified.png" width="480"> |
 
 
+## block/min_width
+
+# block/min_width
+
+`min-width` is implemented, with an explicit precedence rule — applied after `max-width`, so a
+minimum wider than the maximum wins, which is the order CSS specifies — and it appeared in no
+scenario at all. `block/max_width` measures only the other half of the pair.
+
+Three arrangements, because the property fails in three different ways:
+
+- **`#held`** — a declared width below the minimum. The simplest case, and the one that would
+  survive if `min-width` were read and then dropped.
+- **`#both`** — a minimum wider than the maximum. This is the one the precedence rule exists for:
+  clamping to the maximum last gives 100px, which looks correct until it is compared.
+- **`#relative`** — a percentage, resolved against the containing block rather than the viewport,
+  which is the distinction `StyleResolver` reads the cascaded style for.
+
+What to look at when it moves: `#held` at 50px is `min-width` unread. `#both` at 100px is the two
+clamps applied in the wrong order, and at 300px is neither applied. `#relative` at any width other
+than 240px is a percentage resolved against the wrong box.
+
+**Boxes**: 8 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0009 · SSIM 0.9998** |
+| <img src="block/min_width/reference_0001.png" width="480"> | <img src="block/min_width/result%23page_0001.verified.png" width="480"> |
+
+
 ## block/nested_blocks
 
 Containing widths through three levels. Each auto width is its parent content width, so an error in
@@ -264,6 +346,69 @@ when the cleared box has a margin big enough to clear the float unaided; `src/to
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0002 · SSIM 1.0000** |
 | <img src="float/clear/reference_0001.png" width="480"> | <img src="float/clear/result%23page_0001.verified.png" width="480"> |
+
+
+## float/margins
+
+# float/margins
+
+Every float rule is stated against the MARGIN box, and no other float scenario has a float with
+margins on it — `float/basic` has none at all, and `float/clear`'s `#m` carries a bottom margin
+only, to measure clearance. So the three places the margin box matters were unmeasured in pixels:
+
+- **`#spaced`** — line shortening. The paragraph's lines start 20px past the float's border edge,
+  and the float sits 12px in from the container's left edge rather than against it.
+- **`#low`** — the flow position. A float with `margin-top: 24px` puts its MARGIN box at the flow
+  position, so the border box lands 24px down. Adding the margin when choosing the position and
+  again when translating the box into place lands it at 48px, which is a bug that was fixed once
+  and that nothing in the corpus could have caught.
+- **`#a`/`#b`** — float-against-float placement. Two 170px floats fit side by side in 400px; two
+  210px margin boxes do not, so the second descends.
+
+All three are exact, and the page reads SSIM 1.0000.
+
+What to look at when it moves: a horizontal shift of exactly one margin on `#spaced`'s text is
+line shortening reverting to the border box. `#low` at y=48 rather than y=24 is the double
+application. `#b` beside `#a` rather than below it is the fit test reading border boxes.
+
+**Boxes**: 12 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0001 · SSIM 1.0000** |
+| <img src="float/margins/reference_0001.png" width="480"> | <img src="float/margins/result%23page_0001.verified.png" width="480"> |
+
+
+## float/mid_line
+
+# float/mid_line
+
+A line is shortened by the floats its box OVERLAPS, not by those under its top edge. The two
+readings agree on every arrangement where floats begin and end on line boundaries, which is nearly
+all of them, and this is the arrangement where they do not.
+
+`#early` occupies y=0..10 and is 60 wide. `#late` clears it, so it starts at y=10 — inside the
+first line box, which runs y=0..24 — and it is 220 wide. The first line therefore has 180px to
+work with, from x=220 to the container's right edge. Sampling the band at the line's top edge
+alone sees only `#early` and reports 340px, which fits roughly twice as many words.
+
+This is the case `FloatGeometryTests` keeps as `e1`, which is the only one of its nineteen
+arrangements that distinguishes the two readings. It had no pixel measurement until now: this
+scenario is that case as a rendered page, so the word count on the first line reports it directly.
+
+Measured, the page is pixel-identical to the reference: the band reading is right, and this is
+now the confirmation of it in pixels rather than in a probe case.
+
+What to look at when it moves: the first line carrying more words than the second is the top-edge
+reading. The lines below the float are unaffected either way, which is what makes the first line
+the whole signal.
+
+**Boxes**: 6 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| <img src="float/mid_line/reference_0001.png" width="480"> | <img src="float/mid_line/result%23page_0001.verified.png" width="480"> |
 
 
 ## float/shrink_to_fit
@@ -536,6 +681,40 @@ deliberately disagree about what they can see.
 | <img src="inline/text_align/reference_0001.png" width="480"> | <img src="inline/text_align/result%23page_0001.verified.png" width="480"> |
 
 
+## inline/white_space
+
+# inline/white_space
+
+`white-space` has five values and the engine implements all of them. `inline/white_space_pre`
+measures two — `pre` and `normal` — and the other three had no coverage anywhere, in the corpus or
+in a unit test.
+
+Each of the three differs from `pre` in exactly one respect, which is what makes them worth
+separating:
+
+- **`pre-wrap`** preserves the spaces and the newline like `pre` does, but also breaks a line that
+  runs out of room. Under `pre` the same text would overflow.
+- **`pre-line`** collapses the runs of spaces like `normal` does, and keeps the newline. The
+  leading indentation on each source line disappears; the break between them does not.
+- **`nowrap`** collapses like `normal` and never breaks, so the text runs past the box's right
+  edge rather than wrapping at it.
+
+Monospace at 14px, so a column of characters is countable against the reference rather than merely
+comparable.
+
+What to look at when it moves: `#wrap` losing its interior spaces is `pre-wrap` being read as
+`normal`; `#wrap` overflowing is it being read as `pre`. `#line` keeping its indentation is
+`pre-line` preserving what it should collapse, and `#line` on one line is the newline being
+dropped. `#nowrap` wrapping at 300px is the whole value being ignored.
+
+**Boxes**: 5 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0002 · SSIM 1.0000** |
+| <img src="inline/white_space/reference_0001.png" width="480"> | <img src="inline/white_space/result%23page_0001.verified.png" width="480"> |
+
+
 ## inline/white_space_pre
 
 The two halves of white-space processing side by side: preserved above, collapsed below. The pair
@@ -626,6 +805,35 @@ Not rendered: `html > body:nth-child(2) > p:nth-child(1) > a:nth-child(1)`
 | <img src="link/wrapped/reference_0001.png" width="480"> | <img src="link/wrapped/result%23page_0001.verified.png" width="480"> |
 
 
+## page/absolute_break
+
+# page/absolute_break
+
+An absolute box is painted from the root rather than where it was declared, and it is placed in
+continuous coordinates by a second pass that runs after flow and knows nothing about pages. Which
+page it lands on is therefore decided last, by the painter, from a position computed by neither of
+the two stages that produced it.
+
+`#pinned` is declared at the top of a frame that begins on page one and offset to y=1150, which is
+past the 1056 boundary. It belongs on page two, 94px down, and appears on page one not at all. The
+frame's own line of text is what keeps page one from being a single flat colour, which
+`BaselineHealthTests` reads as a page that rendered nothing.
+
+What to look at: the box on page one is the hoisted absolute being assigned to its declaring
+parent's page. The box missing entirely is it being clipped against the first page's box after
+being assigned correctly — the same distinction `PdfPainter` draws between the page box and
+`pageEnd`.
+
+**Boxes**: 5 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0003 · SSIM 1.0000** |
+| <img src="page/absolute_break/reference_0001.png" width="480"> | <img src="page/absolute_break/result%23page_0001.verified.png" width="480"> |
+| **Page 2** | **Page 2. AE 0.0000 · SSIM 1.0000** |
+| <img src="page/absolute_break/reference_0002.png" width="480"> | <img src="page/absolute_break/result%23page_0002.verified.png" width="480"> |
+
+
 ## page/break_between_lines
 
 A break landing inside a paragraph. The spacer leaves 76px of the first page, which fits two lines
@@ -640,6 +848,34 @@ page height instead would cut it in half.
 | <img src="page/break_between_lines/reference_0001.png" width="480"> | <img src="page/break_between_lines/result%23page_0001.verified.png" width="480"> |
 | **Page 2** | **Page 2. AE 0.0000 · SSIM 1.0000** |
 | <img src="page/break_between_lines/reference_0002.png" width="480"> | <img src="page/break_between_lines/result%23page_0002.verified.png" width="480"> |
+
+
+## page/float_break
+
+# page/float_break
+
+A float is out of flow but not out of the page, and no scenario had one crossing a page boundary.
+`#tall` runs 900..1200 with the boundary at 1056, so it has to be painted on both pages — its
+upper 156px on the first and its lower 144px on the second — and the lines beside it have to keep
+being shortened after the break.
+
+The two halves of that are independent and can fail separately: the float's own box is painted by
+`PdfPainter` per page, while the band the lines are laid against comes from `FloatContext` in
+continuous coordinates, before pagination exists.
+
+What to look at: the float's colour reaching the bottom edge of page one and resuming at the top
+of page two, and the paragraph's first lines on page two still starting 120px in. Full-width lines
+on page two are the band being lost at the break; a float painted on one page only is the box
+being clipped to where it was declared.
+
+**Boxes**: 5 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0023 · SSIM 0.9997** |
+| <img src="page/float_break/reference_0001.png" width="480"> | <img src="page/float_break/result%23page_0001.verified.png" width="480"> |
+| **Page 2** | **Page 2. AE 0.0000 · SSIM 1.0000** |
+| <img src="page/float_break/reference_0002.png" width="480"> | <img src="page/float_break/result%23page_0002.verified.png" width="480"> |
 
 
 ## page/multi_page_flow
@@ -671,6 +907,83 @@ step somewhere, and every multi-page scenario will be wrong in the same way.
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
 | <img src="page/page_size/reference_0001.png" width="480"> | <img src="page/page_size/result%23page_0001.verified.png" width="480"> |
+
+
+## page/table_break
+
+# page/table_break
+
+Every multi-page scenario in the corpus was plain paragraphs, so pagination had only ever been
+measured against the one construct it was written for. A table is the first case where the break
+candidates and the boxes disagree: `Paginator` breaks before a LINE that would straddle the
+boundary, and a browser's printer moves a whole ROW.
+
+Six 36px rows starting at y=950, so the table runs 950..1166 and the boundary at 1056 falls inside
+the third row rather than between two of them. A break taken at the line inside that row splits
+the row's background and border across the two pages; a break taken at the row moves the whole
+thing overleaf.
+
+It found two defects, and they compounded. The break went to the top of the LINE inside row
+three rather than to the row's own top edge, six pixels lower, so everything on page two sat six
+pixels high — 0.9659, the lowest SSIM the corpus has recorded. And the row it left behind still
+painted its cell backgrounds down to the paper, stranding a sliver of the moved row at the foot of
+page one.
+
+`Paginator.Unbreakable` now treats a table row as one unit, the way a line is one everywhere else,
+and `PdfPainter.PaintBox` culls a box whose top edge is at or after the break — which is a
+different test from clipping at the break, and deliberately so: a box the break falls INSIDE is
+fragmented, and a browser fills the rest of the page with that fragment. `page/multi_page_flow` is
+the scenario that says so, and clipping cost it 1.6% of its pixels before the distinction was
+drawn.
+
+The geometry stays at zero throughout, because it is measured in continuous coordinates where
+there is no break at all — which makes this a difference only the pixels could ever report.
+
+What to look at: the vertical offset of page two's first row, and any part of it appearing at the
+foot of page one. Six pixels of either is the line-based break returning.
+
+**Boxes**: 23 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0001 · SSIM 0.9999** |
+| <img src="page/table_break/reference_0001.png" width="480"> | <img src="page/table_break/result%23page_0001.verified.png" width="480"> |
+| **Page 2** | **Page 2. AE 0.0003 · SSIM 0.9997** |
+| <img src="page/table_break/reference_0002.png" width="480"> | <img src="page/table_break/result%23page_0002.verified.png" width="480"> |
+
+
+## page/tall_block
+
+# page/tall_block
+
+A page break can be needed where no line offers one. `Paginator` breaks before a line that would
+straddle the boundary, and a block taller than the page contains no lines — so there is no
+candidate inside it, the break lands after the whole block, and everything between the page edge
+and the block's end is never drawn. `NextTop` falls back to breaking at the page edge for exactly
+this case, and nothing measured that fallback.
+
+`page/page_size` stops one pixel short of reaching it: its content is 1040px plus a 16px border,
+which is 1056 exactly — one page, with no fragment left over. Here the block runs 0..1400, so page
+one is entirely filled by it, page two carries the remaining 344px, and the paragraph follows at
+y=1400, which is 344 down page two.
+
+`#mark` is a 40px block at the top, and it is there for `BaselineHealthTests`: without it page one
+is a single flat colour, which is indistinguishable from a page that rendered nothing at all. It
+generates no line, so the block it sits in stays free of break candidates and the fallback is
+still what produces the break.
+
+What to look at when it moves: a second page that is blank above the paragraph means the block was
+not painted past the break. A single page means the fallback did not fire at all and the overflow
+was dropped.
+
+**Boxes**: 5 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| <img src="page/tall_block/reference_0001.png" width="480"> | <img src="page/tall_block/result%23page_0001.verified.png" width="480"> |
+| **Page 2** | **Page 2. AE 0.0004 · SSIM 0.9999** |
+| <img src="page/tall_block/reference_0002.png" width="480"> | <img src="page/tall_block/result%23page_0002.verified.png" width="480"> |
 
 
 ## position/absolute
@@ -723,6 +1036,48 @@ Which box an absolute box is positioned against, in the three arrangements that 
 | <img src="position/anchors/reference_0001.png" width="480"> | <img src="position/anchors/result%23page_0001.verified.png" width="480"> |
 
 
+## position/fixed
+
+# position/fixed
+
+`position: fixed` is implemented, and reported as a diagnostic because its geometry is right
+while only its paged-media behaviour is not: CSS says a fixed box repeats on every page, and
+this places it on the one page its position falls on. Nothing checked the first half of that
+claim.
+
+One page, deliberately, so the repetition question does not arise and what is left is purely where
+the box lands.
+
+- **`#corner`** has no positioned ancestor, so both readings of "containing block" give the page
+  and this measures the offsets alone, resolved against the page's edges.
+- **`#inner`** is inside a `position: relative` ancestor. A fixed box's containing block is the
+  page regardless, which is the single property that distinguishes it from an absolute box —
+  `AbsoluteLayout` walks to the nearest positioned ancestor for both, so this arrangement is
+  expected to sit at the frame's padding box plus the offsets rather than at the page's. That
+  difference is the point of including it: it is a defect with a measurement rather than a comment.
+
+It found the defect on its first render: `#inner` landed at (160, 500) rather than (40, 300),
+out by exactly the frame's own margins, because `AbsoluteLayout` walked to the nearest positioned
+ancestor for a fixed box as it does for an absolute one. It now carries the initial containing
+block alongside the accumulated one and hands a fixed box the former. Both boxes are exact and the
+page is pixel-identical.
+
+This is still the only scenario in the corpus that reports a diagnostic, and `DiagnosticTests`
+lists it by name as expected to. The report is about the construct rather than about this
+document: on one page there is nothing for the repetition to do, and the reporter cannot know the
+page count from the cascade.
+
+What to look at when it moves: `#corner` shifting is the offsets or the page's own box. `#inner`
+back at (160, 500) is the initial containing block being lost again on the way down the tree.
+
+**Boxes**: 6 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| <img src="position/fixed/reference_0001.png" width="480"> | <img src="position/fixed/result%23page_0001.verified.png" width="480"> |
+
+
 ## position/relative
 
 Relative positioning, which moves a box without moving anything else.
@@ -746,6 +1101,35 @@ a reflow, which keeps the failure legible.
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0001 · SSIM 1.0000** |
 | <img src="position/relative/reference_0001.png" width="480"> | <img src="position/relative/result%23page_0001.verified.png" width="480"> |
+
+
+## table/anonymous
+
+# table/anonymous
+
+A table lays out its children by ROLE rather than in order, so a child with no table role is not
+merely misplaced — without intervention it is never positioned or painted at all.
+`BoxBuilder.TableFixup` wraps such children in the anonymous rows and cells CSS requires, and its
+geometry had never been measured against a browser: the comment saying so is in CLAUDE.md, and
+this scenario is what removes it.
+
+Unreachable from ordinary HTML, whose parser moves stray content out of a `<table>` before the
+cascade ever sees it. Reachable from `display: table` in a stylesheet, which is what this uses.
+
+Three children, each needing a different amount of invention: a cell with no row around it, a
+properly formed row, and a block with no table role at all. The first two are the common shapes; the
+third is the one where content disappears entirely if the fixup is missing.
+
+What to look at when it moves: content on the page at all is the first thing this measures. After
+that, each anonymous row occupies a row of its own — the loose cell, the two-cell row, and the
+loose block stacked in source order, never merged into one row.
+
+**Boxes**: 8 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0003 · SSIM 0.9996** |
+| <img src="table/anonymous/reference_0001.png" width="480"> | <img src="table/anonymous/result%23page_0001.verified.png" width="480"> |
 
 
 ## table/auto_widths
@@ -776,6 +1160,40 @@ word in each cell is the longest.
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
 | <img src="table/auto_widths/reference_0001.png" width="480"> | <img src="table/auto_widths/result%23page_0001.verified.png" width="480"> |
+
+
+## table/empty
+
+# table/empty
+
+An empty table occupies nothing — not two pixels square, which is what the edge border spacing
+would give it if the spacing were added unconditionally. With no columns there is nothing for that
+spacing to be outside of.
+
+The paragraphs are the instrument. Under `flatten.css` they carry no margins, so they stack
+tightly and any occupancy at all by a table between them shows up as a shift of everything below
+it. Four paragraphs and three degenerate tables mean each table's contribution is isolated.
+
+`#spaced` is the arrangement that distinguishes the two readings: a table with `border-spacing: 20px`
+and no cells is 0x0, not 40x40.
+
+All three occupy nothing, and the page was pixel-identical to the reference from the start. One
+box was not: `#rowless`'s `<tbody>` sat at x=2, the default 2px edge spacing applied to a section
+with no columns to be outside of, where the table's own width had known to skip it all along.
+`PlaceRowBoxes` now applies the same rule. It was invisible — an empty section paints nothing — so
+only the geometry comparison could ever have seen it, which is the case for that comparison
+leading.
+
+What to look at when it moves: any gap between two paragraphs. A 4px one is the default 2px edge
+spacing being added twice; a 40px one is `#spaced`'s own declaration being added the same way. The
+`tbody` back at x=2 is the section's edge spacing returning.
+
+**Boxes**: 10 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| <img src="table/empty/reference_0001.png" width="480"> | <img src="table/empty/result%23page_0001.verified.png" width="480"> |
 
 
 ## table/fixed_layout
@@ -994,6 +1412,37 @@ level below h1, so this scenario is the whole reason UserAgentStyles.Corrections
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0004 · SSIM 1.0000** |
 | <img src="ua/headings/reference_0001.png" width="480"> | <img src="ua/headings/result%23page_0001.verified.png" width="480"> |
+
+
+## ua/hr
+
+# ua/hr
+
+`<hr>` appeared nowhere in the corpus, despite having two pieces of machinery of its own:
+`UserAgentStyles.Corrections` gives it `margin: 0.5em auto`, and `UnsupportedCss.BorderStyles`
+exempts it by name from border-style reporting, because AngleSharp's default sheet makes every
+plain `<hr>` `inset` and a page carrying no CSS at all would otherwise report four times.
+
+Both were unmeasured. This scenario measures the first two directly — the half-em margins above
+and below, and the automatic horizontal margins centring `#narrow` — and the third by having an
+`<hr>` in the corpus at all, since `DiagnosticTests.TheCorpusReportsNothing` runs over every
+scenario and would report a border style if the exemption were removed.
+
+The rule itself is a zero-height box drawn entirely by its border, which is why it is visible at
+all. This engine paints every border style solid, and the geometry of all seven boxes is exact, so
+the 0.9911 is the shading of Chrome's `inset` against a solid line and nothing else. It is the
+residual to expect here rather than a regression.
+
+What to look at when it moves: `#narrow` against the left edge is `margin: auto` not resolving on
+an `hr`. A rule touching the paragraphs above and below it is the half-em margins missing. A
+change in the line's thickness or vertical position is the border, which is the whole box.
+
+**Boxes**: 7 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0023 · SSIM 0.9911** |
+| <img src="ua/hr/reference_0001.png" width="480"> | <img src="ua/hr/result%23page_0001.verified.png" width="480"> |
 
 
 ## ua/lists
