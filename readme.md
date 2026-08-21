@@ -13,7 +13,7 @@ Krilla *writes* PDFs. To read, render or edit an existing one, use [Morph.PDFium
 ## NuGet packages
 
  * [Krilla](https://www.nuget.org/packages/Krilla/) — writes PDFs.
- * [Krilla.Html](https://www.nuget.org/packages/Krilla.Html/) — converts HTML to PDF on top of it.
+ * [Krilla.Html](https://www.nuget.org/packages/Krilla.Html/) — converts HTML to PDF.
 
 
 ## HTML to PDF
@@ -98,6 +98,22 @@ browser.
 
 Layout fidelity is measured against Chrome scenario by scenario — see
 [the corpus](/src/Krilla.Html.Tests/Inputs/readme.md).
+
+
+### A specimen page
+
+[`showcase.html`](/src/Krilla.Html.Tests/Showcase/showcase.html) is one hand-written document that
+combines most of the above at once: a positioned stamp on the masthead, a floated side panel that
+shortens the lines beside it, justified and shaped text, a bar chart drawn entirely out of boxes
+and percentage widths, a table, and a real link annotation in the footer. The picture is page one
+of the PDF, rendered through PDFium at 96 dpi. Click it for the PDF itself.
+
+| [<img src="/src/Krilla.Html.Tests/Showcase/ShowcaseTests.Specimen%23page_0001.verified.png" width="320" alt="A page of the specimen document converted to PDF">](/src/Krilla.Html.Tests/Showcase/ShowcaseTests.Specimen.verified.pdf) |
+| --- |
+
+Both artefacts are produced by [`ShowcaseTests`](/src/Krilla.Html.Tests/Showcase/ShowcaseTests.cs),
+which also asserts the conversion reports no diagnostics — so nothing on that page was laid out as
+something other than what it asks for.
 
 
 ## Usage

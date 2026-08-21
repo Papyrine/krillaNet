@@ -1,0 +1,321 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Krilla.Html — layout specimen</title>
+<style>
+  /*
+    Every element a rule applies to is named rather than reached through `*`. AngleSharp compares
+    specificity across cascade origins, so `* { margin: 0 }` loses to the user-agent sheet and the
+    default margins survive. Naming the elements matches those selectors' specificity.
+  */
+  html, body { margin: 0; padding: 0; }
+  h1, h2, h3, p, ul, ol, li, table, figure, blockquote { margin: 0; padding: 0; }
+
+  body {
+    font: 15px/1.55 sans-serif;
+    color: #1d2733;
+    background: #ffffff;
+  }
+
+  /* --- Masthead -------------------------------------------------------- */
+
+  header {
+    position: relative;
+    background: #14293f;
+    color: #ffffff;
+    padding: 30px 56px 26px 56px;
+    border-bottom: 6px solid #d98b2b;
+  }
+
+  h1 {
+    font-size: 36px;
+    line-height: 1.1;
+    font-weight: bold;
+  }
+
+  header p {
+    margin-top: 9px;
+    width: 560px;
+    color: #a9c2da;
+  }
+
+  /*
+    Positioned against the masthead's PADDING box, which is what a containing block is — not its
+    border box and not its content box.
+  */
+  .stamp {
+    position: absolute;
+    top: 26px;
+    right: 56px;
+    width: 108px;
+    padding: 9px 0;
+    background: #d98b2b;
+    color: #14293f;
+    font-size: 12px;
+    font-weight: bold;
+    text-align: center;
+    border: 2px solid #f0c078;
+  }
+
+  .rule {
+    background: #0e1e2f;
+    color: #7f9ab5;
+    font-family: monospace;
+    font-size: 11.5px;
+    padding: 7px 56px;
+  }
+
+  .rule b { color: #d98b2b; font-weight: normal; }
+
+  /* --- Body ------------------------------------------------------------ */
+
+  main { padding: 24px 56px 0 56px; }
+
+  h2 {
+    font-size: 19px;
+    font-weight: bold;
+    color: #14293f;
+    border-bottom: 2px solid #dde4ec;
+    padding-bottom: 5px;
+    margin-bottom: 11px;
+  }
+
+  h2.spaced { margin-top: 18px; }
+
+  main p { margin-bottom: 10px; text-align: justify; }
+
+  code {
+    font-family: monospace;
+    font-size: 13px;
+    background: #eef2f7;
+    color: #9c3d1e;
+    padding: 1px 4px;
+  }
+
+  /*
+    A float shortens the LINE boxes beside it; it does not narrow the block they sit in. It is
+    measured to its margin box, so the 26px left margin below is the gutter the paragraphs wrap
+    against.
+  */
+  aside {
+    float: right;
+    width: 210px;
+    margin: 3px 0 12px 26px;
+    padding: 12px 16px;
+    background: #f4f7fa;
+    border-left: 4px solid #14293f;
+  }
+
+  aside h3 {
+    font-size: 12px;
+    font-weight: bold;
+    color: #55697f;
+    margin-bottom: 6px;
+  }
+
+  aside ul { list-style-type: none; }
+
+  aside li {
+    font-size: 13px;
+    padding: 3px 0;
+    border-bottom: 1px solid #dde4ec;
+  }
+
+  aside li b { color: #14293f; }
+
+  blockquote {
+    clear: right;
+    margin: 13px 0;
+    padding: 3px 0 3px 18px;
+    border-left: 4px solid #d98b2b;
+    font-family: serif;
+    font-style: italic;
+    font-size: 17px;
+    color: #3c4b5c;
+  }
+
+  /* --- A bar chart, drawn entirely with the box model ------------------- */
+
+  figure {
+    float: right;
+    width: 312px;
+    margin: 10px 0 12px 28px;
+  }
+
+  .bar { margin-bottom: 6px; }
+
+  .bar span {
+    display: block;
+    float: left;
+    width: 92px;
+    font-size: 12.5px;
+    color: #55697f;
+  }
+
+  /*
+    The percentage on each bar resolves against this track, not against the page — a containing
+    block is a layout result, so the width is carried into layout as written and resolved here.
+  */
+  .bar .track { margin-left: 92px; }
+
+  .bar b {
+    display: block;
+    height: 15px;
+    padding: 2px 6px 0 0;
+    background: #2f6ea5;
+    color: #ffffff;
+    font-size: 11px;
+    font-weight: normal;
+    text-align: right;
+  }
+
+  .bar.warm b { background: #d98b2b; }
+
+  ol { margin-bottom: 12px; padding-left: 26px; }
+  ol li { margin-bottom: 3px; }
+
+  /* --- Table ------------------------------------------------------------ */
+
+  table {
+    clear: both;
+    width: 100%;
+    border-spacing: 0;
+    font-size: 13.5px;
+  }
+
+  caption {
+    text-align: left;
+    font-size: 12px;
+    color: #55697f;
+    padding-bottom: 5px;
+  }
+
+  th {
+    background: #14293f;
+    color: #ffffff;
+    text-align: left;
+    font-weight: bold;
+    padding: 5px 10px;
+  }
+
+  td {
+    padding: 4px 10px;
+    border-bottom: 1px solid #dde4ec;
+  }
+
+  tr.alt td { background: #f4f7fa; }
+
+  td.num, th.num { text-align: right; }
+
+  /* --- Colophon --------------------------------------------------------- */
+
+  footer {
+    clear: both;
+    margin: 18px 56px 0 56px;
+    padding: 10px 0 16px 0;
+    border-top: 2px solid #dde4ec;
+    font-size: 12px;
+    color: #55697f;
+  }
+
+  footer a { color: #2f6ea5; text-decoration: underline; }
+
+  footer .right { float: right; }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="stamp">SPECIMEN</div>
+  <h1>The Long Way to a Page</h1>
+  <p>One document exercising the layout this engine implements: floats, tables, the box model,
+     positioned boxes and shaped text, all the way through to PDF.</p>
+</header>
+
+<div class="rule">krilla.html <b>&rsaquo;</b> us-letter 816 &times; 1056 <b>&rsaquo;</b> liberation sans, serif, mono <b>&rsaquo;</b> pdfium at 96 dpi</div>
+
+<main>
+
+  <aside>
+    <h3>AT A GLANCE</h3>
+    <ul>
+      <li><b>Parser</b> AngleSharp</li>
+      <li><b>Shaper</b> rustybuzz, via krilla</li>
+      <li><b>Writer</b> krilla</li>
+      <li><b>Units</b> CSS pixels, 96 per inch</li>
+      <li><b>Fidelity</b> measured against Chrome</li>
+    </ul>
+  </aside>
+
+  <h2>Text in a shortened band</h2>
+
+  <p>The panel to the right is a float. It is out of flow, so the heading above it keeps its full
+     width and this paragraph keeps its own &mdash; what changes is the <em>line</em> boxes inside
+     it, each shortened by the floats it overlaps.</p>
+
+  <p>Text is shaped rather than summed: advances come from <code>rustybuzz</code>, the shaper
+     krilla already links, so kerning pairs and the <b>fi</b> and <b>fl</b> ligatures affect where
+     a line breaks and not merely how it looks.</p>
+
+  <blockquote>Match the browser&rsquo;s construction, not its description &mdash; the pixels are
+    the only thing that settles an argument.</blockquote>
+
+  <h2 class="spaced">Boxes, borders and backgrounds</h2>
+
+  <p>The chart alongside is not an image. Each bar is a block whose percentage width resolves
+     against the track beside its label, and the numbers are this page&rsquo;s own: the column, the
+     band the text above wraps into beside the panel, and the panel itself.</p>
+
+  <figure>
+    <div class="bar"><span>Page</span><div class="track"><b style="width: 100%">816px</b></div></div>
+    <div class="bar"><span>Column</span><div class="track"><b style="width: 86%">704px</b></div></div>
+    <div class="bar warm"><span>Text band</span><div class="track"><b style="width: 53%">432px</b></div></div>
+    <div class="bar warm"><span>Side panel</span><div class="track"><b style="width: 30%">246px</b></div></div>
+  </figure>
+
+  <ol>
+    <li>Parse the markup and run the cascade.</li>
+    <li>Lay the styled tree out into boxes.</li>
+    <li>Paginate between lines, not through them.</li>
+    <li>Paint in stacking order, write the PDF.</li>
+  </ol>
+
+  <table>
+    <caption>Corpus categories, and what each one is there to catch</caption>
+    <tr>
+      <th>Category</th>
+      <th>Measures</th>
+      <th class="num">Scenarios</th>
+    </tr>
+    <tr>
+      <td>block</td>
+      <td>the box model and collapsing margins</td>
+      <td class="num">11</td>
+    </tr>
+    <tr class="alt">
+      <td>float</td>
+      <td>line shortening, stacking, clearance</td>
+      <td class="num">4</td>
+    </tr>
+    <tr>
+      <td>table</td>
+      <td>column widths, spans and captions</td>
+      <td class="num">7</td>
+    </tr>
+    <tr class="alt">
+      <td>text</td>
+      <td>kerning, ligatures, alignment</td>
+      <td class="num">6</td>
+    </tr>
+  </table>
+
+</main>
+
+<footer>
+  <span class="right">Rendered by <a href="https://github.com/Papyrine/krillaNet">Krilla.Html</a></span>
+  This page is a test, and the picture of it in the readme is what the converter produced.
+</footer>
+
+</body>
+</html>
