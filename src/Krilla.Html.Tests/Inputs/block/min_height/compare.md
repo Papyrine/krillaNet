@@ -9,12 +9,10 @@ resolve alongside the width pair they mirror, and this measures all three ways t
 - **`#held`** — one line of content in a box with an 80px minimum. The simplest case, and the one
   that survives if the property is read and then dropped.
 - **`#cut`** — four lines in a box with a 40px maximum. Nothing is clipped: `overflow` is not
-  implemented and is reported, so the content runs past the bottom edge, which is exactly what
-  `overflow: visible` asks for. A box that swallowed its overflow would look tidier and be wrong.
-  Its container carries enough bottom margin for that overflow to land on blank page, deliberately:
-  CSS 2.1 Appendix E paints every in-flow block background before any inline content, and this
-  engine paints each box's background immediately before its own lines, so overlapping text would
-  measure that difference rather than this property.
+  implemented and is reported, so the content runs past the bottom edge and over what follows,
+  which is exactly what `overflow: visible` asks for. A box that swallowed its overflow would look
+  tidier and be wrong. That the overflowing text stays visible over the next box is a separate
+  property, and `block/overflow_paint` is where it is measured.
 - **`#both`** — a minimum taller than the maximum. `ClampHeight` applies the maximum first, so the
   minimum wins at 90px, the same order `Clamp` uses horizontally.
 

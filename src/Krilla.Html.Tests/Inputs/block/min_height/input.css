@@ -1,10 +1,5 @@
 div { font-size: 16px; line-height: 24px; }
-#floor, #fight { width: 300px; margin-bottom: 40px; background-color: #f4f4f4; }
-
-/* Room enough below for #cut's overflow to land on blank page. It has to overlap nothing: a later
-   sibling's background is painted after an earlier sibling's text here and before it in a browser,
-   so an overlap would measure paint order rather than max-height. */
-#ceiling { width: 300px; margin-bottom: 100px; background-color: #f4f4f4; }
+#floor, #ceiling, #fight { width: 300px; margin-bottom: 40px; background-color: #f4f4f4; }
 #after { background-color: #e8e8e8; }
 
 /* One line of content, held open to 80. */

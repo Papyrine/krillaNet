@@ -1,4 +1,4 @@
-# All scenarios (69)
+# All scenarios (70)
 
 The browser reference (left) beside the page Krilla.Html produced (right). `AE` is the fraction of pixels that differ and `SSIM` is structural similarity; neither is asserted. The worst offset is the largest positional disagreement in CSS pixels between the rendered element geometry and the browser's, and is the number to watch — it reaches zero exactly when the layout is right.
 
@@ -18,6 +18,7 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [block/min_height](#block-min_height)
 - [block/min_width](#block-min_width)
 - [block/nested_blocks](#block-nested_blocks)
+- [block/overflow_paint](#block-overflow_paint)
 - [block/percentage_width](#block-percentage_width)
 - [float/basic](#float-basic)
 - [float/clear](#float-clear)
@@ -252,12 +253,10 @@ resolve alongside the width pair they mirror, and this measures all three ways t
 - **`#held`** — one line of content in a box with an 80px minimum. The simplest case, and the one
   that survives if the property is read and then dropped.
 - **`#cut`** — four lines in a box with a 40px maximum. Nothing is clipped: `overflow` is not
-  implemented and is reported, so the content runs past the bottom edge, which is exactly what
-  `overflow: visible` asks for. A box that swallowed its overflow would look tidier and be wrong.
-  Its container carries enough bottom margin for that overflow to land on blank page, deliberately:
-  CSS 2.1 Appendix E paints every in-flow block background before any inline content, and this
-  engine paints each box's background immediately before its own lines, so overlapping text would
-  measure that difference rather than this property.
+  implemented and is reported, so the content runs past the bottom edge and over what follows,
+  which is exactly what `overflow: visible` asks for. A box that swallowed its overflow would look
+  tidier and be wrong. That the overflowing text stays visible over the next box is a separate
+  property, and `block/overflow_paint` is where it is measured.
 - **`#both`** — a minimum taller than the maximum. `ClampHeight` applies the maximum first, so the
   minimum wins at 90px, the same order `Clamp` uses horizontally.
 
@@ -317,6 +316,39 @@ the border or padding subtraction compounds visibly rather than staying hidden a
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
 | <img src="block/nested_blocks/reference_0001.png" width="480"> | <img src="block/nested_blocks/result%23page_0001.verified.png" width="480"> |
+
+
+## block/overflow_paint
+
+# block/overflow_paint
+
+CSS 2.1 Appendix E is a set of phases over a whole stacking context, not an order within one box:
+every in-flow block background and border goes down in tree order (step 3), then the floats (step
+4), then all the inline content (step 7). Applying the same sequence box by box instead is
+indistinguishable while nothing overlaps, and this is what it looks like when something does.
+
+- **`#cut`** overflows its own box by three lines, and those lines land on `#under`. Painted per
+  box, `#under`'s background arrives after them and hides them; painted in phases, the text is on
+  top, which is what a browser does.
+- **`#hang`** is a float taller than the box that declared it, and a block does not grow to
+  contain its floats — so it hangs over `#below` entirely. Same defect, reached the other way: a
+  float belongs to the layer rather than to the box that declared it, so it goes down after every
+  background in the layer and before every line.
+
+Nothing else in the corpus overlaps two boxes without positioning one of them, which is why the
+whole restructure it measures is invisible everywhere else: all 69 other scenarios came out
+pixel-identical across it, and only the order of the operators in their PDFs changed.
+
+What to look at when it moves: either coloured block covering what should be over it. `#cut`'s
+last three lines disappearing is the background phase losing its reach; `#hang` disappearing is the
+float phase losing its.
+
+**Boxes**: 8 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0003 · SSIM 1.0000** |
+| <img src="block/overflow_paint/reference_0001.png" width="480"> | <img src="block/overflow_paint/result%23page_0001.verified.png" width="480"> |
 
 
 ## block/percentage_width
