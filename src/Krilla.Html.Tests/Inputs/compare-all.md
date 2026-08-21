@@ -1,4 +1,4 @@
-# All scenarios (67)
+# All scenarios (70)
 
 The browser reference (left) beside the page Krilla.Html produced (right). `AE` is the fraction of pixels that differ and `SSIM` is structural similarity; neither is asserted. The worst offset is the largest positional disagreement in CSS pixels between the rendered element geometry and the browser's, and is the number to watch — it reaches zero exactly when the layout is right.
 
@@ -15,8 +15,10 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [block/margin_collapse_blocked](#block-margin_collapse_blocked)
 - [block/margin_collapse_parent](#block-margin_collapse_parent)
 - [block/max_width](#block-max_width)
+- [block/min_height](#block-min_height)
 - [block/min_width](#block-min_width)
 - [block/nested_blocks](#block-nested_blocks)
+- [block/overflow_paint](#block-overflow_paint)
 - [block/percentage_width](#block-percentage_width)
 - [float/basic](#float-basic)
 - [float/clear](#float-clear)
@@ -39,6 +41,7 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [inline/nested_inline](#inline-nested_inline)
 - [inline/simple_text](#inline-simple_text)
 - [inline/text_align](#inline-text_align)
+- [inline/text_indent](#inline-text_indent)
 - [inline/white_space](#inline-white_space)
 - [inline/white_space_pre](#inline-white_space_pre)
 - [inline/wrapping](#inline-wrapping)
@@ -239,6 +242,40 @@ back to the margins. A naive clamp leaves the box at the left edge.
 | <img src="block/max_width/reference_0001.png" width="480"> | <img src="block/max_width/result%23page_0001.verified.png" width="480"> |
 
 
+## block/min_height
+
+# block/min_height
+
+`min-height` and `max-height` were read by nothing and reported by nothing, so a box carrying
+either was laid out at its content height and the document was silently wrong below it. They now
+resolve alongside the width pair they mirror, and this measures all three ways they can fail.
+
+- **`#held`** — one line of content in a box with an 80px minimum. The simplest case, and the one
+  that survives if the property is read and then dropped.
+- **`#cut`** — four lines in a box with a 40px maximum. Nothing is clipped: `overflow` is not
+  implemented and is reported, so the content runs past the bottom edge and over what follows,
+  which is exactly what `overflow: visible` asks for. A box that swallowed its overflow would look
+  tidier and be wrong. That the overflowing text stays visible over the next box is a separate
+  property, and `block/overflow_paint` is where it is measured.
+- **`#both`** — a minimum taller than the maximum. `ClampHeight` applies the maximum first, so the
+  minimum wins at 90px, the same order `Clamp` uses horizontally.
+
+Percentages are deliberately absent: a percentage height resolves against a containing height that
+is indefinite throughout a paginated document, and CSS says such a percentage behaves as though it
+were not there — the same rule `height` itself follows here.
+
+What to look at when it moves: `#held` at one line tall is `min-height` unread. `#cut` at four
+lines is `max-height` unread, and `#cut` with its text cut off at 40px is overflow being clipped
+where nothing should clip it. `#both` at 30px is the two clamps in the wrong order.
+
+**Boxes**: 9 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0002 · SSIM 1.0000** |
+| <img src="block/min_height/reference_0001.png" width="480"> | <img src="block/min_height/result%23page_0001.verified.png" width="480"> |
+
+
 ## block/min_width
 
 # block/min_width
@@ -279,6 +316,39 @@ the border or padding subtraction compounds visibly rather than staying hidden a
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
 | <img src="block/nested_blocks/reference_0001.png" width="480"> | <img src="block/nested_blocks/result%23page_0001.verified.png" width="480"> |
+
+
+## block/overflow_paint
+
+# block/overflow_paint
+
+CSS 2.1 Appendix E is a set of phases over a whole stacking context, not an order within one box:
+every in-flow block background and border goes down in tree order (step 3), then the floats (step
+4), then all the inline content (step 7). Applying the same sequence box by box instead is
+indistinguishable while nothing overlaps, and this is what it looks like when something does.
+
+- **`#cut`** overflows its own box by three lines, and those lines land on `#under`. Painted per
+  box, `#under`'s background arrives after them and hides them; painted in phases, the text is on
+  top, which is what a browser does.
+- **`#hang`** is a float taller than the box that declared it, and a block does not grow to
+  contain its floats — so it hangs over `#below` entirely. Same defect, reached the other way: a
+  float belongs to the layer rather than to the box that declared it, so it goes down after every
+  background in the layer and before every line.
+
+Nothing else in the corpus overlaps two boxes without positioning one of them, which is why the
+whole restructure it measures is invisible everywhere else: all 69 other scenarios came out
+pixel-identical across it, and only the order of the operators in their PDFs changed.
+
+What to look at when it moves: either coloured block covering what should be over it. `#cut`'s
+last three lines disappearing is the background phase losing its reach; `#hang` disappearing is the
+float phase losing its.
+
+**Boxes**: 8 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0003 · SSIM 1.0000** |
+| <img src="block/overflow_paint/reference_0001.png" width="480"> | <img src="block/overflow_paint/result%23page_0001.verified.png" width="480"> |
 
 
 ## block/percentage_width
@@ -679,6 +749,42 @@ deliberately disagree about what they can see.
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
 | <img src="inline/text_align/reference_0001.png" width="480"> | <img src="inline/text_align/result%23page_0001.verified.png" width="480"> |
+
+
+## inline/text_indent
+
+# inline/text_indent
+
+`text-indent` was read by nothing and reported by nothing, so every indented paragraph in a
+document laid out flush and the difference was invisible to the sink. It is now applied to the
+first line of a block container, which is the only line it applies to.
+
+Three arrangements, because the property has three separable behaviours:
+
+- **`#prose`** — declared on the container and inherited. Both paragraphs are indented, and the
+  second line of each is not. Applying it where it is declared rather than where the line is
+  generated indents the first paragraph only, which is the failure `body { text-indent: 2em }`
+  would produce in a real document.
+- **`#hanging`** — a negative value, which puts the first line outside the content box. The
+  container carries a left margin so the hang has somewhere to go.
+- **`#centred`** — an indent NARROWS the band rather than shifting it, so the centred first line
+  is centred in what is left and not merely pushed right by the whole indent.
+
+The intrinsic widths carry it too, which nothing here measures: a table cell or a shrink-to-fit
+float would otherwise be sized without room for the indent and wrap a line that was supposed to
+fit.
+
+What to look at when it moves: the second paragraph of `#prose` flush with the first line's edge
+is inheritance lost. Every line indented is the property being applied per line rather than per
+block. `#centred`'s first line pushed right by the full 60px is the indent shifting the band
+instead of narrowing it.
+
+**Boxes**: 9 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0005 · SSIM 0.9999** |
+| <img src="inline/text_indent/reference_0001.png" width="480"> | <img src="inline/text_indent/result%23page_0001.verified.png" width="480"> |
 
 
 ## inline/white_space

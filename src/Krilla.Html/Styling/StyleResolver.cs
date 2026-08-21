@@ -76,6 +76,10 @@ static class StyleResolver
             Height = Length(declaration, "height", fontSize, rootFontSize, CssLength.Auto),
             MaxWidth = Length(declaration, "max-width", fontSize, rootFontSize, CssLength.None),
             MinWidth = Length(declaration, "min-width", fontSize, rootFontSize),
+            MaxHeight = Length(declaration, "max-height", fontSize, rootFontSize, CssLength.None),
+            MinHeight = Length(declaration, "min-height", fontSize, rootFontSize),
+            // Inherited, so an absent declaration takes the parent's rather than zero.
+            TextIndent = Length(declaration, "text-indent", fontSize, rootFontSize, parent.TextIndent),
             BackgroundColor = CssValues.ParseColor(declaration.GetPropertyValue("background-color")),
             Color = color,
             FontFamilies = families,

@@ -12,8 +12,10 @@ block/margin_collapse            matched  5  offset    0.00  size    0.00  diffe
 block/margin_collapse_blocked    matched  4  offset    0.00  size    0.00  differing  0  unmatched 0
 block/margin_collapse_parent     matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
 block/max_width                  matched  3  offset    0.00  size    0.00  differing  0  unmatched 0
+block/min_height                 matched  9  offset    0.00  size    0.00  differing  0  unmatched 0
 block/min_width                  matched  8  offset    0.00  size    0.00  differing  0  unmatched 0
 block/nested_blocks              matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
+block/overflow_paint             matched  8  offset    0.00  size    0.00  differing  0  unmatched 0
 block/percentage_width           matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
 float/basic                      matched 12  offset    0.00  size    0.00  differing  0  unmatched 0
 float/clear                      matched 14  offset    0.00  size    0.00  differing  0  unmatched 0
@@ -36,6 +38,7 @@ inline/line_height_normal        matched  3  offset    0.00  size    0.00  diffe
 inline/nested_inline             matched  3  offset    0.00  size    0.00  differing  0  unmatched 4
 inline/simple_text               matched  3  offset    0.00  size    0.00  differing  0  unmatched 0
 inline/text_align                matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
+inline/text_indent               matched  9  offset    0.00  size    0.00  differing  0  unmatched 0
 inline/white_space               matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
 inline/white_space_pre           matched  4  offset    0.00  size    0.00  differing  0  unmatched 0
 inline/wrapping                  matched  3  offset    0.00  size    0.00  differing  0  unmatched 0

@@ -280,9 +280,35 @@ public class DiagnosticTests
             <p style="clear: left">text</p>
             <div style="position: relative; top: 2px">shifted</div>
             <div style="position: absolute; top: 0; left: 0">out of flow</div>
+            <div style="min-height: 40px; max-height: 80px">held open</div>
+            <p style="text-indent: 2em">indented</p>
             """);
 
         await Assert.That(reports).IsEmpty();
+    }
+
+    /// <summary>
+    /// The properties that stayed unimplemented and now say so.
+    /// </summary>
+    /// <remarks>
+    /// The other half of <see cref="ImplementedPropertiesStopReporting"/>: a property the engine
+    /// reads and does not honour has to be in the table, or a document using it converts wrongly
+    /// in silence. These five were found by auditing what the resolver reads against what the
+    /// table lists — three were implemented instead, and these two report.
+    /// </remarks>
+    [Test]
+    public async Task SilentlyIgnoredPropertiesReport()
+    {
+        var reports = Collect(
+            """
+            <div style="box-shadow: 0 0 4px #000">shadowed</div>
+            <table style="caption-side: bottom"><caption>below</caption><tr><td>a</td></tr></table>
+            """);
+
+        await Assert.That(reports.Select(_ => _.ToString()))
+            .Contains(_ => _.Contains("box-shadow"))
+            .And
+            .Contains(_ => _.Contains("caption-side"));
     }
 
     static List<HtmlDiagnostic> Collect(string body, string? css = null)

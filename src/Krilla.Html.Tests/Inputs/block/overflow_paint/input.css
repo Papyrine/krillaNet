@@ -1,0 +1,10 @@
+div { font-size: 16px; line-height: 24px; }
+#spill, #jut { width: 300px; background-color: #f4f4f4; }
+
+/* Four lines of content in a box one line tall. Nothing clips, so three lines overflow. */
+#cut { width: 200px; max-height: 24px; background-color: #e8d8cf; }
+#under { width: 300px; height: 90px; background-color: #d8e8cf; }
+
+/* A block does not grow to contain its floats, so #jut is zero tall and this hangs over #below. */
+#hang { float: left; width: 120px; height: 90px; background-color: #cfd8e8; }
+#below { width: 300px; height: 60px; background-color: #f0e8b0; }

@@ -324,6 +324,17 @@ sealed record ComputedStyle
     /// <summary>Minimum content width.</summary>
     public CssLength MinWidth { get; init; } = CssLength.Zero;
 
+    /// <summary>Maximum content height, or <c>none</c>.</summary>
+    /// <remarks>
+    /// Honoured only when it is an absolute length, for the reason <see cref="Height"/> is: a
+    /// percentage resolves against a containing height that is indefinite throughout a paginated
+    /// document, and CSS says such a percentage behaves as though it were not there.
+    /// </remarks>
+    public CssLength MaxHeight { get; init; } = CssLength.None;
+
+    /// <summary>Minimum content height.</summary>
+    public CssLength MinHeight { get; init; } = CssLength.Zero;
+
     /// <summary>Background fill, or null when transparent.</summary>
     public Color? BackgroundColor { get; init; }
 
@@ -392,6 +403,17 @@ sealed record ComputedStyle
 
     /// <summary>How lines are aligned.</summary>
     public TextAlignKind TextAlign { get; init; } = TextAlignKind.Left;
+
+    /// <summary>
+    /// How far the FIRST line of a block container is indented from its start edge.
+    /// </summary>
+    /// <remarks>
+    /// Inherited, and applied by the block that generates the line rather than by the one carrying
+    /// the declaration — which is what makes <c>body { text-indent: 2em }</c> indent every
+    /// paragraph rather than only the first. A negative value hangs the first line outside the
+    /// content box, which is the other half of what the property is for.
+    /// </remarks>
+    public CssLength TextIndent { get; init; } = CssLength.Zero;
 
     /// <summary>How white space and wrapping are handled.</summary>
     public WhiteSpaceKind WhiteSpace { get; init; } = WhiteSpaceKind.Normal;
