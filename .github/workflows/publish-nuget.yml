@@ -114,12 +114,13 @@ jobs:
         include:
           - { os: windows-latest, name: win-x64 }
           - { os: ubuntu-latest, name: linux-x64 }
-          - { os: macos-14, name: osx-arm64 }
-          # macos-13 is the last Intel-hosted runner and GitHub is retiring it. When it goes,
-          # replace this leg with a Rosetta run on macos-14: install the x64 .NET SDK and
-          # invoke the tests under `arch -x86_64`. Dropping the leg entirely would leave
-          # osx-x64 shipped but never executed.
-          - { os: macos-13, name: osx-x64 }
+          - { os: macos-15, name: osx-arm64 }
+          # macos-13 was retired; macos-15-intel is GitHub's replacement Intel label and the
+          # only remaining way to run osx-x64 natively. If the Intel labels go too, run this
+          # leg under Rosetta on an arm64 runner instead: install the x64 .NET SDK and invoke
+          # the tests under `arch -x86_64`. Dropping the leg entirely would leave osx-x64
+          # shipped but never executed.
+          - { os: macos-15-intel, name: osx-x64 }
     name: smoke ${{ matrix.name }}
     runs-on: ${{ matrix.os }}
     steps:

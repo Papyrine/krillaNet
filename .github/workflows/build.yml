@@ -36,7 +36,7 @@ jobs:
         include:
           - { os: ubuntu-latest, name: linux }
           - { os: windows-latest, name: windows }
-          - { os: macos-14, name: macos }
+          - { os: macos-15, name: macos }
 
     steps:
       - uses: actions/checkout@v4
