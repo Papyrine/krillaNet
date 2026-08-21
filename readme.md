@@ -28,12 +28,14 @@ library. [AngleSharp](https://anglesharp.github.io/) parses the markup and runs 
 using var fonts = new FontSet()
     .AddDirectory(fontDirectory);
 
-var pdf = HtmlConverter.Convert("<h1>Hello</h1><p>World</p>", new()
-{
-    Fonts = fonts
-});
+var pdf = HtmlConverter.Convert(
+    "<h1>Hello</h1><p>World</p>",
+    new()
+    {
+        Fonts = fonts
+    });
 ```
-<sup><a href='/src/Krilla.Html.Tests/Samples.cs#L19-L29' title='Snippet source file'>snippet source</a> | <a href='#snippet-HtmlToPdf' title='Start of snippet'>anchor</a></sup>
+<sup><a href='/src/Krilla.Html.Tests/Samples.cs#L19-L31' title='Snippet source file'>snippet source</a> | <a href='#snippet-HtmlToPdf' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
 Krilla has no font database, so the fonts a document may use are supplied by the caller rather than
@@ -55,7 +57,7 @@ policies to bound what any resolver may load:
 options.LocalImages = ImagePolicy.SafeDirectories(assetDirectory);
 options.WebImages = ImagePolicy.SafeDomains("cdn.example.com");
 ```
-<sup><a href='/src/Krilla.Html.Tests/Samples.cs#L48-L53' title='Snippet source file'>snippet source</a> | <a href='#snippet-ImagePolicies' title='Start of snippet'>anchor</a></sup>
+<sup><a href='/src/Krilla.Html.Tests/Samples.cs#L50-L55' title='Snippet source file'>snippet source</a> | <a href='#snippet-ImagePolicies' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
 Both are checked before the resolver runs, so a refused source is never requested. A `data:` URI
@@ -75,7 +77,7 @@ options.OnDiagnostic = diagnostic => Console.WriteLine(diagnostic);
 // <p> align: left — not applied, because presentational attributes are not mapped onto the cascade
 // <img> src: logo.png — did not resolve to an image, so no box was generated
 ```
-<sup><a href='/src/Krilla.Html.Tests/Samples.cs#L73-L82' title='Snippet source file'>snippet source</a> | <a href='#snippet-Diagnostics' title='Start of snippet'>anchor</a></sup>
+<sup><a href='/src/Krilla.Html.Tests/Samples.cs#L75-L84' title='Snippet source file'>snippet source</a> | <a href='#snippet-Diagnostics' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
 Unrecognised CSS is deliberately not reported. Listing every `cursor` and `content` an ordinary

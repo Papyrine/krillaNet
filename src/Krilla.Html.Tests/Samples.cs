@@ -21,10 +21,12 @@ public class Samples
         using var fonts = new FontSet()
             .AddDirectory(fontDirectory);
 
-        var pdf = HtmlConverter.Convert("<h1>Hello</h1><p>World</p>", new()
-        {
-            Fonts = fonts
-        });
+        var pdf = HtmlConverter.Convert(
+            "<h1>Hello</h1><p>World</p>",
+            new()
+            {
+                Fonts = fonts
+            });
 
         #endregion
 
