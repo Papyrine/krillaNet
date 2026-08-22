@@ -7,7 +7,7 @@ namespace Krilla.Html;
 /// <para>
 /// Three stages, each independently inspectable: AngleSharp parses the markup and runs the CSS
 /// cascade, <see cref="Layout"/> turns the styled tree into positioned boxes, and
-/// <see cref="Painting.PdfPainter"/> draws those boxes through krilla. The middle stage is the one
+/// <see cref="PdfPainter"/> draws those boxes through krilla. The middle stage is the one
 /// with all the specification in it, and <see cref="LayoutDocument"/> exposes it directly so it
 /// can be measured without going near a PDF.
 /// </para>
