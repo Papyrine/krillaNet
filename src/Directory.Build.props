@@ -9,7 +9,7 @@
       Papyrine_SponsorshipLicenseIgnored property below.
     -->
     <NoWarn>CS1591;NU1608;SC023</NoWarn>
-    <Version>0.1.0</Version>
+    <Version>0.1.1</Version>
     <LangVersion>preview</LangVersion>
     <AssemblyVersion>0.1.0</AssemblyVersion>
     <Description>Creates PDF files via the krilla Rust library</Description>
