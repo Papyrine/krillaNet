@@ -7,9 +7,9 @@
 ///   normalised by the REFERENCE page's pixel count, so a page-size mismatch scores near 1 rather
 ///   than silently comparing a sub-window.
 /// * <c>Ssim</c> — structural similarity (1 = identical), 8x8-window and luminance-only. Null when
-///   the two images differ in size: <see cref="Ssim.Compare"/> indexes the second image with the
-///   first image's geometry, so a sub-window score would be silently wrong rather than merely
-///   imprecise.
+///   the two images differ in size: <see cref="Ssim.Compare(PngImage, PngImage)"/> indexes the
+///   second image with the first image's geometry, so a sub-window score would be silently wrong
+///   rather than merely imprecise.
 ///
 /// Read them together. They fail differently: AE is blind to structure — a page with headings
 /// drawn through body text can score the same as a clean one when most pixels are white — while
