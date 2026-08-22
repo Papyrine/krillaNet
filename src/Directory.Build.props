@@ -26,5 +26,6 @@
   </PropertyGroup>
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)..\license.txt" Pack="true" PackagePath="" Visible="false" />
+    <Using Include="System.ReadOnlySpan&lt;System.Char&gt;" Alias="CharSpan" />
   </ItemGroup>
 </Project>
