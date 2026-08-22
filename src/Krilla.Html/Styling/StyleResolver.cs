@@ -224,8 +224,8 @@ static class StyleResolver
         return CssValues.ParseColor(value);
     }
 
-    static DisplayKind ParseDisplay(string? value, string localName) =>
-        value?.Trim().ToLowerInvariant() switch
+    static DisplayKind ParseDisplay(string value, string localName) =>
+        value.Trim().ToLowerInvariant() switch
         {
             "none" => DisplayKind.None,
             "inline" => DisplayKind.Inline,
@@ -303,10 +303,10 @@ static class StyleResolver
     /// are declared on <c>ul</c> and <c>ol</c> rather than on <c>li</c>, so a marker that does not
     /// inherit is a marker that never reaches the item drawing it.
     /// </remarks>
-    static ListStyleKind ParseListStyle(string? value, ListStyleKind inherited) =>
-        value?.Trim().ToLowerInvariant() switch
+    static ListStyleKind ParseListStyle(string value, ListStyleKind inherited) =>
+        value.Trim().ToLowerInvariant() switch
         {
-            null or "" => inherited,
+            "" => inherited,
             "none" => ListStyleKind.None,
             "disc" => ListStyleKind.Disc,
             "circle" => ListStyleKind.Circle,
@@ -372,8 +372,8 @@ static class StyleResolver
     /// implementing <c>inherit</c> as a general keyword. It is only ever read on a cell, so the
     /// difference does not reach anything else.
     /// </remarks>
-    static VerticalAlignKind ParseVerticalAlign(string? value, VerticalAlignKind inherited) =>
-        value?.Trim().ToLowerInvariant() switch
+    static VerticalAlignKind ParseVerticalAlign(string value, VerticalAlignKind inherited) =>
+        value.Trim().ToLowerInvariant() switch
         {
             null or "" or "inherit" => inherited,
             "top" => VerticalAlignKind.Top,
@@ -384,9 +384,9 @@ static class StyleResolver
             _ => VerticalAlignKind.Baseline
         };
 
-    static int ParseWeight(string? value, int inherited)
+    static int ParseWeight(string value, int inherited)
     {
-        var text = value?.Trim().ToLowerInvariant();
+        var text = value.Trim().ToLowerInvariant();
 
         return text switch
         {
@@ -402,9 +402,9 @@ static class StyleResolver
         };
     }
 
-    static bool ParseItalic(string? value, bool inherited)
+    static bool ParseItalic(string value, bool inherited)
     {
-        var text = value?.Trim().ToLowerInvariant();
+        var text = value.Trim().ToLowerInvariant();
 
         return text switch
         {
@@ -446,12 +446,12 @@ static class StyleResolver
     /// </para>
     /// </remarks>
     static (float? Absolute, float? Scale) ParseLineHeight(
-        string? value,
+        string value,
         float fontSize,
         float rootFontSize,
         ComputedStyle parent)
     {
-        var text = value?.Trim();
+        var text = value.Trim();
 
         if (string.IsNullOrEmpty(text))
         {
@@ -511,8 +511,8 @@ static class StyleResolver
         return !text.Contains("none", StringComparison.Ordinal) && inherited;
     }
 
-    static TextAlignKind ParseTextAlign(string? value, TextAlignKind inherited) =>
-        value?.Trim().ToLowerInvariant() switch
+    static TextAlignKind ParseTextAlign(string value, TextAlignKind inherited) =>
+        value.Trim().ToLowerInvariant() switch
         {
             "center" => TextAlignKind.Center,
             "right" or "end" => TextAlignKind.Right,
@@ -521,8 +521,8 @@ static class StyleResolver
             _ => inherited
         };
 
-    static WhiteSpaceKind ParseWhiteSpace(string? value, WhiteSpaceKind inherited) =>
-        value?.Trim().ToLowerInvariant() switch
+    static WhiteSpaceKind ParseWhiteSpace(string value, WhiteSpaceKind inherited) =>
+        value.Trim().ToLowerInvariant() switch
         {
             "pre" => WhiteSpaceKind.Pre,
             "pre-wrap" => WhiteSpaceKind.PreWrap,

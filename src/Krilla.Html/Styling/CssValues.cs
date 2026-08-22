@@ -157,9 +157,12 @@ static class CssValues
         }
 
         var components = Components(text);
-        return components.Count >= 4 && TryParseNumber(components[3], out var alpha)
-            ? Math.Clamp(alpha, 0f, 1f)
-            : 1f;
+        if (components.Count >= 4 && TryParseNumber(components[3], out var alpha))
+        {
+            return Math.Clamp(alpha, 0f, 1f);
+        }
+
+        return 1f;
     }
 
     static Color? ParseHex(string hex)
@@ -303,7 +306,8 @@ static class CssValues
             var family = part;
 
             if (family.Length >= 2 &&
-                ((family[0] == '"' && family[^1] == '"') || (family[0] == '\'' && family[^1] == '\'')))
+                ((family[0] == '"' && family[^1] == '"') ||
+                 (family[0] == '\'' && family[^1] == '\'')))
             {
                 family = family[1..^1];
             }

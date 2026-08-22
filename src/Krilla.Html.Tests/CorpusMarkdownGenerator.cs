@@ -175,7 +175,7 @@ static class CorpusMarkdownGenerator
             return;
         }
 
-        var content = File.ReadAllText(path).Trim();
+        var content = File.ReadAllText(path).AsSpan().Trim();
         if (content.Length > 0)
         {
             builder.Append(content).Append("\n\n");

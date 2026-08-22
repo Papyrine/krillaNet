@@ -243,9 +243,12 @@ static class BoxBuilder
 
         if (text.EndsWith('%'))
         {
-            return CssValues.TryParseNumber(text[..^1], out var percent)
-                ? CssLength.Percentage(percent)
-                : null;
+            if (CssValues.TryParseNumber(text[..^1], out var percent))
+            {
+                return CssLength.Percentage(percent);
+            }
+
+            return null;
         }
 
         return CssValues.TryParseNumber(text, out var pixels) ? CssLength.Pixels(pixels) : null;

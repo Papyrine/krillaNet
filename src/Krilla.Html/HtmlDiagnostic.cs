@@ -26,7 +26,11 @@ public readonly record struct HtmlDiagnostic(
     /// </summary>
     public override string ToString()
     {
-        var declaration = Value is null ? Name : $"{Name}: {Value}";
-        return $"<{Element}> {declaration} — {Reason}";
+        if (Value is null)
+        {
+            return $"<{Element}> {Name} — {Reason}";
+        }
+
+        return $"<{Element}> {Name}: {Value} — {Reason}";
     }
 }
