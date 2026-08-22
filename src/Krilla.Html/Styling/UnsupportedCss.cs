@@ -29,7 +29,6 @@ static class UnsupportedCss
     /// </summary>
     static readonly (string Property, string NoOp, string Reason)[] ignored =
     [
-        ("box-sizing", "content-box", "sized as content-box, so border and padding add to the width"),
         ("border-collapse", "separate", "laid out with the separated border model"),
         ("overflow", "visible", "not clipped"),
         ("overflow-x", "visible", "not clipped"),

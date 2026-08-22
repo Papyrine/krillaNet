@@ -30,15 +30,15 @@ static class IntrinsicWidths
     public static (float Min, float Max) Measure(LayoutBox box, FontSet fonts)
     {
         var style = box.Style;
-        var surround =
-            style.PaddingLeft.Resolve(0) +
-            style.PaddingRight.Resolve(0) +
-            style.BorderWidthX;
+        // Percentages resolve to zero here, for the reason the class header gives.
+        var surround = style.SurroundX(0);
 
-        // A definite width settles both: the box wants exactly that, whatever is inside it.
+        // A definite width settles both: the box wants exactly that, whatever is inside it. Under
+        // `border-box` the declaration already covers the surround, so a cell declaring 100px with
+        // 10px of padding wants a 100px column rather than a 120px one.
         if (style.Width.Kind == LengthKind.Absolute)
         {
-            var declared = Math.Max(0, style.Width.Value) + surround;
+            var declared = style.ContentSize(style.Width.Value, surround) + surround;
             return (declared, declared);
         }
 
@@ -48,13 +48,13 @@ static class IntrinsicWidths
         // possibly be, which is why only the maximum is clamped.
         if (style.MaxWidth.Kind == LengthKind.Absolute)
         {
-            max = Math.Min(max, Math.Max(0, style.MaxWidth.Value));
+            max = Math.Min(max, style.ContentSize(style.MaxWidth.Value, surround));
             min = Math.Min(min, max);
         }
 
         if (style.MinWidth.Kind == LengthKind.Absolute)
         {
-            min = Math.Max(min, style.MinWidth.Value);
+            min = Math.Max(min, style.ContentSize(style.MinWidth.Value, surround));
             max = Math.Max(max, min);
         }
 
@@ -75,7 +75,7 @@ static class IntrinsicWidths
 
         if (box.Image is {} image)
         {
-            var width = ReplacedSizing.Resolve(box.Style, image, 0).Width;
+            var width = ReplacedSizing.Resolve(box.Style, image, 0, box.Style.SurroundX(0)).Width;
             return (width, width);
         }
 

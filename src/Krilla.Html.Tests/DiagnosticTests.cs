@@ -122,7 +122,7 @@ public class DiagnosticTests
             "<p>Text</p>",
             """
             p {
-              float: none; clear: none; position: static; box-sizing: content-box;
+              float: none; clear: none; position: static;
               overflow: visible; visibility: visible; opacity: 1; transform: none;
               text-transform: none; letter-spacing: normal; word-spacing: normal;
             }
@@ -153,8 +153,7 @@ public class DiagnosticTests
                 <div style="display: flex"><span>a</span></div>
                 <div style="display: grid"><span>b</span></div>
                 <div style="position: fixed">e</div>
-                <div style="box-sizing: border-box">f</div>
-                <table style="border-collapse: collapse"><tr><td>g</td></tr></table>
+                <table style="border-collapse: collapse"><tr><td>f</td></tr></table>
                 """));
 
     [Test]

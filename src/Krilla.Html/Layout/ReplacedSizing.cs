@@ -25,11 +25,23 @@ static class ReplacedSizing
     /// The width available for content, after this element's own padding and border. Percentages
     /// resolve against it.
     /// </param>
-    public static (float Width, float Height) Resolve(ComputedStyle style, ImageData image, float available)
+    /// <param name="surround">
+    /// The element's own horizontal padding and border, which <c>box-sizing: border-box</c> takes
+    /// out of a declared width. The vertical pair is not needed: a declared <c>height</c> here
+    /// only ever sets the ratio's other end, and the ratio applies to the CONTENT box — an image
+    /// declared 100px wide with 15px of surround is 100px on the page and 70px of picture.
+    /// </param>
+    public static (float Width, float Height) Resolve(
+        ComputedStyle style,
+        ImageData image,
+        float available,
+        float surround)
     {
         var ratio = image.Ratio;
-        var width = style.Width.ResolveOrNull(available);
-        float? height = style.Height.Kind == LengthKind.Absolute ? style.Height.Value : null;
+        var width = style.ContentSize(style.Width.ResolveOrNull(available), surround);
+        float? height = style.Height.Kind == LengthKind.Absolute
+            ? style.ContentSize(style.Height.Value, surround)
+            : null;
 
         switch (width, height)
         {
@@ -53,7 +65,7 @@ static class ReplacedSizing
                 break;
         }
 
-        return Clamp(style, width!.Value, height!.Value, available, ratio);
+        return Clamp(style, width!.Value, height!.Value, available, surround, ratio);
     }
 
     /// <summary>
@@ -71,17 +83,18 @@ static class ReplacedSizing
         float width,
         float height,
         float available,
+        float surround,
         float? ratio)
     {
         var heightIsAuto = style.Height.Kind != LengthKind.Absolute;
         var used = width;
 
-        if (style.MaxWidth.ResolveOrNull(available) is {} max)
+        if (style.ContentSize(style.MaxWidth.ResolveOrNull(available), surround) is {} max)
         {
             used = Math.Min(used, max);
         }
 
-        if (style.MinWidth.ResolveOrNull(available) is {} min)
+        if (style.ContentSize(style.MinWidth.ResolveOrNull(available), surround) is {} min)
         {
             used = Math.Max(used, min);
         }

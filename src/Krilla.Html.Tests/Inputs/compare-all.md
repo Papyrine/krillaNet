@@ -1,4 +1,4 @@
-# All scenarios (72)
+# All scenarios (73)
 
 The browser reference (left) beside the page Krilla.Html produced (right). `AE` is the fraction of pixels that differ and `SSIM` is structural similarity; neither is asserted. The worst offset is the largest positional disagreement in CSS pixels between the rendered element geometry and the browser's, and is the number to watch — it reaches zero exactly when the layout is right.
 
@@ -11,6 +11,7 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [block/background_color](#block-background_color)
 - [block/borders](#block-borders)
 - [block/box_model](#block-box_model)
+- [block/box_sizing](#block-box_sizing)
 - [block/margin_collapse](#block-margin_collapse)
 - [block/margin_collapse_blocked](#block-margin_collapse_blocked)
 - [block/margin_collapse_parent](#block-margin_collapse_parent)
@@ -186,6 +187,14 @@ when a whole category goes wrong at once.
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
 | <img src="block/box_model/reference_0001.png" width="480"> | <img src="block/box_model/result%23page_0001.verified.png" width="480"> |
+
+
+## block/box_sizing
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1** _(no page)_ |
+| <img src="block/box_sizing/reference_0001.png" width="480"> |  |
 
 
 ## block/margin_collapse

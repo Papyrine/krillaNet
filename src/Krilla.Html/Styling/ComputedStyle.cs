@@ -240,6 +240,16 @@ enum ListStyleKind
     UpperRoman
 }
 
+/// <summary>What a declared <c>width</c> or <c>height</c> measures.</summary>
+enum BoxSizingKind
+{
+    /// <summary>The content box: padding and border add to the declared size.</summary>
+    ContentBox,
+
+    /// <summary>The border box: padding and border come out of the declared size.</summary>
+    BorderBox
+}
+
 /// <summary>How a border edge is drawn.</summary>
 enum BorderStyleKind
 {
@@ -323,19 +333,29 @@ sealed record ComputedStyle
     /// <summary>Left border colour.</summary>
     public Color? BorderLeftColor { get; init; }
 
-    /// <summary>Content width, or <c>auto</c>.</summary>
+    /// <summary>
+    /// What <see cref="Width"/>, <see cref="Height"/> and the four min/max properties measure.
+    /// </summary>
+    /// <remarks>
+    /// It applies to all six, which is the part worth stating: <c>max-width: 100px</c> under
+    /// <c>border-box</c> caps the border box at 100px rather than the content box, so a box with
+    /// padding clamps narrower than it otherwise would.
+    /// </remarks>
+    public BoxSizingKind BoxSizing { get; init; } = BoxSizingKind.ContentBox;
+
+    /// <summary>Declared width, or <c>auto</c>. Measures <see cref="BoxSizing"/>.</summary>
     public CssLength Width { get; init; } = CssLength.Auto;
 
-    /// <summary>Content height, or <c>auto</c>.</summary>
+    /// <summary>Declared height, or <c>auto</c>. Measures <see cref="BoxSizing"/>.</summary>
     public CssLength Height { get; init; } = CssLength.Auto;
 
-    /// <summary>Maximum content width, or <c>none</c>.</summary>
+    /// <summary>Maximum width, or <c>none</c>. Measures <see cref="BoxSizing"/>.</summary>
     public CssLength MaxWidth { get; init; } = CssLength.None;
 
-    /// <summary>Minimum content width.</summary>
+    /// <summary>Minimum width. Measures <see cref="BoxSizing"/>.</summary>
     public CssLength MinWidth { get; init; } = CssLength.Zero;
 
-    /// <summary>Maximum content height, or <c>none</c>.</summary>
+    /// <summary>Maximum height, or <c>none</c>. Measures <see cref="BoxSizing"/>.</summary>
     /// <remarks>
     /// Honoured only when it is an absolute length, for the reason <see cref="Height"/> is: a
     /// percentage resolves against a containing height that is indefinite throughout a paginated
@@ -343,7 +363,7 @@ sealed record ComputedStyle
     /// </remarks>
     public CssLength MaxHeight { get; init; } = CssLength.None;
 
-    /// <summary>Minimum content height.</summary>
+    /// <summary>Minimum height. Measures <see cref="BoxSizing"/>.</summary>
     public CssLength MinHeight { get; init; } = CssLength.Zero;
 
     /// <summary>Background fill, or null when transparent.</summary>
@@ -465,6 +485,38 @@ sealed record ComputedStyle
 
     /// <summary>Whether this box is taken out of flow by a float.</summary>
     public bool IsFloating => Float != FloatKind.None;
+
+    /// <summary>
+    /// The content size a declared length asks for, given the padding and border on that axis.
+    /// </summary>
+    /// <remarks>
+    /// The one place <c>box-sizing</c> is applied. Under <c>border-box</c> the padding and border
+    /// come out of the declared length rather than being added to it, and the remainder floors at
+    /// zero — a box declared narrower than its own padding is as narrow as its padding allows, not
+    /// negative. Every site that turns a declared <c>width</c> or <c>height</c> into a used size
+    /// goes through here, so that the property is honoured in one place rather than in eight.
+    /// </remarks>
+    /// <param name="declared">The declared length, already resolved to pixels.</param>
+    /// <param name="surround">The padding and border on the same axis.</param>
+    public float ContentSize(float declared, float surround) =>
+        Math.Max(0, BoxSizing == BoxSizingKind.BorderBox ? declared - surround : declared);
+
+    /// <summary>
+    /// <see cref="ContentSize(float,float)"/> for a length that may be absent.
+    /// </summary>
+    public float? ContentSize(float? declared, float surround) =>
+        declared is {} value ? ContentSize(value, surround) : null;
+
+    /// <summary>
+    /// The horizontal padding and border, with percentages resolved against
+    /// <paramref name="containing"/>.
+    /// </summary>
+    /// <remarks>
+    /// What <c>box-sizing: border-box</c> takes out of a declared width, and what a content width
+    /// has to have added back to reach a border-box one.
+    /// </remarks>
+    public float SurroundX(float containing) =>
+        PaddingLeft.Resolve(containing) + PaddingRight.Resolve(containing) + BorderWidthX;
 
     /// <summary>Sum of the left and right border widths.</summary>
     public float BorderWidthX => BorderLeft + BorderRight;

@@ -70,6 +70,7 @@ static class StyleResolver
             BorderRightColor = BorderColor(declaration, "right", color),
             BorderBottomColor = BorderColor(declaration, "bottom", color),
             BorderLeftColor = BorderColor(declaration, "left", color),
+            BoxSizing = ParseBoxSizing(declaration.GetPropertyValue("box-sizing")),
             Width = Length(declaration, "width", fontSize, rootFontSize, CssLength.Auto),
             Height = Length(declaration, "height", fontSize, rootFontSize, CssLength.Auto),
             MaxWidth = Length(declaration, "max-width", fontSize, rootFontSize, CssLength.None),
@@ -357,6 +358,20 @@ static class StyleResolver
     /// <summary>
     /// Which column algorithm a table uses. Anything but <c>fixed</c> is the automatic one.
     /// </summary>
+    /// <summary>
+    /// What a declared <c>width</c> or <c>height</c> measures. Not inherited.
+    /// </summary>
+    /// <remarks>
+    /// The default is <c>content-box</c>, which is CSS's initial value — but a table arrives here
+    /// with <c>border-box</c> already declared, because the user-agent stylesheet says so. That is
+    /// where a table's declared width including its border comes from; it is not a rule of table
+    /// layout, and an author who writes <c>content-box</c> on a table gets the other behaviour.
+    /// </remarks>
+    static BoxSizingKind ParseBoxSizing(string value) =>
+        value.AsSpan().Trim().Equals("border-box", StringComparison.OrdinalIgnoreCase)
+            ? BoxSizingKind.BorderBox
+            : BoxSizingKind.ContentBox;
+
     static TableLayoutKind ParseTableLayout(string value) =>
         value.AsSpan().Trim().Equals("fixed", StringComparison.OrdinalIgnoreCase)
             ? TableLayoutKind.Fixed

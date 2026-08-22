@@ -88,7 +88,7 @@ static class BlockLayout
 
         if (box.Image is {} replaced)
         {
-            var size = ReplacedSizing.Resolve(style, replaced, containingWidth - surround);
+            var size = ReplacedSizing.Resolve(style, replaced, containingWidth - surround, surround);
             replacedWidth = size.Width;
             replacedHeight = size.Height;
         }
@@ -150,10 +150,15 @@ static class BlockLayout
         // paginated document.
         //
         // A replaced box's height already came from the aspect ratio, so it wins over both.
+        var surroundY = paddingTop + paddingBottom + style.BorderWidthY;
+
         var height = ClampHeight(
             replacedHeight ??
-            (style.Height.Kind == LengthKind.Absolute ? style.Height.Value : contentHeight),
-            style);
+            (style.Height.Kind == LengthKind.Absolute
+                ? style.ContentSize(style.Height.Value, surroundY)
+                : contentHeight),
+            style,
+            surroundY);
 
         var borderBoxHeight = height + paddingTop + paddingBottom + style.BorderWidthY;
 
@@ -438,10 +443,13 @@ static class BlockLayout
         var available = Math.Max(0, containingWidth - surround);
         var marginLeft = style.MarginLeft.ResolveOrNull(containingWidth);
         var marginRight = style.MarginRight.ResolveOrNull(containingWidth);
-        var width = style.Width.ResolveOrNull(containingWidth);
+
+        // Under `border-box` the declared width is the border box, so the padding and border come
+        // out of it here and everything below this line is a content width as before.
+        var width = style.ContentSize(style.Width.ResolveOrNull(containingWidth), surround);
 
         var tentative = width ?? Math.Max(0, available - (marginLeft ?? 0) - (marginRight ?? 0));
-        var used = Clamp(tentative, style, containingWidth);
+        var used = Clamp(tentative, style, containingWidth, surround);
 
         // An auto width that survived clamping absorbs the remaining space, and auto margins
         // become zero rather than competing with it. But if min/max-width overrode it, the
@@ -493,15 +501,21 @@ static class BlockLayout
     }
 
     /// <summary>Applies <c>min-width</c> and <c>max-width</c>, in that precedence.</summary>
-    static float Clamp(float width, ComputedStyle style, float containingWidth)
+    /// <remarks>
+    /// Both measure whatever <c>box-sizing</c> says, as <c>width</c> does, so they are deflated to
+    /// content widths before being compared against one. A <c>max-width</c> under
+    /// <c>border-box</c> that is narrower than the box's own padding clamps the content to zero
+    /// rather than to a negative width.
+    /// </remarks>
+    static float Clamp(float width, ComputedStyle style, float containingWidth, float surround)
     {
-        if (style.MaxWidth.ResolveOrNull(containingWidth) is {} max)
+        if (style.ContentSize(style.MaxWidth.ResolveOrNull(containingWidth), surround) is {} max)
         {
             width = Math.Min(width, max);
         }
 
         // After max-width, so a min wider than the max wins — which is the order CSS specifies.
-        if (style.MinWidth.ResolveOrNull(containingWidth) is {} min)
+        if (style.ContentSize(style.MinWidth.ResolveOrNull(containingWidth), surround) is {} min)
         {
             width = Math.Max(width, min);
         }
@@ -519,18 +533,18 @@ static class BlockLayout
     /// box shortened here keeps drawing its content past its own bottom edge, which is what
     /// <c>overflow: visible</c> asks for anyway.
     /// </remarks>
-    static float ClampHeight(float height, ComputedStyle style)
+    static float ClampHeight(float height, ComputedStyle style, float surround)
     {
         if (style.MaxHeight.Kind == LengthKind.Absolute)
         {
-            height = Math.Min(height, Math.Max(0, style.MaxHeight.Value));
+            height = Math.Min(height, style.ContentSize(style.MaxHeight.Value, surround));
         }
 
         // After max-height, so a minimum taller than the maximum wins — the order CSS specifies,
         // and the one `Clamp` uses for the horizontal pair.
         if (style.MinHeight.Kind == LengthKind.Absolute)
         {
-            height = Math.Max(height, style.MinHeight.Value);
+            height = Math.Max(height, style.ContentSize(style.MinHeight.Value, surround));
         }
 
         return height;

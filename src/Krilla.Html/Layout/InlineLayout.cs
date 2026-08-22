@@ -289,7 +289,8 @@ static class InlineLayout
             {
                 // An atomic inline: a box on the line rather than a run of glyphs. It breaks like
                 // a word — a line can break before or after it, but never inside it.
-                var (width, height) = ReplacedSizing.Resolve(item.Style, image, contentWidth);
+                var (width, height) = ReplacedSizing.Resolve(
+                    item.Style, image, contentWidth, item.Style.SurroundX(contentWidth));
                 tokens.Add(new(
                     item.Style, face, width, TokenKind.Replaced, image, height, item.Selector,
                     item.Link));
@@ -437,10 +438,10 @@ static class InlineLayout
     {
         if (style.Width.ResolveOrNull(available) is { } width)
         {
-            return Math.Max(0, width) +
-                   style.PaddingLeft.Resolve(available) +
-                   style.PaddingRight.Resolve(available) +
-                   style.BorderWidthX;
+            // Under `border-box` the declaration is already the border box, and a declaration
+            // narrower than the surround leaves the box as narrow as its own padding allows.
+            var surround = style.SurroundX(available);
+            return style.ContentSize(width, surround) + surround;
         }
 
         return null;

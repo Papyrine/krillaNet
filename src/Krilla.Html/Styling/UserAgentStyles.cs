@@ -88,7 +88,13 @@ static class UserAgentStyles
           border-spacing; what it omits is the one-pixel cell padding, without which every cell is
           two pixels narrower and two shorter than a browser draws it — small enough to look like
           rounding and large enough to move every column.
+
+          And `box-sizing`, which is where a table's declared width including its border comes
+          from — the user-agent rule, not the table algorithm. Measured: `box-sizing: content-box`
+          on a table with a border makes Chrome lay it out the other way, which it could not do if
+          the rule were part of table layout itself.
         */
+        table { box-sizing: border-box; }
         td, th { padding: 1px; }
         th { font-weight: bold; text-align: center; }
         caption { text-align: center; }

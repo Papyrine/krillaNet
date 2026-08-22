@@ -266,7 +266,8 @@ static class TableLayout
 
             if (width.Kind == LengthKind.Absolute)
             {
-                sizes.Fixed[cell.Column] = Math.Max(0, width.Value) + Surround(cell.Box.Style);
+                var surround = cell.Box.Style.SurroundX(0);
+                sizes.Fixed[cell.Column] = cell.Box.Style.ContentSize(width.Value, surround) + surround;
             }
             else if (width.Kind == LengthKind.Percent)
             {
@@ -279,14 +280,10 @@ static class TableLayout
                 // with, so the percentage is the cell's `width` under ordinary content-box sizing
                 // and the padding is added on top. The difference is exactly the cell's padding,
                 // which is small enough to look like a rounding error and is not one.
-                sizes.PercentSurround[cell.Column] = Surround(cell.Box.Style);
+                sizes.PercentSurround[cell.Column] = cell.Box.Style.SurroundX(0);
             }
         }
     }
-
-    /// <summary>A box's horizontal border and padding.</summary>
-    static float Surround(ComputedStyle style) =>
-        style.PaddingLeft.Resolve(0) + style.PaddingRight.Resolve(0) + style.BorderWidthX;
 
     /// <summary>
     /// Widens the columns a spanning cell covers until they can hold it.
@@ -324,11 +321,15 @@ static class TableLayout
     /// The table's content width.
     /// </summary>
     /// <remarks>
-    /// A declared width on a table is a BORDER-box width — the user-agent stylesheet gives tables
-    /// <c>box-sizing: border-box</c>, so <c>width: 300px</c> with a 10px border leaves 280 for
-    /// content rather than making the table 320 wide. It is also a minimum rather than an
-    /// instruction: a table never renders narrower than its columns' min-content widths, however
-    /// narrow the declaration.
+    /// A declared width on a table is normally a BORDER-box width — the user-agent stylesheet
+    /// gives tables <c>box-sizing: border-box</c>, so <c>width: 300px</c> with a 10px border
+    /// leaves 280 for content rather than making the table 320 wide. That comes from the rule
+    /// rather than from table layout, which is why it goes through <c>box-sizing</c> like every
+    /// other declared width: an author who writes <c>content-box</c> on a table gets 320, as
+    /// Chrome gives.
+    ///
+    /// It is also a minimum rather than an instruction: a table never renders narrower than its
+    /// columns' min-content widths, however narrow the declaration.
     /// </remarks>
     static float ResolveWidth(
         ComputedStyle style,
@@ -342,7 +343,7 @@ static class TableLayout
 
         if (style.Width.ResolveOrNull(containingWidth) is {} declared)
         {
-            return Math.Max(declared - surround, minimum);
+            return Math.Max(style.ContentSize(declared, surround), minimum);
         }
 
         var available =

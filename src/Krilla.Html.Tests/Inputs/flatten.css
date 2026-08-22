@@ -35,6 +35,17 @@ table, thead, tbody, tfoot, tr, th, td {
   padding: 0;
 }
 
+/*
+  `box-sizing` for the one element that has a UA rule for it. The universal rule above already
+  says this, and says it in the author origin — which settles it in a browser and does not settle
+  it here, for the reason the header gives. Without this line a table with both a width and a
+  border would be laid out border-box by Krilla.Html and content-box by Chromium, and the
+  difference would look like a table-layout defect rather than the cascade difference it is.
+*/
+table {
+  box-sizing: content-box;
+}
+
 html {
   text-align: left;
   white-space: normal;
