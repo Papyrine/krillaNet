@@ -28,6 +28,21 @@ public class PageMarginTests
         </body></html>
         """;
 
+    // One long paragraph, so the number of lines it takes is a function of the content width.
+    const string Paragraph =
+        """
+        <!doctype html>
+        <html><head><style>
+          html, body { margin: 0; padding: 0; }
+          p { margin: 0; font-family: sans-serif; font-size: 16px; color: #c81e1e; }
+        </style></head>
+        <body><p>
+          The quick brown fox jumps over the lazy dog, and then does it again, and again, and
+          again, until the sentence is long enough to wrap several times over on any page width
+          this test is likely to hand it.
+        </p></body></html>
+        """;
+
     [Test]
     public async Task BottomMarginShrinksTheContentArea()
     {
@@ -95,6 +110,116 @@ public class PageMarginTests
         await Assert.That(FirstInkedColumn(page)).IsEqualTo(50);
     }
 
+    [Test]
+    public async Task RightMarginShrinksTheContentWidth()
+    {
+        var options = Options();
+        options.MarginRight = 200;
+
+        var page = Render(options, 0);
+
+        // The blocks are auto width, so they fill the content box exactly — the last inked column
+        // is the content edge, and it has to sit inside the margin.
+        var lastInked = LastInkedColumn(page);
+        await Assert.That(lastInked).IsLessThan(CorpusLayout.PageWidth - 200);
+
+        // And the content area is used rather than left short. Without this the test would pass
+        // on a page whose blocks had collapsed to nothing.
+        await Assert.That(lastInked).IsGreaterThan(CorpusLayout.PageWidth - 200 - 3);
+
+        // The right margin moves nothing: content still starts at the left paper edge.
+        await Assert.That(FirstInkedColumn(page)).IsEqualTo(0);
+    }
+
+    [Test]
+    public async Task RightMarginCostsTheSameWidthAsLeftMargin()
+    {
+        // Both come out of ContentWidth, so the same amount on either edge has to produce the
+        // same content width. Subtracting one and not the other is the likely defect, and it is
+        // invisible whenever only the left one is set — that one also offsets the content, so a
+        // width bug there hides behind a position change that looks right.
+        var left = Options();
+        left.MarginLeft = 300;
+
+        var right = Options();
+        right.MarginRight = 300;
+
+        var both = Options();
+        both.MarginLeft = 150;
+        both.MarginRight = 150;
+
+        await Assert.That(InkedWidth(Render(left, 0))).IsEqualTo(InkedWidth(Render(right, 0)));
+        await Assert.That(InkedWidth(Render(both, 0))).IsEqualTo(InkedWidth(Render(right, 0)));
+    }
+
+    [Test]
+    public async Task RightMarginWrapsTextEarlier()
+    {
+        // A width the paint tests cannot see: the narrowed content box has to reach layout, not
+        // just clip the painting. One long line wrapped against the shortened width takes more
+        // lines, so the page gets taller — measured as the last inked row rather than the width.
+        var wide = Options();
+        var narrow = Options();
+        narrow.MarginRight = 500;
+
+        await Assert.That(LastInkedRow(Render(narrow, 0, Paragraph)))
+            .IsGreaterThan(LastInkedRow(Render(wide, 0, Paragraph)));
+    }
+
+    [Test]
+    public async Task WithMarginSetsAllFourEdges()
+    {
+        var options = HtmlOptions.Letter.WithMargin(72);
+
+        await Assert.That(options.MarginTop).IsEqualTo(72);
+        await Assert.That(options.MarginRight).IsEqualTo(72);
+        await Assert.That(options.MarginBottom).IsEqualTo(72);
+        await Assert.That(options.MarginLeft).IsEqualTo(72);
+
+        // The two the rest of the engine actually reads. Setting a field and not subtracting it
+        // is the failure this catches.
+        await Assert.That(options.ContentWidth).IsEqualTo(options.PageWidth - 144);
+        await Assert.That(options.ContentHeight).IsEqualTo(options.PageHeight - 144);
+    }
+
+    [Test]
+    public async Task WithMarginMutatesRatherThanCopying()
+    {
+        // It reads like a with-er and is not one: it returns the same instance, so a caller
+        // holding the original sees the change. Worth pinning, because the fluent shape invites
+        // the opposite assumption.
+        var options = Options();
+        var returned = options.WithMargin(30);
+
+        await Assert.That(returned).IsSameReferenceAs(options);
+        await Assert.That(options.MarginLeft).IsEqualTo(30);
+    }
+
+    [Test]
+    public async Task WithMarginOfZeroClearsExistingMargins()
+    {
+        var options = Options().WithMargin(50);
+
+        await Assert.That(options.WithMargin(0).ContentWidth).IsEqualTo(options.PageWidth);
+    }
+
+    [Test]
+    public async Task WithMarginInsetsAllFourEdges()
+    {
+        var page = Render(Options().WithMargin(100), 0);
+
+        await Assert.That(FirstInkedRow(page)).IsEqualTo(100);
+        await Assert.That(FirstInkedColumn(page)).IsEqualTo(100);
+
+        var lastColumn = LastInkedColumn(page);
+        await Assert.That(lastColumn).IsLessThan(CorpusLayout.PageWidth - 100);
+        await Assert.That(lastColumn).IsGreaterThan(CorpusLayout.PageWidth - 100 - 3);
+
+        // The bottom edge only bounds the content; a page filled to the break can stop short of
+        // it, so this is a ceiling rather than an equality.
+        await Assert.That(LastInkedRow(page)).IsLessThan(CorpusLayout.PageHeight - 100);
+    }
+
     static HtmlOptions Options() =>
         new()
         {
@@ -109,9 +234,12 @@ public class PageMarginTests
         return document.PageCount;
     }
 
-    static PngImage Render(HtmlOptions options, int index)
+    static PngImage Render(HtmlOptions options, int index) =>
+        Render(options, index, Tall);
+
+    static PngImage Render(HtmlOptions options, int index, string html)
     {
-        using var document = PdfiumDocument.Load(HtmlConverter.Convert(Tall, options));
+        using var document = PdfiumDocument.Load(HtmlConverter.Convert(html, options));
         var png = document.RenderPage(index, new RenderOptions
         {
             Dpi = CorpusLayout.Dpi
@@ -161,6 +289,35 @@ public class PageMarginTests
         }
 
         return -1;
+    }
+
+    static int LastInkedColumn(PngImage image)
+    {
+        for (var x = image.Width - 1; x >= 0; x--)
+        {
+            if (ColumnIsInked(image, x))
+            {
+                return x;
+            }
+        }
+
+        return -1;
+    }
+
+    static int InkedWidth(PngImage image) =>
+        LastInkedColumn(image) - FirstInkedColumn(image);
+
+    static bool ColumnIsInked(PngImage image, int x)
+    {
+        for (var y = 0; y < image.Height; y++)
+        {
+            if (IsInked(image, x, y))
+            {
+                return true;
+            }
+        }
+
+        return false;
     }
 
     static bool RowIsInked(PngImage image, int y)
