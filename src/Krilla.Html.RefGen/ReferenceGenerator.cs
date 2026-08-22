@@ -85,7 +85,7 @@ public class ReferenceGenerator
         // resolves against the same base the converter is handed. From a temp directory it would
         // resolve to nothing and the browser reference would quietly contain no images.
         var temporary = CorpusLayout.BrowserPagePath(directory);
-        await File.WriteAllTextAsync(temporary, Document(directory));
+        await RetryingFile.WriteAllTextAsync(temporary, Document(directory));
 
         try
         {
@@ -103,7 +103,7 @@ public class ReferenceGenerator
         }
         finally
         {
-            File.Delete(temporary);
+            await RetryingFile.DeleteAsync(temporary);
         }
     }
 
@@ -174,7 +174,7 @@ public class ReferenceGenerator
             }
             """);
 
-        await File.WriteAllTextAsync(CorpusLayout.BoxesPath(directory), json + "\n");
+        await RetryingFile.WriteAllTextAsync(CorpusLayout.BoxesPath(directory), json + "\n");
     }
 
     /// <summary>
@@ -211,12 +211,19 @@ public class ReferenceGenerator
             Scale = 1
         });
 
+        using var document = PdfiumDocument.Load(pdf);
+
+        // Loaded before the old pages are cleared out, so the new page count is known here and the
+        // pages this render is about to write are left alone. Deleting them all first and writing
+        // them all back is the same result on a good day and one more file the working tree can be
+        // holding open on a bad one; a page that survives is overwritten in place instead.
         foreach (var stale in CorpusLayout.ReferencePages(directory))
         {
-            File.Delete(stale);
+            if (IsStale(stale, document.PageCount))
+            {
+                await RetryingFile.DeleteAsync(stale);
+            }
         }
-
-        using var document = PdfiumDocument.Load(pdf);
 
         for (var index = 0; index < document.PageCount; index++)
         {
@@ -225,8 +232,25 @@ public class ReferenceGenerator
                 Dpi = CorpusLayout.Dpi
             });
 
-            await File.WriteAllBytesAsync(CorpusLayout.ReferencePage(directory, index + 1), png);
+            await RetryingFile.WriteAllBytesAsync(
+                CorpusLayout.ReferencePage(directory, index + 1),
+                png);
         }
+    }
+
+    /// <summary>
+    /// Whether an existing reference page is one this render will not produce.
+    /// </summary>
+    /// <remarks>
+    /// A name carrying no page number is stale by definition: nothing here writes it back, so
+    /// leaving it would keep a render of a page the scenario no longer has.
+    /// </remarks>
+    static bool IsStale(string path, int pageCount)
+    {
+        var number = Path.GetFileNameWithoutExtension(path)
+            .AsSpan(CorpusLayout.ReferencePrefix.Length);
+
+        return !int.TryParse(number, out var pageNumber) || pageNumber > pageCount;
     }
 
     /// <summary>

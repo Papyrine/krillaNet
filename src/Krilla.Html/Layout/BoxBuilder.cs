@@ -251,7 +251,12 @@ static class BoxBuilder
             return null;
         }
 
-        return CssValues.TryParseNumber(text, out var pixels) ? CssLength.Pixels(pixels) : null;
+        if (CssValues.TryParseNumber(text, out var pixels))
+        {
+            return CssLength.Pixels(pixels);
+        }
+
+        return null;
     }
 
     /// <summary>
