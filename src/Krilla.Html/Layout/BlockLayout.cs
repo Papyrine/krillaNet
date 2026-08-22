@@ -1,5 +1,3 @@
-namespace Krilla.Html.Layout;
-
 /// <summary>
 /// Lays out a block formatting context: block boxes stacked vertically, with collapsing margins.
 /// </summary>

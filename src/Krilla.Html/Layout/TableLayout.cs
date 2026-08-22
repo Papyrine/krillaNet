@@ -1,5 +1,3 @@
-namespace Krilla.Html.Layout;
-
 /// <summary>
 /// Lays out a table: the separated border model, with columns sized from their content.
 /// </summary>

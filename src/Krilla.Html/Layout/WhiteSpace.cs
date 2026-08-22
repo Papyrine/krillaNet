@@ -1,5 +1,3 @@
-namespace Krilla.Html.Layout;
-
 /// <summary>
 /// The white-space processing CSS applies to text before it is flowed into lines.
 /// </summary>

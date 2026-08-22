@@ -1,5 +1,3 @@
-namespace Krilla.Html.Layout;
-
 /// <summary>
 /// How narrow and how wide a box wants to be, without laying it out.
 /// </summary>

@@ -1,5 +1,3 @@
-namespace Krilla.Html.Layout;
-
 /// <summary>
 /// Decides where the laid-out document is cut into pages.
 /// </summary>

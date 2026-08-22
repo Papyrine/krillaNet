@@ -44,7 +44,7 @@ public class ShowcaseTests
             CreationDate = created
         };
 
-        var pdf = HtmlConverter.Convert(File.ReadAllText(documentPath), options);
+        var pdf = HtmlConverter.Convert(await File.ReadAllTextAsync(documentPath), options);
 
         await Assert.That(reported)
             .IsEmpty()

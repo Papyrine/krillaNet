@@ -1,5 +1,3 @@
-namespace Krilla.Html.Styling;
-
 /// <summary>
 /// The defaults a browser applies that AngleSharp.Css does not.
 /// </summary>

@@ -1,5 +1,3 @@
-namespace Krilla.Html.Styling;
-
 /// <summary>
 /// Finds declarations the engine reads and does not honour as written, and reports them to
 /// <see cref="HtmlOptions.OnDiagnostic"/>.

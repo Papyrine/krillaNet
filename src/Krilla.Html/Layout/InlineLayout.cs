@@ -1,5 +1,3 @@
-namespace Krilla.Html.Layout;
-
 /// <summary>
 /// Flows a block's inline content into lines.
 /// </summary>

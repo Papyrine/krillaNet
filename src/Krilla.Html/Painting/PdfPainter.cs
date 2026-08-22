@@ -1,5 +1,3 @@
-namespace Krilla.Html.Painting;
-
 /// <summary>
 /// Paints the laid-out box tree onto a krilla surface.
 /// </summary>

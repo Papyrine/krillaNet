@@ -1,5 +1,3 @@
-namespace Krilla.Html.Layout;
-
 /// <summary>
 /// Sizes a replaced element — one whose content comes from outside CSS, which here means an image.
 /// </summary>

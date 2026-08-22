@@ -1,5 +1,3 @@
-namespace Krilla.Html.Layout;
-
 /// <summary>
 /// Builds the layout tree from the DOM.
 /// </summary>

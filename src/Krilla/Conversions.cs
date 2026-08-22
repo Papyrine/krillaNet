@@ -1,5 +1,3 @@
-namespace Krilla;
-
 /// <summary>
 /// Conversions between the public types and their blittable ABI mirrors.
 /// </summary>

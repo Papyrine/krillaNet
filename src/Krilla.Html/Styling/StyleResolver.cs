@@ -1,5 +1,3 @@
-namespace Krilla.Html.Styling;
-
 /// <summary>
 /// Turns AngleSharp.Css's cascade result into a <see cref="ComputedStyle"/>.
 /// </summary>

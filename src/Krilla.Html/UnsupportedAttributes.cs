@@ -1,5 +1,3 @@
-namespace Krilla.Html;
-
 /// <summary>
 /// Finds presentational content attributes that are read and not applied, and reports them to
 /// <see cref="HtmlOptions.OnDiagnostic"/>.

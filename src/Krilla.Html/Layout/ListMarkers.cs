@@ -1,5 +1,3 @@
-namespace Krilla.Html.Layout;
-
 /// <summary>
 /// The marker a list item shows, and where layout put it.
 /// </summary>

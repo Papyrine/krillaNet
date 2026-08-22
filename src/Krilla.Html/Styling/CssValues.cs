@@ -1,5 +1,3 @@
-namespace Krilla.Html.Styling;
-
 /// <summary>
 /// Parsers for the CSS value syntax AngleSharp.Css hands back as strings.
 /// </summary>

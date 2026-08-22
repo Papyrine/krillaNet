@@ -1,5 +1,3 @@
-namespace Krilla.Html.Layout;
-
 /// <summary>
 /// Positions absolutely positioned boxes, once normal flow has finished.
 /// </summary>
