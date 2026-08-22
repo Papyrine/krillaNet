@@ -18,12 +18,6 @@
     "Reason": "placed once rather than repeated on every page"
   },
   {
-    "Element": "div",
-    "Name": "box-sizing",
-    "Value": "border-box",
-    "Reason": "sized as content-box, so border and padding add to the width"
-  },
-  {
     "Element": "table",
     "Name": "border-collapse",
     "Value": "collapse",

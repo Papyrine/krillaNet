@@ -8,6 +8,7 @@ block/auto_width                 matched  4  offset    0.00  size    0.00  diffe
 block/background_color           matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
 block/borders                    matched  3  offset    0.00  size    0.00  differing  0  unmatched 0
 block/box_model                  matched  3  offset    0.00  size    0.00  differing  0  unmatched 0
+block/box_sizing                 matched 14  offset    0.00  size    0.00  differing  0  unmatched 0
 block/margin_collapse            matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
 block/margin_collapse_blocked    matched  4  offset    0.00  size    0.00  differing  0  unmatched 0
 block/margin_collapse_parent     matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
@@ -28,6 +29,7 @@ image/data_uri                   matched  3  offset    0.00  size    0.00  diffe
 image/inline_flow                matched  4  offset    0.00  size    0.00  differing  0  unmatched 0
 image/intrinsic                  matched  4  offset    0.00  size    0.00  differing  0  unmatched 0
 image/max_width                  matched  4  offset    0.00  size    0.00  differing  0  unmatched 0
+image/percent_width              matched  6  offset    0.00  size    0.00  differing  0  unmatched 0
 image/sized                      matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
 inline/font_size_em              matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
 inline/font_style                matched  4  offset    0.00  size    0.00  differing  0  unmatched 0

@@ -1,4 +1,4 @@
-# All scenarios (73)
+# All scenarios (74)
 
 The browser reference (left) beside the page Krilla.Html produced (right). `AE` is the fraction of pixels that differ and `SSIM` is structural similarity; neither is asserted. The worst offset is the largest positional disagreement in CSS pixels between the rendered element geometry and the browser's, and is the number to watch — it reaches zero exactly when the layout is right.
 
@@ -32,6 +32,7 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [image/inline_flow](#image-inline_flow)
 - [image/intrinsic](#image-intrinsic)
 - [image/max_width](#image-max_width)
+- [image/percent_width](#image-percent_width)
 - [image/sized](#image-sized)
 - [inline/font_size_em](#inline-font_size_em)
 - [inline/font_style](#inline-font_style)
@@ -191,10 +192,54 @@ when a whole category goes wrong at once.
 
 ## block/box_sizing
 
+# block/box_sizing
+
+`box-sizing`, which decides whether a declared `width` or `height` measures the content box or the
+border box. Every real stylesheet sets `border-box` and until this landed every one of them was
+laid out a padding and a border too wide.
+
+The first two boxes carry the same three numbers — 300px of width, 20px of padding, a 5px border —
+so the only difference between them is which box the 300 measures. `#content` is 350 wide and
+`#border` is 300.
+
+What the rest are for:
+
+- **`#floor`** declares 30px against 50px of padding and border. The content floors at zero and the
+  box is as narrow as its own surround allows, rather than going negative. Chrome agrees at 50.
+- **`#half`** is `width: 50%`. The percentage resolves against the containing block first and is
+  the border box after that, so the box is exactly half the page however thick its border — 408px,
+  not 408 plus 60.
+- **`#tall`** and **`#least`** are the vertical pair: `height` and `min-height` both measure what
+  `box-sizing` says, so a 100px box holds 50px of content and an 80px minimum holds 30px.
+- **`#capped`** is `max-width` with auto margins, the standard centring idiom. The maximum clamps
+  the BORDER box to 400 and the leftover 416 splits into two 208px margins. It matters that the
+  clamp happens before the margins are resolved: clamping a content width instead centres a box
+  that is 450 wide.
+- **`#atomic`** and **`#floated`** are the two boxes sized outside `ResolveHorizontal` — an
+  inline-block is given an assigned width by `InlineLayout`, and a float's width is decided by
+  `ShrinkToFit` before it is placed. Both are separate code paths and both had to be told.
+- **`#picture`** is a replaced box, where the declared width covers the surround and the aspect
+  ratio applies to what is LEFT of it: 120px on the page is 90px of picture, and the 64x32 swatch
+  makes that 45px tall for 75px of box.
+
+The float block is last in the source on purpose. A block-level replaced element must not overlap
+a float (CSS 2.1 §9.5), so an `<img>` after a float that is still hanging gets pushed to its right
+edge in Chrome — and this engine does not push anything aside for a float yet. Written the other
+way round the scenario measured that gap instead of this feature, by exactly the float's 240px.
+
+`html` is 801 tall against `body`'s 761 because the root contains the float and `body` does not,
+which is the same asymmetry `float/basic` measures.
+
+**Residual**: SSIM 0.9999 on one line — the text beside the float, whose glyph ink differs by a
+tenth of a pixel of centroid and 0.16% of total coverage. Sub-pixel glyph positioning, the same
+cause as `text/kerning`, and not a geometry difference: every one of the fourteen boxes is exact.
+
+**Boxes**: 14 matched, worst offset 0.00px, worst size 0.00px.
+
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |
-| **Page 1** | **Page 1** _(no page)_ |
-| <img src="block/box_sizing/reference_0001.png" width="480"> |  |
+| **Page 1** | **Page 1. AE 0.0004 · SSIM 0.9999** |
+| <img src="block/box_sizing/reference_0001.png" width="480"> | <img src="block/box_sizing/result%23page_0001.verified.png" width="480"> |
 
 
 ## block/margin_collapse
@@ -614,6 +659,39 @@ images end up distorted inside responsive containers, so this scenario exists to
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
 | <img src="image/max_width/reference_0001.png" width="480"> | <img src="image/max_width/result%23page_0001.verified.png" width="480"> |
+
+
+## image/percent_width
+
+# image/percent_width
+
+A percentage width on a replaced element, with a surround thick enough to tell the two mistakes
+apart.
+
+`#plain` is 330 wide: the 50% resolves against the container's 600 and gives 300px of picture, then
+the padding and border are added. The tempting reading — take the element's own surround off the
+container first, then halve what is left — gives 315, and it is wrong in the direction that makes a
+padded image narrower than an unpadded one asking for the same share.
+
+`#inside` is `border-box`, so the 300 is the whole box and 270px of it is picture.
+
+The heights are the check that the ratio is applied to the CONTENT box in both cases. The swatch is
+64x32, so `#plain` is 150px of picture inside 180px of box and `#inside` is 135 inside 165 — a
+box-sizing bug that only touched the width would leave both heights at 150.
+
+`#ratio` declares a HEIGHT instead, under `border-box` and with padding that is not uniform — 10px
+top and bottom against 30px left and right. Its 120px box holds 90px of picture, which the ratio
+turns into 180px of width and 250px of box. It is here because the vertical surround has to be its
+own quantity: deflating the declared height by the horizontal pair instead gives 50px of picture,
+100px of width and a 170px box, and the error arrives on the axis nobody declared. That is exactly
+the bug this scenario caught while it was being written.
+
+**Boxes**: 6 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| <img src="image/percent_width/reference_0001.png" width="480"> | <img src="image/percent_width/result%23page_0001.verified.png" width="480"> |
 
 
 ## image/sized

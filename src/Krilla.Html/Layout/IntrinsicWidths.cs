@@ -75,7 +75,7 @@ static class IntrinsicWidths
 
         if (box.Image is {} image)
         {
-            var width = ReplacedSizing.Resolve(box.Style, image, 0, box.Style.SurroundX(0)).Width;
+            var width = ReplacedSizing.Resolve(box.Style, image, 0, box.Style.SurroundX(0), box.Style.SurroundY(0)).Width;
             return (width, width);
         }
 

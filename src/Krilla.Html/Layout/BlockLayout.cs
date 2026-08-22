@@ -88,7 +88,12 @@ static class BlockLayout
 
         if (box.Image is {} replaced)
         {
-            var size = ReplacedSizing.Resolve(style, replaced, containingWidth - surround, surround);
+            var size = ReplacedSizing.Resolve(
+                style,
+                replaced,
+                containingWidth,
+                surround,
+                paddingTop + paddingBottom + style.BorderWidthY);
             replacedWidth = size.Width;
             replacedHeight = size.Height;
         }

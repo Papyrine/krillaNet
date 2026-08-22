@@ -14,31 +14,38 @@ it, that is stated, because an unmeasured gap is the more dangerous kind.
 
 ## Where the corpus stands
 
-54 scenarios across 10 categories. **Box geometry matches Chrome exactly on every one** — zero
-positional and zero size difference, and nothing unmatched — and 43 read SSIM 1.0000, of which 32
+74 scenarios across 10 categories. **Box geometry matches Chrome exactly on every one** — zero
+positional and zero size difference, and nothing unmatched — and 53 read SSIM 1.0000, of which 36
 are pixel-identical outright.
 
-The eleven that read below 1.0000, with the cause of each. None is a mystery, and none should be
-"fixed" by regenerating a baseline:
+The twenty-one that read below 1.0000, with the cause of each. None is a mystery, and none should
+be "fixed" by regenerating a baseline:
 
 | Scenario | AE | SSIM | Cause |
 | --- | --- | --- | --- |
+| `ua/hr` | 0.0023 | 0.9911 | Chrome's `inset` border painted solid |
 | `text/kerning` | 0.0201 | 0.9945 | Sub-pixel glyph positioning, below |
 | `text/ligatures` | 0.0099 | 0.9982 | Same |
 | `page/break_between_lines` | 0.0017 | 0.9996 | Same |
-| `image/inline_flow` | 0.0007 | 0.9998 | Box edge at a fractional position, below |
+| `table/anonymous` | 0.0003 | 0.9996 | Box edge at a fractional position, below |
+| `page/float_break` | 0.0023 | 0.9997 | Sub-pixel glyph positioning |
+| `page/table_break` | 0.0003 | 0.9997 | Box edge at a fractional position |
+| `block/min_width` | 0.0009 | 0.9998 | Sub-pixel glyph positioning |
+| `image/inline_flow` | 0.0007 | 0.9998 | Box edge at a fractional position |
 | `page/multi_page_flow` | 0.0016 | 0.9998 | Sub-pixel glyph positioning |
-| `link/fragment`, `link/wrapped` | 0.0001 | 0.9999 | Same |
-| `ua/blockquote_pre` | 0.0005 | 0.9999 | Same |
-| `table/spacing_borders` | 0.0003 | 0.9999 | Box edge at a fractional position |
+| `block/box_sizing` | 0.0004 | 0.9999 | Same, on the one line beside a float |
 | `float/shrink_to_fit` | 0.0000 | 0.9999 | Box edge at a fractional position |
+| `inline/inline_block` | 0.0002 | 0.9999 | Sub-pixel glyph positioning |
+| `inline/inline_block_sizing` | 0.0002 | 0.9999 | Same |
+| `inline/text_indent` | 0.0005 | 0.9999 | Same |
+| `link/fragment`, `link/wrapped` | 0.0001 | 0.9999 | Same |
+| `page/tall_block` | 0.0004 | 0.9999 | Same |
 | `position/absolute` | 0.0005 | 0.9999 | Box edge at a fractional position |
+| `table/spacing_borders` | 0.0003 | 0.9999 | Same |
+| `ua/blockquote_pre` | 0.0005 | 0.9999 | Sub-pixel glyph positioning |
 
-Twelve more read SSIM 1.0000 while still differing on a scattering of antialiased pixels:
-`block/borders`, `ua/lists`, `ua/list_markers`, `ua/acid1`, `table/sections`, `inline/justify`,
-`link/external`, `ua/headings`, `float/basic`, `float/clear`, `position/relative` and
-`position/anchors`. Each is one of the two causes above, and none exceeds 40 levels of grey out of
-255.
+Seventeen more read SSIM 1.0000 while still differing on a scattering of antialiased pixels. Each
+is one of the two causes above, and none exceeds 40 levels of grey out of 255.
 
 ## Unimplemented layout
 
@@ -112,8 +119,6 @@ nothing announces, no longer applies to anything in this section.
   whatever follows. Nothing measures it.
 - **No `overflow` handling.** Content larger than a box with an explicit height paints outside it
   and is never clipped, because only the page box clips.
-- **No `box-sizing: border-box`.** Only the initial `content-box` is honoured, and border-box is
-  what most real stylesheets set.
 - **Percentage heights resolve as `auto`.** Correct whenever the containing height is indefinite,
   which it usually is in paged media, but wrong for a box inside one with a definite height.
 - **No background images or gradients**, no `opacity`, no `transform`, no `border-radius`.
@@ -165,8 +170,12 @@ matches Chrome exactly across the four `float/` scenarios. What is missing:
   parent. Until that works, a document written to that idiom has floats hanging out of the box that
   was supposed to hold them.
 - **A block beside a float is never pushed aside**, which is right for an ordinary block and wrong
-  for one that establishes a formatting context: CSS says a table or a `overflow: hidden` block must
-  not overlap a float, and narrows or moves it instead. Blocked on the point above.
+  for one that establishes a formatting context: CSS 2.1 §9.5 says a table, a block-level REPLACED
+  element or an `overflow: hidden` block must not overlap a float, and narrows or moves it instead.
+  Measured while writing `block/box_sizing`, whose `<img>` Chrome pushes to the right of a float
+  that is still hanging and this engine leaves under it — which is why that scenario puts its float
+  last. Mostly blocked on the point above, though the replaced case needs no formatting context of
+  its own and could be closed on its own.
 - **Clearance is applied after the collapsed margin rather than as a quantity of its own.** CSS 2.1
   §9.5.2 introduces clearance separately and stops the margin collapsing through it. The difference
   appears only when a cleared box carries a margin large enough to clear the float unaided, which is

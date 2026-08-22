@@ -290,7 +290,11 @@ static class InlineLayout
                 // An atomic inline: a box on the line rather than a run of glyphs. It breaks like
                 // a word — a line can break before or after it, but never inside it.
                 var (width, height) = ReplacedSizing.Resolve(
-                    item.Style, image, contentWidth, item.Style.SurroundX(contentWidth));
+                    item.Style,
+                    image,
+                    contentWidth,
+                    item.Style.SurroundX(contentWidth),
+                    item.Style.SurroundY(contentWidth));
                 tokens.Add(new(
                     item.Style, face, width, TokenKind.Replaced, image, height, item.Selector,
                     item.Link));

@@ -518,6 +518,14 @@ sealed record ComputedStyle
     public float SurroundX(float containing) =>
         PaddingLeft.Resolve(containing) + PaddingRight.Resolve(containing) + BorderWidthX;
 
+    /// <summary>
+    /// The vertical padding and border, with percentages resolved against
+    /// <paramref name="containing"/> — which is the containing block's WIDTH, as CSS requires for
+    /// a vertical percentage padding.
+    /// </summary>
+    public float SurroundY(float containing) =>
+        PaddingTop.Resolve(containing) + PaddingBottom.Resolve(containing) + BorderWidthY;
+
     /// <summary>Sum of the left and right border widths.</summary>
     public float BorderWidthX => BorderLeft + BorderRight;
 

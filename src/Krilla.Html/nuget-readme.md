@@ -21,10 +21,13 @@ than discovered from the host. That is what makes output reproducible across mac
 
 ## What is implemented
 
-Block and inline layout, the box model, collapsing margins, line breaking, text alignment,
-pagination, images, links, and text shaping with kerning and ligatures.
+Block and inline layout, inline-block, tables, floats, relative and absolute positioning, the box
+model including `box-sizing`, collapsing margins, line breaking, text alignment, pagination,
+images, links, list markers, and text shaping with kerning and ligatures.
 
 Images resolve from `data:` URIs and files relative to `BaseUrl`; nothing is fetched over the
 network unless a caller supplies `HtmlOptions.ImageResolver`.
 
-Floats, positioned boxes, flexbox, grid and tables lay out as plain blocks.
+Flexbox and grid lay out as plain blocks. `HtmlOptions.OnDiagnostic` reports every construct that
+is recognised and not rendered the way a browser would, so a conversion that reports nothing laid
+out the whole document correctly.

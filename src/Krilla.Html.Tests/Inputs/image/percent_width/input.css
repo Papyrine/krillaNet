@@ -1,0 +1,22 @@
+#frame { width: 600px; background-color: #f4f4f4; }
+
+/*
+  Both images ask for half their container and carry 30px of padding and border. The percentage is
+  a share of the CONTAINER, so the surround does not come out of the 600 first — and under
+  border-box it comes out of the 300 that leaves.
+*/
+img {
+  display: block; width: 50%; padding: 10px; border: 5px solid #204080;
+  background-color: #e8d8cf;
+}
+
+#inside { box-sizing: border-box; }
+
+/*
+  A declared HEIGHT under border-box, with padding that is not uniform so the vertical surround is
+  not the horizontal one. The width follows from the ratio, so deflating the height by the wrong
+  pair comes out as a wrong width too.
+*/
+#ratio {
+  box-sizing: border-box; width: auto; height: 120px; padding: 10px 30px;
+}
