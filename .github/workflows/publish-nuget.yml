@@ -153,12 +153,33 @@ jobs:
         include:
           # Proves the musl build, which .NET's RID graph will never substitute for glibc.
           - { image: 'mcr.microsoft.com/dotnet/sdk:10.0-alpine', name: 'alpine (musl)' }
-          # Older glibc than the runner's: the check the 2.17 floor exists for.
-          - { image: 'mcr.microsoft.com/dotnet/sdk:10.0-bookworm-slim', name: 'debian 12' }
+          # Older glibc than the runner's: the check the 2.17 floor exists for. .NET 10 ships
+          # no Debian image at all -- `bookworm-slim` existed for 9.0 and `trixie-slim` only for
+          # the 10.0 previews -- and the images that remain are no older than the runner
+          # (`noble` is its glibc exactly, `azurelinux3.0` one minor version below). So this leg
+          # runs a bare distribution image and installs the SDK on top. 2.35 is the oldest glibc
+          # .NET 10 supports, which makes it the lowest floor this check can meaningfully use.
+          - { image: 'ubuntu:22.04', name: 'ubuntu 22.04 (glibc 2.35)', bare: true }
     name: smoke ${{ matrix.name }}
     container: ${{ matrix.image }}
     steps:
+      # A bare distribution image carries neither the SDK nor what installing one needs. git is
+      # for actions/checkout, which otherwise falls back to a tarball download, and libicu for
+      # .NET's globalization, which fails to start without it. The mcr images have all of this.
+      - name: Install SDK prerequisites
+        if: matrix.bare
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates curl git libicu70
+
       - uses: actions/checkout@v4
+
+      # global.json rather than a pinned version, so this leg rolls forward with every other one.
+      - name: Set up .NET
+        if: matrix.bare
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
 
       - name: Download package
         uses: actions/download-artifact@v4
