@@ -27,10 +27,15 @@ readonly record struct CollapsedMargin(float Positive, float Negative)
         Empty.With(margin);
 
     /// <summary>This set with <paramref name="margin"/> adjoined.</summary>
-    public CollapsedMargin With(float margin) =>
-        margin >= 0
-            ? new(Math.Max(Positive, margin), Negative)
-            : new(Positive, Math.Min(Negative, margin));
+    public CollapsedMargin With(float margin)
+    {
+        if (margin >= 0)
+        {
+            return new(Math.Max(Positive, margin), Negative);
+        }
+
+        return new(Positive, Math.Min(Negative, margin));
+    }
 
     /// <summary>This set with every margin in <paramref name="other"/> adjoined.</summary>
     public CollapsedMargin Merge(CollapsedMargin other) =>

@@ -1,5 +1,3 @@
-namespace Krilla.Html.Fonts;
-
 /// <summary>
 /// The font metrics layout needs, read straight out of the font file.
 /// </summary>

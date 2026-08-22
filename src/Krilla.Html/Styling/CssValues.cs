@@ -92,7 +92,7 @@ static class CssValues
     /// fill and no fill at all are indistinguishable on the page, and collapsing them here keeps
     /// every painting site from having to check alpha.
     /// </remarks>
-    public static Color? ParseColor(string? value)
+    public static Color? ParseColor(string value)
     {
         if (string.IsNullOrWhiteSpace(value))
         {
@@ -126,7 +126,7 @@ static class CssValues
     /// Separate from <see cref="ParseColor"/> because krilla models opacity as a fill property
     /// rather than as a fourth colour component — <see cref="Krilla.Color"/> has no alpha.
     /// </remarks>
-    public static float ParseAlpha(string? value)
+    public static float ParseAlpha(string value)
     {
         if (string.IsNullOrWhiteSpace(value))
         {
@@ -232,7 +232,7 @@ static class CssValues
             .Split([',', ' ', '/', '\t'], StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)];
     }
 
-    static bool TryParseComponent(ReadOnlySpan<char> text, out byte value)
+    static bool TryParseComponent(CharSpan text, out byte value)
     {
         value = 0;
 
@@ -262,7 +262,7 @@ static class CssValues
     /// <see cref="ReadOnlySpan{T}"/> - <c>ValueTuple</c>'s parameters do not allow a ref struct -
     /// and the caller can slice for itself.
     /// </remarks>
-    static int UnitStart(ReadOnlySpan<char> text)
+    static int UnitStart(CharSpan text)
     {
         var index = 0;
         while (index < text.Length &&
@@ -283,7 +283,7 @@ static class CssValues
     }
 
     /// <summary>Parses a number in the invariant culture, as CSS always uses.</summary>
-    public static bool TryParseNumber(ReadOnlySpan<char> text, out float value) =>
+    public static bool TryParseNumber(CharSpan text, out float value) =>
         float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out value);
 
     /// <summary>

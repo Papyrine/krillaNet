@@ -1,5 +1,3 @@
-namespace Krilla.Html.Layout;
-
 /// <summary>
 /// The floats placed in one block formatting context, and the queries layout makes of them.
 /// </summary>

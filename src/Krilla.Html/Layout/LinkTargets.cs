@@ -1,5 +1,3 @@
-namespace Krilla.Html.Layout;
-
 /// <summary>
 /// Where each <c>id</c> in the document ended up, so a <c>#fragment</c> link can point at it.
 /// </summary>

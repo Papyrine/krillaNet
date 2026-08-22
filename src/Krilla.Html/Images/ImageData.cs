@@ -1,5 +1,3 @@
-namespace Krilla.Html.Images;
-
 /// <summary>
 /// An encoded image: its bytes, its format, and the intrinsic size read from its header.
 /// </summary>

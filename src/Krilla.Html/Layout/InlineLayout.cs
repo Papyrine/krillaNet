@@ -433,13 +433,18 @@ static class InlineLayout
     /// <summary>
     /// The border-box width a declared <c>width</c> asks for, or null when it is auto.
     /// </summary>
-    static float? Declared(ComputedStyle style, float available) =>
-        style.Width.ResolveOrNull(available) is {} width
-            ? Math.Max(0, width) +
-              style.PaddingLeft.Resolve(available) +
-              style.PaddingRight.Resolve(available) +
-              style.BorderWidthX
-            : null;
+    static float? Declared(ComputedStyle style, float available)
+    {
+        if (style.Width.ResolveOrNull(available) is { } width)
+        {
+            return Math.Max(0, width) +
+                   style.PaddingLeft.Resolve(available) +
+                   style.PaddingRight.Resolve(available) +
+                   style.BorderWidthX;
+        }
+
+        return null;
+    }
 
     /// <summary>
     /// The baseline an <c>inline-block</c> aligns on, measured down from its margin-box top, or
@@ -682,7 +687,12 @@ static class InlineLayout
         }
 
         var gaps = tokens.Count(_ => _.Kind == TokenKind.Space);
-        return gaps == 0 ? 0 : slack / gaps;
+        if (gaps == 0)
+        {
+            return 0;
+        }
+
+        return slack / gaps;
     }
 
     enum TokenKind

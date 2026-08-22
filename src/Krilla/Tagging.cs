@@ -470,11 +470,25 @@ public sealed class Tag :
         return this;
     }
 
-    internal static byte[] Utf8(string? value) =>
-        value is null ? [] : Encoding.UTF8.GetBytes(value);
+    internal static byte[] Utf8(string? value)
+    {
+        if (value is null)
+        {
+            return [];
+        }
 
-    internal static nuint Length(string? value, byte[] utf8) =>
-        value is null ? 0 : (nuint) utf8.Length;
+        return Encoding.UTF8.GetBytes(value);
+    }
+
+    internal static nuint Length(string? value, byte[] utf8)
+    {
+        if (value is null)
+        {
+            return 0;
+        }
+
+        return (nuint) utf8.Length;
+    }
 
     /// <inheritdoc />
     public void Dispose()

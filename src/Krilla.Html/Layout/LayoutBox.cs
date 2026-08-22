@@ -1,5 +1,3 @@
-namespace Krilla.Html.Layout;
-
 /// <summary>A rectangle in CSS pixels, with the origin at the top-left of the page.</summary>
 /// <param name="X">Left edge.</param>
 /// <param name="Y">Top edge.</param>

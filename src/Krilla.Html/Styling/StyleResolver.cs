@@ -258,8 +258,8 @@ static class StyleResolver
     /// <c>sticky</c> resolves to <c>relative</c>: it behaves as one until a scroll position it can
     /// never reach on paper, so that is not an approximation but what it computes to in print.
     /// </remarks>
-    static PositionKind ParsePosition(string? value) =>
-        value?.Trim().ToLowerInvariant() switch
+    static PositionKind ParsePosition(string value) =>
+        value.Trim().ToLowerInvariant() switch
         {
             "relative" or "sticky" => PositionKind.Relative,
             "absolute" => PositionKind.Absolute,
@@ -270,8 +270,8 @@ static class StyleResolver
     /// <summary>
     /// Which side a box floats to. Not inherited.
     /// </summary>
-    static FloatKind ParseFloat(string? value) =>
-        value?.Trim().ToLowerInvariant() switch
+    static FloatKind ParseFloat(string value) =>
+        value.Trim().ToLowerInvariant() switch
         {
             "left" => FloatKind.Left,
             "right" => FloatKind.Right,
@@ -285,8 +285,8 @@ static class StyleResolver
     /// <summary>
     /// Which floats a box must clear. Not inherited.
     /// </summary>
-    static ClearKind ParseClear(string? value) =>
-        value?.Trim().ToLowerInvariant() switch
+    static ClearKind ParseClear(string value) =>
+        value.Trim().ToLowerInvariant() switch
         {
             "left" or "inline-start" => ClearKind.Left,
             "right" or "inline-end" => ClearKind.Right,

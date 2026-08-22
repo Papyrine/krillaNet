@@ -129,7 +129,8 @@ sealed class CharacterMap
         var segCount = segCountX2 / 2;
 
         var endCodes = offset + 14;
-        var startCodes = endCodes + segCountX2 + 2; // +2 skips reservedPad
+        // +2 skips reservedPad
+        var startCodes = endCodes + segCountX2 + 2;
         var idDeltas = startCodes + segCountX2;
         var idRangeOffsets = idDeltas + segCountX2;
 

@@ -1,5 +1,3 @@
-namespace Krilla.Html.Images;
-
 /// <summary>
 /// Resolves <c>src</c> attributes to images, once per source per conversion.
 /// </summary>
@@ -15,20 +13,10 @@ namespace Krilla.Html.Images;
 /// rather than on every layout pass.
 /// </para>
 /// </remarks>
-sealed class ImageStore :
-    IDisposable
+sealed class ImageStore(Func<string, byte[]?> resolver, ImagePolicy local, ImagePolicy web)
+    : IDisposable
 {
     readonly Dictionary<string, ImageData?> cache = new(StringComparer.Ordinal);
-    readonly Func<string, byte[]?> resolver;
-    readonly ImagePolicy local;
-    readonly ImagePolicy web;
-
-    public ImageStore(Func<string, byte[]?> resolver, ImagePolicy local, ImagePolicy web)
-    {
-        this.resolver = resolver;
-        this.local = local;
-        this.web = web;
-    }
 
     /// <summary>
     /// The image for <paramref name="source"/>, or null when policy refuses it, it cannot be
@@ -64,7 +52,11 @@ sealed class ImageStore :
                 image = ImageData.Read(bytes);
             }
         }
-        catch (Exception exception) when (exception is IOException or UnauthorizedAccessException or FormatException)
+        catch (Exception exception) when
+            (exception is
+                 IOException or
+                 UnauthorizedAccessException or
+                 FormatException)
         {
             // A missing or unreadable image leaves a gap on the page rather than failing the whole
             // conversion. A document is usually still worth producing without one of its pictures,
@@ -188,12 +180,20 @@ sealed class ImageStore :
             }
 
             var directory = Path.GetDirectoryName(baseUri.LocalPath);
-            return directory is null ? null : Path.Combine(directory, source);
+            if (directory is null)
+            {
+                return null;
+            }
+
+            return Path.Combine(directory, source);
         }
 
-        return Directory.Exists(baseUrl)
-            ? Path.Combine(baseUrl, source)
-            : null;
+        if (Directory.Exists(baseUrl))
+        {
+            return Path.Combine(baseUrl, source);
+        }
+
+        return null;
     }
 
     /// <inheritdoc />

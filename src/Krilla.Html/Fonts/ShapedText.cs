@@ -1,5 +1,3 @@
-namespace Krilla.Html.Fonts;
-
 /// <summary>
 /// A run of text shaped once, and measurable by sub-range afterwards.
 /// </summary>
