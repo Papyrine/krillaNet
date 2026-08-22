@@ -26,9 +26,9 @@ static class RetryingFile
     /// settles it. The remainder are there for the case where something opened the file to display
     /// it and is about to let go.
     /// </remarks>
-    const int Attempts = 10;
+    const int attempts = 10;
 
-    const int DelayMilliseconds = 100;
+    const int delayMilliseconds = 100;
 
     public static Task DeleteAsync(string path) =>
         Run(path, () => File.Delete(path));
@@ -56,15 +56,15 @@ static class RetryingFile
                           IOException and
                           not DirectoryNotFoundException)
             {
-                if (attempt == Attempts)
+                if (attempt == attempts)
                 {
                     throw new IOException(
-                        $"'{path}' is held open by another process. Gave up after {Attempts} " +
+                        $"'{path}' is held open by another process. Gave up after {attempts} " +
                         "attempts. Close anything displaying the corpus references and run again.",
                         exception);
                 }
 
-                await Task.Delay(DelayMilliseconds);
+                await Task.Delay(delayMilliseconds);
             }
         }
     }
