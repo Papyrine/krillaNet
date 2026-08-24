@@ -100,10 +100,66 @@ static class PdfPainter
         //
         // Tree order settles two of them, since nothing here establishes a stacking context and
         // z-index is not implemented.
-        foreach (var positioned in Hoisted(root))
+        foreach (var context in Hoisted(root))
         {
-            PaintLayer(surface, positioned, slice);
+            PaintContext(surface, context, slice);
         }
+    }
+
+    /// <summary>
+    /// Paints one hoisted box, and anything that establishes a context inside it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The recursion is what keeps a stacking context's contents INSIDE it. A positioned box is
+    /// flattened to the page, which is Appendix E's rule and what <see cref="Hoisted"/> does; a
+    /// box establishing a context is not, because everything under it has to be composited as one
+    /// group before that group is faded. Flattening a positioned descendant out of a half-opaque
+    /// parent would paint it at full strength beside its faded siblings.
+    /// </para>
+    /// <para>
+    /// The fade wraps both, so a positioned descendant of a faded box is inside the group.
+    /// </para>
+    /// </remarks>
+    static void PaintContext(Surface surface, LayoutBox box, PageSlice page)
+    {
+        using var _ = Fade(surface, box);
+
+        PaintLayer(surface, box, page);
+
+        // Only a stacking context has anything left to collect. A positioned box's own positioned
+        // descendants were flattened to the page by the walk that found this one, so recursing
+        // here would paint every one of them a second time.
+        if (!box.Style.CreatesStackingContext)
+        {
+            return;
+        }
+
+        foreach (var inner in Hoisted(box))
+        {
+            PaintContext(surface, inner, page);
+        }
+    }
+
+    /// <summary>
+    /// The transparency group an <c>opacity</c> box paints into, or nothing.
+    /// </summary>
+    /// <remarks>
+    /// Isolated as well as faded. Without the isolation the alpha is applied to each drawing
+    /// operation as it goes down rather than to the finished group, so two overlapping fills of
+    /// the same colour composite to a darker shade in the overlap — which is exactly the
+    /// difference between <c>opacity</c> and an alpha on the colour, and what
+    /// <c>block/opacity</c>'s second row measures.
+    /// </remarks>
+    static LayerScope Fade(Surface surface, LayoutBox box)
+    {
+        if (box.Style.Opacity >= 1)
+        {
+            return default;
+        }
+
+        var isolated = surface.PushIsolated();
+        return new(surface.PushOpacity(box.Style.Opacity), isolated);
     }
 
     /// <summary>
@@ -119,9 +175,16 @@ static class PdfPainter
     {
         foreach (var child in box.Children)
         {
-            if (child.Style.IsPositioned)
+            if (child.Style.IsPositioned || child.Style.CreatesStackingContext)
             {
                 yield return child;
+
+                // Not descended into when it establishes a context: whatever is positioned inside
+                // it belongs to that context and is collected by the walk over it instead.
+                if (child.Style.CreatesStackingContext)
+                {
+                    continue;
+                }
             }
 
             foreach (var positioned in Hoisted(child))
@@ -234,6 +297,7 @@ static class PdfPainter
 
         foreach (var floated in Floats(root))
         {
+            using var fade = Fade(surface, floated);
             PaintLayer(surface, floated, page);
         }
 
@@ -298,7 +362,7 @@ static class PdfPainter
     /// padding and clips at the inner edge of its border.
     /// </para>
     /// </remarks>
-    static ClipScope Clip(Surface surface, LayoutBox box)
+    static LayerScope Clip(Surface surface, LayoutBox box)
     {
         var style = box.Style;
 
@@ -323,18 +387,25 @@ static class PdfPainter
     }
 
     /// <summary>
-    /// A clip that may not be there, so a caller can <c>using</c> it unconditionally.
+    /// Up to two graphics layers that may not be there, so a caller can <c>using</c> them
+    /// unconditionally.
     /// </summary>
     /// <remarks>
     /// <see cref="Layer"/> is a struct, so a nullable one cannot be used in a <c>using</c>
     /// directly. Wrapping it beats the alternative of branching around each phase's whole walk,
     /// which would mean writing every recursion twice.
+    ///
+    /// Two of them because a fade is an isolated group AND an opacity, pushed in that order and
+    /// released in the other.
     /// </remarks>
-    readonly struct ClipScope(Layer? layer) :
+    readonly struct LayerScope(Layer? inner, Layer? outer = null) :
         IDisposable
     {
-        public void Dispose() =>
-            layer?.Dispose();
+        public void Dispose()
+        {
+            inner?.Dispose();
+            outer?.Dispose();
+        }
     }
 
     /// <summary>
@@ -404,6 +475,7 @@ static class PdfPainter
             // collected by `Hoisted` into the page's own list.
             foreach (var atomic in line.Boxes)
             {
+                using var fade = Fade(surface, atomic);
                 PaintLayer(surface, atomic, page);
             }
         }
@@ -423,7 +495,7 @@ static class PdfPainter
     /// about NON-positioned descendants. <see cref="Hoisted"/> collects it instead.
     /// </remarks>
     static IEnumerable<LayoutBox> InFlow(LayoutBox box) =>
-        box.Children.Where(_ => !_.Style.IsPositioned);
+        box.Children.Where(_ => !_.Style.IsPositioned && !_.Style.CreatesStackingContext);
 
     /// <summary>
     /// Every float in a layer, in tree order, gathered across the whole in-flow subtree rather

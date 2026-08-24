@@ -690,6 +690,27 @@ sealed record ComputedStyle
     /// <summary>Whether this box and its descendants are painted.</summary>
     public VisibilityKind Visibility { get; init; } = VisibilityKind.Visible;
 
+    /// <summary>How opaque this box and its descendants are, from 0 to 1.</summary>
+    /// <remarks>
+    /// Not inherited, and not a fill alpha. The box and everything under it are drawn into a group
+    /// and the GROUP is made transparent, so two overlapping children of a half-opaque parent show
+    /// the same shade in the overlap as anywhere else. Fading each fill on its own would darken it,
+    /// which is the whole reason this needs a stacking context rather than a colour with an alpha.
+    /// </remarks>
+    public float Opacity { get; init; } = 1f;
+
+    /// <summary>
+    /// Whether this box establishes a stacking context of its own.
+    /// </summary>
+    /// <remarks>
+    /// Only <c>opacity</c> answers here, being the only property this engine reads that does it.
+    /// The consequence that matters is paint ORDER: such a box leaves its parent's phases and
+    /// paints with the positioned content, after every in-flow background and line on the page —
+    /// so a faded box written first covers an opaque sibling written after it, which is measurable
+    /// and is what <c>block/opacity</c>'s last row measures.
+    /// </remarks>
+    public bool CreatesStackingContext => Opacity < 1;
+
     /// <summary>How this box's text is cased before shaping.</summary>
     public TextTransformKind TextTransform { get; init; } = TextTransformKind.None;
 

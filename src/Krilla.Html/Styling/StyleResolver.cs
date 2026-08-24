@@ -119,6 +119,7 @@ static class StyleResolver
             BreakAfter = ParseBreak(declaration, "break-after"),
             BreakInside = ParseBreak(declaration, "break-inside"),
             Visibility = ParseVisibility(declaration.GetPropertyValue("visibility"), parent.Visibility),
+            Opacity = ParseOpacity(declaration.GetPropertyValue("opacity")),
             TextTransform = ParseTextTransform(
                 declaration.GetPropertyValue("text-transform"),
                 parent.TextTransform),
@@ -462,6 +463,34 @@ static class StyleResolver
         }
 
         return CssValues.ParseLength(value, fontSize, rootFontSize, CssLength.Zero).Resolve(0);
+    }
+
+    /// <summary>
+    /// How opaque a box is, clamped to 0..1. Not inherited.
+    /// </summary>
+    /// <remarks>
+    /// A percentage is accepted as well as a number, which CSS added later and which authoring
+    /// tools emit. Out-of-range values clamp rather than being rejected, as the specification
+    /// requires — <c>opacity: 2</c> is fully opaque and <c>opacity: -1</c> is invisible.
+    /// </remarks>
+    static float ParseOpacity(string value)
+    {
+        var text = value.Trim();
+
+        if (text.Length == 0)
+        {
+            return 1f;
+        }
+
+        var percent = text.EndsWith('%');
+        var number = percent ? text[..^1] : text;
+
+        if (!float.TryParse(number, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsed))
+        {
+            return 1f;
+        }
+
+        return Math.Clamp(percent ? parsed / 100f : parsed, 0f, 1f);
     }
 
     /// <summary>

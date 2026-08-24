@@ -13,12 +13,6 @@
   },
   {
     "Element": "div",
-    "Name": "opacity",
-    "Value": "0.5",
-    "Reason": "painted opaque"
-  },
-  {
-    "Element": "div",
     "Name": "text-transform",
     "Value": "full-width",
     "Reason": "the text is drawn as written"

@@ -1,0 +1,23 @@
+div { font-size: 16px; line-height: 24px; }
+
+#single { width: 200px; background-color: #c04040; color: #ffffff; opacity: 0.5; }
+
+/* Two tiles of the same colour overlapping inside one faded parent. If the group composites as a
+   unit the overlap is the same shade as the rest; if each box is faded on its own it is darker.
+   That is the whole reason opacity needs a stacking context rather than a fill alpha. */
+#group { opacity: 0.5; }
+.tile { width: 120px; height: 40px; background-color: #204060; }
+.b { margin-top: -20px; margin-left: 60px; }
+
+/* Nesting multiplies: half of a half. */
+#nested { opacity: 0.5; width: 200px; }
+#inner { opacity: 0.5; background-color: #204060; color: #ffffff; }
+
+/* Invisible and still occupying its line. */
+#zero { width: 200px; background-color: #40a060; opacity: 0; }
+
+/* Paint order. `#faded` is written first, so document order would put the opaque green over it —
+   but opacity below 1 makes a box paint with the positioned content, after every in-flow
+   background and line on the page. */
+#faded { width: 160px; height: 40px; background-color: #c04040; opacity: 0.5; }
+#opaque { width: 160px; height: 40px; margin-top: -20px; margin-left: 40px; background-color: #40a060; }

@@ -165,7 +165,6 @@ public class DiagnosticTests
                 """
                 <div style="border: 2px groove red">a</div>
                 <div style="border-radius: 4px; border: 2px dashed red">b</div>
-                <div style="opacity: 0.5">c</div>
                 <div style="text-transform: full-width">f</div>
                 <div style="visibility: collapse">g</div>
                 <div style="background-image: linear-gradient(red, blue)">h</div>
@@ -272,15 +271,16 @@ public class DiagnosticTests
     [Test]
     public async Task ADiagnosticReadsAsASentence()
     {
-        var reports = Collect("<div style=\"opacity: 0.5\">a</div>");
+        var reports = Collect("<div style=\"transform: rotate(5deg)\">a</div>");
 
         var report = reports.Single();
 
         await Assert.That(report.Kind).IsEqualTo(HtmlDiagnosticKind.UnsupportedProperty);
         await Assert.That(report.Element).IsEqualTo("div");
-        await Assert.That(report.Name).IsEqualTo("opacity");
-        await Assert.That(report.Value).IsEqualTo("0.5");
-        await Assert.That(report.ToString()).IsEqualTo("<div> opacity: 0.5 — painted opaque");
+        await Assert.That(report.Name).IsEqualTo("transform");
+        await Assert.That(report.Value).IsEqualTo("rotate(5deg)");
+        await Assert.That(report.ToString())
+            .IsEqualTo("<div> transform: rotate(5deg) — painted untransformed");
     }
 
     /// <summary>
@@ -314,6 +314,7 @@ public class DiagnosticTests
             <p>an <sup>exponent</sup> and a <sub>subscript</sub></p>
             <div style="border: 3px dotted red; border-radius: 0">dotted</div>
             <div style="border-radius: 8px; background: silver">rounded</div>
+            <div style="opacity: 0.4">faded</div>
             """);
 
         await Assert.That(reports).IsEmpty();

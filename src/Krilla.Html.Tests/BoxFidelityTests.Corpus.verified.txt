@@ -18,6 +18,7 @@ block/max_width                  matched  3  offset    0.00  size    0.00  diffe
 block/min_height                 matched  9  offset    0.00  size    0.00  differing  0  unmatched 0
 block/min_width                  matched  8  offset    0.00  size    0.00  differing  0  unmatched 0
 block/nested_blocks              matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
+block/opacity                    matched 12  offset    0.00  size    0.00  differing  0  unmatched 0
 block/overflow_hidden            matched  8  offset    0.00  size    0.00  differing  0  unmatched 0
 block/overflow_paint             matched  8  offset    0.00  size    0.00  differing  0  unmatched 0
 block/percentage_width           matched  5  offset    0.00  size    0.00  differing  0  unmatched 0

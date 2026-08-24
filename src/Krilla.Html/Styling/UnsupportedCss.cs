@@ -32,7 +32,6 @@ static class UnsupportedCss
         ("border-collapse", "separate", "laid out with the separated border model"),
         ("list-style-position", "outside", "the marker is drawn outside the item"),
         ("list-style-image", "none", "the counter style is drawn instead"),
-        ("opacity", "1", "painted opaque"),
         ("transform", "none", "painted untransformed"),
         ("background-image", "none", "not painted"),
         ("font-variant", "normal", "the regular face is used"),
