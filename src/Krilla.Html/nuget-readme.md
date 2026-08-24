@@ -28,7 +28,11 @@ images, links, list markers, and text shaping with kerning and ligatures.
 Also `calc()` and the viewport units, the inline box model, raster background images with the five
 properties that place them, soft hyphens, `overflow-wrap` and `word-break`, tabs under `pre`, text
 decorations with their colour and style, `opacity`, 2D transforms, gradients, `border-radius`, both
-table border models, and forced page breaks.
+table border models, forced page breaks, `@page` rules, print media queries, and generated content
+with CSS counters.
+
+The PDF gets a bookmark tree from the document's headings, a named destination for every `id`, and
+its title and language from the document when the caller has not set them.
 
 Images resolve from `data:` URIs and files relative to `BaseUrl` — including a `url()` in a
 stylesheet, which goes through the same resolver and the same policies. Nothing is fetched over the

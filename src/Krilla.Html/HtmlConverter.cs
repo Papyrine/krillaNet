@@ -56,7 +56,7 @@ public static class HtmlConverter
 
         using var pdf = new KrillaDocument();
 
-        if (options.Metadata is {} metadata)
+        if (Metadata(document, options) is {} metadata)
         {
             pdf.SetMetadata(metadata);
         }
@@ -73,6 +73,20 @@ public static class HtmlConverter
         // After pagination, because a fragment names an element while a PDF internal link names a
         // page and a point on it — and which page an element landed on is what pagination decides.
         var links = LinkTargets.Build(root, tops, content, scale);
+
+        // Both of these are addressed by page and point, so both wait for pagination too.
+        if (DocumentOutline.Build(root, tops, content, scale, options.OutlineDepth) is {Count: > 0} outline)
+        {
+            pdf.SetOutline(outline);
+        }
+
+        if (options.NamedDestinations)
+        {
+            foreach (var (name, page, target) in links.All())
+            {
+                pdf.RegisterDestination(name, page, target);
+            }
+        }
 
         for (var index = 0; index < tops.Count; index++)
         {
@@ -98,6 +112,71 @@ public static class HtmlConverter
 
         return pdf.Finish();
     }
+
+    /// <summary>
+    /// The metadata to write, or null when there is none.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The document's own <c>&lt;title&gt;</c> and <c>lang</c> fill what the caller left unset rather
+    /// than overriding it: a caller naming a title means it, and a document that names one should not
+    /// be published with no title just because nobody passed options. The language matters more than
+    /// it looks — it is what lets a reader pronounce the text, and a PDF without it is inaccessible
+    /// in a way nothing on the page shows.
+    /// </para>
+    /// <para>
+    /// Null when there is nothing at all, so a document with neither produces the same bytes it
+    /// produced before this existed. Worth the branch: writing an empty metadata dictionary would
+    /// change every PDF this library has ever emitted, for nothing.
+    /// </para>
+    /// <para>
+    /// A COPY, because the caller's object is often reused across conversions and one document's
+    /// title leaking into the next would be a memorable bug — the same reason
+    /// <see cref="HtmlOptions.WithPage"/> copies.
+    /// </para>
+    /// </remarks>
+    static DocumentMetadata? Metadata(IDocument document, HtmlOptions options)
+    {
+        var title = Text(document.Title);
+        var language = Text(document.DocumentElement?.GetAttribute("lang"));
+
+        if (options.Metadata is not {} given)
+        {
+            return title is null && language is null
+                ? null
+                : new()
+                {
+                    Title = title,
+                    Language = language
+                };
+        }
+
+        return new()
+        {
+            Title = given.Title ?? title,
+            Language = given.Language ?? language,
+            Description = given.Description,
+            Creator = given.Creator,
+            Producer = given.Producer,
+            DocumentId = given.DocumentId,
+            Authors = given.Authors,
+            Keywords = given.Keywords,
+            CreationDate = given.CreationDate,
+            TextDirection = given.TextDirection,
+            PageLayout = given.PageLayout
+        };
+    }
+
+    /// <summary>
+    /// A trimmed string, or null when there was nothing in it.
+    /// </summary>
+    /// <remarks>
+    /// AngleSharp gives an empty string rather than null for an absent <c>&lt;title&gt;</c> and for
+    /// an absent attribute, and an empty title in a PDF is worse than none: a reader shows the file
+    /// name when the title is absent and a blank when it is present and empty.
+    /// </remarks>
+    static string? Text(string? value) =>
+        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
 
     /// <summary>
     /// Folds a document's <c>@page</c> rules into the options, or returns them unchanged.

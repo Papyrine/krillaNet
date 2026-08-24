@@ -64,6 +64,20 @@ rather than splitting it. The modern `break-*` spellings are read as well. What 
 `avoid` at a box edge, `orphans` and `widows`, and the side a `left`/`right` value asks its page to
 land on — all three are reported through `OnDiagnostic`.
 
+A document's `@page` rules decide the paper — size, orientation and margins — unless
+`HtmlOptions.HonourPageRules` says otherwise, and media queries resolve against **print**, so a
+`@media print` block is the one that applies. `orphans` and `widows` are implemented and off by
+default, because Chromium does not implement them and this converter is measured against Chromium;
+`HtmlOptions.HonourOrphansAndWidows` is the choice between typographic quality and browser fidelity.
+
+Generated content works: `::before` and `::after` with strings, `attr()`, `counter()`, `counters()`,
+`url()` and the quote keywords, along with `counter-reset`, `counter-increment` and `quotes`.
+
+The PDF gets structure the page cannot show. Headings become a bookmark tree, nested by level and
+bounded by `HtmlOptions.OutlineDepth`; every `id` becomes a named destination, so
+`report.pdf#introduction` opens at that heading; and the document's `<title>` and `lang` fill the
+PDF's title and language when the caller has not set them.
+
 Images resolve from `data:` URIs and from files relative to `BaseUrl`. Nothing is fetched over the
 network by default — converting an untrusted document would otherwise issue requests to whatever
 hosts it names. Set `HtmlOptions.ImageResolver` to take that decision explicitly, and the two

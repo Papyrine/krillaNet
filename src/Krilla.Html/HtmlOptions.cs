@@ -145,6 +145,37 @@ public sealed class HtmlOptions
     /// </remarks>
     public bool HonourOrphansAndWidows { get; set; }
 
+    /// <summary>
+    /// How deep a bookmark tree to build from the document's headings. Six by default; zero
+    /// produces none.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// On by default, unlike the two pagination switches, and for a reason that separates it from
+    /// them: an outline adds nothing to the page and takes nothing away, so nothing it does can
+    /// disagree with the browser this converter is measured against. A browser printing to PDF
+    /// produces no outline at all, and a long report without bookmarks is markedly harder to read
+    /// than one with them.
+    /// </para>
+    /// <para>
+    /// Levels rather than nesting depth, so <c>3</c> means <c>h1</c> to <c>h3</c> however the
+    /// document nests them.
+    /// </para>
+    /// </remarks>
+    public int OutlineDepth { get; set; } = 6;
+
+    /// <summary>
+    /// Whether every element with an <c>id</c> becomes a named destination in the PDF.
+    /// </summary>
+    /// <remarks>
+    /// On by default. A named destination is what lets a URL of the form
+    /// <c>report.pdf#introduction</c> open at that heading, so it carries the document's own
+    /// fragment identifiers through to the PDF — the same ids a <c>#fragment</c> link inside the
+    /// document already resolves against. Costs one dictionary entry per id and changes nothing on
+    /// the page.
+    /// </remarks>
+    public bool NamedDestinations { get; set; } = true;
+
     /// <summary>Metadata written into the PDF.</summary>
     public DocumentMetadata? Metadata { get; set; }
 
@@ -211,6 +242,8 @@ public sealed class HtmlOptions
             RootFontSize = RootFontSize,
             HonourPageRules = HonourPageRules,
             HonourOrphansAndWidows = HonourOrphansAndWidows,
+            OutlineDepth = OutlineDepth,
+            NamedDestinations = NamedDestinations,
             Metadata = Metadata,
             OnDiagnostic = OnDiagnostic
         };

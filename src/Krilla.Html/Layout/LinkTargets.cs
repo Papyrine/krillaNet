@@ -61,6 +61,17 @@ sealed class LinkTargets
     }
 
     /// <summary>
+    /// Every id in the document with the page and point it landed on.
+    /// </summary>
+    /// <remarks>
+    /// Read to register PDF named destinations, which are the same mapping viewed from outside the
+    /// document: a <c>#fragment</c> link resolves one internally, and a named destination lets a URL
+    /// resolve the same one from another file.
+    /// </remarks>
+    public IEnumerable<(string Name, int Page, Point Target)> All() =>
+        targets.Select(_ => (_.Key, _.Value.Page, _.Value.Target));
+
+    /// <summary>
     /// Resolves a fragment, or returns false when nothing in the document carries that id.
     /// </summary>
     /// <remarks>
