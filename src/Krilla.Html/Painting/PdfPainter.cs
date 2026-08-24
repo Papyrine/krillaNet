@@ -818,7 +818,10 @@ static class PdfPainter
     static void PaintBackground(Surface surface, LayoutBox box)
     {
         var style = box.Style;
-        var rect = box.BorderBox;
+
+        // `background-clip` decides where the whole background may be painted, and defaults to the
+        // border box — which is why the strip under a border is painted at all.
+        var rect = Area(box, style.BackgroundClip);
 
         if (rect.Width <= 0 || rect.Height <= 0)
         {
@@ -839,8 +842,13 @@ static class PdfPainter
             // is also the only time the browser's tiling of the image becomes visible.
             Fill(GradientPaint.Create(
                 gradient,
-                rect.Deflate(style.BorderTop, style.BorderRight, style.BorderBottom, style.BorderLeft),
+                Area(box, style.BackgroundOrigin),
                 tiles: style.HasBorder));
+        }
+
+        if (style.BackgroundPicture is {} picture)
+        {
+            PaintBackgroundImage(surface, style, rect, Area(box, style.BackgroundOrigin), picture);
         }
 
         void Fill(Krilla.Paint paint)
@@ -862,6 +870,163 @@ static class PdfPainter
             surface.SetFill(owned).DrawPath(path);
         }
     }
+
+    /// <summary>
+    /// Tiles a raster background image across a box.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Two rectangles are in play and they are not the same one. The image is POSITIONED against
+    /// the padding box and PAINTED out to the border box, which is what makes the strip under a
+    /// border carry the tail of the previous tile rather than the start of the first — the same
+    /// asymmetry a gradient background has, reached from the other direction.
+    /// </para>
+    /// <para>
+    /// A percentage position aligns that fraction of the IMAGE with the same fraction of the box,
+    /// so <c>25%</c> on a 64px image in a 200px box puts the tile at 34px rather than at 50. That
+    /// is measured, and it is why the position cannot go through the ordinary percentage path: it
+    /// resolves against the room left over rather than against the box.
+    /// </para>
+    /// <para>
+    /// The tile count is bounded. A background-size that resolves to a fraction of a pixel would
+    /// otherwise ask for hundreds of thousands of draws, and a page that takes a minute to write is
+    /// a worse answer than one whose pathological background stops early.
+    /// </para>
+    /// </remarks>
+    static void PaintBackgroundImage(
+        Surface surface,
+        ComputedStyle style,
+        Rect painted,
+        Rect origin,
+        ImageData image)
+    {
+        if (image.Width <= 0 || image.Height <= 0)
+        {
+            return;
+        }
+
+        var (width, height) = TileSize(style, origin, image);
+
+        if (width <= 0 || height <= 0)
+        {
+            return;
+        }
+
+        // Snapped, because the browser snaps: `75%` of the 38px left over is 28.5, and Chrome
+        // starts the tile on row 29 rather than straddling two rows at half coverage. The same
+        // construction argument the inline background fill records.
+        var x = Snap(Place(style.BackgroundPositionX, origin.Width, width) + origin.X);
+        var y = Snap(Place(style.BackgroundPositionY, origin.Height, height) + origin.Y);
+
+        // Back up to the last tile that still reaches into the painted area, so a repeated
+        // background is continuous across the border rather than starting at the positioned tile.
+        if (style.BackgroundRepeatX)
+        {
+            x -= MathF.Ceiling((x - painted.X) / width) * width;
+        }
+
+        if (style.BackgroundRepeatY)
+        {
+            y -= MathF.Ceiling((y - painted.Y) / height) * height;
+        }
+
+        var columns = style.BackgroundRepeatX
+            ? (int) MathF.Ceiling((painted.Right - x) / width)
+            : 1;
+
+        var rows = style.BackgroundRepeatY
+            ? (int) MathF.Ceiling((painted.Bottom - y) / height)
+            : 1;
+
+        const int most = 512;
+
+        using var clipPath = PdfPath.Rectangle(
+            Rectangle.FromSize(painted.X, painted.Y, painted.Width, painted.Height));
+        using var clip = surface.PushClip(clipPath);
+
+        for (var row = 0; row < Math.Min(rows, most); row++)
+        {
+            for (var column = 0; column < Math.Min(columns, most); column++)
+            {
+                PaintImage(
+                    surface,
+                    image,
+                    new(x + column * width, y + row * height, width, height));
+            }
+        }
+    }
+
+    /// <summary>One of a box's three nested rectangles.</summary>
+    static Rect Area(LayoutBox box, BoxArea area)
+    {
+        var style = box.Style;
+
+        return area switch
+        {
+            BoxArea.Border => box.BorderBox,
+            BoxArea.Padding => box.BorderBox.Deflate(
+                style.BorderTop,
+                style.BorderRight,
+                style.BorderBottom,
+                style.BorderLeft),
+            _ => box.ContentBox
+        };
+    }
+
+    /// <summary>
+    /// How large one tile is, under <c>background-size</c>.
+    /// </summary>
+    /// <remarks>
+    /// <c>auto</c> on one axis of an explicit pair keeps the image's proportions against whatever
+    /// the other axis resolved to, which is the same rule a replaced element's auto dimension
+    /// follows.
+    /// </remarks>
+    static (float Width, float Height) TileSize(ComputedStyle style, Rect origin, ImageData image)
+    {
+        var ratio = (float) image.Width / image.Height;
+
+        switch (style.BackgroundSize)
+        {
+            case BackgroundSizing.Cover:
+            case BackgroundSizing.Contain:
+            {
+                var horizontal = origin.Width / image.Width;
+                var vertical = origin.Height / image.Height;
+
+                var scale = style.BackgroundSize == BackgroundSizing.Cover
+                    ? MathF.Max(horizontal, vertical)
+                    : MathF.Min(horizontal, vertical);
+
+                return (image.Width * scale, image.Height * scale);
+            }
+
+            case BackgroundSizing.Explicit:
+            {
+                var width = style.BackgroundSizeX.ResolveOrNull(origin.Width);
+                var height = style.BackgroundSizeY.ResolveOrNull(origin.Height);
+
+                return (
+                    width ?? (height is {} h ? h * ratio : image.Width),
+                    height ?? (width is {} w ? w / ratio : image.Height));
+            }
+
+            default:
+                return (image.Width, image.Height);
+        }
+    }
+
+    /// <summary>
+    /// Where one axis of the first tile starts, relative to the positioning area.
+    /// </summary>
+    /// <remarks>
+    /// A percentage resolves against the SLACK — the area less the tile — which is what makes
+    /// <c>50%</c> centre the image and <c>100%</c> put its far edge on the area's far edge. An
+    /// absolute length is an offset from the near edge, as it reads.
+    /// </remarks>
+    static float Place(CssLength position, float area, float tile) =>
+        position.Kind == LengthKind.Percent
+            ? (area - tile) * position.Value / 100f
+            : position.Resolve(area);
 
     /// <summary>
     /// Paints the four border edges, mitred at the corners.

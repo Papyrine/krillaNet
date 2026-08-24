@@ -1,0 +1,47 @@
+div {
+  width: 200px; height: 44px; margin-bottom: 4px;
+  background-image: url("../../image/swatch.png");
+  background-color: #dde6f2;
+}
+
+/* The default: repeated on both axes, from the top left. */
+#tiled { }
+
+#once { background-repeat: no-repeat; }
+#across { background-repeat: repeat-x; }
+#down { background-repeat: repeat-y; }
+
+/* A length pair, which offsets the first tile. */
+#placed { background-repeat: no-repeat; background-position: 30px 12px; }
+
+/* A percentage pair, which aligns that fraction OF THE IMAGE with the same fraction of the box
+   rather than offsetting by a fraction of the box. */
+#proportional { background-repeat: no-repeat; background-position: 25% 75%; }
+
+/* The keywords, which are the same rule at 50%. */
+#centred { background-repeat: no-repeat; background-position: center; }
+
+#cover { background-repeat: no-repeat; background-size: cover; }
+#contain { background-repeat: no-repeat; background-size: contain; }
+#sized { background-repeat: no-repeat; background-size: 96px 24px; }
+
+/* The colour is a layer under the image, not an alternative to it. */
+#layered { background-repeat: no-repeat; background-color: #c04020; }
+
+/* The painting area is the border box and the positioning area the PADDING box, so a border
+   carries the tail of the previous tile and the first tile starts inside it. */
+#padded {
+  border: 8px solid #204080; padding: 10px;
+  background-position: 0 0;
+}
+
+/* The clip decides where the whole background may be painted; the origin decides where the image
+   is positioned from. They are independent, so all four rows carry the same border and padding. */
+#cliptopadding, #cliptocontent, #fromborder, #fromcontent {
+  border: 8px solid #204080; padding: 10px; background-repeat: no-repeat;
+}
+
+#cliptopadding { background-clip: padding-box; }
+#cliptocontent { background-clip: content-box; }
+#fromborder { background-origin: border-box; }
+#fromcontent { background-origin: content-box; }

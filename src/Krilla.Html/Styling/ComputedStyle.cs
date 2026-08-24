@@ -259,6 +259,35 @@ enum WordBreaking
     Always
 }
 
+/// <summary>One of the three nested rectangles a box is made of.</summary>
+enum BoxArea
+{
+    /// <summary>Out to the outside of the border.</summary>
+    Border,
+
+    /// <summary>Inside the border, including the padding.</summary>
+    Padding,
+
+    /// <summary>Inside the padding.</summary>
+    Content
+}
+
+/// <summary>How a background image is scaled before it is tiled.</summary>
+enum BackgroundSizing
+{
+    /// <summary>Its own pixel dimensions.</summary>
+    Auto,
+
+    /// <summary>Scaled to cover the positioning area, keeping its proportions, and clipped.</summary>
+    Cover,
+
+    /// <summary>Scaled to fit inside it, keeping its proportions.</summary>
+    Contain,
+
+    /// <summary>Scaled to the declared lengths.</summary>
+    Explicit
+}
+
 /// <summary>How white space and line breaking are handled.</summary>
 enum WhiteSpaceKind
 {
@@ -592,6 +621,66 @@ sealed record ComputedStyle
 
     /// <summary>When a line may break inside a word. Inherited, as both source properties are.</summary>
     public WordBreaking WordBreaking { get; init; }
+
+    /// <summary>
+    /// A raster image painted as the background, or null.
+    /// </summary>
+    /// <remarks>
+    /// Resolved through the same <see cref="ImageStore"/> an <c>&lt;img&gt;</c> goes through, so a
+    /// <c>url()</c> in a stylesheet is bound by <see cref="HtmlOptions.LocalImages"/> and
+    /// <see cref="HtmlOptions.WebImages"/> exactly as one in the markup is. It would be a poor
+    /// place to leave a hole: a stylesheet is the part of a document a reader is least likely to
+    /// have read.
+    /// </remarks>
+    public ImageData? BackgroundPicture { get; init; }
+
+    /// <summary>
+    /// The area the whole background is painted within.
+    /// </summary>
+    /// <remarks>
+    /// The border box by default, which is why the strip under a border is painted at all — and
+    /// why it shows through a dashed or translucent one.
+    /// </remarks>
+    public BoxArea BackgroundClip { get; init; } = BoxArea.Border;
+
+    /// <summary>
+    /// The area a background image is positioned against.
+    /// </summary>
+    /// <remarks>
+    /// The PADDING box by default, which is not the same as the clip and is the reason a repeated
+    /// background under a border shows the tail of the previous tile rather than the head of the
+    /// first.
+    /// </remarks>
+    public BoxArea BackgroundOrigin { get; init; } = BoxArea.Padding;
+
+    /// <summary>Whether the background image repeats horizontally.</summary>
+    public bool BackgroundRepeatX { get; init; } = true;
+
+    /// <summary>Whether it repeats vertically.</summary>
+    public bool BackgroundRepeatY { get; init; } = true;
+
+    /// <summary>
+    /// Where the first tile sits horizontally within the positioning area.
+    /// </summary>
+    /// <remarks>
+    /// A percentage here does NOT mean a fraction of the box. It aligns that fraction of the IMAGE
+    /// with the same fraction of the box, so <c>25%</c> places the tile a quarter of the way
+    /// through the room left over — measured, and the reason this cannot be resolved by the
+    /// ordinary percentage path.
+    /// </remarks>
+    public CssLength BackgroundPositionX { get; init; } = CssLength.Zero;
+
+    /// <summary>Where the first tile sits vertically.</summary>
+    public CssLength BackgroundPositionY { get; init; } = CssLength.Zero;
+
+    /// <summary>How the background image is scaled.</summary>
+    public BackgroundSizing BackgroundSize { get; init; }
+
+    /// <summary>The declared width under <see cref="BackgroundSizing.Explicit"/>.</summary>
+    public CssLength BackgroundSizeX { get; init; } = CssLength.Auto;
+
+    /// <summary>The declared height under <see cref="BackgroundSizing.Explicit"/>.</summary>
+    public CssLength BackgroundSizeY { get; init; } = CssLength.Auto;
 
     /// <summary>Which side of the table the caption sits on.</summary>
     public CaptionSideKind CaptionSide { get; init; }

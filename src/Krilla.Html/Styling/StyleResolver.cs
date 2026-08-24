@@ -109,6 +109,16 @@ static class StyleResolver
                 declaration.GetPropertyValue("background-image"),
                 fontSize,
                 root),
+            BackgroundPicture = Picture(declaration, context),
+            BackgroundClip = Area(declaration, "background-clip", BoxArea.Border),
+            BackgroundOrigin = Area(declaration, "background-origin", BoxArea.Padding),
+            BackgroundRepeatX = Repeats(declaration, horizontal: true),
+            BackgroundRepeatY = Repeats(declaration, horizontal: false),
+            BackgroundPositionX = Position(declaration, fontSize, root, horizontal: true),
+            BackgroundPositionY = Position(declaration, fontSize, root, horizontal: false),
+            BackgroundSize = Sizing(declaration),
+            BackgroundSizeX = SizeComponent(declaration, fontSize, root, first: true),
+            BackgroundSizeY = SizeComponent(declaration, fontSize, root, first: false),
             Color = color,
             FontFamilies = families,
             FontSize = fontSize,
@@ -453,6 +463,131 @@ static class StyleResolver
             : horizontal;
 
         return (horizontal, vertical);
+    }
+
+    /// <summary>
+    /// The raster image a <c>background-image: url(...)</c> names, or null.
+    /// </summary>
+    /// <remarks>
+    /// Routed through the document's <see cref="ImageStore"/> rather than loaded here, which is
+    /// what puts a stylesheet URL under the same policy an <c>&lt;img src&gt;</c> is under and what
+    /// makes two elements naming one file share a decode. A source that is refused or does not
+    /// resolve comes back null and is reported by <see cref="UnsupportedCss"/> like any other
+    /// background this engine cannot paint.
+    /// </remarks>
+    static ImageData? Picture(ICssStyleDeclaration declaration, DocumentContext context)
+    {
+        var value = declaration.GetPropertyValue("background-image").AsSpan().Trim();
+
+        if (!value.StartsWith("url(", StringComparison.OrdinalIgnoreCase) || !value.EndsWith(")"))
+        {
+            return null;
+        }
+
+        var source = value[4..^1].Trim();
+
+        if (source.Length >= 2 &&
+            ((source[0] == '"' && source[^1] == '"') || (source[0] == '\'' && source[^1] == '\'')))
+        {
+            source = source[1..^1];
+        }
+
+        return source.IsEmpty ? null : context.Images.Resolve(source.ToString(), out _);
+    }
+
+    /// <summary>Which of a box's three rectangles a background property names.</summary>
+    static BoxArea Area(ICssStyleDeclaration declaration, string property, BoxArea fallback) =>
+        declaration.GetPropertyValue(property).Trim().ToLowerInvariant() switch
+        {
+            "border-box" => BoxArea.Border,
+            "padding-box" => BoxArea.Padding,
+            "content-box" => BoxArea.Content,
+            _ => fallback
+        };
+
+    /// <summary>Whether the background repeats along one axis.</summary>
+    /// <remarks>
+    /// The initial value is <c>repeat</c> on both, which is why a background image reaches past the
+    /// element that declared it far more often than authors expect.
+    /// </remarks>
+    static bool Repeats(ICssStyleDeclaration declaration, bool horizontal) =>
+        declaration.GetPropertyValue("background-repeat").Trim().ToLowerInvariant() switch
+        {
+            "no-repeat" => false,
+            "repeat-x" => horizontal,
+            "repeat-y" => !horizontal,
+            _ => true
+        };
+
+    /// <summary>
+    /// One component of <c>background-position</c>, with the keywords folded onto the percentages
+    /// they stand for.
+    /// </summary>
+    /// <remarks>
+    /// <c>center</c> is <c>50%</c> and the edge keywords are <c>0%</c> and <c>100%</c>, which is
+    /// exact rather than approximate: a percentage aligns that fraction of the image with the same
+    /// fraction of the box, so <c>100%</c> puts the image's right edge on the box's right edge and
+    /// is what <c>right</c> means.
+    /// </remarks>
+    static CssLength Position(
+        ICssStyleDeclaration declaration,
+        float fontSize,
+        CssRoot root,
+        bool horizontal)
+    {
+        var value = declaration.GetPropertyValue("background-position").Trim().ToLowerInvariant();
+
+        if (value.Length == 0)
+        {
+            return CssLength.Zero;
+        }
+
+        var parts = value.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        // A single value sets the named axis and centres the other.
+        var part = parts.Length == 1
+            ? horizontal ? parts[0] : "center"
+            : parts[horizontal ? 0 : 1];
+
+        return part switch
+        {
+            "left" or "top" => CssLength.Zero,
+            "center" => CssLength.Percentage(50),
+            "right" or "bottom" => CssLength.Percentage(100),
+            _ => CssValues.ParseLength(part, fontSize, root, CssLength.Zero)
+        };
+    }
+
+    /// <summary>How the background image is scaled before tiling.</summary>
+    static BackgroundSizing Sizing(ICssStyleDeclaration declaration) =>
+        declaration.GetPropertyValue("background-size").Trim().ToLowerInvariant() switch
+        {
+            "" or "auto" or "auto auto" => BackgroundSizing.Auto,
+            "cover" => BackgroundSizing.Cover,
+            "contain" => BackgroundSizing.Contain,
+            _ => BackgroundSizing.Explicit
+        };
+
+    /// <summary>One component of an explicit <c>background-size</c>.</summary>
+    static CssLength SizeComponent(
+        ICssStyleDeclaration declaration,
+        float fontSize,
+        CssRoot root,
+        bool first)
+    {
+        var parts = declaration
+            .GetPropertyValue("background-size")
+            .Trim()
+            .ToLowerInvariant()
+            .Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        // One length sizes that axis and leaves the other to the image's own proportions.
+        if (parts.Length == 0 || (!first && parts.Length == 1))
+        {
+            return CssLength.Auto;
+        }
+
+        return CssValues.ParseLength(parts[first ? 0 : 1], fontSize, root, CssLength.Auto);
     }
 
     /// <summary>

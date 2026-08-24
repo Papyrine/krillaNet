@@ -275,11 +275,19 @@ static class UnsupportedCss
     /// A <c>background-image</c> that is not a gradient this engine draws.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Asked of the resolved style rather than of the declaration, so the report follows exactly
-    /// what the painter can do: anything <see cref="CssGradient"/> parses is silent and anything
-    /// it returns null for is reported. That keeps the two from drifting as the accepted syntax
-    /// grows — a `url()`, a `repeating-` gradient, a `conic-gradient`, a radial one carrying an
-    /// explicit size, and a comma-separated stack of layers are all reported today.
+    /// what the painter can do: anything <see cref="CssGradient"/> parses or
+    /// <see cref="ImageStore"/> resolves is silent, and anything neither of them produces is
+    /// reported. That keeps the two from drifting as the accepted syntax grows — a
+    /// <c>repeating-</c> gradient, a <c>conic-gradient</c>, a radial one carrying an explicit size,
+    /// and a comma-separated stack of layers are all reported today.
+    /// </para>
+    /// <para>
+    /// A <c>url()</c> that resolved to nothing lands here too, which is the right place for it:
+    /// from the page's point of view a refused image and an unparseable gradient are the same
+    /// absence, and the reason a source was refused has already been decided by the image policy.
+    /// </para>
     /// </remarks>
     static void Background(
         ICssStyleDeclaration declaration,
@@ -287,7 +295,7 @@ static class UnsupportedCss
         ComputedStyle style,
         Action<HtmlDiagnostic> sink)
     {
-        if (style.BackgroundImage is not null)
+        if (style.BackgroundImage is not null || style.BackgroundPicture is not null)
         {
             return;
         }
