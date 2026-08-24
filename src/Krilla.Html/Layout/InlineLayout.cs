@@ -732,7 +732,8 @@ static class InlineLayout
                         Backdrops: backdrops,
                         Shaped: shaped,
                         TextStart: start,
-                        TextEnd: end));
+                        TextEnd: end,
+                        Generated: item.Generated));
                     breakable = true;
                     continue;
                 }
@@ -783,7 +784,8 @@ static class InlineLayout
                         TextEnd: to,
                         BreaksBefore: breakable,
                         Backdrops: backdrops,
-                        HyphenAfter: hyphenates));
+                        HyphenAfter: hyphenates,
+                        Generated: item.Generated));
 
                     // A run of dashes therefore offers a break after each one, and greedy line
                     // breaking takes the last that fits — which is how `a--b` keeps both dashes on
@@ -1171,7 +1173,8 @@ static class InlineLayout
                 tokens[runStart].Link,
                 glyphs,
                 tokens[runStart].Selector,
-                tokens[runStart].Backdrops));
+                tokens[runStart].Backdrops,
+                tokens[runStart].Generated));
 
             x += runWidth;
             runStart = runEnd + 1;
@@ -1455,6 +1458,7 @@ static class InlineLayout
         float MinWidth = 0,
         bool BreaksBefore = false,
         bool HyphenAfter = false,
+        bool Generated = false,
         MarkerPlacement Marker = MarkerPlacement.None,
         IReadOnlyList<InlineBackdrop>? Backdrops = null,
         InlineEdgeKind Edge = InlineEdgeKind.None);

@@ -33,6 +33,26 @@ sealed class DocumentContext :
     public CssRoot Root { get; }
 
     /// <summary>
+    /// The CSS counters in scope, mutated as the box tree is built.
+    /// </summary>
+    /// <remarks>
+    /// Document-wide state carried here rather than threaded through the builder's recursion,
+    /// alongside the images and the cascade — it belongs to the same phase and has the same
+    /// lifetime.
+    /// </remarks>
+    public CssCounters Counters { get; } = new();
+
+    /// <summary>
+    /// How deeply quotations are nested, for <c>open-quote</c> and <c>close-quote</c>.
+    /// </summary>
+    /// <remarks>
+    /// A single depth for the document rather than one per element, which is what CSS specifies:
+    /// the marks a quote draws depend on how many quotations are open anywhere above it, so nesting
+    /// a quotation inside another changes its marks.
+    /// </remarks>
+    public int QuoteDepth { get; set; }
+
+    /// <summary>
     /// Whether <c>orphans</c> and <c>widows</c> are honoured, from
     /// <see cref="HtmlOptions.HonourOrphansAndWidows"/>.
     /// </summary>
@@ -111,11 +131,24 @@ sealed class DocumentContext :
     /// <remarks>
     /// No inherited values: a property no rule set comes back empty rather than carrying the
     /// parent's. That suits, because inheritance is applied in
-    /// <see cref="StyleResolver.Resolve"/> against a parent whose values are already resolved —
+    /// <see cref="StyleResolver.Resolve(IElement, ComputedStyle, DocumentContext)"/> against a parent whose values are already resolved —
     /// doing it here would mean inheriting a string and resolving it twice.
     /// </remarks>
     public ICssStyleDeclaration Cascade(IElement element) =>
         styles.ComputeCascadedStyle(element, null!);
+
+    /// <summary>
+    /// The cascaded style of one of <paramref name="element"/>'s pseudo-elements, or null when the
+    /// document has no rule for it.
+    /// </summary>
+    /// <remarks>
+    /// A separate route from the overload above because a pseudo-element is not an element: it
+    /// has no place in the tree and AngleSharp materialises it on request. The style it comes back
+    /// with is a real cascade result all the same, carrying whatever the document declared —
+    /// including <c>content</c>, which is the one property that only exists here.
+    /// </remarks>
+    public static ICssStyleDeclaration? Cascade(IElement element, string pseudo) =>
+        element.Pseudo(pseudo)?.GetCascadedStyle();
 
     /// <inheritdoc />
     public void Dispose() =>

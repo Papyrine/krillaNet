@@ -464,10 +464,17 @@ static class PdfPainter
             }
         }
 
-        // A run with no selector is the block's OWN text, whose background the block already
-        // painted. Filling it again is invisible while the colour is opaque and doubles the
-        // coverage the moment it is not.
-        if (run.Selector is not null)
+        // A run with neither a selector nor a generated flag is the block's OWN text, whose
+        // background the block already painted. Filling it again is invisible while the colour is
+        // opaque and doubles the coverage the moment it is not.
+        //
+        // The flag is needed because generated content has no element and so no selector, and a
+        // `::before { background: … }` painted nothing at all without it. Testing the style INSTANCE
+        // against the block's instead — which would identify the block's own text by the same
+        // reference identity `InlineLayout.InlineAlign` uses — is wrong for a run inside an
+        // ANONYMOUS block: that block's style is a fresh instance while the text keeps its parent's,
+        // so every anonymous run would paint its parent's background a second time.
+        if (run.Selector is not null || run.Generated)
         {
             Fill(surface, run.Style, run.Face, run);
         }

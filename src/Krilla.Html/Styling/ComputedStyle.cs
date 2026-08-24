@@ -756,6 +756,28 @@ sealed record ComputedStyle
     /// <summary>The fewest lines that may be carried to the HEAD of the next page.</summary>
     public int Widows { get; init; } = 2;
 
+    /// <summary>
+    /// The counters this element resets, each with the value it resets to.
+    /// </summary>
+    /// <remarks>
+    /// Empty for nearly every element, which is why it is an array rather than a dictionary: the
+    /// cost that matters is the one paid per element, and an empty array is a shared singleton.
+    /// </remarks>
+    public (string Name, int Value)[] CounterReset { get; init; } = [];
+
+    /// <summary>The counters this element increments, each by the amount given.</summary>
+    public (string Name, int Value)[] CounterIncrement { get; init; } = [];
+
+    /// <summary>
+    /// The quotation marks <c>open-quote</c> and <c>close-quote</c> draw, by nesting depth.
+    /// </summary>
+    /// <remarks>
+    /// Inherited, and pairs flattened: index 0 and 1 are the outermost pair, 2 and 3 the next.
+    /// A depth past the end reuses the LAST pair, which is CSS's own rule and what keeps a deeply
+    /// nested quotation from losing its marks.
+    /// </remarks>
+    public string[] Quotes { get; init; } = ["“", "”", "‘", "’"];
+
     /// <summary>Which side of the table the caption sits on.</summary>
     public CaptionSideKind CaptionSide { get; init; }
 

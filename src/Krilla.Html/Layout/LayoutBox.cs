@@ -323,6 +323,11 @@ enum InlineEdgeKind
 /// The styles of the inline ANCESTORS that paint a background over this item, outermost first.
 /// Null when there are none, which is nearly always.
 /// </param>
+/// <param name="Generated">
+/// Set on content produced by a <c>::before</c> or <c>::after</c>. It has a style of its own and no
+/// element, so this is what tells the painter to draw its background — a selector cannot, there
+/// being no element to name.
+/// </param>
 /// <param name="Marker">
 /// Set on the image standing in for a list marker. Either way it contributes its height, which is
 /// measured: a 32px image marker grows a 24px item to 39px, exactly as an atomic inline of that
@@ -343,7 +348,8 @@ sealed record InlineItem(
     LayoutBox? Box = null,
     IReadOnlyList<ComputedStyle>? Backdrops = null,
     InlineEdgeKind Edge = InlineEdgeKind.None,
-    MarkerPlacement Marker = MarkerPlacement.None);
+    MarkerPlacement Marker = MarkerPlacement.None,
+    bool Generated = false);
 
 /// <summary>
 /// An inline element enclosing a run that is not its own text.
@@ -543,6 +549,7 @@ readonly record struct InlineImage(ImageData Image, Rect Bounds, string? Selecto
 /// <param name="Backdrops">
 /// The inline ancestors painting a background behind this run, outermost first, or null.
 /// </param>
+/// <param name="Generated">Whether this run came from a <c>::before</c> or <c>::after</c>.</param>
 /// <param name="Selector">
 /// The path of the element this run's text came from, or null for text with no element of its own.
 /// Carried so <see cref="Krilla.Html.Diagnostics.BoxDump"/> can report a rectangle for an inline
@@ -558,4 +565,5 @@ readonly record struct TextRun(
     string? Link = null,
     IReadOnlyList<Glyph>? Glyphs = null,
     string? Selector = null,
-    IReadOnlyList<InlineBackdrop>? Backdrops = null);
+    IReadOnlyList<InlineBackdrop>? Backdrops = null,
+    bool Generated = false);

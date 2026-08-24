@@ -31,9 +31,106 @@ static class StyleResolver
     /// <summary>
     /// Resolves <paramref name="element"/>'s style against its <paramref name="parent"/>.
     /// </summary>
-    public static ComputedStyle Resolve(IElement element, ComputedStyle parent, DocumentContext context)
+    public static ComputedStyle Resolve(IElement element, ComputedStyle parent, DocumentContext context) =>
+        Resolve(element, context.Cascade(element), parent, context, pseudo: false);
+
+    /// <summary>
+    /// Resolves one of <paramref name="element"/>'s pseudo-elements, or null when it generates
+    /// nothing.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The style is a real cascade result and goes through the same resolution as an element's, with
+    /// two differences. A pseudo-element's <c>display</c> defaults to <c>inline</c> rather than to
+    /// whatever the HOST element's name defaults to — a <c>::before</c> on a <c>div</c> is inline —
+    /// and its diagnostics are suppressed, because reporting the host's element name for a
+    /// declaration on its pseudo would point at the wrong thing.
+    /// </para>
+    /// <para>
+    /// Null when there is no rule at all, which is the case for nearly every element in nearly
+    /// every document: the initial <c>content</c> is <c>normal</c>, which generates no box.
+    /// </para>
+    /// <para>
+    /// The awkward part is that AngleSharp's pseudo cascade INCLUDES the host's own declarations —
+    /// ask a <c>::before</c> for its <c>display</c> and the host's comes back. So a property is
+    /// treated as belonging to the pseudo only when it differs from what the host's own cascade
+    /// says, which is sound because a <c>::before</c> selector does not match the element itself.
+    /// Without that test, <c>p { content: "x" }</c> — a declaration CSS ignores, since <c>content</c>
+    /// does not apply to an ordinary element — generated a pseudo-element on every paragraph.
+    /// </para>
+    /// </remarks>
+    public static (ComputedStyle Style, List<ContentItem> Content)? ResolvePseudo(
+        IElement element,
+        string pseudo,
+        ComputedStyle parent,
+        DocumentContext context)
     {
-        var declaration = context.Cascade(element);
+        if (DocumentContext.Cascade(element, pseudo) is not {} declaration)
+        {
+            return null;
+        }
+
+        var host = context.Cascade(element);
+
+        var declared = Own(declaration, host, "content");
+
+        if (CssContent.Parse(declared) is not {} content)
+        {
+            // A value that named something and produced nothing is a gap rather than an absence.
+            // One component nobody can read makes the whole value unusable — a counter dropped out
+            // of `counter(step) ". "` would leave a bare full stop, which reads as a defect — so the
+            // report is the only trace such a declaration leaves.
+            if (context.Reports &&
+                declared is not null &&
+                !declared.Equals("normal", StringComparison.OrdinalIgnoreCase) &&
+                !declared.Equals("none", StringComparison.OrdinalIgnoreCase))
+            {
+                Diagnostic.Property(
+                    context.OnDiagnostic,
+                    $"{element.LocalName}::{pseudo}",
+                    "content",
+                    declared,
+                    "no content is generated");
+            }
+
+            return null;
+        }
+
+        var style = Resolve(element, declaration, parent, context, pseudo: true);
+
+        // A pseudo-element's display defaults to `inline`, not to whatever the host's element name
+        // defaults to: a ::before on a div is inline.
+        style = style with
+        {
+            Display = ParseDisplay(Own(declaration, host, "display") ?? "inline", "span")
+        };
+
+        return style.Display == DisplayKind.None ? null : (style, content);
+    }
+
+    /// <summary>
+    /// A property of a pseudo-element's cascade, or null when the value came from the host.
+    /// </summary>
+    /// <remarks>
+    /// The pseudo cascade carries the host's declarations too, and a selector naming a
+    /// pseudo-element does not match the element — so a value the two agree on was the host's.
+    /// </remarks>
+    static string? Own(ICssStyleDeclaration pseudo, ICssStyleDeclaration host, string property)
+    {
+        var value = pseudo.GetPropertyValue(property);
+
+        return string.IsNullOrWhiteSpace(value) || value == host.GetPropertyValue(property)
+            ? null
+            : value;
+    }
+
+    static ComputedStyle Resolve(
+        IElement element,
+        ICssStyleDeclaration declaration,
+        ComputedStyle parent,
+        DocumentContext context,
+        bool pseudo)
+    {
         var root = context.Root;
 
         var fontSize = ResolveFontSize(declaration, parent, root);
@@ -135,6 +232,9 @@ static class StyleResolver
             LineHeight = lineHeight.Absolute,
             LineHeightScale = lineHeight.Scale,
             TabSize = ParseTabSize(declaration.GetPropertyValue("tab-size"), parent.TabSize),
+            CounterReset = Counters(declaration, "counter-reset", 0),
+            CounterIncrement = Counters(declaration, "counter-increment", 1),
+            Quotes = ParseQuotes(declaration.GetPropertyValue("quotes"), parent.Quotes),
             Orphans = Count(declaration, "orphans", parent.Orphans),
             Widows = Count(declaration, "widows", parent.Widows),
             WordBreaking = ParseWordBreaking(declaration, parent.WordBreaking),
@@ -190,7 +290,7 @@ static class StyleResolver
 
         // After the style, not before: the scan reports against what the element resolved to, and
         // a table cell has to be recognised as one before its vertical-align can be judged.
-        if (context.Reports)
+        if (context.Reports && !pseudo)
         {
             UnsupportedCss.Report(element, declaration, style, context, context.OnDiagnostic);
         }
@@ -1127,6 +1227,108 @@ static class StyleResolver
         value > 0
             ? value
             : inherited;
+
+    /// <summary>
+    /// The name/number pairs of a <c>counter-reset</c> or <c>counter-increment</c>.
+    /// </summary>
+    /// <remarks>
+    /// The number is optional and its default differs between the two properties — zero for a
+    /// reset and one for an increment — which is why it is a parameter rather than a constant.
+    /// AngleSharp normalises the value to <c>name number</c> pairs, so the number is nearly always
+    /// present; the fallback is for the case where it is not.
+    /// </remarks>
+    static (string Name, int Value)[] Counters(
+        ICssStyleDeclaration declaration,
+        string property,
+        int fallback)
+    {
+        var value = declaration.GetPropertyValue(property).Trim();
+
+        if (value.Length == 0 ||
+            value.Equals("none", StringComparison.OrdinalIgnoreCase) ||
+            value.Equals("initial", StringComparison.OrdinalIgnoreCase))
+        {
+            return [];
+        }
+
+        var parts = value.Split(' ', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+        var pairs = new List<(string, int)>();
+
+        for (var index = 0; index < parts.Length; index++)
+        {
+            var name = parts[index];
+
+            // A counter name cannot start with a digit or a sign, so anything that can is the
+            // number belonging to the name before it — which is how one declaration lists several
+            // counters with and without amounts.
+            if (name.Length == 0 || char.IsAsciiDigit(name[0]) || name[0] is '-' or '+')
+            {
+                continue;
+            }
+
+            var amount = fallback;
+
+            if (index + 1 < parts.Length &&
+                int.TryParse(parts[index + 1], NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed))
+            {
+                amount = parsed;
+                index++;
+            }
+
+            pairs.Add((name, amount));
+        }
+
+        return [.. pairs];
+    }
+
+    /// <summary>
+    /// The <c>quotes</c> pairs, flattened. Inherited, as the property is.
+    /// </summary>
+    /// <remarks>
+    /// <c>none</c> gives an empty array, which draws no marks at all rather than falling back to
+    /// the default pairs — that is the whole point of the value.
+    /// </remarks>
+    static string[] ParseQuotes(string value, string[] inherited)
+    {
+        var text = value.Trim();
+
+        if (text.Length == 0 || text.Equals("initial", StringComparison.OrdinalIgnoreCase))
+        {
+            return inherited;
+        }
+
+        if (text.Equals("none", StringComparison.OrdinalIgnoreCase))
+        {
+            return [];
+        }
+
+        var marks = new List<string>();
+        var index = 0;
+
+        while (index < text.Length)
+        {
+            if (text[index] is not ('"' or '\''))
+            {
+                index++;
+                continue;
+            }
+
+            var quote = text[index];
+            var end = text.IndexOf(quote, index + 1);
+
+            if (end < 0)
+            {
+                break;
+            }
+
+            marks.Add(text[(index + 1)..end]);
+            index = end + 1;
+        }
+
+        // An odd count is a malformed declaration; the trailing mark has no closing partner and
+        // would be read as one, so the whole value falls back.
+        return marks.Count >= 2 && marks.Count % 2 == 0 ? [.. marks] : inherited;
+    }
 
     /// <summary>
     /// The tab stop spacing, in space advances. Inherited, as the property is.

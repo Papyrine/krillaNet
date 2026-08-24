@@ -1,0 +1,29 @@
+p { font-size: 16px; line-height: 24px; margin: 0 0 6px 0; background-color: #eef2f8; }
+
+/* A string before, which sits on the host's first line and shares its line box. */
+#plain::before { content: "before "; }
+
+/* Both ends, so the host's own text is bracketed rather than merely preceded. */
+#both::before { content: "[ "; }
+#both::after { content: " ]"; }
+
+/* The pseudo carries its own style, which is what makes it a box of its own rather than text
+   spliced into the host. */
+#styled::before {
+  content: "note";
+  color: #ffffff; background-color: #c04020; font-weight: bold; padding: 0 6px;
+}
+
+/* attr(), which reads the host's attribute rather than anything in the stylesheet. */
+#labelled::before { content: attr(data-note) ": "; }
+
+/* Quotation marks from the quotes list, at the depth the nesting reached. */
+#quoted q::before { content: open-quote; }
+#quoted q::after { content: close-quote; }
+
+/* An image, resolved through the same store an <img src> goes through. */
+#pictured::before { content: url("../../image/swatch.png"); }
+
+/* An empty string still generates a box and still contributes nothing visible, which is the case
+   a fallback to "no pseudo at all" gets wrong. */
+#empty::before { content: ""; }

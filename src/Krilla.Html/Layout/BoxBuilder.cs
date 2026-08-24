@@ -45,10 +45,24 @@ static class BoxBuilder
         // `display: none` item skip a number rather than consume one.
         var numbering = ListNumbering.For(element);
 
+        // The CSS counters this element resets and increments, in that order — CSS's own, and
+        // observable: resetting and incrementing the same counter here gives 1 rather than 0, which
+        // is how a numbered heading restarts its own subsection numbering. Applied before the
+        // ::before content is generated, so `counter()` there reads the incremented value.
+        var pushed = context.Counters.Enter(style);
+
+        Generated(element, "before", style, context, blocks, inlines, floats, positioned, link);
+
         foreach (var node in element.ChildNodes)
         {
             Collect(node, style, context, blocks, inlines, floats, positioned, link, numbering);
         }
+
+        Generated(element, "after", style, context, blocks, inlines, floats, positioned, link);
+
+        // The scopes this element created end with its subtree, which is what keeps a second list
+        // from continuing the first one's numbering.
+        context.Counters.Leave(pushed);
 
         // A marker IMAGE is inline content rather than a marker drawn beside the item, which is
         // what makes it grow the item's first line: a 32px image takes a 24px item to 39px, exactly
@@ -420,10 +434,24 @@ static class BoxBuilder
 
             var before = inlines.Count;
 
+            // An inline element gets its generated content here rather than through `AddChildren`,
+            // which it never reaches — it contributes runs to the line being built instead of a box
+            // of its own. Missing this is what left `<q>` without its quotation marks, since
+            // `q::before` is where those come from.
+            //
+            // Counters are entered here too, for the same reason: an inline element declaring
+            // `counter-increment` has to affect the counters its own content reads.
+            var counters = context.Counters.Enter(style);
+
+            Generated(element, "before", style, context, blocks, inlines, floats, positioned, link);
+
             foreach (var child in element.ChildNodes)
             {
                 Collect(child, style, context, blocks, inlines, floats, positioned, link, numbering);
             }
+
+            Generated(element, "after", style, context, blocks, inlines, floats, positioned, link);
+            context.Counters.Leave(counters);
 
             // Only the runs this recursion added, and only those no nested inline has already
             // claimed. Rescanning the whole list would relabel a preceding sibling's runs.
@@ -641,6 +669,177 @@ static class BoxBuilder
             Kind = style.ListStyle,
             Ordinal = ordinal
         };
+    }
+
+    /// <summary>
+    /// Adds the content of one of an element's pseudo-elements, if it has any.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Generated content is INLINE content of the host element rather than a box beside it, which
+    /// is what makes <c>::before</c> sit on the host's first line and share its line box. It is
+    /// added through the same list the host's own text goes into, so the run-closing that turns
+    /// mixed content into anonymous blocks applies to it without knowing it is generated.
+    /// </para>
+    /// <para>
+    /// A pseudo-element has no element and therefore no selector, so the geometry comparison cannot
+    /// see it directly — a browser's <c>getBoundingClientRect()</c> cannot either. What it CAN see
+    /// is the effect: generated content changes the host's own box, so a scenario measures it
+    /// through the element it was added to.
+    /// </para>
+    /// </remarks>
+    static void Generated(
+        IElement element,
+        string pseudo,
+        ComputedStyle host,
+        DocumentContext context,
+        List<LayoutBox> blocks,
+        List<InlineItem> inlines,
+        List<FloatChild> floats,
+        List<FloatChild> positioned,
+        string? link)
+    {
+
+        if (StyleResolver.ResolvePseudo(element, pseudo, host, context) is not var (style, content))
+        {
+            return;
+        }
+
+        if (style.Display != DisplayKind.Inline && context.Reports)
+        {
+            Diagnostic.Property(
+                context.OnDiagnostic,
+                $"{element.LocalName}::{pseudo}",
+                "display",
+                style.Display.ToString().ToLowerInvariant(),
+                "generated content is laid out as inline content of its host");
+        }
+
+        // The pseudo's own padding and border, exactly as an inline element's are. Its edges carry
+        // no selector, having no element to name — which costs nothing, since a selector is only
+        // ever read by the box dump and a browser reports no rectangle for a pseudo-element either.
+        if (style.HasSurround)
+        {
+            inlines.Add(new("", style, null, Edge: InlineEdgeKind.Leading));
+        }
+
+        var text = new StringBuilder();
+
+        foreach (var item in content)
+        {
+            switch (item.Kind)
+            {
+                case ContentKind.Text:
+                    text.Append(item.Text);
+                    break;
+
+                case ContentKind.Attribute:
+                    text.Append(element.GetAttribute(item.Text) ?? "");
+                    break;
+
+                case ContentKind.Counter:
+                    text.Append(ListMarkers.Counter(item.Style, context.Counters.Value(item.Text)));
+                    break;
+
+                case ContentKind.Counters:
+                    text.Append(string.Join(
+                        item.Separator,
+                        context.Counters.Values(item.Text)
+                            .Select(_ => ListMarkers.Counter(item.Style, _))));
+                    break;
+
+                case ContentKind.Quote:
+                    text.Append(Quote(item, style, context));
+                    break;
+
+                case ContentKind.Image:
+                    Flush();
+
+                    // Resolved through the same store an <img src> and a background url() go
+                    // through, so a stylesheet naming an image is bound by the same policy. An
+                    // image that does not resolve contributes nothing, as one in the markup does.
+                    if (context.Images.Resolve(item.Text, out var reason) is {} image)
+                    {
+                        inlines.Add(new("", style, null, Image: image, Link: link));
+                    }
+                    else if (context.Reports)
+                    {
+                        Diagnostic.Image(
+                            context.OnDiagnostic,
+                            $"{element.LocalName}::{pseudo}",
+                            item.Text,
+                            reason);
+                    }
+
+                    break;
+            }
+        }
+
+        Flush();
+
+        if (style.HasSurround)
+        {
+            inlines.Add(new("", style, null, Edge: InlineEdgeKind.Trailing));
+        }
+
+        void Flush()
+        {
+            if (text.Length == 0)
+            {
+                return;
+            }
+
+            var processed = WhiteSpace.Process(text.ToString(), style);
+            text.Clear();
+
+            if (processed.Length > 0)
+            {
+                inlines.Add(new(processed, style, null, Link: link, Generated: true));
+            }
+        }
+    }
+
+    /// <summary>
+    /// The quotation mark one quote keyword draws, and its effect on the nesting depth.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The depth is document-wide, which is CSS's rule: the marks depend on how many quotations are
+    /// open anywhere above, so nesting one inside another changes its marks. An opening keyword
+    /// reads the pair at the current depth and then descends; a closing one ascends first and reads
+    /// the pair it arrives at, so a matched pair uses one pair of marks.
+    /// </para>
+    /// <para>
+    /// A depth past the end of the <c>quotes</c> list reuses the LAST pair rather than running out,
+    /// which is what keeps a deeply nested quotation from losing its marks. An empty list — from
+    /// <c>quotes: none</c> — draws nothing while still tracking the depth.
+    /// </para>
+    /// </remarks>
+    static string Quote(ContentItem item, ComputedStyle style, DocumentContext context)
+    {
+        var suppressed = item.Text == "\0";
+
+        if (!item.Opening)
+        {
+            context.QuoteDepth = Math.Max(0, context.QuoteDepth - 1);
+        }
+
+        var mark = "";
+
+        if (!suppressed && style.Quotes.Length >= 2)
+        {
+            var pairs = style.Quotes.Length / 2;
+            var pair = Math.Min(context.QuoteDepth, pairs - 1);
+
+            mark = style.Quotes[pair * 2 + (item.Opening ? 0 : 1)];
+        }
+
+        if (item.Opening)
+        {
+            context.QuoteDepth++;
+        }
+
+        return mark;
     }
 
     /// <summary>

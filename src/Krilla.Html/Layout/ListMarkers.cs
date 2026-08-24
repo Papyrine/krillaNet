@@ -245,7 +245,12 @@ static class ListMarkers
     /// <summary>
     /// The counter text for <paramref name="ordinal"/>, without its suffix.
     /// </summary>
-    static string Counter(ListStyleKind kind, int ordinal) =>
+    /// <remarks>
+    /// Public because generated content needs the same formatting: <c>counter(n, upper-roman)</c>
+    /// has to produce the numeral a marker of that style would, or one document numbers its
+    /// headings differently from its lists.
+    /// </remarks>
+    public static string Counter(ListStyleKind kind, int ordinal) =>
         kind switch
         {
             ListStyleKind.DecimalLeadingZero => ordinal.ToString("00", CultureInfo.InvariantCulture),

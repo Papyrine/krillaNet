@@ -1,4 +1,4 @@
-# All scenarios (112)
+# All scenarios (114)
 
 The browser reference (left) beside the page Krilla.Html produced (right). `AE` is the fraction of pixels that differ and `SSIM` is structural similarity; neither is asserted. The worst offset is the largest positional disagreement in CSS pixels between the rendered element geometry and the browser's, and is the number to watch — it reaches zero exactly when the layout is right.
 
@@ -16,6 +16,8 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [block/box_model](#block-box_model)
 - [block/box_sizing](#block-box_sizing)
 - [block/calc](#block-calc)
+- [block/counters](#block-counters)
+- [block/generated](#block-generated)
 - [block/gradients](#block-gradients)
 - [block/list_image](#block-list_image)
 - [block/list_position](#block-list_position)
@@ -484,6 +486,113 @@ What to look at: `#mixed` at 480px. A frame-wide box there is the calc falling b
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0001 · SSIM 1.0000** |
 | <img src="block/calc/reference_0001.png" width="480"> | <img src="block/calc/result%23page_0001.verified.png" width="480"> |
+
+
+## block/counters
+
+# block/counters
+
+CSS counters: `counter-reset`, `counter-increment`, `counter()` and `counters()`. Geometry is exact
+and the page reads SSIM 0.9999, the residual being glyph edges.
+
+The counters are held by the box builder and mutated as it walks, for the same reason
+`ListNumbering` is: a counter's value depends on which elements were VISITED before it, which is a
+property of the walk rather than of the element. Deriving it from the DOM afterwards would have to
+redo the walk, and would have to redo it identically or the numbers would disagree with the boxes.
+
+**Scoping is the whole of the difficulty.** A `counter-reset` creates a NEW counter that lives until
+the declaring element's subtree ends, nested inside any counter of the same name outside it — so
+`counter()` reads the innermost and `counters()` reads all of them. `#outer` is the idiom that needs
+it: reset on each list, increment on each item, and `counters(section, ".")` to join every level,
+giving `1`, `1.1`, `1.2`, `2`. Popping the scope when the subtree ends is what stops a second list
+continuing the first one's numbering.
+
+Three smaller rules, each with a row:
+
+- **The reset applies before the increment**, which is CSS's order and observable: an element doing
+  both to one counter gives 1 rather than 0. That is how a numbered heading restarts its own
+  subsection numbering.
+- **`counter(chapter, upper-roman)` has to produce the numeral a list marker of that style would.**
+  `#roman` resets to 7 and reads `VII`, through the same formatter `ListMarkers` uses — two
+  formatters would eventually disagree and number one document two ways.
+- **A counter never reset and never incremented reads zero.** `#absent` shows `[0]`, which CSS
+  requires and which is what makes `li { counter-increment: item }` work with no reset anywhere.
+
+What this does NOT model is the specification's rule that a sibling's reset REPLACES rather than
+nests at the same depth. The difference shows on a document that resets one counter twice at one
+level and reads it with `counters()`, where this produces an extra level. Nesting by subtree is what
+the common structures — a list of lists, a document of sections — actually want.
+
+The scenario sets its margins by ID rather than by element name, which is the AngleSharp origin trap
+rather than a preference: a bare `ol` selector loses to the user-agent `ol ol { margin: 0 }` that a
+nested list matches, because AngleSharp compares specificity across cascade origins. Written as
+element selectors, the nested list lost its bottom margin here and kept it in Chrome, and every box
+below came out 8px high.
+
+What to look at: the `1.1` and `1.2` prefixes. A flat `1` there is `counters()` reading only the
+innermost scope; nothing at all is the comma being lost in the argument split.
+
+**Boxes**: 14 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0005 · SSIM 0.9999** |
+| <img src="block/counters/reference_0001.png" width="480"> | <img src="block/counters/result%23page_0001.verified.png" width="480"> |
+
+
+## block/generated
+
+# block/generated
+
+Pixel-identical to Chrome. `::before` and `::after` with a `content` value, which is the property
+most stylesheets reach for after the box model and which this engine read as nothing at all.
+
+Generated content is INLINE CONTENT OF THE HOST rather than a box beside it. That is what makes a
+`::before` share the host's first line, and it is why the items go into the same list the host's own
+text goes into — the run-closing that turns mixed content into anonymous blocks then applies to it
+without knowing it is generated.
+
+AngleSharp gives the whole grammar back verbatim, which was the pleasant surprise: strings,
+`attr()`, `counter()`, `counters()`, `url()`, the quote keywords, and concatenations of several. Two
+things about its serialisation had to be worked around, and both were found here rather than
+reasoned about:
+
+- **The pseudo cascade INCLUDES the host's own declarations.** Ask a `::before` for its `display` and
+  the host's comes back. So a property counts as the pseudo's only when it differs from what the
+  host's own cascade says — sound, because a `::before` selector does not match the element. Without
+  that test, `p { content: "x" }` — a declaration CSS ignores, `content` not applying to an ordinary
+  element — generated a pseudo-element on every paragraph in the document.
+- **`counters(section, ".")` comes back as `counters(section .)`**, comma gone, while
+  `counter(chapter, upper-roman)` keeps its. Splitting arguments on commas alone therefore read the
+  whole of the first as one argument and silently dropped every nested counter. `block/counters` is
+  where that showed.
+
+Two more things the scenario pins:
+
+- **`#styled` gives the pseudo a background, a colour and padding**, and it gets all three, because
+  a pseudo-element is a real inline box rather than text spliced into the host. The background is
+  what made the painter's test wrong: it filled a run's own background only when the run had a
+  SELECTOR, and generated content has no element to name one. A `Generated` flag says so instead.
+  Testing the style INSTANCE against the block's — the reference identity `InlineAlign` uses — looks
+  equivalent and is wrong inside an anonymous block, whose style is a fresh instance while the text
+  keeps its parent's, so every anonymous run would paint its parent's background twice.
+- **`#quoted` puts the content on an INLINE element**, which reaches none of this by the obvious
+  route: an inline element contributes runs to the line being built rather than a box of its own, so
+  it never passes through the method that generates content. `<q>` had no quotation marks at all
+  until that branch got its own call — and `q::before` is exactly where a browser's quotes come from.
+
+`#empty` declares `content: ""`, which still generates a box and still shows nothing. It is here
+because the natural shortcut — treat an empty result as no pseudo — is indistinguishable until the
+pseudo carries a background or a border, and then it is a missing rectangle.
+
+What to look at: the red `note` chip in `#styled`, and the quotation marks in `#quoted`.
+
+**Boxes**: 10 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| <img src="block/generated/reference_0001.png" width="480"> | <img src="block/generated/result%23page_0001.verified.png" width="480"> |
 
 
 ## block/gradients
