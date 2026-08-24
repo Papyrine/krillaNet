@@ -1,5 +1,3 @@
-namespace Krilla.Html.Styling;
-
 /// <summary>
 /// Evaluates a <c>calc()</c> expression down to an absolute length plus a percentage.
 /// </summary>
