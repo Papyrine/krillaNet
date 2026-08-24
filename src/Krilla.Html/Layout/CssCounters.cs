@@ -95,13 +95,21 @@ sealed class CssCounters
 
     /// <summary>The innermost value of one counter, which is zero when it has none.</summary>
     public int Value(string name) =>
-        scopes.TryGetValue(name, out var stack) && stack.Count > 0 ? stack[^1] : 0;
+        scopes.TryGetValue(name, out var stack) &&
+        stack.Count > 0 ? stack[^1] : 0;
 
     /// <summary>Every value of one counter, outermost first.</summary>
     /// <remarks>
     /// Empty when the counter does not exist, which is what makes <c>counters()</c> on an
     /// unreferenced name produce nothing rather than a bare separator.
     /// </remarks>
-    public IReadOnlyList<int> Values(string name) =>
-        scopes.TryGetValue(name, out var stack) ? stack : [];
+    public IReadOnlyList<int> Values(string name)
+    {
+        if (scopes.TryGetValue(name, out var stack))
+        {
+            return stack;
+        }
+
+        return (List<int>) [];
+    }
 }

@@ -64,7 +64,8 @@ static class DocumentOutline
             // Pop back to the nearest open heading of a smaller level. A run of equal or deeper
             // levels above this one is closed by the same test, which is what makes h3 after h3 a
             // sibling and h3 after h1 a child.
-            while (open.Count > 0 && open[^1].Level >= level)
+            while (open.Count > 0 &&
+                   open[^1].Level >= level)
             {
                 open.RemoveAt(open.Count - 1);
             }
@@ -114,14 +115,18 @@ static class DocumentOutline
     /// </remarks>
     static string? Title(LayoutBox box)
     {
-        if (box.Element?.TextContent is not {} text)
+        if (box.Element?.TextContent is not { } text)
         {
             return null;
         }
 
-        var collapsed = string.Join(' ', text.Split((char[]?) null, StringSplitOptions.RemoveEmptyEntries));
+        var split = text.Split((char[]?) null, StringSplitOptions.RemoveEmptyEntries);
+        if (split.Length == 0)
+        {
+            return null;
+        }
 
-        return collapsed.Length == 0 ? null : collapsed;
+        return string.Join(' ', split);
     }
 
     /// <summary>

@@ -94,7 +94,12 @@ sealed class ImageStore(Func<string, byte[]?> resolver, ImagePolicy local, Image
             }
 
             var path = ResolvePath(source, baseUrl);
-            return path is not null && File.Exists(path) ? File.ReadAllBytes(path) : null;
+            if (path is not null && File.Exists(path))
+            {
+                return File.ReadAllBytes(path);
+            }
+
+            return null;
         };
 
     /// <summary>

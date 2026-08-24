@@ -61,7 +61,8 @@ sealed class FloatContext
     {
         foreach (var (margin, side) in placed)
         {
-            if (margin.Y >= bottom || top >= margin.Bottom)
+            if (margin.Y >= bottom ||
+                top >= margin.Bottom)
             {
                 continue;
             }
