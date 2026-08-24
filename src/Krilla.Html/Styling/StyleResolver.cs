@@ -108,6 +108,15 @@ static class StyleResolver
             BreakBefore = ParseBreak(declaration, "break-before"),
             BreakAfter = ParseBreak(declaration, "break-after"),
             BreakInside = ParseBreak(declaration, "break-inside"),
+            Visibility = ParseVisibility(declaration.GetPropertyValue("visibility"), parent.Visibility),
+            TextTransform = ParseTextTransform(
+                declaration.GetPropertyValue("text-transform"),
+                parent.TextTransform),
+            LetterSpacing = Advance(declaration, "letter-spacing", fontSize, rootFontSize)
+                            ?? parent.LetterSpacing,
+            WordSpacing = Advance(declaration, "word-spacing", fontSize, rootFontSize)
+                          ?? parent.WordSpacing,
+            Overflow = ParseOverflow(declaration),
             Position = ParsePosition(declaration.GetPropertyValue("position")),
             Top = Length(declaration, "top", fontSize, rootFontSize, CssLength.Auto),
             Right = Length(declaration, "right", fontSize, rootFontSize, CssLength.Auto),
@@ -305,6 +314,92 @@ static class StyleResolver
             _ => BreakKind.Auto
         };
     }
+
+    /// <summary>
+    /// An extra advance in CSS pixels, inheriting when the cascade said nothing.
+    /// </summary>
+    /// <remarks>
+    /// <c>normal</c> is zero rather than unparseable, which is what it means for both properties
+    /// that use this: no extra advance beyond what the font asks for. Returning null for it would
+    /// inherit the parent's instead, so a child resetting to <c>normal</c> would keep the spacing
+    /// it was trying to clear.
+    /// </remarks>
+    static float? Advance(
+        ICssStyleDeclaration declaration,
+        string property,
+        float fontSize,
+        float rootFontSize)
+    {
+        var value = declaration.GetPropertyValue(property);
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        if (value.Trim().Equals("normal", StringComparison.OrdinalIgnoreCase))
+        {
+            return 0;
+        }
+
+        return CssValues.ParseLength(value, fontSize, rootFontSize, CssLength.Zero).Resolve(0);
+    }
+
+    /// <summary>
+    /// Whether a box is painted, inheriting when the cascade said nothing.
+    /// </summary>
+    /// <remarks>
+    /// <c>collapse</c> folds into <c>hidden</c>, which is what it means everywhere except on a
+    /// table row or column — where it removes the track rather than merely blanking it. Neither is
+    /// implemented, and hiding is the closer of the two available answers.
+    /// </remarks>
+    static VisibilityKind ParseVisibility(string value, VisibilityKind inherited) =>
+        value.Trim().ToLowerInvariant() switch
+        {
+            "hidden" or "collapse" => VisibilityKind.Hidden,
+            "visible" => VisibilityKind.Visible,
+            _ => inherited
+        };
+
+    /// <summary>
+    /// How text is cased, inheriting when the cascade said nothing.
+    /// </summary>
+    static TextTransformKind ParseTextTransform(string value, TextTransformKind inherited) =>
+        value.Trim().ToLowerInvariant() switch
+        {
+            "uppercase" => TextTransformKind.Uppercase,
+            "lowercase" => TextTransformKind.Lowercase,
+            "capitalize" => TextTransformKind.Capitalize,
+            "none" => TextTransformKind.None,
+            _ => inherited
+        };
+
+    /// <summary>
+    /// Whether a box clips its overflow. Not inherited.
+    /// </summary>
+    /// <remarks>
+    /// The shorthand and both axes are read, and any of them asking to clip clips both. CSS
+    /// forbids one axis clipping while the other stays visible — a <c>visible</c> paired with a
+    /// clipping value computes to <c>auto</c>, which clips — so a single flag is the right shape
+    /// rather than an approximation. <c>scroll</c> and <c>auto</c> clip too: paper does not
+    /// scroll, so what falls outside the box is simply not there.
+    /// </remarks>
+    static OverflowKind ParseOverflow(ICssStyleDeclaration declaration)
+    {
+        foreach (var property in overflowProperties)
+        {
+            if (Clips(declaration.GetPropertyValue(property)))
+            {
+                return OverflowKind.Hidden;
+            }
+        }
+
+        return OverflowKind.Visible;
+
+        static bool Clips(string value) =>
+            value.Trim().ToLowerInvariant() is "hidden" or "clip" or "scroll" or "auto";
+    }
+
+    static readonly string[] overflowProperties = ["overflow", "overflow-x", "overflow-y"];
 
     /// <summary>
     /// Which side a box floats to. Not inherited.

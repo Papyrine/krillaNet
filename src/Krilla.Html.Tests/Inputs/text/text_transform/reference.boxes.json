@@ -1,0 +1,51 @@
+[
+  {
+    "selector": "html",
+    "x": 0,
+    "y": 0,
+    "width": 816,
+    "height": 24
+  },
+  {
+    "selector": "html > body:nth-child(2)",
+    "x": 0,
+    "y": 0,
+    "width": 816,
+    "height": 24
+  },
+  {
+    "selector": "html > body:nth-child(2) > p:nth-child(1)",
+    "x": 0,
+    "y": 0,
+    "width": 116.47,
+    "height": 24
+  },
+  {
+    "selector": "html > body:nth-child(2) > p:nth-child(2)",
+    "x": 120.92,
+    "y": 0,
+    "width": 76.48,
+    "height": 24
+  },
+  {
+    "selector": "html > body:nth-child(2) > p:nth-child(3)",
+    "x": 201.86,
+    "y": 0,
+    "width": 82.41,
+    "height": 24
+  },
+  {
+    "selector": "html > body:nth-child(2) > p:nth-child(4)",
+    "x": 288.72,
+    "y": 0,
+    "width": 323.89,
+    "height": 24
+  },
+  {
+    "selector": "html > body:nth-child(2) > p:nth-child(5)",
+    "x": 617.06,
+    "y": 0,
+    "width": 76.48,
+    "height": 24
+  }
+]

@@ -168,8 +168,8 @@ public class DiagnosticTests
                 <div style="opacity: 0.5">c</div>
                 <div style="text-decoration: line-through">d</div>
                 <div style="text-decoration: overline">e</div>
-                <div style="text-transform: uppercase">f</div>
-                <div style="visibility: hidden">g</div>
+                <div style="text-transform: full-width">f</div>
+                <div style="visibility: collapse">g</div>
                 <div style="background-image: linear-gradient(red, blue)">h</div>
                 """));
 
@@ -264,15 +264,15 @@ public class DiagnosticTests
     [Test]
     public async Task ADiagnosticReadsAsASentence()
     {
-        var reports = Collect("<div style=\"overflow: hidden\">a</div>");
+        var reports = Collect("<div style=\"opacity: 0.5\">a</div>");
 
         var report = reports.Single();
 
         await Assert.That(report.Kind).IsEqualTo(HtmlDiagnosticKind.UnsupportedProperty);
         await Assert.That(report.Element).IsEqualTo("div");
-        await Assert.That(report.Name).IsEqualTo("overflow");
-        await Assert.That(report.Value).IsEqualTo("hidden");
-        await Assert.That(report.ToString()).IsEqualTo("<div> overflow: hidden — not clipped");
+        await Assert.That(report.Name).IsEqualTo("opacity");
+        await Assert.That(report.Value).IsEqualTo("0.5");
+        await Assert.That(report.ToString()).IsEqualTo("<div> opacity: 0.5 — painted opaque");
     }
 
     /// <summary>
@@ -296,6 +296,11 @@ public class DiagnosticTests
             <div style="min-height: 40px; max-height: 80px">held open</div>
             <p style="text-indent: 2em">indented</p>
             <span style="display: inline-block; width: 40px">atomic</span>
+            <div style="overflow: hidden">clipped</div>
+            <div style="visibility: hidden">unpainted</div>
+            <span style="visibility: visible">shown again</span>
+            <p style="text-transform: uppercase">cased</p>
+            <p style="letter-spacing: 2px; word-spacing: 4px">spaced</p>
             """);
 
         await Assert.That(reports).IsEmpty();

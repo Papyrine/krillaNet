@@ -258,16 +258,83 @@ static class PdfPainter
         //
         // Bounding only the lines is what left a table row moved overleaf with a sliver of its
         // cell backgrounds stranded at the foot of the page before. `page/table_break` measures it.
-        if (box.BorderBox.Y < page.End)
+        if (box.BorderBox.Y < page.End &&
+            box.Style.Visibility == VisibilityKind.Visible)
         {
             PaintBackground(surface, box);
             PaintBorders(surface, box);
         }
 
+        // The clip covers the DESCENDANTS and not the box itself: `overflow` clips what overflows
+        // a box, and the box's own border and background are drawn to its border edge, which is
+        // outside the padding box this clips to.
+        using var _ = Clip(surface, box);
+
         foreach (var child in InFlow(box))
         {
             Backgrounds(surface, child, page);
         }
+    }
+
+    /// <summary>
+    /// The clip an <c>overflow</c> box imposes on its descendants, or nothing.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Pushed inside each PHASE rather than once around the box, which is what lets clipping
+    /// coexist with Appendix E's global phase order. Each phase visits a box's subtree as one
+    /// contiguous stretch of its walk, so a clip pushed for the duration of that stretch covers
+    /// exactly the right boxes and nothing else — and the backgrounds of the whole page still go
+    /// down before any of its content.
+    /// </para>
+    /// <para>
+    /// The alternative, painting an <c>overflow</c> box's subtree as one unit under a single clip,
+    /// is what a stacking context would do and this is not one. It would put the box's text down
+    /// during the background phase, where a later sibling's background could cover it — which is
+    /// the defect <c>block/overflow_paint</c> exists to catch.
+    /// </para>
+    /// <para>
+    /// To the padding box, per CSS 2.1 §11.1.1, so a box with padding shows its content inside the
+    /// padding and clips at the inner edge of its border.
+    /// </para>
+    /// </remarks>
+    static ClipScope Clip(Surface surface, LayoutBox box)
+    {
+        var style = box.Style;
+
+        if (style.Overflow == OverflowKind.Visible)
+        {
+            return default;
+        }
+
+        // The padding box, per CSS 2.1 section 11.1.1: the border box inset by the border alone,
+        // so a box with padding shows its content inside that padding and clips at the inner edge
+        // of the border rather than at the content edge.
+        var padding = box.BorderBox.Deflate(
+            style.BorderTop,
+            style.BorderRight,
+            style.BorderBottom,
+            style.BorderLeft);
+
+        using var path = PdfPath.Rectangle(
+            Rectangle.FromSize(padding.X, padding.Y, padding.Width, padding.Height));
+
+        return new(surface.PushClip(path));
+    }
+
+    /// <summary>
+    /// A clip that may not be there, so a caller can <c>using</c> it unconditionally.
+    /// </summary>
+    /// <remarks>
+    /// <see cref="Layer"/> is a struct, so a nullable one cannot be used in a <c>using</c>
+    /// directly. Wrapping it beats the alternative of branching around each phase's whole walk,
+    /// which would mean writing every recursion twice.
+    /// </remarks>
+    readonly struct ClipScope(Layer? layer) :
+        IDisposable
+    {
+        public void Dispose() =>
+            layer?.Dispose();
     }
 
     /// <summary>
@@ -287,15 +354,21 @@ static class PdfPainter
             return;
         }
 
+        using var _ = Clip(surface, box);
+
         if (box.Image is {} replaced &&
-            box.BorderBox.Y < page.End)
+            box.BorderBox.Y < page.End &&
+            box.Style.Visibility == VisibilityKind.Visible)
         {
             // Into its content box, which replaced sizing already gave the right aspect ratio, so
             // no fitting is needed here.
             PaintImage(surface, replaced, box.ContentBox);
         }
 
-        PaintMarker(surface, box, page.Top, page.End);
+        if (box.Style.Visibility == VisibilityKind.Visible)
+        {
+            PaintMarker(surface, box, page.Top, page.End);
+        }
 
         foreach (var line in box.Lines)
         {
@@ -308,7 +381,15 @@ static class PdfPainter
 
             foreach (var run in line.Runs)
             {
-                PaintRun(surface, run);
+                // Per RUN rather than per box, because `visibility` inherits and a descendant can
+                // set it back to `visible` — so one line can hold hidden and visible text at once.
+                // A link annotation is still queued for a hidden run: it carries no appearance, so
+                // hiding the text does not hide the rectangle in a browser either.
+                if (run.Style.Visibility == VisibilityKind.Visible)
+                {
+                    PaintRun(surface, run);
+                }
+
                 PaintLink(surface, run, page.Links, page.ToPage);
             }
 

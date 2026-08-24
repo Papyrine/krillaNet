@@ -29,11 +29,23 @@ sealed class ShapedText
     /// </remarks>
     readonly int[] glyphStarts;
 
-    ShapedText(string text, FontFace face, float fontSize, Glyph[] glyphs, int[] glyphStarts)
+    readonly float letterSpacing;
+    readonly float wordSpacing;
+
+    ShapedText(
+        string text,
+        FontFace face,
+        float fontSize,
+        float letterSpacing,
+        float wordSpacing,
+        Glyph[] glyphs,
+        int[] glyphStarts)
     {
         Text = text;
         Face = face;
         FontSize = fontSize;
+        this.letterSpacing = letterSpacing;
+        this.wordSpacing = wordSpacing;
         this.glyphs = glyphs;
         this.glyphStarts = glyphStarts;
     }
@@ -48,7 +60,23 @@ sealed class ShapedText
     public float FontSize { get; }
 
     /// <summary>Shapes <paramref name="text"/> with <paramref name="face"/>.</summary>
-    public static ShapedText Create(FontFace face, string text, float fontSize)
+    /// <param name="face">The face to shape with.</param>
+    /// <param name="text">The text to shape.</param>
+    /// <param name="fontSize">The size widths are reported at.</param>
+    /// <param name="letterSpacing">Extra advance after each character, in CSS pixels.</param>
+    /// <param name="wordSpacing">Extra advance added to each space, in CSS pixels.</param>
+    /// <remarks>
+    /// The two spacings are applied here rather than by the caller because they change the answer
+    /// to every question this class exists to answer. A width that ignored them would break lines
+    /// in the wrong places and size a shrink-wrapped box to the wrong width, and adding them
+    /// afterwards at only some of the call sites is the shape that bug would take.
+    /// </remarks>
+    public static ShapedText Create(
+        FontFace face,
+        string text,
+        float fontSize,
+        float letterSpacing = 0,
+        float wordSpacing = 0)
     {
         var glyphs = text.Length == 0 ? [] : face.Shape(text);
         var starts = new int[text.Length + 1];
@@ -64,7 +92,50 @@ sealed class ShapedText
             starts[position] = glyph;
         }
 
-        return new(text, face, fontSize, glyphs, starts);
+        return new(text, face, fontSize, letterSpacing, wordSpacing, glyphs, starts);
+    }
+
+    /// <summary>
+    /// The extra advance the two spacing properties add over a UTF-16 range, in CSS pixels.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Letter spacing is per CHARACTER rather than per glyph, and the difference is visible
+    /// wherever a ligature covers several characters: <c>office</c> with 3px of spacing is 18px
+    /// wider in a browser, not 12px, even though the <c>ffi</c> is drawn as one glyph. Measured,
+    /// and it is what decided this — spacing per glyph is the reading a shaper invites.
+    /// </para>
+    /// <para>
+    /// After each character INCLUDING the last, which is why a shrink-wrapped box carries the
+    /// spacing past its final glyph. Seven characters at 3px are 21px wider, not 18px.
+    /// </para>
+    /// <para>
+    /// Counted in UTF-16 code units, so a character outside the basic plane is spaced twice. No
+    /// scenario reaches one, and the alternative is a rune walk on the hottest measurement path in
+    /// line breaking.
+    /// </para>
+    /// </remarks>
+    float Spacing(int start, int end)
+    {
+        if (letterSpacing == 0 && wordSpacing == 0)
+        {
+            return 0;
+        }
+
+        var total = letterSpacing * (end - start);
+
+        if (wordSpacing != 0)
+        {
+            for (var index = start; index < end; index++)
+            {
+                if (Text[index] == ' ')
+                {
+                    total += wordSpacing;
+                }
+            }
+        }
+
+        return total;
     }
 
     /// <summary>
@@ -80,7 +151,7 @@ sealed class ShapedText
             total += glyphs[index].XAdvance;
         }
 
-        return total / Face.UnitsPerEm * FontSize;
+        return total / Face.UnitsPerEm * FontSize + Spacing(start, end);
     }
 
     /// <summary>
@@ -109,10 +180,17 @@ sealed class ShapedText
             var glyphStart = Math.Clamp(glyph.TextStart - start, 0, end - start);
             var glyphEnd = Math.Clamp(glyph.TextStart + glyph.TextLength - start, glyphStart, end - start);
 
+            // The spacing this glyph carries, converted from CSS pixels back into font units
+            // because that is what an advance is. Attributed to the glyph covering the characters
+            // it is owed to, which keeps the run's painted width equal to its measured one however
+            // the shaper grouped the text.
+            var spacing = Spacing(glyph.TextStart, glyph.TextStart + glyph.TextLength);
+
             sliced[index] = glyph with
             {
                 TextStart = glyphStart,
-                TextLength = glyphEnd - glyphStart
+                TextLength = glyphEnd - glyphStart,
+                XAdvance = glyph.XAdvance + spacing / FontSize * Face.UnitsPerEm
             };
         }
 

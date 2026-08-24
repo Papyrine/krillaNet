@@ -1,0 +1,15 @@
+p {
+  display: inline-block;
+  font-size: 16px;
+  line-height: 24px;
+  background-color: #dde5f0;
+}
+
+#wide { word-spacing: 10px; }
+#tight { word-spacing: -2px; }
+
+/* No space at all, so word-spacing has nothing to act on and the box must not change width. */
+#single { word-spacing: 10px; }
+
+/* Declared but zero, which has to be indistinguishable from not declaring it. */
+#trailing { word-spacing: 0; }

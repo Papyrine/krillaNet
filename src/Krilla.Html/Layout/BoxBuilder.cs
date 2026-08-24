@@ -286,7 +286,11 @@ static class BoxBuilder
     {
         if (node is IText text)
         {
-            var content = WhiteSpace.Process(text.Data, parentStyle);
+            // Cased after white-space processing and before anything measures it, so the
+            // text that is shaped, broken into lines and painted is the same string throughout.
+            var content = TextTransform.Apply(
+                WhiteSpace.Process(text.Data, parentStyle),
+                parentStyle);
             if (content.Length > 0)
             {
                 inlines.Add(new(content, StyleResolver.ForText(parentStyle), null, Link: link));

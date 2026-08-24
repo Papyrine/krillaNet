@@ -1,0 +1,25 @@
+/* An `overflow: hidden` box establishes a block formatting context, which has two consequences and
+   this scenario measures both: it grows to contain its own float, and it does not overlap a float
+   outside it. */
+#beside {
+  float: left;
+  width: 120px;
+  height: 90px;
+  background-color: #c04040;
+}
+
+#container {
+  overflow: hidden;
+  background-color: #dde5f0;
+  font-size: 16px;
+  line-height: 24px;
+}
+
+#inner {
+  float: left;
+  width: 80px;
+  height: 60px;
+  background-color: #4060a0;
+}
+
+#after { background-color: #40a060; font-size: 16px; line-height: 24px; }

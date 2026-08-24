@@ -1,0 +1,15 @@
+div {
+  width: 400px;
+  font-size: 16px;
+  line-height: 24px;
+  background-color: #dde5f0;
+}
+
+/* Hidden, and still occupying its line — which is the half of the property that a naive
+   implementation gets wrong by generating no box at all. */
+#hidden { visibility: hidden; background-color: #c04040; }
+
+/* `visible` on a descendant of a hidden box brings it back. The property inherits, and hiding is
+   nothing more than not painting, so a child can override it. */
+#parent { visibility: hidden; background-color: #c04040; }
+#child { visibility: visible; }

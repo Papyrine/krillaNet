@@ -1,0 +1,18 @@
+/* inline-block so the box width IS the text advance: the question this scenario asks is whether
+   the spacing after the LAST character counts, and only a shrink-wrapped box can answer it. */
+p {
+  display: inline-block;
+  font-size: 16px;
+  line-height: 24px;
+  background-color: #dde5f0;
+}
+
+#wide { letter-spacing: 3px; }
+#tight { letter-spacing: -1px; }
+
+/* Applied to the space as well as to the letters, or only to the letters. */
+#spaced { letter-spacing: 3px; }
+
+/* Whether spacing suppresses the `ffi` ligature, which it does in a browser. The corpus can ask
+   this only because text is shaped rather than summed. */
+#ligature-spaced { letter-spacing: 3px; }

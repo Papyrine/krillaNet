@@ -32,14 +32,14 @@
   {
     "Element": "div",
     "Name": "text-transform",
-    "Value": "uppercase",
+    "Value": "full-width",
     "Reason": "the text is drawn as written"
   },
   {
     "Element": "div",
     "Name": "visibility",
-    "Value": "hidden",
-    "Reason": "painted anyway"
+    "Value": "collapse",
+    "Reason": "hidden, and still occupying its space"
   },
   {
     "Element": "div",

@@ -133,6 +133,47 @@ enum BreakKind
     Avoid
 }
 
+/// <summary>Whether a box and its descendants are painted.</summary>
+/// <remarks>
+/// Inherited, and about PAINTING alone — a hidden box is laid out, occupies its space and holds
+/// its siblings apart exactly as a visible one does. That is the half of the property a naive
+/// implementation loses by treating it like <c>display: none</c>.
+/// </remarks>
+enum VisibilityKind
+{
+    /// <summary>Painted.</summary>
+    Visible,
+
+    /// <summary>Not painted, and still occupying its space.</summary>
+    Hidden
+}
+
+/// <summary>How text is cased before it is shaped.</summary>
+enum TextTransformKind
+{
+    /// <summary>Drawn as written.</summary>
+    None,
+
+    /// <summary>Every character upper-cased.</summary>
+    Uppercase,
+
+    /// <summary>Every character lower-cased.</summary>
+    Lowercase,
+
+    /// <summary>The first letter of each word upper-cased.</summary>
+    Capitalize
+}
+
+/// <summary>Whether a box clips what overflows it.</summary>
+enum OverflowKind
+{
+    /// <summary>Overflowing content is painted outside the box.</summary>
+    Visible,
+
+    /// <summary>Overflowing content is clipped to the padding box.</summary>
+    Hidden
+}
+
 /// <summary>How lines are aligned within their containing block.</summary>
 enum TextAlignKind
 {
@@ -498,6 +539,31 @@ sealed record ComputedStyle
     /// <summary>Whether this box may be split across a page break.</summary>
     public BreakKind BreakInside { get; init; } = BreakKind.Auto;
 
+    /// <summary>Whether this box and its descendants are painted.</summary>
+    public VisibilityKind Visibility { get; init; } = VisibilityKind.Visible;
+
+    /// <summary>How this box's text is cased before shaping.</summary>
+    public TextTransformKind TextTransform { get; init; } = TextTransformKind.None;
+
+    /// <summary>Extra advance after each character, in CSS pixels.</summary>
+    /// <remarks>
+    /// After EACH character including the last, which is measurable and was measured: seven
+    /// characters at 3px are 21px wider rather than 18px, so a shrink-wrapped box carries the
+    /// spacing past its final glyph.
+    /// </remarks>
+    public float LetterSpacing { get; init; }
+
+    /// <summary>Extra advance added to each space, in CSS pixels.</summary>
+    public float WordSpacing { get; init; }
+
+    /// <summary>Whether this box clips what overflows it.</summary>
+    /// <remarks>
+    /// Not inherited, unlike everything above it here. Anything other than <c>visible</c> also
+    /// makes the box establish a block formatting context, which <see cref="EstablishesContext"/>
+    /// answers.
+    /// </remarks>
+    public OverflowKind Overflow { get; init; } = OverflowKind.Visible;
+
     /// <summary>How white space and wrapping are handled.</summary>
     public WhiteSpaceKind WhiteSpace { get; init; } = WhiteSpaceKind.Normal;
 
@@ -515,6 +581,27 @@ sealed record ComputedStyle
 
     /// <summary>Offset from the containing block's left edge.</summary>
     public CssLength Left { get; init; } = CssLength.Auto;
+
+    /// <summary>
+    /// Whether this box establishes a block formatting context of its own.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Only <c>overflow</c> answers here. A float, an inline-block and a table cell establish one
+    /// too, and each reaches it structurally instead — by being laid out through a call that
+    /// passes no <see cref="FloatContext"/> — because each is already on a path of its own. This
+    /// property is for the one case that is an ordinary in-flow block and has to be recognised
+    /// from its style.
+    /// </para>
+    /// <para>
+    /// Two consequences, and both are measured by <c>float/overflow_bfc</c>: the box grows to
+    /// contain its own floats, and it is placed BESIDE a float outside it rather than overlapping
+    /// it. The second is the reason the property is written at all in practice — a float with a
+    /// text block beside it is the pre-flexbox way to lay out a media object, and the text block
+    /// is given <c>overflow: hidden</c> for exactly this effect.
+    /// </para>
+    /// </remarks>
+    public bool EstablishesContext => Overflow != OverflowKind.Visible;
 
     /// <summary>Whether this box is taken out of flow by positioning.</summary>
     public bool IsAbsolute => Position is PositionKind.Absolute or PositionKind.Fixed;

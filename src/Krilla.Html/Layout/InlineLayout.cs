@@ -340,7 +340,12 @@ static class InlineLayout
 
             // Shaped once for the whole item, then sliced. Shaping each word separately would
             // also lose the kerning between a word and the punctuation attached to it.
-            var shaped = ShapedText.Create(face, item.Text, item.Style.FontSize);
+            var shaped = ShapedText.Create(
+                face,
+                item.Text,
+                item.Style.FontSize,
+                item.Style.LetterSpacing,
+                item.Style.WordSpacing);
             var index = 0;
 
             while (index < item.Text.Length)

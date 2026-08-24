@@ -1,0 +1,18 @@
+/* inline-block so each box is exactly as wide as its text, which makes the reference geometry
+   report the transformed advance rather than the paragraph width. */
+p {
+  display: inline-block;
+  font-size: 16px;
+  line-height: 24px;
+  background-color: #dde5f0;
+}
+
+#upper { text-transform: uppercase; }
+#lower { text-transform: lowercase; }
+#capitalize { text-transform: capitalize; }
+
+/* What counts as the start of a word. A hyphen, an apostrophe, a digit and a bracket are each a
+   plausible boundary and the answers are not the same. */
+#boundaries { text-transform: capitalize; }
+
+#none { text-transform: none; }

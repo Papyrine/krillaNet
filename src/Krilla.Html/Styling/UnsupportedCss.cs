@@ -30,18 +30,11 @@ static class UnsupportedCss
     static readonly (string Property, string NoOp, string Reason)[] ignored =
     [
         ("border-collapse", "separate", "laid out with the separated border model"),
-        ("overflow", "visible", "not clipped"),
-        ("overflow-x", "visible", "not clipped"),
-        ("overflow-y", "visible", "not clipped"),
         ("list-style-position", "outside", "the marker is drawn outside the item"),
         ("list-style-image", "none", "the counter style is drawn instead"),
-        ("visibility", "visible", "painted anyway"),
         ("opacity", "1", "painted opaque"),
         ("transform", "none", "painted untransformed"),
         ("background-image", "none", "not painted"),
-        ("text-transform", "none", "the text is drawn as written"),
-        ("letter-spacing", "normal", "the advances of the font are used"),
-        ("word-spacing", "normal", "the space advance of the font is used"),
         ("font-variant", "normal", "the regular face is used"),
         ("font-stretch", "normal", "the regular face is used"),
         ("text-shadow", "none", "not painted"),
@@ -75,6 +68,17 @@ static class UnsupportedCss
     /// positive.
     /// </remarks>
     static readonly string[] breakEdges = ["break-before", "break-after"];
+
+    /// <summary>
+    /// The <c>text-transform</c> values that are applied. Everything else falls through to the
+    /// inherited casing, which is what gets reported.
+    /// </summary>
+    /// <remarks>
+    /// The two absent from this list are <c>full-width</c> and <c>full-size-kana</c>, which map
+    /// characters onto different ones rather than re-casing them. Neither is a casing operation
+    /// <see cref="TextTransform"/> could reach by upper-casing, and both are silent about failing.
+    /// </remarks>
+    static readonly string[] transforms = ["none", "uppercase", "lowercase", "capitalize"];
 
     static readonly string[] lines = ["overline", "line-through"];
 
@@ -117,6 +121,8 @@ static class UnsupportedCss
 
         Breaks(declaration, name, sink);
         Hyphens(declaration, name, sink);
+        Collapse(declaration, name, sink);
+        Casing(declaration, name, sink);
         Fixed(declaration, name, sink);
         Radius(declaration, name, sink);
         BorderStyles(declaration, name, sink);
@@ -179,6 +185,42 @@ static class UnsupportedCss
             {
                 Diagnostic.Property(sink, element, property, value!, reason);
             }
+        }
+    }
+
+    /// <summary>
+    /// <c>visibility: collapse</c>, which hides rather than removing the track.
+    /// </summary>
+    /// <remarks>
+    /// <c>hidden</c> is honoured and silent. <c>collapse</c> differs from it on a table row or
+    /// column alone, where it removes the track and lets the rows below move up rather than
+    /// leaving a blank band — so the report is about the space, not about the ink. Everywhere else
+    /// the two are the same thing and this over-reports slightly, which is the right way round:
+    /// the alternative is knowing the element's display before the style is resolved.
+    /// </remarks>
+    static void Collapse(ICssStyleDeclaration declaration, string element, Action<HtmlDiagnostic> sink)
+    {
+        if (Set(declaration, "visibility") is "collapse")
+        {
+            Diagnostic.Property(
+                sink,
+                element,
+                "visibility",
+                "collapse",
+                "hidden, and still occupying its space");
+        }
+    }
+
+    /// <summary>
+    /// A <c>text-transform</c> that is not a casing operation.
+    /// </summary>
+    static void Casing(ICssStyleDeclaration declaration, string element, Action<HtmlDiagnostic> sink)
+    {
+        if (Set(declaration, "text-transform") is {} value &&
+            !transforms.Contains(value) &&
+            !IsInitial(value))
+        {
+            Diagnostic.Property(sink, element, "text-transform", value, "the text is drawn as written");
         }
     }
 

@@ -1,4 +1,4 @@
-# All scenarios (80)
+# All scenarios (86)
 
 The browser reference (left) beside the page Krilla.Html produced (right). `AE` is the fraction of pixels that differ and `SSIM` is structural similarity; neither is asserted. The worst offset is the largest positional disagreement in CSS pixels between the rendered element geometry and the browser's, and is the number to watch — it reaches zero exactly when the layout is right.
 
@@ -19,12 +19,15 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [block/min_height](#block-min_height)
 - [block/min_width](#block-min_width)
 - [block/nested_blocks](#block-nested_blocks)
+- [block/overflow_hidden](#block-overflow_hidden)
 - [block/overflow_paint](#block-overflow_paint)
 - [block/percentage_width](#block-percentage_width)
+- [block/visibility](#block-visibility)
 - [float/basic](#float-basic)
 - [float/clear](#float-clear)
 - [float/margins](#float-margins)
 - [float/mid_line](#float-mid_line)
+- [float/overflow_bfc](#float-overflow_bfc)
 - [float/shrink_to_fit](#float-shrink_to_fit)
 - [float/stacking](#float-stacking)
 - [image/block_centred](#image-block_centred)
@@ -77,7 +80,10 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [table/spacing_borders](#table-spacing_borders)
 - [table/spans](#table-spans)
 - [text/kerning](#text-kerning)
+- [text/letter_spacing](#text-letter_spacing)
 - [text/ligatures](#text-ligatures)
+- [text/text_transform](#text-text_transform)
+- [text/word_spacing](#text-word_spacing)
 - [ua/acid1](#ua-acid1)
 - [ua/blockquote_pre](#ua-blockquote_pre)
 - [ua/headings](#ua-headings)
@@ -380,6 +386,45 @@ the border or padding subtraction compounds visibly rather than staying hidden a
 | <img src="block/nested_blocks/reference_0001.png" width="480"> | <img src="block/nested_blocks/result%23page_0001.verified.png" width="480"> |
 
 
+## block/overflow_hidden
+
+# block/overflow_hidden
+
+Clipping, measured as a pair. `#clipped` and `#visible` hold the same 96px of content in the same
+48px box, and differ only in the property — so the scenario reports the effect of `overflow` rather
+than the effect of a short box, and a version with only the clipped half would pass against an
+engine that had lost the overflowing text.
+
+`#wide-parent` is the horizontal case, one unbreakable line in a 200px box. Worth having on its own
+because the vertical clip could be produced by accident: a paginator that stopped at the box bottom
+would clip downward and not sideways.
+
+The clip is to the PADDING box (CSS 2.1 §11.1.1), not the content box and not the border box — so a
+box with padding shows its content inside that padding and cuts at the inner edge of its border.
+None of the boxes here has a border, which the scenario is honest about: what it measures is that
+clipping happens and where the bottom edge falls, not which of the three rectangles was used.
+
+The implementation is the part worth knowing. The clip is pushed inside each of Appendix E's
+PHASES, for the duration of that phase's walk over the box's subtree, rather than once around the
+box. Painting an `overflow` box's subtree as one unit under a single clip is what a stacking context
+would do, and this is not one: it would put the box's text down during the background phase, where
+a later sibling's background could cover it — the defect `block/overflow_paint` exists to catch.
+Each phase visits a subtree as one contiguous stretch, so a clip held across that stretch covers
+exactly the right boxes and the global phase order survives.
+
+Geometry is exact and pixels read SSIM 1.0000.
+
+What to look at: the boundary between the third and fourth line of `#clipped`. Four lines means the
+clip is not being pushed; two lines in `#visible` means it is being pushed for every box.
+
+**Boxes**: 8 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0001 · SSIM 1.0000** |
+| <img src="block/overflow_hidden/reference_0001.png" width="480"> | <img src="block/overflow_hidden/result%23page_0001.verified.png" width="480"> |
+
+
 ## block/overflow_paint
 
 # block/overflow_paint
@@ -424,6 +469,45 @@ Percentage margins resolve against that same width, not against the height.
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
 | <img src="block/percentage_width/reference_0001.png" width="480"> | <img src="block/percentage_width/result%23page_0001.verified.png" width="480"> |
+
+
+## block/visibility
+
+# block/visibility
+
+`visibility: hidden` is not `display: none`, and the difference is the whole scenario. The hidden
+box is laid out, occupies its 24px line and holds `#after` down at y=48 exactly as a painted one
+would. Only the ink is missing.
+
+Getting that backwards is the shape this defect takes: treating the property as removing the box
+closes the gap it left, and every box below it moves up by its height. The geometry comparison
+catches it immediately, which is why the scenario leads with a plain hidden box between two visible
+ones rather than with anything more interesting.
+
+The second half is that a descendant can bring itself back. The property inherits and hiding is
+nothing more than not painting, so `#child` with `visibility: visible` inside a hidden parent is
+drawn while the parent's background and the text either side of it are not. That is what forces
+the check to be per RUN rather than per box: one line here carries hidden and visible text at once,
+and a box-level test paints all of it or none.
+
+A link annotation is still queued for a hidden run. It carries no appearance stream, so a browser
+does not hide the clickable rectangle either, and neither corpus measurement can see one — this is
+recorded because it is a decision rather than an oversight.
+
+Geometry is exact. Pixels read SSIM 1.0000 with a scattering of antialiased pixels on the one line
+that does paint.
+
+What to look at: whether `#after` sits at y=48. If it has moved to y=24 the property is being read
+as `display: none`. If `#child` disappears, the check has been put on the box instead of the run.
+
+**Boxes**: 7 matched, worst offset 0.00px, worst size 0.00px.
+
+Not rendered: `html > body:nth-child(2) > div:nth-child(4) > span:nth-child(1)`
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0001 · SSIM 1.0000** |
+| <img src="block/visibility/reference_0001.png" width="480"> | <img src="block/visibility/result%23page_0001.verified.png" width="480"> |
 
 
 ## float/basic
@@ -541,6 +625,54 @@ the whole signal.
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
 | <img src="float/mid_line/reference_0001.png" width="480"> | <img src="float/mid_line/result%23page_0001.verified.png" width="480"> |
+
+
+## float/overflow_bfc
+
+# float/overflow_bfc
+
+The other half of `overflow`, and the reason anyone writes it. A box with `overflow` other than
+`visible` establishes a block formatting context, which has two consequences and this measures
+both.
+
+**It is placed BESIDE an outside float rather than overlapping it.** `#beside` is a 120px float and
+`#container` comes back from Chrome at x=120 with a width of 696 — its border box narrowed and
+shifted, not merely its lines shortened. That is the exception to the most surprising rule about
+floats: an ordinary block keeps its full width and lets the float overlap it, which is what
+`float/basic` pins with `#block`. A float with a text block beside it is the pre-flexbox way to lay
+out a media object, and `overflow: hidden` on the text block is how it was done — so this is the
+common case rather than a corner one.
+
+**It grows to contain its own float.** `#inner` is 60px tall and the container comes out 60px tall,
+where a container that shared its parent's float context would collapse to the height of its text
+and let the float hang out.
+
+Three things were measured rather than assumed:
+
+- The band is sampled at the container's TOP EDGE alone, and the box keeps that width for its whole
+  height. The container is 60px tall beside a 90px float and stays 696px wide, so nothing re-widens
+  it below the float's bottom.
+- `#after`, an ordinary block, is back at x=0 with the full 816px width even though the float still
+  extends 30px below the container. Only a box establishing a context avoids a float.
+- The probe has to be an infinitesimally thin slice at the top edge rather than a zero-height one.
+  `FloatContext.Band` treats its range as half-open, so a zero-height query overlaps nothing and
+  every box comes back full width — which is exactly how this scenario failed first time.
+
+Only an AUTO width is narrowed. A declared width is honoured as declared and the box is left where
+it is, where a browser shifts it sideways as well. Nothing here measures that, and it is recorded
+as a limit rather than as a decision.
+
+Geometry is exact. Pixels read SSIM 0.9999, from glyph positioning on the container's one line.
+
+What to look at: `#container`'s x and width. Back at x=0 with 816px means the formatting context is
+not being established; a height of 24 rather than 60 means it is not containing its float.
+
+**Boxes**: 6 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0005 · SSIM 0.9999** |
+| <img src="float/overflow_bfc/reference_0001.png" width="480"> | <img src="float/overflow_bfc/result%23page_0001.verified.png" width="480"> |
 
 
 ## float/shrink_to_fit
@@ -1818,6 +1950,48 @@ wrong place.
 | <img src="text/kerning/reference_0001.png" width="480"> | <img src="text/kerning/result%23page_0001.verified.png" width="480"> |
 
 
+## text/letter_spacing
+
+# text/letter_spacing
+
+Every box is an inline-block, so its width is the text's advance and nothing else — which is what
+lets this scenario ask the two questions that a full-width paragraph could not answer.
+
+**Is the spacing after the last character counted?** `Spacing` is seven characters. At 3px it comes
+back 21px wider, not 18px. So yes, and a shrink-wrapped box carries the spacing past its final
+glyph. This is the measurement that decides it and it is invisible in flowing text.
+
+**Is it per character or per glyph?** `office` with 3px comes back 18px wider — six characters —
+even though the `ffi` is drawn as one ligature glyph. Per character, and the ligature SURVIVES: the
+base width is unchanged at 37.95px either way. A shaper invites the other reading, since what it
+hands back is glyphs, and per glyph would be 12px on four glyphs. `#ligature` and `#ligature-spaced`
+are the pair that tells them apart, and the corpus can only ask because text is shaped rather than
+summed.
+
+The implementation follows from that: the extra advance is attributed to the glyph covering the
+characters it is owed to, so a ligature glyph carries three characters' worth. That keeps the run's
+painted width equal to its measured one however the shaper happened to group the text — the two
+being computed separately is exactly how a renderer ends up drawing something other than what it
+laid out.
+
+`#spaced` shows the spacing applies to the space character too: `two words` is nine characters and
+gains 27px, not 24px.
+
+`#tight` is a negative value, which shortens rather than being clamped to zero.
+
+Geometry is exact and pixels read SSIM 0.9999.
+
+What to look at: the width of `#wide` against `#normal`. An 18px difference rather than 21px is the
+trailing character being dropped; `#ligature-spaced` at 49.95px is spacing applied per glyph.
+
+**Boxes**: 8 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0006 · SSIM 0.9999** |
+| <img src="text/letter_spacing/reference_0001.png" width="480"> | <img src="text/letter_spacing/result%23page_0001.verified.png" width="480"> |
+
+
 ## text/ligatures
 
 Ligatures, where shaping changes the glyph count rather than only the spacing: fi and fl become a
@@ -1833,6 +2007,89 @@ the wrong characters for the run even though the page looks right.
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0099 · SSIM 0.9982** |
 | <img src="text/ligatures/reference_0001.png" width="480"> | <img src="text/ligatures/result%23page_0001.verified.png" width="480"> |
+
+
+## text/text_transform
+
+# text/text_transform
+
+Casing, and where a word starts.
+
+The first three rows are the straightforward half. Each box is an inline-block so its width IS the transformed
+advance, which makes the reference geometry a direct measurement of the cased text rather than of
+the paragraph it sits in — `hello world` upper-cased is 116.47px against 76.48px, so a transform
+that silently did nothing would show up as a 40px box difference rather than only in the pixels.
+
+`#boundaries` is the row that had to be measured. `page-break o'clock 3rd (bracketed) "quoted"`
+comes back from Chrome as:
+
+> Page-Break O'clock 3rd (Bracketed) "Quoted"
+
+So a hyphen, a bracket and a quote each begin a word, and an apostrophe and a digit do not. The
+obvious rule — a word starts after any non-letter — gives `O'Clock` and `3Rd`, which is wrong in
+two places out of five. The rule that reproduces every case is per PRECEDING character: a letter
+starts a word unless what comes before it is a letter, a digit, or an apostrophe. That is an
+approximation of the UAX #29 word segmentation a browser runs, where the apostrophe is MidLetter
+and a digit joins the letters around it — the same answer arrived at properly.
+
+`#none` is here to be identical to `#lower`'s output, which is the check that the property is read
+at all rather than that upper-casing happens to be the default.
+
+The transform is applied after white-space processing and before shaping, which is the order that
+matters: a collapsed run of spaces has already become one space when word boundaries are looked
+for, and the text that is shaped, broken into lines and painted is one string throughout. It cannot
+be a painting concern — upper-casing makes a line half again as wide in most faces and wraps a
+paragraph a line earlier.
+
+One limit: the boundary is found within a single text node, so a word split across two inline
+elements is capitalised at the start of the second where a browser looks at the rendered text whole.
+Rarer than the same limit in line breaking, since capitalising mid-word is not something markup
+normally sets up.
+
+Geometry is exact and pixels read SSIM 0.9999.
+
+What to look at: `#boundaries`. `O'Clock` or `3Rd` is the naive boundary rule returning.
+
+**Boxes**: 7 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0003 · SSIM 0.9999** |
+| <img src="text/text_transform/reference_0001.png" width="480"> | <img src="text/text_transform/result%23page_0001.verified.png" width="480"> |
+
+
+## text/word_spacing
+
+# text/word_spacing
+
+The companion to `text/letter_spacing`, and a simpler rule: the extra advance goes on each SPACE,
+not on each word. `two words here` is three words and two spaces, and at 10px it comes back 20px
+wider — a per-word reading would give 30px.
+
+`#single` is the row that makes that unambiguous. One word, no space, and `word-spacing: 10px`
+declared: the box must not change width at all. Without it, a per-word implementation and a
+per-space one differ by exactly one increment everywhere and both look plausible.
+
+`#trailing` declares `word-spacing: 0`, which has to be indistinguishable from not declaring it —
+the check that a declared zero is not being treated as "unset" and inherited from somewhere.
+
+`#tight` is negative, which pulls the words together rather than clamping.
+
+Both spacings are applied inside `ShapedText` rather than by its callers, because they change the
+answer to every question it exists to answer. A width that ignored them would break lines in the
+wrong places and size a shrink-wrapped box wrongly, and adding them afterwards at some call sites
+and not others is the shape that bug would take.
+
+Geometry is exact and pixels read SSIM 0.9998, from glyph positioning across the widened spaces.
+
+What to look at: `#single`. Any width change there is a per-word implementation.
+
+**Boxes**: 7 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0009 · SSIM 0.9998** |
+| <img src="text/word_spacing/reference_0001.png" width="480"> | <img src="text/word_spacing/result%23page_0001.verified.png" width="480"> |
 
 
 ## ua/acid1

@@ -241,7 +241,7 @@ static class BlockLayout
             var cleared = floats.ClearTo(child.Style.Clear, contentY + y);
             y = cleared - contentY;
 
-            y += Layout(child, contentX, contentY + y, contentWidth, fonts, floats: floats);
+            y += Place(child, contentX, contentY + y, contentWidth, fonts, floats);
             pending = TrailingMargin(child, contentWidth);
             first = false;
         }
@@ -260,6 +260,81 @@ static class BlockLayout
         }
 
         return y;
+    }
+
+    /// <summary>
+    /// Lays out one in-flow block child, against the floats beside it when it establishes a
+    /// formatting context of its own.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// An ordinary block keeps its full width and simply overlaps a float, with only the lines
+    /// inside it shortened — the single most surprising rule about floats, and the one
+    /// <c>float/basic</c> exists to pin. A box that establishes a block formatting context is the
+    /// exception: its border box is narrowed and shifted so it sits BESIDE the float instead.
+    /// </para>
+    /// <para>
+    /// The band is sampled at the child's top edge alone, and the box keeps that width for its
+    /// whole height even where the float ends above it. Measured: in <c>float/overflow_bfc</c> the
+    /// container is 60px tall beside a 90px float and stays 696px wide, so nothing re-widens it
+    /// below the float's bottom.
+    /// </para>
+    /// <para>
+    /// Only an AUTO width is narrowed. A declared width is honoured as declared and the box is
+    /// left where it is — a browser shifts it sideways as well, which is a further rule this does
+    /// not implement and which no scenario measures. Percentages still resolve against the
+    /// containing block rather than against the band, which is why <c>containingWidth</c> is
+    /// passed through unchanged and the band reaches
+    /// <see cref="Layout"/> as an assigned width instead.
+    /// </para>
+    /// </remarks>
+    static float Place(
+        LayoutBox child,
+        float contentX,
+        float top,
+        float contentWidth,
+        FontSet fonts,
+        FloatContext floats)
+    {
+        if (!child.Style.EstablishesContext)
+        {
+            return Layout(child, contentX, top, contentWidth, fonts, floats: floats);
+        }
+
+        // An infinitesimally thin slice at the child's top edge, rather than a zero-height one:
+        // `FloatContext.Band` treats its range as half-open, so a zero-height query overlaps
+        // nothing at all and every box would come back full width.
+        var (left, right) = floats.Band(
+            top,
+            MathF.BitIncrement(top),
+            contentX,
+            contentX + contentWidth);
+        var available = Math.Max(0, right - left);
+
+        // No float beside it, so nothing to avoid and the ordinary path applies — which also keeps
+        // `margin: auto` centring a box that happens to carry `overflow: hidden`.
+        if (available >= contentWidth)
+        {
+            return Layout(child, contentX, top, contentWidth, fonts, floats: null);
+        }
+
+        if (child.Style.Width.Kind != LengthKind.Auto)
+        {
+            return Layout(child, contentX, top, contentWidth, fonts, floats: null);
+        }
+
+        var margins =
+            child.Style.MarginLeft.Resolve(contentWidth) +
+            child.Style.MarginRight.Resolve(contentWidth);
+
+        return Layout(
+            child,
+            left,
+            top,
+            contentWidth,
+            fonts,
+            assignedWidth: Math.Max(0, available - margins),
+            floats: null);
     }
 
     /// <summary>

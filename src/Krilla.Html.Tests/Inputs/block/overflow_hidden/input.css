@@ -1,0 +1,31 @@
+div { font-size: 16px; line-height: 24px; }
+
+/* Clipped vertically: the child is 96px of content in a 48px box. */
+#clipped {
+  width: 300px;
+  height: 48px;
+  overflow: hidden;
+  background-color: #dde5f0;
+}
+
+#tall { background-color: #c04040; color: #ffffff; }
+
+/* Clipped horizontally: one unbreakable line wider than the box. */
+#wide-parent {
+  width: 200px;
+  overflow: hidden;
+  background-color: #dde5f0;
+  margin-top: 8px;
+}
+
+#wide { white-space: nowrap; background-color: #4060a0; color: #ffffff; }
+
+/* The same arrangement without the property, so the difference between them is the measurement. */
+#visible {
+  width: 300px;
+  height: 48px;
+  background-color: #eaeaea;
+  margin-top: 8px;
+}
+
+#tall2 { background-color: #40a060; }
