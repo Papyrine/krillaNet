@@ -739,7 +739,6 @@ static class StyleResolver
         var parts = declaration
             .GetPropertyValue("background-size")
             .Trim()
-            .ToLowerInvariant()
             .Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
         // One length sizes that axis and leaves the other to the image's own proportions.

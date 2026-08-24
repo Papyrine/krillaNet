@@ -210,7 +210,8 @@ public static class HtmlConverter
 
         var (width, height) = rules.Size ?? (options.PageWidth, options.PageHeight);
 
-        if (rules.Landscape is {} landscape && landscape != width > height)
+        if (rules.Landscape is {} landscape &&
+            landscape != width > height)
         {
             (width, height) = (height, width);
         }
@@ -317,7 +318,6 @@ public static class HtmlConverter
         }
 
         throw new InvalidOperationException(
-            "HtmlOptions.Fonts must hold at least one face. Krilla has no font database, so the " +
-            "fonts a document may use are supplied by the caller rather than discovered.");
+            "HtmlOptions.Fonts must hold at least one face. Krilla has no font database, so the fonts a document may use are supplied by the caller rather than discovered.");
     }
 }
