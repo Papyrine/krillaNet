@@ -70,8 +70,8 @@ sealed class CharacterMap
             _ => []
         };
 
-        Array.Sort(segments, (left, right) => left.Start.CompareTo(right.Start));
-        return new(segments);
+        segments.Sort((left, right) => left.Start.CompareTo(right.Start));
+        return new([.. segments]);
     }
 
     /// <summary>
@@ -123,7 +123,7 @@ sealed class CharacterMap
         return best;
     }
 
-    static Segment[] ReadFormat4(ReadOnlySpan<byte> data, int offset)
+    static List<Segment> ReadFormat4(ReadOnlySpan<byte> data, int offset)
     {
         var segCountX2 = OpenTypeMetrics.ReadUInt16(data, offset + 6);
         var segCount = segCountX2 / 2;
@@ -181,10 +181,10 @@ sealed class CharacterMap
             segments.Add(Segment.Table(start, end, glyphs));
         }
 
-        return [.. segments];
+        return segments;
     }
 
-    static Segment[] ReadFormat12(ReadOnlySpan<byte> data, int offset)
+    static List<Segment> ReadFormat12(ReadOnlySpan<byte> data, int offset)
     {
         var groupCount = (int) OpenTypeMetrics.ReadUInt32(data, offset + 12);
         var segments = new List<Segment>(groupCount);
@@ -210,7 +210,7 @@ sealed class CharacterMap
             segments.Add(Segment.Delta(start, end, (short) (startGlyph - start)));
         }
 
-        return [.. segments];
+        return segments;
     }
 
     /// <summary>
