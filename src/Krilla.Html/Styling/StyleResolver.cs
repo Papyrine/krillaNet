@@ -298,6 +298,7 @@ static class StyleResolver
                           ?? parent.WordSpacing,
             Overflow = ParseOverflow(declaration),
             Position = ParsePosition(declaration.GetPropertyValue("position")),
+            ZIndex = ParseZIndex(declaration.GetPropertyValue("z-index")),
             Top = Length(declaration, "top", fontSize, root, CssLength.Auto),
             Right = Length(declaration, "right", fontSize, root, CssLength.Auto),
             Bottom = Length(declaration, "bottom", fontSize, root, CssLength.Auto),
@@ -514,6 +515,23 @@ static class StyleResolver
             "fixed" => PositionKind.Fixed,
             _ => PositionKind.Static
         };
+
+    /// <summary>
+    /// Where a positioned box sorts among its siblings, or null for <c>auto</c>. Not inherited.
+    /// </summary>
+    /// <remarks>
+    /// The cascade hands this one back verbatim, <c>auto</c> included, and drops a value that is
+    /// not an integer — so <c>z-index: 2.7</c> arrives as nothing at all and takes the same path an
+    /// undeclared one does, which is what CSS asks for anyway.
+    /// </remarks>
+    static int? ParseZIndex(string value) =>
+        int.TryParse(
+            value.Trim(),
+            NumberStyles.Integer,
+            CultureInfo.InvariantCulture,
+            out var parsed)
+            ? parsed
+            : null;
 
     /// <summary>
     /// What a box asks of the page break at one of its edges, or inside it. Not inherited.

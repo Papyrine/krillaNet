@@ -89,6 +89,7 @@ position/absolute                matched  9  offset    0.00  size    0.00  diffe
 position/anchors                 matched  9  offset    0.00  size    0.00  differing  0  unmatched 0
 position/fixed                   matched  6  offset    0.00  size    0.00  differing  0  unmatched 0
 position/relative                matched 12  offset    0.00  size    0.00  differing  0  unmatched 0
+position/z_index                 matched 19  offset    0.00  size    0.00  differing  0  unmatched 0
 table/anonymous                  matched  8  offset    0.00  size    0.00  differing  0  unmatched 0
 table/auto_widths                matched 25  offset    0.00  size    0.00  differing  0  unmatched 0
 table/caption_side               matched 14  offset    0.00  size    0.00  differing  0  unmatched 0
