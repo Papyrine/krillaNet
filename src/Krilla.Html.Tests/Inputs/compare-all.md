@@ -1,4 +1,4 @@
-# All scenarios (114)
+# All scenarios (117)
 
 The browser reference (left) beside the page Krilla.Html produced (right). `AE` is the fraction of pixels that differ and `SSIM` is structural similarity; neither is asserted. The worst offset is the largest positional disagreement in CSS pixels between the rendered element geometry and the browser's, and is the number to watch — it reaches zero exactly when the layout is right.
 
@@ -6,6 +6,7 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 <summary>Contents</summary>
 
 - [block/anonymous](#block-anonymous)
+- [block/aspect_ratio](#block-aspect_ratio)
 - [block/auto_margins](#block-auto_margins)
 - [block/auto_width](#block-auto_width)
 - [block/background_color](#block-background_color)
@@ -33,6 +34,7 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [block/overflow_hidden](#block-overflow_hidden)
 - [block/overflow_paint](#block-overflow_paint)
 - [block/percentage_width](#block-percentage_width)
+- [block/shadows](#block-shadows)
 - [block/transform](#block-transform)
 - [block/viewport_units](#block-viewport_units)
 - [block/visibility](#block-visibility)
@@ -110,6 +112,7 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [text/soft_hyphen](#text-soft_hyphen)
 - [text/tabs](#text-tabs)
 - [text/text_transform](#text-text_transform)
+- [text/underline_offset](#text-underline_offset)
 - [text/word_break](#text-word_break)
 - [text/word_spacing](#text-word_spacing)
 - [ua/acid1](#ua-acid1)
@@ -160,6 +163,49 @@ than 144px is a line count changing, which is a different bug from this one.
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0002 · SSIM 1.0000** |
 | <img src="block/anonymous/reference_0001.png" width="480"> | <img src="block/anonymous/result%23page_0001.verified.png" width="480"> |
+
+
+## block/aspect_ratio
+
+# block/aspect_ratio
+
+Pixel-identical to Chrome, and geometry-exact.
+
+`aspect-ratio` supplies the height a box was not given: 200px at `4 / 1` is 50px tall. It goes
+through the same `box-sizing` deflation a declared height does rather than beside it, and a declared
+height wins outright — `#overridden` keeps its 30px, which is what makes the property safe to put on
+a rule that some elements also size explicitly. `#proportional` shows the width may itself be
+proportional, the ratio applying to the used value rather than the declared one.
+
+Two things this scenario found that had nothing to do with the property.
+
+**A box sized by its ratio is not self-collapsing**, which is the trap CLAUDE.md already records for
+images, reached by a second route and costing the same debugging round. `IsSelfCollapsing` tests for
+a zero height, and a ratio-sized box has `height: auto` and no content — so every test passed and the
+box read as having nothing in it while being fifty pixels tall. Its own bottom margin then collapsed
+through it and became a leading margin for the whole run, putting the entire page six pixels low.
+
+**A block background fill has to be SNAPPED to whole pixels.** `#overridden` sits at y=786.5 and
+Chrome paints rows 787 to 816, where the fractional rectangle covered 786 to 816 with half coverage
+at each end. This is the third place the same construction argument has come up — after the inline
+background fill and the background image — and it was the first thing in the corpus to produce a
+fractional box height on purpose. Applying it improved eight existing scenarios and regressed none,
+taking four of them to pixel-identical, including `inline/vertical_align`, whose documented residual
+was Chrome's 1/64-pixel quantisation showing through exactly this edge.
+
+The `#square` row is written `1 / 1` rather than `1`. AngleSharp's grammar for the property requires
+both parts and DROPS a single number, so `aspect-ratio: 1` reaches the cascade as nothing at all — a
+gap that cannot even be reported, the declaration being gone before the engine sees it.
+
+What to look at: the heights — 50, 200, 400, 112.5, 30, 51 — and the top edge of the page, which is
+where the self-collapsing bug showed.
+
+**Boxes**: 8 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| <img src="block/aspect_ratio/reference_0001.png" width="480"> | <img src="block/aspect_ratio/result%23page_0001.verified.png" width="480"> |
 
 
 ## block/auto_margins
@@ -1070,6 +1116,50 @@ Percentage margins resolve against that same width, not against the height.
 | <img src="block/percentage_width/reference_0001.png" width="480"> | <img src="block/percentage_width/result%23page_0001.verified.png" width="480"> |
 
 
+## block/shadows
+
+# block/shadows
+
+`text-shadow` and `box-shadow`, both of which were reported and neither painted. Geometry is exact —
+a shadow changes no box — and the page reads SSIM 0.9985 with no pixel differing by more than two of
+255, the residual being antialiasing on the rounded corner of `#rounded`.
+
+**Offsets only. No blur, and no spread.** Those are two different limits with two different causes,
+and the second was found here rather than reasoned about:
+
+- A **blur** needs a Gaussian, which a PDF content stream does not express for an arbitrary shape —
+  and a text shadow's blur follows glyph outlines, so no gradient can stand in for it. A blurred
+  shadow drawn SHARP is a hard dark copy where a soft halo belongs, so it is not drawn at all. That
+  is the rule an unsupported outline style already follows: for decoration with no layout
+  consequence, wrong ink is worse than none.
+- A **spread** is unreachable rather than unimplementable. AngleSharp ELIDES A ZERO BLUR when it
+  serialises the value, so `6px 6px 0 4px` — offset, no blur, spread four — comes back as
+  `6px 6px 4px`, which is byte-for-byte what a real four-pixel blur comes back as. The first version
+  of this scenario had spread rows and they measured wrong for exactly that reason. A three-length
+  value therefore has to be read as a blur: reading it as a spread would draw a hard shadow wherever
+  an author asked for a soft one, which is much the worse of the two mistakes.
+
+`#several` is the row that pins the order. Two shadows are painted FARTHEST FIRST, so the layer
+written first ends up on top — the reverse of the order they appear in, and invisible until two of
+them overlap, which is the only time anyone writes two.
+
+`#translucent` is why this scenario found a second feature. A shadow is behind the box that casts it
+INCLUDING behind its own background, so a translucent background shows the shadow through — and
+`rgba()` was not honoured at all. `background-color` and `color` now carry their alpha, which
+`Krilla.Color` cannot hold: krilla models opacity as a fill property rather than as a fourth channel,
+so the alpha travels alongside. Every other colour property is still drawn opaque and is reported.
+
+What to look at: the green band under `#translucent`, which should show through the panel rather than
+stopping at its edge.
+
+**Boxes**: 8 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0057 · SSIM 0.9985** |
+| <img src="block/shadows/reference_0001.png" width="480"> | <img src="block/shadows/result%23page_0001.verified.png" width="480"> |
+
+
 ## block/transform
 
 # block/transform
@@ -1386,7 +1476,7 @@ different code paths, and only one of them is exercised by every other case here
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |
-| **Page 1** | **Page 1. AE 0.0000 · SSIM 0.9999** |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
 | <img src="float/shrink_to_fit/reference_0001.png" width="480"> | <img src="float/shrink_to_fit/result%23page_0001.verified.png" width="480"> |
 
 
@@ -1785,7 +1875,7 @@ few pixels low with its text still aligned is half-leading, not this.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |
-| **Page 1** | **Page 1. AE 0.0002 · SSIM 0.9999** |
+| **Page 1** | **Page 1. AE 0.0002 · SSIM 1.0000** |
 | <img src="inline/inline_block/reference_0001.png" width="480"> | <img src="inline/inline_block/result%23page_0001.verified.png" width="480"> |
 
 
@@ -1816,7 +1906,7 @@ took the max-content width without clamping to what was available.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |
-| **Page 1** | **Page 1. AE 0.0002 · SSIM 0.9999** |
+| **Page 1** | **Page 1. AE 0.0002 · SSIM 1.0000** |
 | <img src="inline/inline_block_sizing/reference_0001.png" width="480"> | <img src="inline/inline_block_sizing/result%23page_0001.verified.png" width="480"> |
 
 
@@ -2014,7 +2104,7 @@ cannot be derived and so are the two most likely to drift.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |
-| **Page 1** | **Page 1. AE 0.0009 · SSIM 0.9989** |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
 | <img src="inline/vertical_align/reference_0001.png" width="480"> | <img src="inline/vertical_align/result%23page_0001.verified.png" width="480"> |
 
 
@@ -2487,9 +2577,9 @@ foot of page one. Six pixels of either is the line-based break returning.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |
-| **Page 1** | **Page 1. AE 0.0001 · SSIM 0.9999** |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
 | <img src="page/table_break/reference_0001.png" width="480"> | <img src="page/table_break/result%23page_0001.verified.png" width="480"> |
-| **Page 2** | **Page 2. AE 0.0003 · SSIM 0.9997** |
+| **Page 2** | **Page 2. AE 0.0002 · SSIM 1.0000** |
 | <img src="page/table_break/reference_0002.png" width="480"> | <img src="page/table_break/result%23page_0002.verified.png" width="480"> |
 
 
@@ -2669,7 +2759,7 @@ loose block stacked in source order, never merged into one row.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |
-| **Page 1** | **Page 1. AE 0.0003 · SSIM 0.9996** |
+| **Page 1** | **Page 1. AE 0.0001 · SSIM 1.0000** |
 | <img src="table/anonymous/reference_0001.png" width="480"> | <img src="table/anonymous/result%23page_0001.verified.png" width="480"> |
 
 
@@ -3115,7 +3205,7 @@ inherited size.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |
-| **Page 1** | **Page 1. AE 0.0008 · SSIM 0.9997** |
+| **Page 1** | **Page 1. AE 0.0006 · SSIM 0.9999** |
 | <img src="text/font_size_keywords/reference_0001.png" width="480"> | <img src="text/font_size_keywords/result%23page_0001.verified.png" width="480"> |
 
 
@@ -3176,7 +3266,7 @@ trailing character being dropped; `#ligature-spaced` at 49.95px is spacing appli
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |
-| **Page 1** | **Page 1. AE 0.0006 · SSIM 0.9999** |
+| **Page 1** | **Page 1. AE 0.0005 · SSIM 0.9999** |
 | <img src="text/letter_spacing/reference_0001.png" width="480"> | <img src="text/letter_spacing/result%23page_0001.verified.png" width="480"> |
 
 
@@ -3327,8 +3417,56 @@ What to look at: `#boundaries`. `O'Clock` or `3Rd` is the naive boundary rule re
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |
-| **Page 1** | **Page 1. AE 0.0003 · SSIM 0.9999** |
+| **Page 1** | **Page 1. AE 0.0002 · SSIM 0.9999** |
 | <img src="text/text_transform/reference_0001.png" width="480"> | <img src="text/text_transform/result%23page_0001.verified.png" width="480"> |
+
+
+## text/underline_offset
+
+# text/underline_offset
+
+`text-decoration-thickness` and `text-underline-offset`, and the two measured rules underneath them
+that had been wrong at every size but 16px without anything noticing.
+
+The scenario is at **20px**, which is the point. `text/decorations` measures the default rules at
+16px and is pixel-identical, and that agreement turned out to be a coincidence: the engine read the
+face's `post` table, Chrome does not read the face at all, and the two round to the same answer at
+16px and part company immediately above it.
+
+Measured out of Chrome across nineteen sizes from 10px to 60px, exact at every one:
+
+- **Thickness is `max(1, floor(size / 10))`.** Nothing to do with the font — Liberation Sans gives
+  0.8px at 16px, and both rules give 1 there. At 20px the font gives 1 and Chrome draws 2. The FLOOR
+  is the whole of it: 19px is one pixel thick and 20px is two, which no rounded expression
+  reproduces.
+- **The underline sits `ceil(size / 20)` below the baseline**, held clear by at least half its own
+  thickness: `max(ceil(size / 20), floor(thickness / 2))`. Both halves are needed. The size term
+  alone is a pixel short for a thick rule — `#thick` at 4px sits two pixels down where the size says
+  one — and the thickness term alone is a pixel short at 44px. The CEILING is what puts the step at
+  21px rather than at 20px, and the position is flat from 24px to 40px, where anything linear in the
+  size would keep climbing.
+- **A declared `text-underline-offset` REPLACES that position rather than adding to it.** CSS
+  describes the property as an offset from the initial position, which reads as additive; at 20px the
+  resolved position is one pixel down and `text-underline-offset: 6px` puts the rule six down rather
+  than seven. `#lowered` is the row that says so and `#both` confirms it against an overridden
+  thickness at the same time.
+
+The line-through keeps the FONT's position — `OS/2.yStrikeoutPosition` — and takes the resolved
+thickness like the other two. Only the position is a property of the face: a strike has to cross the
+glyphs at the height that face was designed for, where a thickness is the browser's choice.
+
+**Residual**: SSIM 0.9997 from glyph edges. Every one of the six rules lands on exactly the rows
+Chrome puts it on.
+
+What to look at: the rows each rule occupies. `#thin` is one row, `#plain` two, `#thick` four, and
+`#lowered` starts six below the baseline rather than seven.
+
+**Boxes**: 14 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0002 · SSIM 0.9997** |
+| <img src="text/underline_offset/reference_0001.png" width="480"> | <img src="text/underline_offset/result%23page_0001.verified.png" width="480"> |
 
 
 ## text/word_break

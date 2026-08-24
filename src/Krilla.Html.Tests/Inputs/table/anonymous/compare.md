@@ -23,6 +23,6 @@ loose block stacked in source order, never merged into one row.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |
-| **Page 1** | **Page 1. AE 0.0003 · SSIM 0.9996** |
+| **Page 1** | **Page 1. AE 0.0001 · SSIM 1.0000** |
 | <img src="reference_0001.png" width="480"> | <img src="result%23page_0001.verified.png" width="480"> |
 

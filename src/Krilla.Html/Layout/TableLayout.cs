@@ -634,6 +634,7 @@ static class TableLayout
                 grid.Rows[row].Height += extra;
             }
         }
+
     }
 
     /// <summary>The height a cell has across the rows it spans, gaps included.</summary>

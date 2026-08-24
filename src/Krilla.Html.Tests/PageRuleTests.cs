@@ -194,12 +194,26 @@ public class PageRuleTests
         // The page geometry has to be settled BEFORE the cascade is read, or a document declaring
         // its own paper is laid out against the wrong rectangle. A viewport unit is the cheapest
         // way to see that: `50vw` of an A4 page is not `50vw` of a Letter one.
-        var page = Render(
-            "@page { size: A4 } div { width: 50vw; height: 40px; background: #c81e1e }",
-            "<div id=\"a\"></div>");
+        //
+        // Asserted on the measured BOX rather than on where the ink stops. Half of 793.7008 is
+        // 396.8504, which is not a whole number of pixels — and a fractional edge is rasterised
+        // through a round trip into PDF points, so the last inked column answers a question about
+        // the rasteriser rather than about the page rule.
+        var html =
+            "<!doctype html><html><head><style>html, body { margin: 0; padding: 0; }" +
+            "@page { size: A4 } div { width: 50vw; height: 40px }" +
+            "</style></head><body><div id=\"a\"></div></body></html>";
 
-        // Half of 793.7 is 396.85, so the last inked column is 396.
-        await Assert.That(LastInkedColumn(page)).IsEqualTo(396);
+        var options = Options();
+        using var document = HtmlConverter.Parse(html, options);
+
+        var boxes = BoxDump.Measure(html, HtmlConverter.Paged(document, options));
+        var div = boxes.Single(_ => _.Selector.EndsWith("div:nth-child(1)"));
+
+        await Assert.That(div.Width).IsEqualTo(396.85f).Within(0.01f);
+
+        // And not half of Letter, which is what it would be if the rule were read too late.
+        await Assert.That(div.Width).IsNotEqualTo(CorpusLayout.PageWidth / 2f);
     }
 
     static PngImage Render(string css) =>

@@ -1,0 +1,18 @@
+div { width: 200px; margin-bottom: 6px; background-color: #cfd8e8; }
+
+/* A ratio with an auto height gives the height, which is the whole property. */
+#wide { aspect-ratio: 4 / 1; }
+/*
+  Written `1 / 1` rather than `1`. AngleSharp's grammar for the property requires both parts and
+  DROPS a single number, so `aspect-ratio: 1` reaches the cascade as nothing at all — a gap that
+  cannot even be reported, since the declaration is gone before the engine sees it.
+*/
+#square { aspect-ratio: 1 / 1; }
+#tall { aspect-ratio: 1 / 2; }
+#fraction { aspect-ratio: 16 / 9; }
+
+/* A declared height wins: the ratio only supplies what was not given. */
+#overridden { aspect-ratio: 4 / 1; height: 30px; background-color: #e8d8cf; }
+
+/* The width may itself be proportional, and the ratio applies to the used value. */
+#proportional { width: 50%; aspect-ratio: 8 / 1; background-color: #d8e8cf; }

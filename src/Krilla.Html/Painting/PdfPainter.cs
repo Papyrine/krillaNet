@@ -534,7 +534,8 @@ static class PdfPainter
             using var path = PdfPath.Rectangle(
                 Rectangle.FromSize(bounds.X, bounds.Y, bounds.Width, bounds.Height));
 
-            surface.SetFill(background).DrawPath(path);
+            using var inline = Krilla.Paint.Solid(background);
+            surface.SetFill(new Fill(inline, style.BackgroundAlpha)).DrawPath(path);
         }
 
         Edge(style.BorderTopColor, style.BorderTop, bounds.X, bounds.Y, bounds.Width, style.BorderTop);
@@ -704,6 +705,26 @@ static class PdfPainter
                 if (run.Style.Visibility == VisibilityKind.Visible)
                 {
                     PaintInlineBackground(surface, run);
+
+                    // Behind the text and in front of its background, which is where CSS puts a
+                    // text shadow — over the element's own background and under its glyphs.
+                    foreach (var shadow in run.Style.TextShadows)
+                    {
+                        PaintRun(
+                            surface,
+                            run with
+                            {
+                                X = run.X + shadow.OffsetX,
+                                Y = run.Y + shadow.OffsetY,
+                                Style = run.Style with
+                                {
+                                    Color = shadow.Color,
+                                    TextShadows = [],
+                                    Decorations = TextDecorations.None
+                                }
+                            });
+                    }
+
                     PaintRun(surface, run);
                 }
 
@@ -836,11 +857,20 @@ static class PdfPainter
             return;
         }
 
+        // Shadows first of all, because a shadow is BEHIND the box that casts it — including
+        // behind its own background, which is what makes a translucent background show the shadow
+        // through where the two overlap.
+        foreach (var shadow in style.BoxShadows)
+        {
+            PaintShadow(surface, style, box.BorderBox, shadow);
+        }
+
+
         // The colour first and the image over it: they are two layers of one background rather
         // than alternatives, so a translucent gradient shows the colour through it.
         if (style.BackgroundColor is {} color)
         {
-            Fill(Krilla.Paint.Solid(color));
+            Fill(Krilla.Paint.Solid(color), style.BackgroundAlpha);
         }
 
         if (style.BackgroundImage is {} gradient)
@@ -859,15 +889,32 @@ static class PdfPainter
             PaintBackgroundImage(surface, style, rect, Area(box, style.BackgroundOrigin), picture);
         }
 
-        void Fill(Krilla.Paint paint)
+        void Fill(Krilla.Paint paint, float opacity = 1f)
         {
             using var owned = paint;
+            var fill = new Fill(owned, opacity);
 
             if (!style.HasRadius)
             {
+                // Snapped to whole pixels, because that is what the browser fills — a box from
+                // 786.5 to 816.5 is painted over rows 787 to 816, not spread over 31 rows with half
+                // coverage at each end. The same construction argument the inline background fill
+                // and the background image both record; it shows here because `aspect-ratio` is the
+                // first thing in the corpus that produces a fractional box height on purpose.
+                //
+                // Only the square path. A rounded one is a bezier outline whose corners would have
+                // to be snapped with it, and no scenario asks for a fractional rounded box.
+                var left = Snap(rect.X);
+                var top = Snap(rect.Y);
+
                 using var rectangle = PdfPath.Rectangle(
-                    Rectangle.FromSize(rect.X, rect.Y, rect.Width, rect.Height));
-                surface.SetFill(owned).DrawPath(rectangle);
+                    Rectangle.FromSize(
+                        left,
+                        top,
+                        Snap(rect.Right) - left,
+                        Snap(rect.Bottom) - top));
+
+                surface.SetFill(fill).DrawPath(rectangle);
                 return;
             }
 
@@ -875,7 +922,7 @@ static class PdfPainter
             RoundedBox.Resolve(style, rect).Trace(builder, rect, clockwise: true);
 
             using var path = builder.Build();
-            surface.SetFill(owned).DrawPath(path);
+            surface.SetFill(fill).DrawPath(path);
         }
     }
 
@@ -1058,6 +1105,41 @@ static class PdfPainter
         position.Kind == LengthKind.Percent
             ? (area - tile) * position.Value / 100f
             : position.Resolve(area);
+
+    /// <summary>
+    /// Paints one box shadow: the border box, moved by the offset.
+    /// </summary>
+    /// <remarks>
+    /// It keeps the box's corner radii, so a rounded box casts a rounded shadow — square corners
+    /// under a rounded box show at every corner.
+    /// </remarks>
+    static void PaintShadow(Surface surface, ComputedStyle style, Rect border, BoxShadow shadow)
+    {
+        var rect = border.Offset(shadow.OffsetX, shadow.OffsetY);
+
+        if (rect.Width <= 0 || rect.Height <= 0)
+        {
+            return;
+        }
+
+        using var paint = Krilla.Paint.Solid(shadow.Color);
+        var fill = new Fill(paint, shadow.Alpha);
+
+        if (!style.HasRadius)
+        {
+            using var rectangle = PdfPath.Rectangle(
+                Rectangle.FromSize(rect.X, rect.Y, rect.Width, rect.Height));
+
+            surface.SetFill(fill).DrawPath(rectangle);
+            return;
+        }
+
+        using var builder = new PathBuilder();
+        RoundedBox.Resolve(style, rect).Trace(builder, rect, clockwise: true);
+
+        using var path = builder.Build();
+        surface.SetFill(fill).DrawPath(path);
+    }
 
     /// <summary>
     /// Paints the four border edges, mitred at the corners.
@@ -1577,6 +1659,48 @@ static class PdfPainter
         }
     }
 
+    /// <summary>
+    /// The thickness every text decoration is drawn at, in CSS pixels.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>max(1, floor(size / 10))</c>, which does NOT read the font — measured out of Chrome across
+    /// nineteen sizes from 10px to 60px and exact at every one. The font's own
+    /// <c>post.underlineThickness</c> gives 0.8px at 16px, and both rules round to 1 there, which is
+    /// why reading the face agreed with the browser for as long as the corpus only asked at 16px.
+    /// They part company at 20px, where the font gives 1 and Chrome draws 2.
+    /// </para>
+    /// <para>
+    /// The floor is the whole of it: 19px is one pixel thick and 20px is two, and no rounded
+    /// expression reproduces that step. The same shape as the list-marker arithmetic, and for the
+    /// same reason — CSS leaves the value to the user agent, so there is no correct number to
+    /// compute and agreeing with the reference browser is the useful target.
+    /// </para>
+    /// </remarks>
+    static float ResolvedThickness(float size) =>
+        MathF.Max(1, MathF.Floor(size / 10));
+
+    /// <summary>
+    /// How far below the baseline an underline sits, in CSS pixels.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>ceil(size / 20)</c>, also measured rather than read from the face, and also exact across
+    /// the same nineteen sizes: one pixel up to 20px, two from 21px to 40px, three from 44px. The
+    /// CEILING is what puts the step at 21 rather than at 20, and it is what a font-derived position
+    /// cannot produce — the offset is flat from 24px to 40px, where anything linear in the size
+    /// would keep climbing.
+    /// </para>
+    /// <para>
+    /// It is also held clear of the baseline by half the rule's own THICKNESS, which only shows once
+    /// the thickness is overridden: a 4px rule on 20px text sits two pixels down rather than one,
+    /// where the size alone would say one. Both halves are needed — the size term alone is a pixel
+    /// short for a thick rule, and the thickness term alone is a pixel short at 44px.
+    /// </para>
+    /// </remarks>
+    static float UnderlinePosition(float size, float thickness) =>
+        MathF.Max(MathF.Ceiling(size / 20), MathF.Floor(thickness / 2));
+
     static void PaintRun(Surface surface, TextRun run)
     {
         if (run.Text.Length == 0)
@@ -1589,7 +1713,8 @@ static class PdfPainter
             return;
         }
 
-        surface.SetFill(run.Style.Color);
+        using var paint = Krilla.Paint.Solid(run.Style.Color);
+        surface.SetFill(new Fill(paint, run.Style.TextAlpha));
 
         // The very glyphs the line was measured with, so what is painted is what was laid out.
         // Drawn from the baseline, which is where krilla positions a run's origin.
@@ -1647,20 +1772,34 @@ static class PdfPainter
         var size = run.Style.FontSize;
         var face = run.Face;
 
+        // `text-decoration-thickness` replaces the resolved thickness for every one of the three
+        // rules, and `text-underline-offset` moves only the underline — which is what the property
+        // is named after and is the whole of its scope.
+        var thickness = run.Style.DecorationThickness ?? ResolvedThickness(size);
+
         if (decorations.HasFlag(TextDecorations.Underline))
         {
-            Rule(run.Y + face.UnderlineOffset(size), face.UnderlineThickness(size));
+            // A declared `text-underline-offset` REPLACES the resolved position rather than adding
+            // to it. Measured: at 20px the resolved position is one pixel below the baseline, and
+            // `text-underline-offset: 6px` puts the rule six below rather than seven. CSS describes
+            // the property as an offset from the initial position, which reads as additive and is
+            // not what the browser draws.
+            Rule(
+                run.Y + (run.Style.UnderlineOffset ?? UnderlinePosition(size, thickness)),
+                thickness);
         }
 
         if (decorations.HasFlag(TextDecorations.Overline))
         {
-            var thickness = face.UnderlineThickness(size);
             Rule(run.Y - MathF.Round(face.Ascent(size)) - thickness, thickness);
         }
 
         if (decorations.HasFlag(TextDecorations.LineThrough))
         {
-            var thickness = face.StrikeoutThickness(size);
+            // Its POSITION is the font's — `OS/2.yStrikeoutPosition` — and its thickness is the
+            // same resolved one the other two use. Only the position is a property of the face: a
+            // strike has to cross the glyphs at the height that face was designed for, where a
+            // thickness is the browser's choice.
             Rule(run.Y - face.StrikeoutOffset(size) - thickness, thickness);
         }
 

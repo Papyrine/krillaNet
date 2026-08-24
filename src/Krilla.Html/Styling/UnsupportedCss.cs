@@ -31,8 +31,6 @@ static class UnsupportedCss
     [
         ("font-variant", "normal", "the regular face is used"),
         ("font-stretch", "normal", "the regular face is used"),
-        ("text-shadow", "none", "not painted"),
-        ("box-shadow", "none", "not painted"),
         ("writing-mode", "horizontal-tb", "laid out horizontally"),
         ("direction", "ltr", "laid out left to right"),
         ("column-count", "auto", "laid out in one column")
@@ -57,6 +55,19 @@ static class UnsupportedCss
     ];
 
     static readonly string[] sides = ["top", "right", "bottom", "left"];
+
+    /// <summary>
+    /// The colour properties drawn fully opaque, whatever alpha they were given.
+    /// </summary>
+    static readonly string[] opaque =
+    [
+        "border-top-color",
+        "border-right-color",
+        "border-bottom-color",
+        "border-left-color",
+        "outline-color",
+        "text-decoration-color"
+    ];
 
     /// <summary>
     /// The two break properties whose values are only partly honoured, in the modern spelling.
@@ -155,6 +166,8 @@ static class UnsupportedCss
         Tabs(declaration, name, sink);
         Decoration(declaration, name, sink);
         Marker(declaration, name, style, sink);
+        Shadows(declaration, name, style, sink);
+        Translucent(declaration, name, sink);
         Counters(declaration, name, sink);
         Spaces(declaration, name, sink);
         Collapse(declaration, name, sink);
@@ -574,6 +587,79 @@ static class UnsupportedCss
         if (Set(declaration, "text-decoration-style") is "wavy")
         {
             Diagnostic.Property(sink, element, "text-decoration-style", "wavy", "painted as a solid rule");
+        }
+    }
+
+    /// <summary>
+    /// A shadow layer this engine cannot draw.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Counted rather than tested value by value, because the resolved list already holds exactly
+    /// what will be painted: a declaration naming three layers of which one survived is two layers
+    /// short, and the report should say so once per layer lost.
+    /// </para>
+    /// <para>
+    /// What is lost is a blur, a spread, and <c>inset</c>. A blur needs a Gaussian; a spread is
+    /// indistinguishable from a blur once AngleSharp elides the zero between them; and <c>inset</c>
+    /// shades the inside of the box rather than casting outside it.
+    /// </para>
+    /// </remarks>
+    static void Shadows(
+        ICssStyleDeclaration declaration,
+        string element,
+        ComputedStyle style,
+        Action<HtmlDiagnostic> sink)
+    {
+        Report("box-shadow", style.BoxShadows.Length);
+        Report("text-shadow", style.TextShadows.Length);
+
+        void Report(string property, int painted)
+        {
+            if (Set(declaration, property) is not {} value ||
+                value == "none" ||
+                IsInitial(value))
+            {
+                return;
+            }
+
+            var declared = CssValues.SplitLayers(value).Count;
+
+            if (declared > painted)
+            {
+                Diagnostic.Property(
+                    sink,
+                    element,
+                    property,
+                    value,
+                    painted == 0
+                        ? "not painted; only an offset with no blur or spread is drawn"
+                        : "one or more layers are not painted; only an offset with no blur or spread is drawn");
+            }
+        }
+    }
+
+    /// <summary>
+    /// A translucent colour on a property that is drawn fully opaque.
+    /// </summary>
+    /// <remarks>
+    /// <c>color</c> and <c>background-color</c> honour their alpha, and are absent here. The rest
+    /// draw through <see cref="Krilla.Color"/>, which has no alpha — krilla models opacity as a fill
+    /// property — so carrying it would mean threading a second value to each of them. Reported until
+    /// they do.
+    /// </remarks>
+    static void Translucent(ICssStyleDeclaration declaration, string element, Action<HtmlDiagnostic> sink)
+    {
+        foreach (var property in opaque)
+        {
+            if (Set(declaration, property) is {} value &&
+                !IsInitial(value) &&
+                CssValues.ParseColor(value) is not null &&
+                CssValues.ParseAlpha(value) < 1)
+            {
+                Diagnostic.Property(sink, element, property, value, "drawn fully opaque");
+                return;
+            }
         }
     }
 

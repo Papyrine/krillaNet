@@ -1,0 +1,7 @@
+p { font-size: 20px; line-height: 34px; margin: 0 0 4px 0; }
+.u { text-decoration-line: underline; }
+
+.thick { text-decoration-thickness: 4px; }
+.thin { text-decoration-thickness: 1px; }
+.low { text-underline-offset: 6px; }
+.high { text-underline-offset: -3px; }

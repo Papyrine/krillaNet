@@ -126,6 +126,12 @@ public sealed class FontFace :
     /// Underline thickness in CSS pixels, never less than one: a rule rounded away to nothing is
     /// worse than one a little too thick.
     /// </summary>
+    /// <remarks>
+    /// NOT what a text decoration is drawn at. Chrome ignores the face here and uses
+    /// <c>max(1, floor(size / 10))</c>, measured across nineteen sizes — see
+    /// <c>PdfPainter.ResolvedThickness</c>. This is kept as the font's own answer, which the two
+    /// agree on at 16px and nowhere above 19px.
+    /// </remarks>
     public float UnderlineThickness(float fontSize) =>
         MathF.Max(1, MathF.Round(metrics.UnderlineThickness * fontSize / metrics.UnitsPerEm));
 

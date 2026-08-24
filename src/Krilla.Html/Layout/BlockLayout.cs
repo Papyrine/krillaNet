@@ -161,7 +161,7 @@ static class BlockLayout
             replacedHeight ??
             (style.Height.Kind == LengthKind.Absolute
                 ? style.ContentSize(style.Height.Value, surroundY)
-                : contentHeight),
+                : Ratio(style, borderBoxWidth, surroundY) ?? contentHeight),
             style,
             surroundY);
 
@@ -613,6 +613,32 @@ static class BlockLayout
     /// box shortened here keeps drawing its content past its own bottom edge, which is what
     /// <c>overflow: visible</c> asks for anyway.
     /// </remarks>
+    /// <summary>
+    /// The content height an <c>aspect-ratio</c> asks for, or null when there is none.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The ratio applies to the box named by <c>box-sizing</c>, which for the default
+    /// <c>content-box</c> means the content box and for <c>border-box</c> the border box — so it
+    /// goes through the same deflation a declared height does rather than beside it. Measured with
+    /// a 200px box at <c>4 / 1</c>, which is 50px tall.
+    /// </para>
+    /// <para>
+    /// Only when the height is AUTO. A declared height wins outright, the ratio supplying what was
+    /// not given — which is what makes <c>aspect-ratio</c> safe to put on a rule that some elements
+    /// also size explicitly.
+    /// </para>
+    /// </remarks>
+    static float? Ratio(ComputedStyle style, float borderBoxWidth, float surroundY)
+    {
+        if (style.AspectRatio <= 0)
+        {
+            return null;
+        }
+
+        return style.ContentSize(borderBoxWidth / style.AspectRatio, surroundY);
+    }
+
     static float ClampHeight(float height, ComputedStyle style, float surround)
     {
         if (style.MaxHeight.Kind == LengthKind.Absolute)
@@ -725,14 +751,24 @@ static class BlockLayout
     /// to hold them apart.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// A replaced box never is, however its height was arrived at. Its content holds the margins
     /// apart exactly as a declared height would, and the height test below cannot see that: an
     /// image sized from its aspect ratio has <c>height: auto</c>, which reads as zero here. Without
     /// this an image's own bottom margin collapses through it and pushes the image down by that
     /// margin.
+    /// </para>
+    /// <para>
+    /// Nor is a box sized by <c>aspect-ratio</c>, which is the same trap reached by a second route
+    /// and cost the same debugging round. Its <c>height</c> is auto and its content is empty, so
+    /// every test below passes and the box reads as having nothing in it — while it is in fact
+    /// fifty pixels tall. `block/aspect_ratio` had its whole page six pixels low from the first
+    /// box's own bottom margin collapsing through it and becoming a leading margin for the run.
+    /// </para>
     /// </remarks>
     static bool IsSelfCollapsing(LayoutBox box, float containingWidth) =>
         box.Image is null &&
+        box.Style.AspectRatio <= 0 &&
         box.Style.Display != DisplayKind.Table &&
         box.Style.BorderWidthY == 0 &&
         box.Style.PaddingTop.Resolve(containingWidth) == 0 &&

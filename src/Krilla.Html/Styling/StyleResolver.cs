@@ -134,7 +134,15 @@ static class StyleResolver
         var root = context.Root;
 
         var fontSize = ResolveFontSize(declaration, parent, root);
-        var color = CssValues.ParseColor(declaration.GetPropertyValue("color")) ?? parent.Color;
+
+        var declaredColor = declaration.GetPropertyValue("color");
+        var color = CssValues.ParseColor(declaredColor) ?? parent.Color;
+
+        // The alpha follows whichever colour won, so an element that does not name one inherits both
+        // halves of the value rather than an opaque version of its parent's.
+        var alpha = CssValues.ParseColor(declaredColor) is null
+            ? parent.TextAlpha
+            : CssValues.ParseAlpha(declaredColor);
 
         var families = CssValues.ParseFamilies(declaration.GetPropertyValue("font-family"));
         if (families.Count == 0)
@@ -205,6 +213,8 @@ static class StyleResolver
             // Inherited, so an absent declaration takes the parent's rather than zero.
             TextIndent = Length(declaration, "text-indent", fontSize, root, parent.TextIndent),
             BackgroundColor = CssValues.ParseColor(declaration.GetPropertyValue("background-color")),
+            BackgroundAlpha = CssValues.ParseAlpha(declaration.GetPropertyValue("background-color")),
+            TextAlpha = alpha,
             BackgroundImage = CssGradient.Parse(
                 declaration.GetPropertyValue("background-image"),
                 fontSize,
@@ -232,6 +242,11 @@ static class StyleResolver
             LineHeight = lineHeight.Absolute,
             LineHeightScale = lineHeight.Scale,
             TabSize = ParseTabSize(declaration.GetPropertyValue("tab-size"), parent.TabSize),
+            AspectRatio = ParseRatio(declaration.GetPropertyValue("aspect-ratio")),
+            BoxShadows = Shadows(declaration, "box-shadow", fontSize, root),
+            TextShadows = Shadows(declaration, "text-shadow", fontSize, root),
+            DecorationThickness = Thickness(declaration, "text-decoration-thickness", fontSize, root),
+            UnderlineOffset = Thickness(declaration, "text-underline-offset", fontSize, root),
             CounterReset = Counters(declaration, "counter-reset", 0),
             CounterIncrement = Counters(declaration, "counter-increment", 1),
             Quotes = ParseQuotes(declaration.GetPropertyValue("quotes"), parent.Quotes),
@@ -856,7 +871,8 @@ static class StyleResolver
     static VisibilityKind ParseVisibility(string value, VisibilityKind inherited) =>
         value.Trim().ToLowerInvariant() switch
         {
-            "hidden" or "collapse" => VisibilityKind.Hidden,
+            "hidden" => VisibilityKind.Hidden,
+            "collapse" => VisibilityKind.Collapse,
             "visible" => VisibilityKind.Visible,
             _ => inherited
         };
@@ -1328,6 +1344,153 @@ static class StyleResolver
         // An odd count is a malformed declaration; the trailing mark has no closing partner and
         // would be read as one, so the whole value falls back.
         return marks.Count >= 2 && marks.Count % 2 == 0 ? [.. marks] : inherited;
+    }
+
+    /// <summary>
+    /// The shadow list of a <c>box-shadow</c> or <c>text-shadow</c>, farthest-first.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Only the two-length form is kept — an offset and a colour. Anything with a third length is
+    /// dropped, because <see cref="BoxShadow"/> cannot tell a blur from a spread once AngleSharp has
+    /// elided the zero between them, and <c>inset</c> is dropped because it shades the inside of the
+    /// box rather than casting outside it. Every dropped layer is reported.
+    /// </para>
+    /// <para>
+    /// Layers are REVERSED, because CSS paints the first-written one on top and the painter draws in
+    /// order. Getting that backwards is invisible until two shadows overlap, which is the only time
+    /// anyone writes two.
+    /// </para>
+    /// </remarks>
+    static BoxShadow[] Shadows(
+        ICssStyleDeclaration declaration,
+        string property,
+        float fontSize,
+        CssRoot root)
+    {
+        var value = declaration.GetPropertyValue(property).Trim();
+
+        if (value.Length == 0 ||
+            value.Equals("none", StringComparison.OrdinalIgnoreCase) ||
+            value.Equals("initial", StringComparison.OrdinalIgnoreCase))
+        {
+            return [];
+        }
+
+        var shadows = new List<BoxShadow>();
+
+        foreach (var layer in CssValues.SplitLayers(value))
+        {
+            if (Shadow(layer, fontSize, root) is {} shadow)
+            {
+                shadows.Add(shadow);
+            }
+        }
+
+        shadows.Reverse();
+        return [.. shadows];
+    }
+
+    static BoxShadow? Shadow(string layer, float fontSize, CssRoot root)
+    {
+        Color? color = null;
+        var opacity = 1f;
+        var lengths = new List<float>();
+
+        foreach (var token in CssValues.SplitArguments(layer))
+        {
+            if (token.Equals("inset", StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            if (CssValues.ParseColor(token) is {} parsed)
+            {
+                color = parsed;
+                opacity = CssValues.ParseAlpha(token);
+                continue;
+            }
+
+            var length = CssValues.ParseLength(token, fontSize, root, CssLength.None);
+
+            if (length.Kind != LengthKind.Absolute)
+            {
+                // A component nobody can read makes the layer unusable rather than partly usable,
+                // the same rule generated content follows.
+                return null;
+            }
+
+            lengths.Add(length.Value);
+        }
+
+        // Exactly two lengths: the offset, with no blur and no spread. A third length is a blur —
+        // or a spread that AngleSharp has made indistinguishable from one — and either way this
+        // cannot draw it.
+        return lengths.Count == 2 && color is {} painted
+            ? new(lengths[0], lengths[1], painted, opacity)
+            : null;
+    }
+
+    /// <summary>
+    /// An <c>aspect-ratio</c> as one number, or zero when there is none.
+    /// </summary>
+    /// <remarks>
+    /// <c>auto</c> is zero rather than a ratio: it means "use the element's own", which for
+    /// everything but a replaced element is nothing at all. A ratio with a zero part is rejected for
+    /// the obvious reason.
+    /// </remarks>
+    static float ParseRatio(string value)
+    {
+        var text = value.Trim();
+
+        if (text.Length == 0 ||
+            text.Equals("auto", StringComparison.OrdinalIgnoreCase) ||
+            text.Equals("initial", StringComparison.OrdinalIgnoreCase))
+        {
+            return 0;
+        }
+
+        var parts = text.Split('/', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+        if (!CssValues.TryParseNumber(parts[0], out var width) || width <= 0)
+        {
+            return 0;
+        }
+
+        if (parts.Length == 1)
+        {
+            return width;
+        }
+
+        return CssValues.TryParseNumber(parts[1], out var height) && height > 0
+            ? width / height
+            : 0;
+    }
+
+    /// <summary>
+    /// A length that means "take the font's own" when absent.
+    /// </summary>
+    /// <remarks>
+    /// <c>auto</c> and <c>from-font</c> both mean that, and both are the values an author writes to
+    /// undo an inherited override — so they come back null rather than zero, which would draw no
+    /// rule at all.
+    /// </remarks>
+    static float? Thickness(
+        ICssStyleDeclaration declaration,
+        string property,
+        float fontSize,
+        CssRoot root)
+    {
+        var value = declaration.GetPropertyValue(property).Trim().ToLowerInvariant();
+
+        if (value.Length == 0 || value is "auto" or "from-font" or "initial")
+        {
+            return null;
+        }
+
+        var length = CssValues.ParseLength(value, fontSize, root, CssLength.None);
+
+        return length.Kind == LengthKind.Absolute ? length.Value : null;
     }
 
     /// <summary>

@@ -1,0 +1,20 @@
+p { font-size: 24px; line-height: 32px; margin: 0 0 6px 0; color: #204080; }
+div { width: 120px; height: 40px; margin: 0 0 18px 30px; background-color: #cfd8e8; }
+
+/*
+  Offsets only, with no blur and no spread anywhere. A blur needs a Gaussian, and a spread cannot be
+  told from a blur once AngleSharp has elided the zero between them — see the notes.
+*/
+#text { text-shadow: 3px 3px #c04020; }
+#offset { text-shadow: -3px -2px #40a040; }
+
+/* Two layers, first on top — the reverse of how they are written, which is the whole subtlety. */
+#several { text-shadow: 4px 4px #c04020, 8px 8px #f0d060; }
+
+#box { box-shadow: 6px 6px #c04020; }
+
+/* A rounded box casts a rounded shadow. */
+#rounded { border-radius: 12px; box-shadow: 8px 8px #c04020; }
+
+/* A shadow is BEHIND its own background, so a translucent background shows it through. */
+#translucent { background-color: rgba(207, 216, 232, 0.5); box-shadow: 10px 4px #40a040; }

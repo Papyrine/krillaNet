@@ -3,6 +3,7 @@ agrees with Chrome exactly. `unmatched` counts elements the browser laid out tha
 engine generates no box for.
 
 block/anonymous                  matched  4  offset    0.00  size    0.00  differing  0  unmatched 0
+block/aspect_ratio               matched  8  offset    0.00  size    0.00  differing  0  unmatched 0
 block/auto_margins               matched  4  offset    0.00  size    0.00  differing  0  unmatched 0
 block/auto_width                 matched  4  offset    0.00  size    0.00  differing  0  unmatched 0
 block/background_color           matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
@@ -30,6 +31,7 @@ block/outline                    matched  6  offset    0.00  size    0.00  diffe
 block/overflow_hidden            matched  8  offset    0.00  size    0.00  differing  0  unmatched 0
 block/overflow_paint             matched  8  offset    0.00  size    0.00  differing  0  unmatched 0
 block/percentage_width           matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
+block/shadows                    matched  8  offset    0.00  size    0.00  differing  0  unmatched 0
 block/transform                  matched 17  offset    0.00  size    0.00  differing  0  unmatched 0
 block/viewport_units             matched  7  offset    0.00  size    0.00  differing  0  unmatched 0
 block/visibility                 matched  8  offset    0.00  size    0.00  differing  0  unmatched 0
@@ -107,6 +109,7 @@ text/ligatures                   matched  5  offset    0.00  size    0.00  diffe
 text/soft_hyphen                 matched 10  offset    0.00  size    0.00  differing  0  unmatched 0
 text/tabs                        matched 14  offset    0.00  size    0.00  differing  0  unmatched 0
 text/text_transform              matched  7  offset    0.00  size    0.00  differing  0  unmatched 0
+text/underline_offset            matched 14  offset    0.00  size    0.00  differing  0  unmatched 0
 text/word_break                  matched 10  offset    0.00  size    0.00  differing  0  unmatched 0
 text/word_spacing                matched  7  offset    0.00  size    0.00  differing  0  unmatched 0
 ua/acid1                         matched 14  offset    0.00  size    0.00  differing  0  unmatched 0

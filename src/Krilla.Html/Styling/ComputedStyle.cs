@@ -220,7 +220,29 @@ enum VisibilityKind
     Visible,
 
     /// <summary>Not painted, and still occupying its space.</summary>
-    Hidden
+    Hidden,
+
+    /// <summary>
+    /// <c>visibility: collapse</c>, which this engine treats exactly as <see cref="Hidden"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A value of its own rather than folded into <see cref="Hidden"/> only so the diagnostic can
+    /// name it. On a table row or column CSS says the track is REMOVED and the rows below move up,
+    /// which is the one visibility value that changes layout rather than only painting — and it is
+    /// NOT implemented, deliberately.
+    /// </para>
+    /// <para>
+    /// Not because it is hard. It was written, and then measured, and Chrome turned out to disagree
+    /// with ITSELF: its screen layout gives the collapsed row a height of zero and starts the next
+    /// row one border-spacing after the one above, while its printed page puts everything after the
+    /// row twenty pixels further down again. The corpus reads geometry from the first and pixels
+    /// from the second, so a scenario for this cannot be exact on both measurements however the
+    /// engine behaves. Treating it as <c>hidden</c> is what a reader of the reported diagnostic can
+    /// at least predict.
+    /// </para>
+    /// </remarks>
+    Collapse
 }
 
 /// <summary>How text is cased before it is shaped.</summary>
@@ -283,6 +305,35 @@ enum WordBreaking
     /// <summary>Anywhere, whether or not the word would overflow.</summary>
     Always
 }
+
+/// <summary>
+/// One shadow: an offset and a colour, with neither blur nor spread.
+/// </summary>
+/// <remarks>
+/// <para>
+/// Neither, and for two different reasons. A BLUR needs a Gaussian, which a PDF content stream does
+/// not express for an arbitrary shape — and a blurred shadow drawn sharp is a hard dark copy where a
+/// soft halo belongs, the same reasoning that makes an unsupported outline style draw nothing rather
+/// than draw solid.
+/// </para>
+/// <para>
+/// A SPREAD is unreachable rather than unimplementable. AngleSharp ELIDES A ZERO BLUR when it
+/// serialises the value, so <c>6px 6px 0 4px</c> — offset, no blur, spread four — comes back as
+/// <c>6px 6px 4px</c>, which is byte-for-byte what a real four-pixel blur comes back as. The
+/// distinction is destroyed before the engine sees it, so a three-length value has to be read as a
+/// blur: reading it as a spread would draw a hard shadow wherever an author asked for a soft one,
+/// which is the worse of the two mistakes by far.
+/// </para>
+/// </remarks>
+/// <param name="OffsetX">How far right the shadow is moved.</param>
+/// <param name="OffsetY">How far down.</param>
+/// <param name="Color">Its colour.</param>
+/// <param name="Alpha">
+/// Its opacity, from the colour's fourth component. A shadow is written with one far more often than
+/// not — <c>rgba(0, 0, 0, 0.25)</c> is what a shadow IS — so ignoring it would leave the feature
+/// drawing a solid black slab in the usual case.
+/// </param>
+readonly record struct BoxShadow(float OffsetX, float OffsetY, Color Color, float Alpha = 1f);
 
 /// <summary>One of the three nested rectangles a box is made of.</summary>
 enum BoxArea
@@ -777,6 +828,53 @@ sealed record ComputedStyle
     /// nested quotation from losing its marks.
     /// </remarks>
     public string[] Quotes { get; init; } = ["“", "”", "‘", "’"];
+
+    /// <summary>
+    /// The opacity of <see cref="BackgroundColor"/>, from the colour's fourth component.
+    /// </summary>
+    /// <remarks>
+    /// Separate from the colour because <see cref="Krilla.Color"/> has no alpha — krilla models
+    /// opacity as a fill property rather than as a fourth channel. Carrying it alongside is what
+    /// makes <c>rgba()</c> work, and <c>rgba()</c> is how nearly every translucent panel, overlay and
+    /// tint in modern CSS is written.
+    /// </remarks>
+    public float BackgroundAlpha { get; init; } = 1;
+
+    /// <summary>The opacity of <see cref="Color"/>, which text and decorations are drawn with.</summary>
+    /// <remarks>Inherited with the colour, as CSS inherits the whole value.</remarks>
+    public float TextAlpha { get; init; } = 1;
+
+    /// <summary>
+    /// The preferred ratio of width to height, or zero when there is none.
+    /// </summary>
+    /// <remarks>
+    /// Held as one number rather than as a pair, because every use of it divides: a width of 200 at
+    /// <c>4 / 1</c> is a height of 50. Zero rather than null so the common case costs no allocation
+    /// and no unwrapping.
+    /// </remarks>
+    public float AspectRatio { get; init; }
+
+    /// <summary>
+    /// The shadows cast by this box's border box, painted farthest-first.
+    /// </summary>
+    /// <remarks>
+    /// Empty for nearly every box, and empty for any shadow this engine cannot draw exactly — see
+    /// <see cref="BoxShadow"/> for which those are and why. A layer that is dropped is reported.
+    /// </remarks>
+    public BoxShadow[] BoxShadows { get; init; } = [];
+
+    /// <summary>The shadows cast by this element's text, painted farthest-first.</summary>
+    public BoxShadow[] TextShadows { get; init; } = [];
+
+    /// <summary>
+    /// The thickness of a text decoration's rule, or null to take the font's own.
+    /// </summary>
+    public float? DecorationThickness { get; init; }
+
+    /// <summary>
+    /// How far below the font's own underline position the rule sits, or null for none.
+    /// </summary>
+    public float? UnderlineOffset { get; init; }
 
     /// <summary>Which side of the table the caption sits on.</summary>
     public CaptionSideKind CaptionSide { get; init; }

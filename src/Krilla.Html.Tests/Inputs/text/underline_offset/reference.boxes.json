@@ -1,0 +1,100 @@
+[
+  {
+    "selector": "html",
+    "x": 0,
+    "y": 0,
+    "width": 816,
+    "height": 228
+  },
+  {
+    "selector": "html > body:nth-child(2)",
+    "x": 0,
+    "y": 0,
+    "width": 816,
+    "height": 224
+  },
+  {
+    "selector": "html > body:nth-child(2) > p:nth-child(1)",
+    "x": 0,
+    "y": 0,
+    "width": 816,
+    "height": 34
+  },
+  {
+    "selector": "html > body:nth-child(2) > p:nth-child(1) > span:nth-child(1)",
+    "x": 0,
+    "y": 6,
+    "width": 182.34,
+    "height": 22
+  },
+  {
+    "selector": "html > body:nth-child(2) > p:nth-child(2)",
+    "x": 0,
+    "y": 38,
+    "width": 816,
+    "height": 34
+  },
+  {
+    "selector": "html > body:nth-child(2) > p:nth-child(2) > span:nth-child(1)",
+    "x": 0,
+    "y": 44,
+    "width": 114.5,
+    "height": 22
+  },
+  {
+    "selector": "html > body:nth-child(2) > p:nth-child(3)",
+    "x": 0,
+    "y": 76,
+    "width": 816,
+    "height": 34
+  },
+  {
+    "selector": "html > body:nth-child(2) > p:nth-child(3) > span:nth-child(1)",
+    "x": 0,
+    "y": 82,
+    "width": 116.75,
+    "height": 22
+  },
+  {
+    "selector": "html > body:nth-child(2) > p:nth-child(4)",
+    "x": 0,
+    "y": 114,
+    "width": 816,
+    "height": 34
+  },
+  {
+    "selector": "html > body:nth-child(2) > p:nth-child(4) > span:nth-child(1)",
+    "x": 0,
+    "y": 120,
+    "width": 125.63,
+    "height": 22
+  },
+  {
+    "selector": "html > body:nth-child(2) > p:nth-child(5)",
+    "x": 0,
+    "y": 152,
+    "width": 816,
+    "height": 34
+  },
+  {
+    "selector": "html > body:nth-child(2) > p:nth-child(5) > span:nth-child(1)",
+    "x": 0,
+    "y": 158,
+    "width": 110.06,
+    "height": 22
+  },
+  {
+    "selector": "html > body:nth-child(2) > p:nth-child(6)",
+    "x": 0,
+    "y": 190,
+    "width": 816,
+    "height": 34
+  },
+  {
+    "selector": "html > body:nth-child(2) > p:nth-child(6) > span:nth-child(1)",
+    "x": 0,
+    "y": 196,
+    "width": 110.09,
+    "height": 22
+  }
+]

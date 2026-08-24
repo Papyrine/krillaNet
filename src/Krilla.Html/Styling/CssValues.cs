@@ -100,6 +100,86 @@ static class CssValues
     }
 
     /// <summary>
+    /// Splits a comma-separated list of layers, keeping functions and strings whole.
+    /// </summary>
+    /// <remarks>
+    /// A plain split on commas cuts <c>rgba(0, 0, 0, 0.5)</c> into four, which is exactly the value
+    /// a shadow layer carries — so the depth has to be tracked. Shared with anything else that takes
+    /// a layer list.
+    /// </remarks>
+    public static List<string> SplitLayers(string value) =>
+        Split(value, commas: true);
+
+    /// <summary>
+    /// Splits one layer into its space-separated components, keeping functions whole.
+    /// </summary>
+    public static List<string> SplitArguments(string value) =>
+        Split(value, commas: false);
+
+    static List<string> Split(string value, bool commas)
+    {
+        var parts = new List<string>();
+        var start = 0;
+        var depth = 0;
+        var quote = '\0';
+
+        for (var index = 0; index <= value.Length; index++)
+        {
+            if (index < value.Length)
+            {
+                var character = value[index];
+
+                if (quote != '\0')
+                {
+                    if (character == quote && value[index - 1] != '\\')
+                    {
+                        quote = '\0';
+                    }
+
+                    continue;
+                }
+
+                switch (character)
+                {
+                    case '"' or '\'':
+                        quote = character;
+                        continue;
+                    case '(':
+                        depth++;
+                        continue;
+                    case ')':
+                        depth--;
+                        continue;
+                }
+
+                if (depth > 0)
+                {
+                    continue;
+                }
+
+                if (commas ? character != ',' : !char.IsWhiteSpace(character))
+                {
+                    continue;
+                }
+            }
+
+            if (index > start)
+            {
+                var part = value[start..index].Trim();
+
+                if (part.Length > 0)
+                {
+                    parts.Add(part);
+                }
+            }
+
+            start = index + 1;
+        }
+
+        return parts;
+    }
+
+    /// <summary>
     /// Parses a colour, returning null for <c>transparent</c> and for anything unrecognised.
     /// </summary>
     /// <remarks>
