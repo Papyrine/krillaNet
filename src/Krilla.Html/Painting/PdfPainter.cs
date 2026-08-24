@@ -503,7 +503,17 @@ static class PdfPainter
             return;
         }
 
-        surface.FillRectangle(Rectangle.FromSize(rect.X, rect.Y, rect.Width, rect.Height), color);
+        if (!box.Style.HasRadius)
+        {
+            surface.FillRectangle(Rectangle.FromSize(rect.X, rect.Y, rect.Width, rect.Height), color);
+            return;
+        }
+
+        using var builder = new PathBuilder();
+        RoundedBox.Resolve(box.Style, rect).Trace(builder, rect, clockwise: true);
+
+        using var path = builder.Build();
+        surface.SetFill(color).DrawPath(path);
     }
 
     /// <summary>
@@ -547,13 +557,20 @@ static class PdfPainter
         var innerTop = Math.Min(outer.Y + style.BorderTop, outer.Bottom);
         var innerBottom = Math.Max(outer.Bottom - style.BorderBottom, innerTop);
 
-        if (UniformColor(style) is {} uniform)
+        if (UniformColor(style) is {} uniform && style.PaintsBorderAsRing)
         {
-            PaintUniformBorder(surface, uniform, outer, innerLeft, innerTop, innerRight, innerBottom);
+            PaintUniformBorder(surface, style, uniform, outer, innerLeft, innerTop, innerRight, innerBottom);
             return;
         }
 
-        if (style is {BorderTop: > 0, BorderTopColor: {} topColor})
+        // Every edge that is not solid, drawn along its own centre line. A browser does not mitre
+        // these into their neighbours — dashes and dots run past the corner and a double border's
+        // two bands span the whole side — so the trapezium below, whose purpose is to join two
+        // colours cleanly on a diagonal, is not what they want.
+        PaintPatternedEdges(surface, style, outer);
+
+        if (style is {BorderTop: > 0, BorderTopColor: {} topColor} &&
+            style.BorderTopStyle == BorderStyleKind.Solid)
         {
             FillPolygon(
                 surface,
@@ -564,7 +581,8 @@ static class PdfPainter
                 new(innerLeft, innerTop));
         }
 
-        if (style is {BorderBottom: > 0, BorderBottomColor: {} bottomColor})
+        if (style is {BorderBottom: > 0, BorderBottomColor: {} bottomColor} &&
+            style.BorderBottomStyle == BorderStyleKind.Solid)
         {
             FillPolygon(
                 surface,
@@ -575,7 +593,8 @@ static class PdfPainter
                 new(innerRight, innerBottom));
         }
 
-        if (style is {BorderLeft: > 0, BorderLeftColor: {} leftColor})
+        if (style is {BorderLeft: > 0, BorderLeftColor: {} leftColor} &&
+            style.BorderLeftStyle == BorderStyleKind.Solid)
         {
             FillPolygon(
                 surface,
@@ -586,7 +605,8 @@ static class PdfPainter
                 new(innerLeft, innerBottom));
         }
 
-        if (style is {BorderRight: > 0, BorderRightColor: {} rightColor})
+        if (style is {BorderRight: > 0, BorderRightColor: {} rightColor} &&
+            style.BorderRightStyle == BorderStyleKind.Solid)
         {
             FillPolygon(
                 surface,
@@ -595,6 +615,93 @@ static class PdfPainter
                 new(outer.Right, outer.Bottom),
                 new(innerRight, innerBottom),
                 new(innerRight, innerTop));
+        }
+    }
+
+    /// <summary>
+    /// Draws every border edge whose style is not solid.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The geometry was measured out of Chrome, which is the only way to get it: CSS says a dashed
+    /// border is "a series of square-ended dashes" and leaves every length to the user agent. A
+    /// dash is twice the border's width with a gap of its width, so the period is three times the
+    /// width — an 8px border repeats every 24 pixels, 16 on and 8 off, and a 3px border every 9.
+    /// </para>
+    /// <para>
+    /// A dot is the border's width across and repeats at twice it, and it is ROUND. That is why it
+    /// is drawn as a zero-length dash under a round cap rather than as a square one: the two are
+    /// indistinguishable at 1px and obviously different at 8.
+    /// </para>
+    /// <para>
+    /// A double border is two bands each a third of the width with a third-width gap between them,
+    /// which is why a 6px double reads 2-2-2 down a column of pixels and why <c>border: 1px
+    /// double</c> is indistinguishable from solid.
+    /// </para>
+    /// <para>
+    /// The dash phase restarts at each corner, so a side whose length is not a whole number of
+    /// periods ends on a partial dash. A browser redistributes the remainder along the side so it
+    /// ends flush, which is not reproduced here — <c>block/border_styles</c> records what that
+    /// costs in pixels.
+    /// </para>
+    /// </remarks>
+    static void PaintPatternedEdges(Surface surface, ComputedStyle style, Rect outer)
+    {
+        Edge(style.BorderTopStyle, style.BorderTop, style.BorderTopColor, horizontal: true, near: true);
+        Edge(style.BorderBottomStyle, style.BorderBottom, style.BorderBottomColor, horizontal: true, near: false);
+        Edge(style.BorderLeftStyle, style.BorderLeft, style.BorderLeftColor, horizontal: false, near: true);
+        Edge(style.BorderRightStyle, style.BorderRight, style.BorderRightColor, horizontal: false, near: false);
+
+        void Edge(BorderStyleKind kind, float width, Color? color, bool horizontal, bool near)
+        {
+            if (width <= 0 || kind == BorderStyleKind.Solid || color is not {} paint)
+            {
+                return;
+            }
+
+            if (kind == BorderStyleKind.Double)
+            {
+                // Outer band then inner, each a third of the width and each centred within its own
+                // third — which puts a third-width gap between them.
+                var band = width / 3;
+                Line(band, band / 2, paint, null, round: false);
+                Line(band, width - band / 2, paint, null, round: false);
+                return;
+            }
+
+            var dashes = kind == BorderStyleKind.Dashed
+                ? new[] {width * 2, width}
+                : [0f, width * 2];
+
+            Line(width, width / 2, paint, dashes, kind == BorderStyleKind.Dotted);
+
+            void Line(float thickness, float offset, Color line, float[]? dashes, bool round)
+            {
+                var along = near ? offset : -offset;
+
+                using var builder = new PathBuilder();
+
+                if (horizontal)
+                {
+                    var y = (near ? outer.Y : outer.Bottom) + along;
+                    builder.MoveTo(outer.X, y).LineTo(outer.Right, y);
+                }
+                else
+                {
+                    var x = (near ? outer.X : outer.Right) + along;
+                    builder.MoveTo(x, outer.Y).LineTo(x, outer.Bottom);
+                }
+
+                using var path = builder.Build();
+
+                // The fill is cleared first: `DrawPath` applies whichever of the two are set, and
+                // a stroked line left with a fill from the previous call would be filled as a
+                // degenerate polygon as well.
+                surface.SetFill((Fill?) null);
+                surface.SetStroke(line, thickness, round ? LineCap.Round : LineCap.Butt, dashes);
+                surface.DrawPath(path);
+                surface.SetStroke((Stroke?) null);
+            }
         }
     }
 
@@ -634,6 +741,7 @@ static class PdfPainter
     /// </remarks>
     static void PaintUniformBorder(
         Surface surface,
+        ComputedStyle style,
         Color color,
         Rect outer,
         float innerLeft,
@@ -643,13 +751,34 @@ static class PdfPainter
     {
         using var builder = new PathBuilder();
 
-        AddRectangle(builder, outer.X, outer.Y, outer.Right, outer.Bottom, clockwise: true);
+        var radii = RoundedBox.Resolve(style, outer);
+        var inner = new Rect(innerLeft, innerTop, innerRight - innerLeft, innerBottom - innerTop);
+
+        if (radii.IsRounded)
+        {
+            radii.Trace(builder, outer, clockwise: true);
+        }
+        else
+        {
+            AddRectangle(builder, outer.X, outer.Y, outer.Right, outer.Bottom, clockwise: true);
+        }
 
         // Wound the other way, so the non-zero rule cuts it out. Skipped when the border has
         // swallowed the box whole and there is nothing left to cut.
         if (innerRight > innerLeft && innerBottom > innerTop)
         {
-            AddRectangle(builder, innerLeft, innerTop, innerRight, innerBottom, clockwise: false);
+            if (radii.IsRounded)
+            {
+                // Each inner radius is the outer one less the edge it runs along, floored at zero,
+                // so a corner rounded less than its border is thick comes to a square inner corner.
+                radii
+                    .Deflate(style.BorderTop, style.BorderRight, style.BorderBottom, style.BorderLeft)
+                    .Trace(builder, inner, clockwise: false);
+            }
+            else
+            {
+                AddRectangle(builder, innerLeft, innerTop, innerRight, innerBottom, clockwise: false);
+            }
         }
 
         using var path = builder.Build();
@@ -869,18 +998,65 @@ static class PdfPainter
             run.Text,
             glyphs);
 
-        if (run.Style.Underline)
+        PaintDecorations(surface, run);
+    }
+
+    /// <summary>
+    /// Draws whichever of the three rules <paramref name="run"/> asks for.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Every position and thickness comes from the font's own tables rather than from a fraction
+    /// of the size, which is what puts the underline clear of the descenders in one face and tight
+    /// under the baseline in another. Each is rounded to a whole pixel, and each was checked
+    /// against Chrome's own render: at 16px Liberation Sans the underline lands one pixel below
+    /// the baseline, the strike five above it and the overline fifteen above it, and all three
+    /// agree.
+    /// </para>
+    /// <para>
+    /// The overline is the one with no metric of its own. It sits on the top of the em box — the
+    /// rounded ASCENT above the baseline — with the underline's thickness, since no table carries
+    /// an overline geometry and that is where a browser puts it.
+    /// </para>
+    /// <para>
+    /// All three take the run's colour rather than a decoration colour of their own, which follows
+    /// from decorations being inherited here rather than propagated. `text/decorations` measures
+    /// what that costs: a nested span with its own colour draws the strike in the child's colour
+    /// where a browser keeps the declaring element's.
+    /// </para>
+    /// </remarks>
+    static void PaintDecorations(Surface surface, TextRun run)
+    {
+        var decorations = run.Style.Decorations;
+
+        if (decorations == TextDecorations.None)
         {
-            // Position and thickness come from the font's own `post` table rather than a fixed
-            // fraction of the size, which is what puts the rule clear of the descenders in one font
-            // and tight under the baseline in another.
-            surface.FillRectangle(
-                Rectangle.FromSize(
-                    run.X,
-                    run.Y + run.Face.UnderlineOffset(run.Style.FontSize),
-                    run.Width,
-                    run.Face.UnderlineThickness(run.Style.FontSize)),
-                run.Style.Color);
+            return;
         }
+
+        var size = run.Style.FontSize;
+        var face = run.Face;
+
+        if (decorations.HasFlag(TextDecorations.Underline))
+        {
+            Rule(run.Y + face.UnderlineOffset(size), face.UnderlineThickness(size));
+        }
+
+        if (decorations.HasFlag(TextDecorations.Overline))
+        {
+            var thickness = face.UnderlineThickness(size);
+            Rule(run.Y - MathF.Round(face.Ascent(size)) - thickness, thickness);
+        }
+
+        if (decorations.HasFlag(TextDecorations.LineThrough))
+        {
+            var thickness = face.StrikeoutThickness(size);
+            Rule(run.Y - face.StrikeoutOffset(size) - thickness, thickness);
+        }
+
+        void Rule(float top, float thickness) =>
+            surface.FillRectangle(
+                Rectangle.FromSize(run.X, top, run.Width, thickness),
+                run.Style.Color);
     }
 }

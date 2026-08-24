@@ -2,32 +2,20 @@
   {
     "Element": "div",
     "Name": "border-style",
-    "Value": "dashed",
+    "Value": "groove",
     "Reason": "painted solid"
   },
   {
     "Element": "div",
     "Name": "border-top-left-radius",
     "Value": "4px",
-    "Reason": "painted square"
+    "Reason": "the border is painted with square corners"
   },
   {
     "Element": "div",
     "Name": "opacity",
     "Value": "0.5",
     "Reason": "painted opaque"
-  },
-  {
-    "Element": "div",
-    "Name": "text-decoration-line",
-    "Value": "line-through",
-    "Reason": "not painted"
-  },
-  {
-    "Element": "div",
-    "Name": "text-decoration-line",
-    "Value": "overline",
-    "Reason": "not painted"
   },
   {
     "Element": "div",

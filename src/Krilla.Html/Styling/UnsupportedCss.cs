@@ -80,14 +80,6 @@ static class UnsupportedCss
     /// </remarks>
     static readonly string[] transforms = ["none", "uppercase", "lowercase", "capitalize"];
 
-    static readonly string[] lines = ["overline", "line-through"];
-
-    static readonly string[] sizes =
-    [
-        "xx-small", "x-small", "small", "medium", "large", "x-large", "xx-large",
-        "smaller", "larger", "initial"
-    ];
-
     /// <summary>
     /// The <c>display</c> values that reach a layout mode of their own. Everything else falls
     /// through to block, which is what gets reported.
@@ -124,10 +116,8 @@ static class UnsupportedCss
         Collapse(declaration, name, sink);
         Casing(declaration, name, sink);
         Fixed(declaration, name, sink);
-        Radius(declaration, name, sink);
+        Radius(declaration, name, style, sink);
         BorderStyles(declaration, name, sink);
-        Decoration(declaration, name, sink);
-        FontSize(declaration, name, sink);
         CellBaseline(declaration, name, style, sink);
     }
 
@@ -298,22 +288,40 @@ static class UnsupportedCss
     /// <c>border-radius</c> into them, and reading both would report one authored declaration five
     /// times over. Reports once per element for the same reason.
     /// </remarks>
-    static void Radius(ICssStyleDeclaration declaration, string element, Action<HtmlDiagnostic> sink)
+    static void Radius(
+        ICssStyleDeclaration declaration,
+        string element,
+        ComputedStyle style,
+        Action<HtmlDiagnostic> sink)
     {
+        // Honoured for the background always, and for a border only where the border is painted as
+        // one ring — which needs every edge solid and every edge the same colour. Anything else
+        // falls back to four mitred trapezia, which have square corners, so the radius is honoured
+        // on the fill underneath and lost on the frame over it.
+        if (!style.HasBorder || style.PaintsBorderAsRing)
+        {
+            return;
+        }
+
         foreach (var corner in corners)
         {
             if (Set(declaration, corner) is {} value &&
                 !IsZero(value) &&
                 !IsInitial(value))
             {
-                Diagnostic.Property(sink, element, corner, value, "painted square");
+                Diagnostic.Property(
+                    sink,
+                    element,
+                    corner,
+                    value,
+                    "the border is painted with square corners");
                 return;
             }
         }
     }
 
     /// <summary>
-    /// A border style other than solid, which paints solid.
+    /// A border style that is drawn as solid because it needs shading.
     /// </summary>
     /// <remarks>
     /// <para>
@@ -341,7 +349,9 @@ static class UnsupportedCss
         for (var index = 0; index < sides.Length; index++)
         {
             var value = Set(declaration, $"border-{sides[index]}-style");
-            styles[index] = value is null or "none" or "hidden" or "solid" || IsInitial(value)
+            styles[index] = value is null or "none" or "hidden" or "solid"
+                                     or "dashed" or "dotted" or "double" ||
+                            IsInitial(value)
                 ? null
                 : value;
         }
@@ -361,49 +371,6 @@ static class UnsupportedCss
             {
                 Diagnostic.Property(sink, element, $"border-{sides[index]}-style", value, "painted solid");
             }
-        }
-    }
-
-    /// <summary>
-    /// The decoration lines other than underline, which are not painted.
-    /// </summary>
-    static void Decoration(ICssStyleDeclaration declaration, string element, Action<HtmlDiagnostic> sink)
-    {
-        var value = Set(declaration, "text-decoration-line") ?? Set(declaration, "text-decoration");
-        if (value is null)
-        {
-            return;
-        }
-
-        foreach (var line in lines)
-        {
-            if (value.Contains(line, StringComparison.Ordinal))
-            {
-                Diagnostic.Property(sink, element, "text-decoration-line", line, "not painted");
-            }
-        }
-    }
-
-    /// <summary>
-    /// The font-size keywords, which fall through to the inherited size.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// None of them is a length AngleSharp resolves, so every one arrives here as written and none
-    /// is honoured. <c>font-size: large</c> is ordinary CSS rather than an exotic case, which is
-    /// what makes this worth a report.
-    /// </para>
-    /// <para>
-    /// <c>inherit</c> and <c>unset</c> are absent on purpose: falling through to the inherited size
-    /// is exactly what they ask for, so there is nothing to report.
-    /// </para>
-    /// </remarks>
-    static void FontSize(ICssStyleDeclaration declaration, string element, Action<HtmlDiagnostic> sink)
-    {
-        if (Set(declaration, "font-size") is {} value &&
-            sizes.Contains(value))
-        {
-            Diagnostic.Property(sink, element, "font-size", value, "the inherited size is used");
         }
     }
 

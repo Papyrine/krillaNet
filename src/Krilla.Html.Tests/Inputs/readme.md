@@ -29,8 +29,8 @@ toolchain. Zero means the box tree agrees with Chrome exactly.
 
 **Pixels** are AbsoluteError and SSIM against the printed reference.
 
-Boxes sit at zero across the whole corpus: all 86 scenarios match Chrome's geometry exactly. Pixels
-are close behind — 60 read SSIM 1.0000 and 41 are identical outright.
+Boxes sit at zero across the whole corpus: all 91 scenarios match Chrome's geometry exactly. Pixels
+are close behind — 62 read SSIM 1.0000 and 42 are identical outright.
 
 Four defects reached that state rather than starting there, each found by the scenario named for
 it: `block/anonymous` hoisted trailing inline content above a block sibling, `position/fixed`
@@ -39,7 +39,7 @@ applied edge spacing to a section with no columns, and `page/table_break` broke 
 a table row rather than at the row's edge while leaving a sliver of the moved row behind. Each
 scenario's `notes.md` records what it found and what changed.
 
-The twenty-six below 1.0000 come down to named causes: `ua/hr` (0.9911) is Chrome's `inset` rule
+The twenty-nine below 1.0000 come down to named causes: `ua/hr` (0.9911) is Chrome's `inset` rule
 painted solid, and the rest are sub-pixel glyph positioning, which `text/kerning` exists to
 measure, and box edges landing on fractional pixels, which `table/spacing_borders` and
 `image/inline_flow` measure. SSIM 1.0000 is not quite the same as pixel-identical, which is what

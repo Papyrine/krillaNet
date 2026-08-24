@@ -1,4 +1,4 @@
-# All scenarios (86)
+# All scenarios (91)
 
 The browser reference (left) beside the page Krilla.Html produced (right). `AE` is the fraction of pixels that differ and `SSIM` is structural similarity; neither is asserted. The worst offset is the largest positional disagreement in CSS pixels between the rendered element geometry and the browser's, and is the number to watch — it reaches zero exactly when the layout is right.
 
@@ -10,6 +10,8 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [block/auto_width](#block-auto_width)
 - [block/background_color](#block-background_color)
 - [block/borders](#block-borders)
+- [block/border_radius](#block-border_radius)
+- [block/border_styles](#block-border_styles)
 - [block/box_model](#block-box_model)
 - [block/box_sizing](#block-box_sizing)
 - [block/margin_collapse](#block-margin_collapse)
@@ -50,6 +52,7 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [inline/simple_text](#inline-simple_text)
 - [inline/text_align](#inline-text_align)
 - [inline/text_indent](#inline-text_indent)
+- [inline/vertical_align](#inline-vertical_align)
 - [inline/white_space](#inline-white_space)
 - [inline/white_space_pre](#inline-white_space_pre)
 - [inline/word_joins](#inline-word_joins)
@@ -79,6 +82,8 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [table/sections](#table-sections)
 - [table/spacing_borders](#table-spacing_borders)
 - [table/spans](#table-spans)
+- [text/decorations](#text-decorations)
+- [text/font_size_keywords](#text-font_size_keywords)
 - [text/kerning](#text-kerning)
 - [text/letter_spacing](#text-letter_spacing)
 - [text/ligatures](#text-ligatures)
@@ -186,6 +191,102 @@ them. The corners are where that difference shows.
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0001 · SSIM 1.0000** |
 | <img src="block/borders/reference_0001.png" width="480"> | <img src="block/borders/result%23page_0001.verified.png" width="480"> |
+
+
+## block/border_radius
+
+# block/border_radius
+
+Rounded corners, on a background alone and on a border, circular and elliptical, per corner and
+clamped. They were painted square before, which is one of the more visible gaps left — a rounded
+card is ordinary markup rather than a flourish.
+
+Pixel-identical to Chrome, and that is a consequence of one decision. A quarter arc is drawn as a
+cubic bezier with its control points 0.5522847498 of the way along each tangent, which is the
+standard circle constant and what every renderer uses, browsers included. Matching the browser's
+CONSTRUCTION is what makes the pixels agree; a more accurate arc would agree less. That is the same
+lesson `ListMarkers` records about stroking a circle rather than filling an annulus.
+
+Five rows, each measuring something the others cannot:
+
+- **`#background`** is a radius with no border, so the shape is the fill alone.
+- **`#bordered`** adds a 4px border, so the ring has to be an outer rounded rect with an inner one
+  cut out of it. Each inner radius is the outer one less the edge it runs along, floored at zero —
+  which is what makes a thick rounded border read as a ring rather than a tube.
+- **`#elliptical`** uses the slash form, `30px / 12px`. A corner carries two radii rather than one
+  for this reason: treating a corner as a single radius is right for almost every document and
+  wrong the moment anyone writes the slash.
+- **`#corners`** rounds two corners and leaves two square, which is what says the four longhands
+  are read independently rather than one value being applied to all of them.
+- **`#pill`** asks for 999px on a box 40px tall. CSS scales EVERY radius on the box by the same
+  factor — the smallest that makes each side fit — rather than clamping each corner on its own.
+  Scaling per side gives a rectangle with mismatched circular ends; scaling uniformly gives the
+  pill, which is what a browser draws.
+
+Radii are read from the four longhands rather than from the shorthand, because the cascade expands
+the shorthand into them — which also means the shorthand's own syntax, up to eight values split by
+a slash, never has to be parsed here.
+
+One limit, and it is reported rather than silent: a radius is honoured on the background always,
+and on a border only where the border is painted as one ring, which needs every edge solid and
+every edge the same colour. Anything else falls back to four mitred trapezia, which have square
+corners — so the fill underneath is rounded and the frame over it is not, and `UnsupportedCss` says
+so.
+
+What to look at: the corners of `#pill` and `#bordered`. A `#pill` with circular ends of different
+sizes is the clamp applied per side rather than to the box.
+
+**Boxes**: 7 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0005 · SSIM 1.0000** |
+| <img src="block/border_radius/reference_0001.png" width="480"> | <img src="block/border_radius/result%23page_0001.verified.png" width="480"> |
+
+
+## block/border_styles
+
+# block/border_styles
+
+Dashed, dotted and double, per side and at two widths. All three were recognised and painted solid,
+which is a quietly wrong render: the box is in the right place with the right colour, and only the
+character of the frame is gone.
+
+None of the geometry is specified. CSS says a dashed border is "a series of square-ended dashes"
+and leaves every length to the user agent, so the numbers were measured out of Chrome:
+
+- A **dash** is twice the border's width, with a gap of its width — a period of three times the
+  width. An 8px border repeats every 24 pixels, 16 on and 8 off; a 3px border every 9.
+- A **dot** is the border's width across and repeats at twice it, and it is ROUND. That is why it
+  is drawn as a zero-length dash under a round cap rather than as a square one: the two are
+  indistinguishable at 1px and obviously different at 8. `#dotted` is 3px and `#thick-dashed` is
+  8px so that the width-dependent half of both rules is exercised rather than assumed.
+- A **double** border is two bands each a third of the width with a third-width gap, which is why
+  6px reads 2-2-2 down a column of pixels and why `border: 1px double` is indistinguishable from
+  solid.
+
+A patterned edge is drawn along its own centre line rather than as a mitred trapezium. A browser
+does not mitre these — dashes run past the corner and a double border's two bands span the whole
+side — so the trapezium's purpose, joining two colours cleanly on a diagonal, does not apply.
+`#mixed` is what keeps the two paths honest: three patterned edges and one solid on the same box,
+so the solid edge still mitres while the others do not.
+
+**Residual**: SSIM 0.9906, the largest in the corpus after `ua/hr`, and it has one cause. The dash
+phase restarts at each corner here, so a side whose length is not a whole number of periods ends on
+a partial dash. A browser redistributes the remainder along the side so that it ends flush, which
+is not reproduced. It is a visible difference at the end of each side and nowhere else — the dashes
+along most of every edge line up exactly.
+
+What to look at: dash and dot SIZE and spacing, which should match along the first two thirds of
+any edge. A difference that starts at the first dash rather than accumulating toward the corner is
+the period being wrong rather than the phase.
+
+**Boxes**: 7 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0034 · SSIM 0.9906** |
+| <img src="block/border_styles/reference_0001.png" width="480"> | <img src="block/border_styles/result%23page_0001.verified.png" width="480"> |
 
 
 ## block/box_model
@@ -1128,6 +1229,72 @@ instead of narrowing it.
 | <img src="inline/text_indent/reference_0001.png" width="480"> | <img src="inline/text_indent/result%23page_0001.verified.png" width="480"> |
 
 
+## inline/vertical_align
+
+# inline/vertical_align
+
+Seven keywords, each aligning an inline-block of a known height so the offset is readable straight
+out of the reference geometry rather than having to be backed out of a font's ascent. The boxes are
+EMPTY on purpose: an inline-block holding a line of text takes that line's baseline, which would
+fold the inherited line-height into every number here, while an empty one falls back to its bottom
+margin edge.
+
+Only the table-cell half of `vertical-align` was honoured before. `<sub>` and `<sup>` sat flat on
+the baseline, which is ordinary prose rendering wrongly rather than an exotic gap, and nothing
+reported it.
+
+The line is 32px on a 16px font, so the baseline sits 21px down — floor the half-leading, then add
+the whole-pixel ascent, which is what this engine already did for line boxes and what the browser
+turns out to agree with here. Against that baseline:
+
+- **`text-top`** puts the box top at baseline − ascent, and **`text-bottom`** the box bottom at
+  baseline + descent, both using the ROUNDED metrics. The measured offsets are exactly 7 and 4.
+- **`middle`** puts the box's midpoint half an x-height above the baseline, and reads the x-height
+  UNROUNDED — the ratio holds at 0.5283 of the size at 16, 24 and 32 pixels, which is this face's
+  `sxHeight` over its em.
+- **`top`** and **`bottom`** pin to the line box rather than the baseline, so they are resolved
+  after everything else on the line has been counted.
+- **`super`** and **`sub`** are user-agent defined, so — as with list markers and
+  `line-height: normal` — there is no correct value to compute and agreeing with the browser is the
+  only useful target.
+
+The super and sub offsets were measured across three font sizes, and the answer is not a font
+metric. They are linear in the font SIZE with an intercept of exactly one pixel: `size / 3 + 1`
+raised and `size / 5 + 1` lowered. The OS/2 table's own superscript offset for this face is 7.63px
+at 16px where the browser uses 6.33, so reading the font would have been confidently wrong.
+
+Two further things were measured because they are not obvious:
+
+- The offsets use the PARENT's font, not the aligned box's own. Giving the box its own
+  `font-size: 10px` inside a 32px paragraph moves it not at all — which matters, since the default
+  stylesheet makes every `<sup>` smaller than its parent.
+- Chrome holds lengths on a 1/64 pixel grid and truncates onto it, so a superscript offset of
+  16/3 + 1 is stored as 6.328125 rather than 6.3333. That is a fortieth of a pixel and it was still
+  visible: the paragraph background painted to the line's fractional bottom row came out a
+  different shade. Quantising the offsets took the page from SSIM 0.9969 to 0.9989.
+
+`vertical-align` is INHERITED here, which CSS does not do, because the user-agent sheet gives a
+table `middle` and its cells `inherit` and a cell can only read the value by being handed it. The
+cost is that every run of text inside a cell also arrives carrying `middle`, and line layout must
+not act on it. So the inline half applies only where the value was DECLARED and only to a token
+that is not the block's own text — two guards, both needed, and without them every table scenario
+in the corpus moves at once.
+
+**Residual**: SSIM 0.9989. One row of one paragraph, where a box edge lands on a fractional pixel
+and the browser's background fill snaps to a whole one — the same cause as `table/spacing_borders`
+and `image/inline_flow`.
+
+What to look at: the offsets, which are the whole assertion. `super` and `sub` are the two that
+cannot be derived and so are the two most likely to drift.
+
+**Boxes**: 16 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0009 · SSIM 0.9989** |
+| <img src="inline/vertical_align/reference_0001.png" width="480"> | <img src="inline/vertical_align/result%23page_0001.verified.png" width="480"> |
+
+
 ## inline/white_space
 
 # inline/white_space
@@ -1929,6 +2096,94 @@ Cells covering more than one slot, which is what makes a table a grid rather tha
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
 | <img src="table/spans/reference_0001.png" width="480"> | <img src="table/spans/result%23page_0001.verified.png" width="480"> |
+
+
+## text/decorations
+
+# text/decorations
+
+The three rules, alone and together. Underline was the only one painted; overline and line-through
+were recognised and dropped, which is the worst of the three states — a strike that vanishes turns
+deleted text back into text that still reads as current.
+
+Every position comes from the font's own tables rather than a fraction of the size, and each was
+checked against Chrome's own render before being written. At 16px Liberation Sans:
+
+- **underline** at baseline + 1, from `post.underlinePosition` and `underlineThickness`.
+- **line-through** at baseline − 5, from `OS/2.yStrikeoutPosition` and `yStrikeoutSize`.
+- **overline** at baseline − 15, which is the only one with no metric of its own: it sits on the
+  top of the em box, the rounded ASCENT above the baseline, with the underline's thickness.
+
+All three land on the row the browser puts them on, and the page is pixel-identical.
+
+The rounding is what makes that work. This font puts the strike 4.14px above the baseline and makes
+it 0.797px thick; rounded, that is one whole pixel row at baseline − 5, which is what Chrome draws.
+An unrounded rule straddles two rows at partial coverage and reads as a grey smear rather than a
+line — the same lesson `ListMarkers` records about integer arithmetic being the point rather than a
+shortcut.
+
+`#nested` records a limit rather than a success. CSS propagates a decoration ACROSS descendants
+from the element that declared it, keeping that element's colour; this engine inherits it instead,
+so the strike over the red inner span is drawn red where a browser draws it black. The two models
+agree everywhere else, and the difference needs a descendant that sets its own colour — which is
+why the row is here at all. It costs nothing in this scenario because both engines put ink in the
+same places; a scenario with a coloured strike would report it.
+
+What to look at: whether `#all` carries three rules and `#through` one. A missing overline is the
+rule with no font metric behind it.
+
+**Boxes**: 8 matched, worst offset 0.00px, worst size 0.00px.
+
+Not rendered: `html > body:nth-child(2) > p:nth-child(6) > span:nth-child(1)`
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| <img src="text/decorations/reference_0001.png" width="480"> | <img src="text/decorations/result%23page_0001.verified.png" width="480"> |
+
+
+## text/font_size_keywords
+
+# text/font_size_keywords
+
+The seven absolute keywords, the two relative ones, and a relative one nested inside an absolute
+one. Every box is an inline-block so its width is the text's advance, which turns a resolved font
+size into a number the reference geometry reports directly — a keyword that quietly fell back to
+the inherited size would show as an identical width rather than as a subtly different render.
+
+The absolute table was measured rather than derived, because it is not a series any ratio produces:
+9, 10, 13, 16, 18, 24 and 32 pixels. The steps at the small end are one pixel and the steps at the
+large end are eight, so any single scaling factor is wrong at one end or the other.
+
+It is anchored on a CONSTANT rather than on the root element's size. CSS says the table follows the
+reader's preferred font size, which is a setting this engine has no equivalent of and which a
+browser does not take from the document — so `font-size: large` is 18px whatever `html` declares.
+Anchoring on the root instead would make a document setting `html { font-size: 20px }` report
+`large` as 22.5px where Chrome still says 18.
+
+The two relative keywords are the parent's size scaled by 1.2, measured and holding at every size:
+16px gives 13.333 and 19.2, and `#nested` — `smaller` inside a `large` parent — gives 15, which is
+18 over 1.2. That last row is what says the keyword resolves against the INHERITED size rather than
+against the root's.
+
+There is a specific failure behind this scenario. The keyword used to reach `ResolveFontSize` as an
+unparseable value whose fallback was an absolute zero, so `font-size: large` resolved to a size of
+0 and deleted the text of the element carrying it. `DiagnosticTests` keeps a regression test for
+that, and now also pins the table above.
+
+Geometry is exact and pixels read SSIM 0.9997, from glyph positioning across nine different sizes.
+
+What to look at: the widths. Any two rows coming out equal means a keyword fell through to the
+inherited size.
+
+**Boxes**: 12 matched, worst offset 0.00px, worst size 0.00px.
+
+Not rendered: `html > body:nth-child(2) > p:nth-child(10) > span:nth-child(1)`
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0008 · SSIM 0.9997** |
+| <img src="text/font_size_keywords/reference_0001.png" width="480"> | <img src="text/font_size_keywords/result%23page_0001.verified.png" width="480"> |
 
 
 ## text/kerning

@@ -1,0 +1,25 @@
+/* inline-block so each box is exactly as wide as its text, which turns the resolved font size into
+   a width the reference geometry reports directly. */
+p {
+  display: inline-block;
+  line-height: 24px;
+  background-color: #f2f2f2;
+  margin-right: 4px;
+}
+
+#xx-small { font-size: xx-small; }
+#x-small { font-size: x-small; }
+#small { font-size: small; }
+#medium { font-size: medium; }
+#large { font-size: large; }
+#x-large { font-size: x-large; }
+#xx-large { font-size: xx-large; }
+
+/* Relative to the PARENT's size rather than to the absolute table. */
+#smaller { font-size: smaller; }
+#larger { font-size: larger; }
+
+/* And relative twice over, which is what says the keyword is resolved against the inherited size
+   rather than against the root's. */
+#nested { font-size: large; }
+#inner-smaller { font-size: smaller; }

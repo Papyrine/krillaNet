@@ -130,6 +130,35 @@ public sealed class FontFace :
         MathF.Max(1, MathF.Round(metrics.UnderlineThickness * fontSize / metrics.UnitsPerEm));
 
     /// <summary>
+    /// Distance from the baseline up to the BOTTOM of a strike, in CSS pixels, rounded to a whole
+    /// pixel the way the underline geometry is.
+    /// </summary>
+    /// <remarks>
+    /// Rounding is not cosmetic here. Liberation Sans at 16px puts the strike 4.14px above the
+    /// baseline and makes it 0.797px thick, and a browser draws it as one whole pixel row at
+    /// baseline minus five. An unrounded rule straddles two rows at partial coverage and reads as
+    /// a grey smear rather than a line.
+    /// </remarks>
+    public float StrikeoutOffset(float fontSize) =>
+        MathF.Round(metrics.StrikeoutOffset * fontSize / metrics.UnitsPerEm);
+
+    /// <summary>Strike thickness in CSS pixels, never less than one.</summary>
+    public float StrikeoutThickness(float fontSize) =>
+        MathF.Max(1, MathF.Round(metrics.StrikeoutThickness * fontSize / metrics.UnitsPerEm));
+
+    /// <summary>
+    /// The height of a lower-case <c>x</c> at <paramref name="fontSize"/>, in CSS pixels.
+    /// </summary>
+    /// <remarks>
+    /// NOT rounded, unlike the rule geometry above. <c>vertical-align: middle</c> uses it to place
+    /// a box rather than to fill a row of pixels, and a browser keeps the fraction: measured
+    /// against Chrome the ratio holds at 0.5283 of the size at 16, 24 and 32 pixels, which is
+    /// exactly this font's <c>sxHeight</c> over its em.
+    /// </remarks>
+    public float XHeight(float fontSize) =>
+        metrics.XHeight * fontSize / metrics.UnitsPerEm;
+
+    /// <summary>
     /// The advance of <paramref name="codepoint"/> at <paramref name="fontSize"/>, in the same
     /// units as the size.
     /// </summary>

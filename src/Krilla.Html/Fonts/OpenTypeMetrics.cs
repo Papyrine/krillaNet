@@ -34,11 +34,17 @@ sealed class OpenTypeMetrics
         string familyName,
         float underlineOffset,
         float underlineThickness,
+        float strikeoutOffset,
+        float strikeoutThickness,
+        float xHeight,
         ushort[] advances,
         CharacterMap characters)
     {
         UnderlineOffset = underlineOffset;
         UnderlineThickness = underlineThickness;
+        StrikeoutOffset = strikeoutOffset;
+        StrikeoutThickness = strikeoutThickness;
+        XHeight = xHeight;
         UnitsPerEm = unitsPerEm;
         Ascender = ascender;
         Descender = descender;
@@ -91,6 +97,29 @@ sealed class OpenTypeMetrics
     public float UnderlineThickness { get; }
 
     /// <summary>
+    /// Distance from the baseline UP to the bottom of a strike, in design units.
+    /// </summary>
+    /// <remarks>
+    /// From <c>OS/2.yStrikeoutPosition</c>, which is measured upward from the baseline where the
+    /// underline's equivalent is measured down — hence the sign difference between this and
+    /// <see cref="UnderlineOffset"/>, which negates what it reads.
+    /// </remarks>
+    public float StrikeoutOffset { get; }
+
+    /// <summary>Strike thickness, in design units.</summary>
+    public float StrikeoutThickness { get; }
+
+    /// <summary>
+    /// The height of a lower-case <c>x</c>, in design units.
+    /// </summary>
+    /// <remarks>
+    /// From <c>OS/2.sxHeight</c>, which exists from version 2 of the table. Only
+    /// <c>vertical-align: middle</c> reads it, and it is what that keyword aligns against: the
+    /// midpoint of the aligned box goes half an x-height above the parent's baseline.
+    /// </remarks>
+    public float XHeight { get; }
+
+    /// <summary>
     /// The glyph for <paramref name="codepoint"/>, or 0 (<c>.notdef</c>) when the font has none.
     /// </summary>
     public ushort GlyphIndex(int codepoint) =>
@@ -138,9 +167,25 @@ sealed class OpenTypeMetrics
         var descender = hheaDescender;
         var lineGap = hheaLineGap;
 
+        // Conventional fallbacks for a font carrying no OS/2 table: a strike halfway up the
+        // x-height, itself half an em, and a rule as thick as an underline.
+        var strikeoutOffset = unitsPerEm / 4;
+        var strikeoutThickness = unitsPerEm / 20;
+        var xHeight = unitsPerEm / 2;
+
         if (tables.TryGetValue("OS/2", out var os2))
         {
             weight = ReadUInt16(data, os2 + 4);
+            strikeoutThickness = ReadInt16(data, os2 + 26);
+            strikeoutOffset = ReadInt16(data, os2 + 28);
+
+            // sxHeight arrived in version 2, so a version 0 or 1 table keeps the fallback rather
+            // than reading whatever follows the table.
+            if (ReadUInt16(data, os2) >= 2 && os2 + 88 <= data.Length)
+            {
+                xHeight = ReadInt16(data, os2 + 86);
+            }
+
             var selection = ReadUInt16(data, os2 + 62);
             // fsSelection bit 0 is ITALIC, bit 9 is OBLIQUE. CSS treats both as font-style: italic.
             italic = (selection & 0x01) != 0 || (selection & 0x200) != 0;
@@ -189,6 +234,9 @@ sealed class OpenTypeMetrics
             familyName,
             underlineOffset,
             underlineThickness,
+            strikeoutOffset,
+            strikeoutThickness,
+            xHeight,
             advances,
             characters);
     }

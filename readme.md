@@ -43,7 +43,9 @@ discovered from the host. That is what makes output reproducible across machines
 
 Implemented: block and inline layout, the box model including `box-sizing`, collapsing margins,
 line breaking, text alignment, pagination, tables, floats, relative and absolute positioning,
-`overflow` clipping, `visibility`, `text-transform`, letter and word spacing, images, and links —
+`overflow` clipping, `visibility`, `text-transform`, letter and word spacing, the `font-size`
+keywords, text decorations, `vertical-align`, dashed, dotted and double borders, `border-radius`,
+images, and links —
 `<a href>` becomes a real PDF link annotation, and a `#fragment` becomes an internal jump to
 wherever that element paginated to. Flexbox and grid lay out as plain blocks.
 

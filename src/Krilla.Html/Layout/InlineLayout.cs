@@ -600,25 +600,50 @@ static class InlineLayout
         var strutFace = fonts.Resolve(box.Style.FontFamilies, box.Style.FontWeight, box.Style.Italic);
         var (above, below) = Extents(box.Style, strutFace);
 
-        foreach (var token in tokens)
-        {
-            // A replaced inline sits its bottom margin edge on the baseline, which is what
-            // `vertical-align: baseline` means for one. So it reaches its whole height above the
-            // baseline and nothing below — and a tall image consequently pushes the line's top up
-            // rather than growing it downward.
-            //
-            // An inline-block is the case that shows why that is a special rule rather than the
-            // general one: it has a baseline of its own, taken from its last line, so part of it
-            // sits BELOW the line's baseline and the text beside it lines up with its text.
-            var (tokenAbove, tokenBelow) = token.Kind switch
-            {
-                TokenKind.Replaced => (token.Height, 0f),
-                TokenKind.Box => (token.Baseline, token.Height - token.Baseline),
-                _ => Extents(token.Style, token.Face)
-            };
+        // How far each token is moved off the baseline by `vertical-align`, down-positive. Held
+        // per token rather than folded into the extents, because it is needed twice: once to size
+        // the line and again to place the token in it.
+        var shifts = new float[tokens.Count];
 
-            above = Math.Max(above, tokenAbove);
-            below = Math.Max(below, tokenBelow);
+        // `top` and `bottom` measure against the LINE BOX, which is not known until every other
+        // token has been counted — so they are set aside and resolved below.
+        var deferred = new List<int>();
+
+        for (var index = 0; index < tokens.Count; index++)
+        {
+            var (tokenAbove, tokenBelow) = BaseExtents(tokens[index]);
+            var align = InlineAlign(tokens[index], box.Style);
+
+            if (align is VerticalAlignKind.Top or VerticalAlignKind.Bottom)
+            {
+                deferred.Add(index);
+                continue;
+            }
+
+            var shift = Shift(align, tokenAbove, tokenBelow, box.Style, strutFace);
+            shifts[index] = shift;
+
+            above = Math.Max(above, tokenAbove - shift);
+            below = Math.Max(below, tokenBelow + shift);
+        }
+
+        foreach (var index in deferred)
+        {
+            var (tokenAbove, tokenBelow) = BaseExtents(tokens[index]);
+
+            // Against the line as the rest of it settled. A box taller than that grows the line
+            // away from the edge it is pinned to — downward for `top`, upward for `bottom` — which
+            // leaves its own offset unchanged and so needs no second pass.
+            if (InlineAlign(tokens[index], box.Style) == VerticalAlignKind.Top)
+            {
+                shifts[index] = tokenAbove - above;
+                below = Math.Max(below, tokenBelow + shifts[index]);
+            }
+            else
+            {
+                shifts[index] = below - tokenBelow;
+                above = Math.Max(above, tokenAbove - shifts[index]);
+            }
         }
 
         var height = above + below;
@@ -654,7 +679,11 @@ static class InlineLayout
             {
                 line.Images.Add(new(
                     image,
-                    new(x, y + above - replaced.Height, replaced.Width, replaced.Height),
+                    new(
+                        x,
+                        y + above + shifts[runStart] - replaced.Height,
+                        replaced.Width,
+                        replaced.Height),
                     replaced.Selector));
 
                 x += replaced.Width;
@@ -666,7 +695,7 @@ static class InlineLayout
             // puts the whole tree where the line wants it: its own baseline onto the line's.
             if (tokens[runStart] is {Kind: TokenKind.Box, Box: {} inline} atomic)
             {
-                inline.Translate(x, y + above - atomic.Baseline);
+                inline.Translate(x, y + above + shifts[runStart] - atomic.Baseline);
                 line.Boxes.Add(inline);
 
                 x += atomic.Width;
@@ -711,7 +740,7 @@ static class InlineLayout
                 tokens[runStart].Style,
                 tokens[runStart].Face,
                 x,
-                y + above,
+                y + above + shifts[runStart],
                 runWidth,
                 tokens[runStart].Link,
                 glyphs));
@@ -723,6 +752,108 @@ static class InlineLayout
         box.Lines.Add(line);
         y += height;
     }
+
+    /// <summary>
+    /// How far a token reaches above and below its own alignment point, before
+    /// <c>vertical-align</c> moves it.
+    /// </summary>
+    /// <remarks>
+    /// A replaced inline sits its bottom margin edge on the baseline, which is what
+    /// <c>vertical-align: baseline</c> means for one. So it reaches its whole height above the
+    /// baseline and nothing below — and a tall image consequently pushes the line's top up rather
+    /// than growing it downward.
+    ///
+    /// An inline-block is the case that shows why that is a special rule rather than the general
+    /// one: it has a baseline of its own, taken from its last line, so part of it sits BELOW the
+    /// line's baseline and the text beside it lines up with its text.
+    /// </remarks>
+    static (float Above, float Below) BaseExtents(Token token) =>
+        token.Kind switch
+        {
+            TokenKind.Replaced => (token.Height, 0f),
+            TokenKind.Box => (token.Baseline, token.Height - token.Baseline),
+            _ => Extents(token.Style, token.Face)
+        };
+
+    /// <summary>
+    /// The alignment that applies to <paramref name="token"/> as an inline-level box.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Two guards, and both are needed. A token sharing the block's own style is the block's own
+    /// text rather than an inline-level box of its own, and <c>vertical-align</c> does not apply
+    /// to a block. And a value that was INHERITED rather than declared does not apply either —
+    /// which is what keeps a table cell's <c>middle</c>, handed down so the cell can read it, from
+    /// shifting every run of text inside the cell by half an x-height.
+    /// </para>
+    /// <para>
+    /// Together they leave exactly the intended case: an element that asked for an alignment,
+    /// including <c>&lt;sub&gt;</c> and <c>&lt;sup&gt;</c>, whose values come from the default
+    /// stylesheet and are therefore declared.
+    /// </para>
+    /// </remarks>
+    static VerticalAlignKind InlineAlign(Token token, ComputedStyle block) =>
+        !ReferenceEquals(token.Style, block) && token.Style.VerticalAlignDeclared
+            ? token.Style.VerticalAlign
+            : VerticalAlignKind.Baseline;
+
+    /// <summary>
+    /// How far <c>vertical-align</c> moves a token off the baseline, down-positive.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Every keyword measures against the PARENT's font rather than the aligned box's own, which
+    /// is what CSS says for <c>middle</c> and what measurement confirms for the rest: giving the
+    /// aligned box its own <c>font-size: 10px</c> inside a 32px paragraph moves it not at all.
+    /// </para>
+    /// <para>
+    /// The superscript and subscript offsets are user-agent defined, so — as with list markers and
+    /// <c>line-height: normal</c> — there is no correct value to compute and agreeing with the
+    /// reference browser is the useful target. Measured across three sizes: the offset is linear
+    /// in the font size with an intercept of exactly one pixel, giving <c>size / 3 + 1</c> for
+    /// <c>super</c> and <c>size / 5 + 1</c> for <c>sub</c>. Neither is a font metric — the OS/2
+    /// table's own superscript offset for this face is 7.63px at 16px where the browser uses 6.33.
+    /// </para>
+    /// <para>
+    /// <c>middle</c> is the only one that reads a metric, and it reads the x-height unrounded:
+    /// the ratio holds at 0.5283 of the size at 16, 24 and 32 pixels, which is this face's
+    /// <c>sxHeight</c> over its em.
+    /// </para>
+    /// </remarks>
+    static float Shift(
+        VerticalAlignKind align,
+        float tokenAbove,
+        float tokenBelow,
+        ComputedStyle block,
+        FontFace strut)
+    {
+        var size = block.FontSize;
+
+        return align switch
+        {
+            VerticalAlignKind.Super => -Quantise(size / 3 + 1),
+            VerticalAlignKind.Sub => Quantise(size / 5 + 1),
+            VerticalAlignKind.TextTop => tokenAbove - strut.Ascent(size),
+            VerticalAlignKind.TextBottom => strut.Descent(size) - tokenBelow,
+            VerticalAlignKind.Middle =>
+                tokenAbove - (tokenAbove + tokenBelow) / 2 - strut.XHeight(size) / 2,
+            _ => 0
+        };
+    }
+
+    /// <summary>
+    /// Snaps a length onto the 1/64 pixel grid a browser lays out on, rounding down.
+    /// </summary>
+    /// <remarks>
+    /// Blink holds every layout length as a fixed-point <c>LayoutUnit</c> of 1/64 pixel and
+    /// truncates toward it, so a superscript offset of 16/3 + 1 is stored as 6.328125 rather than
+    /// 6.3333. That is a fortieth of a pixel and it is still visible: the line box it sizes ends
+    /// on a fractional row, and the paragraph background painted to that row comes out a different
+    /// shade from the browser's. Applied only where a browser's own arithmetic lands off the grid
+    /// — everything else here is already whole pixels or comes from the font.
+    /// </remarks>
+    static float Quantise(float value) =>
+        MathF.Floor(value * 64) / 64;
 
     /// <summary>
     /// How far an inline box reaches above and below the baseline.

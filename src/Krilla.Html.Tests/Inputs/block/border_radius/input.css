@@ -1,0 +1,19 @@
+div {
+  width: 260px;
+  font-size: 16px;
+  line-height: 24px;
+  margin-bottom: 8px;
+  background-color: #dde5f0;
+}
+
+#background { border-radius: 12px; }
+
+#bordered { border: 4px solid #c04040; border-radius: 16px; }
+
+/* Two values: a horizontal radius and a vertical one. */
+#elliptical { border-radius: 30px / 12px; }
+
+#corners { border-radius: 0 20px 0 20px; background-color: #e0efdc; }
+
+/* Larger than half the box, which has to be scaled back so opposite corners do not overlap. */
+#pill { height: 40px; border-radius: 999px; background-color: #f0dcdc; }

@@ -1,0 +1,114 @@
+[
+  {
+    "selector": "html",
+    "x": 0,
+    "y": 0,
+    "width": 816,
+    "height": 271.33
+  },
+  {
+    "selector": "html > body:nth-child(2)",
+    "x": 0,
+    "y": 0,
+    "width": 816,
+    "height": 265.33
+  },
+  {
+    "selector": "html > body:nth-child(2) > p:nth-child(1)",
+    "x": 0,
+    "y": 0,
+    "width": 816,
+    "height": 37.33
+  },
+  {
+    "selector": "html > body:nth-child(2) > p:nth-child(1) > span:nth-child(1)",
+    "x": 40.92,
+    "y": 0,
+    "width": 24,
+    "height": 20
+  },
+  {
+    "selector": "html > body:nth-child(2) > p:nth-child(2)",
+    "x": 0,
+    "y": 43.33,
+    "width": 816,
+    "height": 32
+  },
+  {
+    "selector": "html > body:nth-child(2) > p:nth-child(2) > span:nth-child(1)",
+    "x": 40.92,
+    "y": 48.52,
+    "width": 24,
+    "height": 20
+  },
+  {
+    "selector": "html > body:nth-child(2) > p:nth-child(3)",
+    "x": 0,
+    "y": 81.33,
+    "width": 816,
+    "height": 32
+  },
+  {
+    "selector": "html > body:nth-child(2) > p:nth-child(3) > span:nth-child(1)",
+    "x": 40.92,
+    "y": 81.33,
+    "width": 24,
+    "height": 20
+  },
+  {
+    "selector": "html > body:nth-child(2) > p:nth-child(4)",
+    "x": 0,
+    "y": 119.33,
+    "width": 816,
+    "height": 32
+  },
+  {
+    "selector": "html > body:nth-child(2) > p:nth-child(4) > span:nth-child(1)",
+    "x": 40.92,
+    "y": 126.09,
+    "width": 24,
+    "height": 20
+  },
+  {
+    "selector": "html > body:nth-child(2) > p:nth-child(5)",
+    "x": 0,
+    "y": 157.33,
+    "width": 816,
+    "height": 32
+  },
+  {
+    "selector": "html > body:nth-child(2) > p:nth-child(5) > span:nth-child(1)",
+    "x": 40.92,
+    "y": 169.33,
+    "width": 24,
+    "height": 20
+  },
+  {
+    "selector": "html > body:nth-child(2) > p:nth-child(6)",
+    "x": 0,
+    "y": 195.33,
+    "width": 816,
+    "height": 32
+  },
+  {
+    "selector": "html > body:nth-child(2) > p:nth-child(6) > span:nth-child(1)",
+    "x": 40.92,
+    "y": 202.33,
+    "width": 24,
+    "height": 20
+  },
+  {
+    "selector": "html > body:nth-child(2) > p:nth-child(7)",
+    "x": 0,
+    "y": 233.33,
+    "width": 816,
+    "height": 32
+  },
+  {
+    "selector": "html > body:nth-child(2) > p:nth-child(7) > span:nth-child(1)",
+    "x": 40.92,
+    "y": 237.33,
+    "width": 24,
+    "height": 20
+  }
+]

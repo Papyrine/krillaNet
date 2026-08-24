@@ -1,0 +1,22 @@
+div {
+  width: 260px;
+  font-size: 16px;
+  line-height: 24px;
+  margin-bottom: 8px;
+  background-color: #f2f2f2;
+}
+
+#dashed { border: 3px dashed #c04040; }
+#dotted { border: 3px dotted #4060a0; }
+#double { border: 6px double #40a060; }
+
+/* Four different styles, which is what stops one ring being drawn for the whole box. */
+#mixed {
+  border-top: 3px dashed #c04040;
+  border-right: 3px dotted #4060a0;
+  border-bottom: 6px double #40a060;
+  border-left: 3px solid #806040;
+}
+
+/* The dash period scales with the width, so a thicker border has longer dashes. */
+#thick-dashed { border: 8px dashed #c04040; }

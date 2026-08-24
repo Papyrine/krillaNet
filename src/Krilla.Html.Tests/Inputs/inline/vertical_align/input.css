@@ -1,0 +1,28 @@
+p {
+  font-size: 16px;
+  line-height: 32px;
+  margin-bottom: 6px;
+  background-color: #f2f2f2;
+}
+
+/* Every row aligns an inline-block of a known height rather than a run of glyphs, so each
+   keyword's offset is readable straight out of the reference geometry instead of having to be
+   backed out of a font's ascent.
+
+   EMPTY on purpose. An inline-block holding a line of text takes that line's baseline, which
+   would fold this engine's inherited line-height into every number below; an empty one falls back
+   to its bottom margin edge, so `super` and `sub` report their own offset and nothing else. */
+.box {
+  display: inline-block;
+  width: 24px;
+  height: 20px;
+  background-color: #c04040;
+}
+
+.super { vertical-align: super; }
+.sub { vertical-align: sub; }
+.top { vertical-align: top; }
+.middle { vertical-align: middle; }
+.bottom { vertical-align: bottom; }
+.text-top { vertical-align: text-top; }
+.text-bottom { vertical-align: text-bottom; }

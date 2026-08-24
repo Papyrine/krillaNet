@@ -66,6 +66,14 @@ static class StyleResolver
             BorderRight = BorderWidth(declaration, "right", fontSize, rootFontSize),
             BorderBottom = BorderWidth(declaration, "bottom", fontSize, rootFontSize),
             BorderLeft = BorderWidth(declaration, "left", fontSize, rootFontSize),
+            RadiusTopLeft = Radius(declaration, "top-left", fontSize, rootFontSize),
+            RadiusTopRight = Radius(declaration, "top-right", fontSize, rootFontSize),
+            RadiusBottomRight = Radius(declaration, "bottom-right", fontSize, rootFontSize),
+            RadiusBottomLeft = Radius(declaration, "bottom-left", fontSize, rootFontSize),
+            BorderTopStyle = BorderStyle(declaration, "top"),
+            BorderRightStyle = BorderStyle(declaration, "right"),
+            BorderBottomStyle = BorderStyle(declaration, "bottom"),
+            BorderLeftStyle = BorderStyle(declaration, "left"),
             BorderTopColor = BorderColor(declaration, "top", color),
             BorderRightColor = BorderColor(declaration, "right", color),
             BorderBottomColor = BorderColor(declaration, "bottom", color),
@@ -91,7 +99,7 @@ static class StyleResolver
                 UserAgentStyles.IsItalic(element.LocalName) || parent.Italic),
             LineHeight = lineHeight.Absolute,
             LineHeightScale = lineHeight.Scale,
-            Underline = ParseUnderline(declaration, parent.Underline),
+            Decorations = ParseDecorations(declaration, parent.Decorations),
             ListStyle = ParseListStyle(declaration.GetPropertyValue("list-style-type"), parent.ListStyle),
             BorderSpacingX = Spacing(declaration, "border-spacing", fontSize, rootFontSize, first: true)
                              ?? parent.BorderSpacingX,
@@ -101,6 +109,8 @@ static class StyleResolver
             VerticalAlign = ParseVerticalAlign(
                 declaration.GetPropertyValue("vertical-align"),
                 UserAgentStyles.DefaultVerticalAlign(element.LocalName) ?? parent.VerticalAlign),
+            VerticalAlignDeclared =
+                !string.IsNullOrWhiteSpace(declaration.GetPropertyValue("vertical-align")),
             TextAlign = ParseTextAlign(declaration.GetPropertyValue("text-align"), parent.TextAlign),
             WhiteSpace = ParseWhiteSpace(declaration.GetPropertyValue("white-space"), parent.WhiteSpace),
             Float = ParseFloat(declaration.GetPropertyValue("float")),
@@ -161,6 +171,11 @@ static class StyleResolver
         // returned a font size of 0 — which is not a smaller size, it is an invisible one. Every
         // keyword lands here (`medium`, `large`, `smaller`, `inherit`: none is a length AngleSharp
         // resolves), so `font-size: large` deleted the text of the element it was written on.
+        if (Keyword(value.Trim().ToLowerInvariant(), parent.FontSize) is {} keyword)
+        {
+            return keyword;
+        }
+
         var length = CssValues.ParseLength(value, parent.FontSize, rootFontSize, CssLength.None);
         return length.Kind switch
         {
@@ -169,6 +184,56 @@ static class StyleResolver
             _ => parent.FontSize
         };
     }
+
+    /// <summary>
+    /// The size a <c>font-size</c> keyword names, or null when the value is not one.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The absolute keywords come from a table anchored on <c>medium</c>, and the values are
+    /// measured out of Chrome rather than derived: 9, 10, 13, 16, 18, 24 and 32 pixels. They are
+    /// not a geometric series and no single ratio reproduces them — the steps between the small
+    /// end are one pixel and the steps at the large end are eight.
+    /// </para>
+    /// <para>
+    /// Anchored on a constant rather than on the root element's size, which is what CSS asks for
+    /// and is measurable in a browser: the table follows the reader's preferred size, a setting
+    /// this engine has no equivalent of, so <c>font-size: large</c> is 18px whatever the document
+    /// declares on <c>html</c>. Anchoring on the root would make a document that sets
+    /// <c>html { font-size: 20px }</c> report <c>large</c> as 22.5px where a browser still says 18.
+    /// </para>
+    /// <para>
+    /// The two relative keywords are the parent's size scaled by 1.2, which is measured as well
+    /// and holds at every size: 16px gives 13.333 and 19.2, and inside an 18px parent
+    /// <c>smaller</c> gives 15.
+    /// </para>
+    /// </remarks>
+    static float? Keyword(string value, float parentSize) =>
+        value switch
+        {
+            "xx-small" => defaultFontSize * 9 / 16f,
+            "x-small" => defaultFontSize * 10 / 16f,
+            "small" => defaultFontSize * 13 / 16f,
+            // `initial` is the property's initial value, which is `medium`. It arrives more
+            // often than anyone writes it, since a shorthand that omits a component sets that
+            // component to it.
+            "medium" or "initial" => defaultFontSize,
+            "large" => defaultFontSize * 18 / 16f,
+            "x-large" => defaultFontSize * 24 / 16f,
+            "xx-large" => defaultFontSize * 32 / 16f,
+            "smaller" => parentSize / 1.2f,
+            "larger" => parentSize * 1.2f,
+            _ => null
+        };
+
+    /// <summary>
+    /// The size <c>medium</c> names, and the anchor for the whole absolute table.
+    /// </summary>
+    /// <remarks>
+    /// A browser takes this from the reader's preferred font size and defaults it to 16px. Nothing
+    /// here has a reader, so the default is the value.
+    /// </remarks>
+    const float defaultFontSize = 16f;
 
     static CssLength Length(
         ICssStyleDeclaration declaration,
@@ -314,6 +379,61 @@ static class StyleResolver
             _ => BreakKind.Auto
         };
     }
+
+    /// <summary>
+    /// One corner's two radii. Not inherited.
+    /// </summary>
+    /// <remarks>
+    /// Read from the four longhands rather than from the <c>border-radius</c> shorthand, because
+    /// the cascade expands the shorthand into them — and the shorthand's own syntax, up to eight
+    /// values split by a slash, is a parse this does not have to write as a result. A corner given
+    /// one value is circular, so the vertical radius repeats the horizontal one.
+    /// </remarks>
+    static (CssLength X, CssLength Y) Radius(
+        ICssStyleDeclaration declaration,
+        string corner,
+        float fontSize,
+        float rootFontSize)
+    {
+        var value = declaration.GetPropertyValue($"border-{corner}-radius");
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return (CssLength.Zero, CssLength.Zero);
+        }
+
+        var parts = value.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+
+        if (parts.Length == 0)
+        {
+            return (CssLength.Zero, CssLength.Zero);
+        }
+
+        var horizontal = CssValues.ParseLength(parts[0], fontSize, rootFontSize, CssLength.Zero);
+        var vertical = parts.Length > 1
+            ? CssValues.ParseLength(parts[1], fontSize, rootFontSize, CssLength.Zero)
+            : horizontal;
+
+        return (horizontal, vertical);
+    }
+
+    /// <summary>
+    /// How one border edge is drawn. Not inherited.
+    /// </summary>
+    /// <remarks>
+    /// <c>none</c> and <c>hidden</c> do not appear because <see cref="BorderWidth"/> has already
+    /// turned them into a zero width, so an edge carrying either is never painted whatever this
+    /// returns. The four shaded styles fall through to solid, which is what
+    /// <see cref="UnsupportedCss"/> keeps reporting.
+    /// </remarks>
+    static BorderStyleKind BorderStyle(ICssStyleDeclaration declaration, string side) =>
+        declaration.GetPropertyValue($"border-{side}-style").Trim().ToLowerInvariant() switch
+        {
+            "dashed" => BorderStyleKind.Dashed,
+            "dotted" => BorderStyleKind.Dotted,
+            "double" => BorderStyleKind.Double,
+            _ => BorderStyleKind.Solid
+        };
 
     /// <summary>
     /// An extra advance in CSS pixels, inheriting when the cascade said nothing.
@@ -527,8 +647,12 @@ static class StyleResolver
             "top" => VerticalAlignKind.Top,
             "middle" => VerticalAlignKind.Middle,
             "bottom" => VerticalAlignKind.Bottom,
-            // The inline-level values — sub, super, text-top and the lengths — are not implemented,
-            // and land on the initial value rather than on something arbitrary.
+            "super" => VerticalAlignKind.Super,
+            "sub" => VerticalAlignKind.Sub,
+            "text-top" => VerticalAlignKind.TextTop,
+            "text-bottom" => VerticalAlignKind.TextBottom,
+            // A length or a percentage raises the box by that much, which is not implemented and
+            // lands on the initial value rather than on something arbitrary.
             _ => VerticalAlignKind.Baseline
         };
 
@@ -625,16 +749,16 @@ static class StyleResolver
     }
 
     /// <summary>
-    /// Whether an underline applies, from <c>text-decoration-line</c> or the
-    /// <c>text-decoration</c> shorthand.
+    /// Which rules apply, from <c>text-decoration-line</c> or the <c>text-decoration</c>
+    /// shorthand.
     /// </summary>
     /// <remarks>
-    /// Both are read because which one the cascade reports depends on which the author wrote,
-    /// and the shorthand also carries colour and style keywords that have to be looked past.
-    /// Only underline is honoured; overline and line-through are not painted, so recognising
-    /// them would claim support that is not there.
+    /// Both are read because which one the cascade reports depends on which the author wrote, and
+    /// the shorthand also carries colour and style keywords that have to be looked past. The value
+    /// is scanned for each line name rather than split, for the same reason: the shorthand
+    /// interleaves them with words this does not care about.
     /// </remarks>
-    static bool ParseUnderline(ICssStyleDeclaration declaration, bool inherited)
+    static TextDecorations ParseDecorations(ICssStyleDeclaration declaration, TextDecorations inherited)
     {
         var value = declaration.GetPropertyValue("text-decoration-line");
 
@@ -649,14 +773,31 @@ static class StyleResolver
         }
 
         var text = value.ToLowerInvariant();
+        var lines = TextDecorations.None;
 
         if (text.Contains("underline", StringComparison.Ordinal))
         {
-            return true;
+            lines |= TextDecorations.Underline;
         }
 
-        // An explicit `none` clears an inherited underline; anything else leaves it alone.
-        return !text.Contains("none", StringComparison.Ordinal) && inherited;
+        if (text.Contains("overline", StringComparison.Ordinal))
+        {
+            lines |= TextDecorations.Overline;
+        }
+
+        if (text.Contains("line-through", StringComparison.Ordinal))
+        {
+            lines |= TextDecorations.LineThrough;
+        }
+
+        if (lines != TextDecorations.None)
+        {
+            return lines;
+        }
+
+        // An explicit `none` clears inherited rules; anything else — a colour or a style on its
+        // own — leaves them alone.
+        return text.Contains("none", StringComparison.Ordinal) ? TextDecorations.None : inherited;
     }
 
     static TextAlignKind ParseTextAlign(string value, TextAlignKind inherited) =>

@@ -80,6 +80,24 @@ public sealed partial class Surface
     }
 
     /// <summary>
+    /// Sets a solid stroke of the given width, cap and dash pattern.
+    /// </summary>
+    /// <param name="color">Stroke colour.</param>
+    /// <param name="width">Stroke width in surface units.</param>
+    /// <param name="cap">How open ends — including each dash's ends — are drawn.</param>
+    /// <param name="dashArray">Alternating on/off lengths, or null for a solid stroke.</param>
+    /// <remarks>
+    /// A zero-length dash under <see cref="LineCap.Round"/> draws a dot, which is how a dotted
+    /// rule is made: <c>[0, 6]</c> puts a round dot every six units.
+    /// </remarks>
+    public Surface SetStroke(Color color, float width, LineCap cap, float[]? dashArray)
+    {
+        var paint = Paint.Solid(color);
+        document.Track(paint);
+        return SetStroke(new Stroke(paint, width, LineCap: cap, DashArray: dashArray));
+    }
+
+    /// <summary>
     /// Sets the stroke for subsequent drawing, or clears it when passed null.
     /// </summary>
     public unsafe Surface SetStroke(Stroke? stroke)

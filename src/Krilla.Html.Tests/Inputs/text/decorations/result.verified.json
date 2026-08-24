@@ -1,0 +1,18 @@
+﻿{
+  "ReferencePageCount": 1,
+  "ResultingPageCount": 1,
+  "Boxes": {
+    "Matched": 8,
+    "MissingFromRender": [
+      "html > body:nth-child(2) > p:nth-child(6) > span:nth-child(1)"
+    ]
+  },
+  "PageDiffs": [
+    {
+      "Page": 1,
+      "Ssim": 1.0,
+      "ReferenceFile": "reference_0001.png",
+      "RenderedFile": "result#page_0001.verified.png"
+    }
+  ]
+}

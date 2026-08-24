@@ -84,20 +84,39 @@ enum TableLayoutKind
     Fixed,
 }
 
-/// <summary>How a cell's content sits within a row taller than it.</summary>
+/// <summary>
+/// Where a box sits vertically: within a taller table row, or on the line it is part of.
+/// </summary>
+/// <remarks>
+/// One enum for both, because it is one property. The two uses read different subsets: a table
+/// cell honours <c>Top</c>, <c>Middle</c> and <c>Bottom</c> and treats the rest as top, while an
+/// inline-level box honours every value.
+/// </remarks>
 enum VerticalAlignKind
 {
-    /// <summary>Against the baseline of the row's first line.</summary>
+    /// <summary>Against the baseline of the row's first line, or on the line's baseline.</summary>
     Baseline,
 
-    /// <summary>Against the top of the row.</summary>
+    /// <summary>Against the top of the row, or of the line box.</summary>
     Top,
 
-    /// <summary>Centred in the row.</summary>
+    /// <summary>Centred in the row, or half an x-height above the line's baseline.</summary>
     Middle,
 
-    /// <summary>Against the bottom of the row.</summary>
-    Bottom
+    /// <summary>Against the bottom of the row, or of the line box.</summary>
+    Bottom,
+
+    /// <summary>Raised above the baseline by the superscript offset.</summary>
+    Super,
+
+    /// <summary>Lowered below the baseline by the subscript offset.</summary>
+    Sub,
+
+    /// <summary>Top edge against the top of the parent's text.</summary>
+    TextTop,
+
+    /// <summary>Bottom edge against the bottom of the parent's text.</summary>
+    TextBottom
 }
 
 /// <summary>What a box asks of the page breaks around and inside it.</summary>
@@ -131,6 +150,28 @@ enum BreakKind
     /// earlier rather than for one to be taken — reported instead.
     /// </remarks>
     Avoid
+}
+
+/// <summary>The lines <c>text-decoration</c> draws through a run of text.</summary>
+/// <remarks>
+/// Flags rather than one value, because the property takes any combination of them and browsers
+/// draw every one asked for — <c>underline overline line-through</c> puts three rules on the same
+/// words.
+/// </remarks>
+[Flags]
+enum TextDecorations
+{
+    /// <summary>No rule.</summary>
+    None = 0,
+
+    /// <summary>A rule below the baseline.</summary>
+    Underline = 1,
+
+    /// <summary>A rule above the text.</summary>
+    Overline = 2,
+
+    /// <summary>A rule through the middle of the text.</summary>
+    LineThrough = 4
 }
 
 /// <summary>Whether a box and its descendants are painted.</summary>
@@ -325,13 +366,26 @@ enum BoxSizingKind
 }
 
 /// <summary>How a border edge is drawn.</summary>
+/// <remarks>
+/// <c>none</c> and <c>hidden</c> are absent: <see cref="StyleResolver"/> folds them into a zero
+/// width, so an edge that is not drawn is one that takes no space either and layout never has to
+/// consult a style. The rest of the CSS list — <c>groove</c>, <c>ridge</c>, <c>inset</c> and
+/// <c>outset</c> — need two derived shades of the declared colour and are not implemented, so they
+/// arrive here as <see cref="Solid"/> and are reported instead.
+/// </remarks>
 enum BorderStyleKind
 {
-    /// <summary>Not drawn, and zero width regardless of the declared width.</summary>
-    None,
+    /// <summary>One unbroken band.</summary>
+    Solid,
 
-    /// <summary>A solid line.</summary>
-    Solid
+    /// <summary>Dashes twice the border's width, separated by gaps its width.</summary>
+    Dashed,
+
+    /// <summary>Round dots the border's width, spaced at twice it.</summary>
+    Dotted,
+
+    /// <summary>Two bands a third of the width each, with a third-width gap between them.</summary>
+    Double
 }
 
 /// <summary>
@@ -394,6 +448,80 @@ sealed record ComputedStyle
 
     /// <summary>Left border width.</summary>
     public float BorderLeft { get; init; }
+
+    /// <summary>Horizontal and vertical radii of the top-left corner.</summary>
+    /// <remarks>
+    /// Two lengths per corner rather than one, because the slash form of the shorthand asks for an
+    /// ellipse quadrant: <c>border-radius: 30px / 12px</c> is 30 across and 12 down. Kept as
+    /// declared rather than resolved, since a percentage resolves against the box's own width and
+    /// height and neither is known until layout has finished.
+    /// </remarks>
+    public (CssLength X, CssLength Y) RadiusTopLeft { get; init; }
+
+    /// <summary>Horizontal and vertical radii of the top-right corner.</summary>
+    public (CssLength X, CssLength Y) RadiusTopRight { get; init; }
+
+    /// <summary>Horizontal and vertical radii of the bottom-right corner.</summary>
+    public (CssLength X, CssLength Y) RadiusBottomRight { get; init; }
+
+    /// <summary>Horizontal and vertical radii of the bottom-left corner.</summary>
+    public (CssLength X, CssLength Y) RadiusBottomLeft { get; init; }
+
+    /// <summary>Whether any corner asks to be rounded.</summary>
+    public bool HasRadius =>
+        IsRounded(RadiusTopLeft) ||
+        IsRounded(RadiusTopRight) ||
+        IsRounded(RadiusBottomRight) ||
+        IsRounded(RadiusBottomLeft);
+
+    /// <summary>
+    /// Whether one corner asks for anything.
+    /// </summary>
+    /// <remarks>
+    /// Tested on the VALUE rather than against <c>default</c>: an unset radius is
+    /// <see cref="CssLength.Zero"/>, which is an absolute zero and not the same struct as a
+    /// default <c>CssLength</c>, whose kind is <c>Auto</c>. Comparing structs answers true for
+    /// every box in the document and sends every background down the rounded path.
+    /// </remarks>
+    static bool IsRounded((CssLength X, CssLength Y) corner) =>
+        corner.X.Value != 0 || corner.Y.Value != 0;
+
+    /// <summary>How the top border edge is drawn.</summary>
+    public BorderStyleKind BorderTopStyle { get; init; }
+
+    /// <summary>How the right border edge is drawn.</summary>
+    public BorderStyleKind BorderRightStyle { get; init; }
+
+    /// <summary>How the bottom border edge is drawn.</summary>
+    public BorderStyleKind BorderBottomStyle { get; init; }
+
+    /// <summary>How the left border edge is drawn.</summary>
+    public BorderStyleKind BorderLeftStyle { get; init; }
+
+    /// <summary>
+    /// Whether every edge is drawn as one unbroken band.
+    /// </summary>
+    /// <remarks>
+    /// The uniform-colour border is painted as a single ring rather than four mitred trapezia,
+    /// because two antialiased edges meeting on a mitre diagonal do not composite to full
+    /// coverage. That shortcut needs the STYLE to be uniform as well as the colour, which is what
+    /// this answers.
+    /// </remarks>
+    public bool PaintsBorderAsRing =>
+        IsBorderSolid &&
+        BorderTopColor is {} colour &&
+        BorderRightColor == colour &&
+        BorderBottomColor == colour &&
+        BorderLeftColor == colour;
+
+    /// <summary>
+    /// Whether every edge is drawn as one unbroken band.
+    /// </summary>
+    public bool IsBorderSolid =>
+        BorderTopStyle == BorderStyleKind.Solid &&
+        BorderRightStyle == BorderStyleKind.Solid &&
+        BorderBottomStyle == BorderStyleKind.Solid &&
+        BorderLeftStyle == BorderStyleKind.Solid;
 
     /// <summary>Top border colour.</summary>
     public Color? BorderTopColor { get; init; }
@@ -477,7 +605,7 @@ sealed record ComputedStyle
     /// </remarks>
     public float? LineHeightScale { get; init; }
 
-    /// <summary>Whether text is underlined.</summary>
+    /// <summary>The rules drawn through this text.</summary>
     /// <remarks>
     /// Treated as inherited, which <c>text-decoration</c> strictly is not — CSS says a decoration
     /// is drawn ACROSS descendants by the element that declared it, rather than being inherited by
@@ -485,7 +613,7 @@ sealed record ComputedStyle
     /// decoration keeps the colour of the element that declared it while an inherited one does not.
     /// Inheriting is the far simpler model and agrees with propagation everywhere else.
     /// </remarks>
-    public bool Underline { get; init; }
+    public TextDecorations Decorations { get; init; }
 
     /// <summary>What marker a list item shows.</summary>
     public ListStyleKind ListStyle { get; init; } = ListStyleKind.Disc;
@@ -503,8 +631,28 @@ sealed record ComputedStyle
     /// <summary>How this table's column widths are decided.</summary>
     public TableLayoutKind TableLayout { get; init; } = TableLayoutKind.Auto;
 
-    /// <summary>How a cell's content sits within a taller row.</summary>
+    /// <summary>How a cell's content sits within a taller row, or a box sits on its line.</summary>
     public VerticalAlignKind VerticalAlign { get; init; } = VerticalAlignKind.Baseline;
+
+    /// <summary>
+    /// Whether the cascade actually carried <c>vertical-align</c> for this element.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Needed because this engine INHERITS the property, which CSS does not. The inheritance is
+    /// deliberate and load-bearing for tables: the user-agent sheet puts <c>middle</c> on the table
+    /// and <c>inherit</c> on the cells, so a cell can only read its value by having it handed down.
+    /// </para>
+    /// <para>
+    /// The cost is that every run of text inside a cell also arrives carrying <c>middle</c>, and
+    /// line layout must not act on it — a text token shifted half an x-height would move every
+    /// cell's text and break every table scenario at once. So inline alignment applies only where
+    /// the value was declared rather than inherited, which is true of <c>&lt;sub&gt;</c> and
+    /// <c>&lt;sup&gt;</c> (the default stylesheet declares theirs) and false of a bare
+    /// <c>&lt;span&gt;</c> in a cell.
+    /// </para>
+    /// </remarks>
+    public bool VerticalAlignDeclared { get; init; }
 
     /// <summary>How lines are aligned.</summary>
     public TextAlignKind TextAlign { get; init; } = TextAlignKind.Left;

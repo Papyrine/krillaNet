@@ -163,11 +163,9 @@ public class DiagnosticTests
         Verify(
             Collect(
                 """
-                <div style="border: 2px dashed red">a</div>
-                <div style="border-radius: 4px; border: 1px solid red">b</div>
+                <div style="border: 2px groove red">a</div>
+                <div style="border-radius: 4px; border: 2px dashed red">b</div>
                 <div style="opacity: 0.5">c</div>
-                <div style="text-decoration: line-through">d</div>
-                <div style="text-decoration: overline">e</div>
                 <div style="text-transform: full-width">f</div>
                 <div style="visibility: collapse">g</div>
                 <div style="background-image: linear-gradient(red, blue)">h</div>
@@ -223,34 +221,44 @@ public class DiagnosticTests
                 """));
 
     /// <summary>
-    /// A font-size keyword falls back to the inherited size, and reports that it did.
+    /// A font-size keyword resolves to a real size, and says nothing about it.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// A regression test with a specific failure behind it: the fallback used to be an absolute
     /// zero, so every keyword — <c>medium</c> and <c>large</c> as much as <c>smaller</c> — resolved
-    /// to a font size of 0 and the element rendered as nothing at all. The box height is what
-    /// catches that; the report only says the size is not the right one.
+    /// to a font size of 0 and the element rendered as nothing at all. It then spent a while
+    /// falling back to the INHERITED size, which was visible but wrong, and reporting that it had.
+    /// </para>
+    /// <para>
+    /// Checked by measuring the same text against the size the keyword names, which is the only
+    /// way to read a font size back out of a box tree. The expected pixel values are the table
+    /// measured out of Chrome, so this pins the table itself and not merely that something
+    /// happened.
+    /// </para>
     /// </remarks>
     [Test]
-    [Arguments("xx-small")]
-    [Arguments("small")]
-    [Arguments("medium")]
-    [Arguments("large")]
-    [Arguments("xx-large")]
-    [Arguments("smaller")]
-    [Arguments("larger")]
-    public async Task AFontSizeKeywordKeepsItsText(string keyword)
+    [Arguments("xx-small", "9px")]
+    [Arguments("x-small", "10px")]
+    [Arguments("small", "13px")]
+    [Arguments("medium", "16px")]
+    [Arguments("large", "18px")]
+    [Arguments("x-large", "24px")]
+    [Arguments("xx-large", "32px")]
+    [Arguments("smaller", "13.3333px")]
+    [Arguments("larger", "19.2px")]
+    public async Task AFontSizeKeywordResolvesToItsSize(string keyword, string equivalent)
     {
-        var reports = Collect($"<p style=\"font-size: {keyword}\">Text</p>");
+        await Assert.That(Collect($"<p style=\"font-size: {keyword}\">Text</p>")).IsEmpty();
 
-        await Assert.That(reports.Select(_ => _.Name)).Contains("font-size");
+        await Assert.That(Height(keyword)).IsGreaterThan(0);
+        await Assert.That(Height(keyword)).IsEqualTo(Height(equivalent));
 
-        var boxes = BoxDump.Measure(
-            Page($"<p style=\"font-size: {keyword}\">Text</p>", null),
-            CorpusRunner.Options());
-
-        // Not zero, which is what an invisible element measures.
-        await Assert.That(boxes[^1].Height).IsGreaterThan(0);
+        static float Height(string size)
+        {
+            var markup = $"<p style=\"font-size: {size}\">Text</p>";
+            return BoxDump.Measure(Page(markup, null), CorpusRunner.Options())[^1].Height;
+        }
     }
 
     [Test]
@@ -301,6 +309,11 @@ public class DiagnosticTests
             <span style="visibility: visible">shown again</span>
             <p style="text-transform: uppercase">cased</p>
             <p style="letter-spacing: 2px; word-spacing: 4px">spaced</p>
+            <p style="font-size: large">sized by keyword</p>
+            <p style="text-decoration: underline overline line-through">ruled</p>
+            <p>an <sup>exponent</sup> and a <sub>subscript</sub></p>
+            <div style="border: 3px dotted red; border-radius: 0">dotted</div>
+            <div style="border-radius: 8px; background: silver">rounded</div>
             """);
 
         await Assert.That(reports).IsEmpty();

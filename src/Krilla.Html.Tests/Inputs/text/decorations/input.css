@@ -1,0 +1,17 @@
+p {
+  font-size: 16px;
+  line-height: 24px;
+  margin-bottom: 4px;
+  background-color: #f2f2f2;
+}
+
+#underline { text-decoration: underline; }
+#overline { text-decoration: overline; }
+#through { text-decoration: line-through; }
+#both { text-decoration: underline overline; }
+#all { text-decoration: underline overline line-through; }
+
+/* A decoration is drawn ACROSS a descendant by the element that declared it, so the whole line
+   carries one rule rather than the inner span starting a second. */
+#nested { text-decoration: line-through; }
+#inner { color: #c04040; }
