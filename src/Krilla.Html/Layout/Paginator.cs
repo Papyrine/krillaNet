@@ -205,11 +205,20 @@ static class Paginator
 
         void Walk(LayoutBox box, bool covered)
         {
-            // A row is one by rule and an `avoid` box is one by request, but they are the same
-            // thing to the slice: a rectangle that moves whole, rather than a run of lines that
-            // move one at a time.
+            // A row is one by rule, an `avoid` box is one by request, and a replaced element is
+            // one because there is nothing inside it to break BETWEEN — but all three are the
+            // same thing to the slice: a rectangle that moves whole, rather than a run of lines
+            // that move one at a time.
+            //
+            // The replaced case was invisible until an image grew tall enough to straddle a
+            // boundary, which needs one about a page high and no corpus scenario had one. Chrome
+            // moves such an image whole to the next page; slicing it instead draws its top on the
+            // page before, which `image/svg` caught on its first render. An image taller than a
+            // whole page still overflows rather than descending forever, by the same height guard
+            // in `NextTop` that a too-tall row relies on.
             if (box.Style.Display == DisplayKind.TableRow ||
-                box.Style.BreakInside == BreakKind.Avoid)
+                box.Style.BreakInside == BreakKind.Avoid ||
+                box.Image is not null)
             {
                 units.Add(new(box.BorderBox, null));
 

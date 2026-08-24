@@ -43,6 +43,18 @@ public sealed class FontFace :
     /// </remarks>
     internal Font Font => font ??= Font.Load(data, index);
 
+    /// <summary>
+    /// The bytes this face was read from.
+    /// </summary>
+    /// <remarks>
+    /// Exposed for <see cref="SvgOptions"/>, which builds a font database of its own: usvg
+    /// resolves text as it parses and matches families itself, so it needs the files rather than
+    /// the faces this class already picked between. The array is not copied — every caller here
+    /// only reads it, and copying every font file per conversion would be a real cost for a
+    /// document with one SVG in it.
+    /// </remarks>
+    internal byte[] Data => data;
+
     /// <summary>The family this face belongs to, as CSS would name it.</summary>
     public string Family { get; }
 

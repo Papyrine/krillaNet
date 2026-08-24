@@ -325,6 +325,47 @@ public sealed partial class Surface
     }
 
     /// <summary>
+    /// Draws an SVG scaled to fill the given size.
+    /// </summary>
+    /// <param name="svg">The parsed document.</param>
+    /// <param name="bounds">Where to draw it. The SVG is scaled to fill this and clipped to it.</param>
+    /// <param name="embedText">
+    /// Keeps text as selectable, searchable glyph runs. Turning it off outlines every glyph,
+    /// which is larger and unsearchable, and is needed only where a font's licence forbids
+    /// embedding.
+    /// </param>
+    /// <param name="filterScale">
+    /// The resolution SVG filters are rasterised at, filters being the one part of SVG with no
+    /// PDF equivalent. Higher is sharper and larger.
+    /// </param>
+    /// <remarks>
+    /// Aspect ratio is not preserved automatically, exactly as for
+    /// <see cref="DrawImage"/>; <see cref="PdfSvg.Width"/> and <see cref="PdfSvg.Height"/>
+    /// supply the intrinsic size needed to compute it.
+    /// </remarks>
+    public Surface DrawSvg(
+        PdfSvg svg,
+        Rectangle bounds,
+        bool embedText = true,
+        float filterScale = 4)
+    {
+        using (PushTransform(Matrix.Translate(bounds.Left, bounds.Top)))
+        {
+            Status.Check(
+                KrillaNative.krilla_surface_draw_svg(
+                    Handle,
+                    token,
+                    svg.Handle,
+                    new Size(bounds.Width, bounds.Height).ToNative(),
+                    embedText,
+                    filterScale),
+                "Drawing an SVG");
+        }
+
+        return this;
+    }
+
+    /// <summary>
     /// Concatenates a transform, until the returned layer is disposed.
     /// </summary>
     public Layer PushTransform(Matrix transform)

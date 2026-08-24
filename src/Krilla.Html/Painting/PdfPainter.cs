@@ -1732,8 +1732,15 @@ static class PdfPainter
     /// Draws an image into <paramref name="bounds"/>.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// krilla stretches an image to whatever size it is given without preserving the aspect ratio,
     /// which is what lets the rectangle its caller computed decide the shape on its own.
+    /// </para>
+    /// <para>
+    /// The one place the two kinds of image differ. Everything upstream — replaced sizing,
+    /// <c>object-fit</c>, background tiling — has already reduced its question to a rectangle,
+    /// and krilla-svg fills one the same way krilla's image drawing does.
+    /// </para>
     /// </remarks>
     static void PaintImage(Surface surface, ImageData image, Rect bounds)
     {
@@ -1742,9 +1749,15 @@ static class PdfPainter
             return;
         }
 
-        surface.DrawImage(
-            image.Image,
-            Rectangle.FromSize(bounds.X, bounds.Y, bounds.Width, bounds.Height));
+        var rectangle = Rectangle.FromSize(bounds.X, bounds.Y, bounds.Width, bounds.Height);
+
+        if (image.IsVector)
+        {
+            surface.DrawSvg(image.Svg, rectangle);
+            return;
+        }
+
+        surface.DrawImage(image.Image, rectangle);
     }
 
     /// <summary>

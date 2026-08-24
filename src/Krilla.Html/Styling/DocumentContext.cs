@@ -125,7 +125,8 @@ sealed class DocumentContext :
         var images = new ImageStore(
             options.ImageResolver ?? ImageStore.DefaultResolver(options.BaseUrl),
             options.LocalImages,
-            options.WebImages);
+            options.WebImages,
+            options.Fonts);
 
         return new(
             window.GetStyleCollection(device),

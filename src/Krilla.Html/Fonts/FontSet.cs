@@ -40,6 +40,17 @@ public sealed class FontSet :
     public string? Monospace { get; set; }
 
     /// <summary>
+    /// Every registered face, in no particular order.
+    /// </summary>
+    /// <remarks>
+    /// For <see cref="SvgOptions"/>, which needs the font FILES rather than a resolved face:
+    /// usvg matches families itself while it parses, so the choice this class exists to make is
+    /// one it has to make again on its own terms. A face registered under two families is
+    /// yielded twice, which costs usvg a duplicate database entry and nothing else.
+    /// </remarks>
+    internal IEnumerable<FontFace> Faces => families.Values.SelectMany(_ => _);
+
+    /// <summary>
     /// Registers a face, taking ownership so it is disposed with this set.
     /// </summary>
     public FontSet Add(FontFace face)

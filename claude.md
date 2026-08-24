@@ -102,7 +102,7 @@ Mirrors Morph.PDFium: `KrillaNative.*.cs` partials of one `static partial class`
 ### The HTML converter (`src/Krilla.Html`)
 
 Three stages, each inspectable on its own: AngleSharp parses and runs the cascade, `Layout/` turns the styled tree into positioned boxes, and `Painting/PdfPainter` draws those boxes through `Krilla.Surface`. Implemented: block and inline layout, inline-block, tables, floats, relative and absolute positioning, the box model including `box-sizing`, collapsing margins, line breaking, alignment, pagination including forced page breaks, `overflow` clipping and the block formatting context that comes with it, `visibility`, `text-transform`, letter and word spacing, the `font-size` keywords, all three text decorations, `vertical-align` on inline boxes, dashed, dotted and double borders, `border-radius`, `opacity`, `transform`, `z-index` and the stacking contexts that come with it, linear and
-radial gradients, `outline`, `object-fit`, `caption-side`, `list-style-position`, both border models including `border-collapse`, images, links, and list markers. Flex and grid lay out as plain blocks — deliberately, so unimplemented CSS shows up in the corpus as a geometry difference rather than as missing content nothing measures.
+radial gradients, `outline`, `object-fit`, `caption-side`, `list-style-position`, both border models including `border-collapse`, raster and SVG images, links, and list markers. Flex and grid lay out as plain blocks — deliberately, so unimplemented CSS shows up in the corpus as a geometry difference rather than as missing content nothing measures.
 
 And, from the paged-media and structure work: a document's `@page` rules decide the paper unless
 `HtmlOptions.HonourPageRules` says otherwise, media queries resolve against PRINT, sided forced
@@ -143,7 +143,7 @@ It records two independent measurements, and **asserts neither**:
 - **`reference.boxes.json`** — the browser's `getBoundingClientRect()` per element, against our box tree. Integer-exact, localising ("this paragraph is 14px low" is a defect report), and — the practical reason it leads — computable without the native library, so it works on a machine with no Rust toolchain.
 - **`reference_0001.png`** — pixels, via AbsoluteError and SSIM.
 
-**Box geometry currently sits at zero across all 119 scenarios, with nothing unmatched**, and 88
+**Box geometry currently sits at zero across all 120 scenarios, with nothing unmatched**, and 88
 read SSIM 1.0000. Several got there by finding a defect first, which is the argument for adding a
 scenario for anything the engine implements rather than only for what it implements well:
 `block/anonymous` found trailing inline content hoisted above a block sibling, `position/fixed`
@@ -795,6 +795,59 @@ serialisation had to be worked around, and both were found by measuring.
 - **A `<col>` has a rectangle a browser reports** — its column's extent by the height of the row area
   — so it has to be reported here too, or every column definition counts as an element this engine did
   not produce.
+
+## Traps in SVG
+
+`image/svg` measures these, exact on geometry and pixel-identical to Chrome on both its pages.
+`krilla-svg` does the drawing, so the engine's share is deciding how big the picture is and where
+it goes — which is where all five of these live.
+
+- **The `svg` cargo feature was on by default and exported NOTHING**, for as long as it had
+  existed. Nothing in `krilla-capi/src` named `krilla_svg`, no managed P/Invoke reached it, and the
+  crate was pulled in for zero functionality — while `resvg`, `usvg`, `fontdb` and `tiny-skia`
+  stayed in the shipped `THIRD-PARTY-NOTICES.md` and in `deny.toml`'s advisory ignores, because
+  `cargo about` and `cargo deny` read the dependency graph rather than the linked output. The size
+  comment beside the feature claimed it was the biggest contributor to the binary, and measuring
+  said otherwise: turning it off saved 2,560 bytes, because with nothing calling in, LTO stripped
+  the lot. Wiring it up made the claim true — 4,347,392 bytes to 6,118,912 on win-x64, about
+  1.7 MB on each of the eight RIDs. **A dependency's cost is a property of something calling it**,
+  which is worth knowing before trusting any size note written next to a feature flag.
+- **usvg's stock `<image href>` resolver READS FILES OFF DISK.** Its `resolve_string` joins a
+  non-data href to `resources_dir` — the process's working directory when that is unset, as it is
+  here — and embeds whatever it finds. An SVG is content and frequently comes from somewhere
+  untrusted, so shipping that would have put an arbitrary file read, and then an exfiltration
+  primitive, behind an `<img src="x.svg">`. `hardened()` replaces the resolver with one that
+  resolves nothing and leaves the data resolver alone, which is the rule `ImageStore` already
+  follows: a `data:` URI's bytes are already in the document.
+- **A test for that has to name something usvg would ACCEPT.** The first version pointed the href
+  at the crate's own `Cargo.toml` and asserted its bytes were absent from the output — and passed
+  with the resolver fully live, because usvg sniffs the format first and drops anything that is not
+  an image. Both tests are differential now: two documents differing only in whether the file the
+  href names exists, so identical output is the assertion. Verified by removing the hardening and
+  watching them fail.
+- **An SVG with only a `viewBox` has an aspect ratio and NO intrinsic size.** SVG's own
+  specification defaults the root `width` and `height` to `100%` rather than leaving them absent,
+  so what looks like an absent size is a percentage — and it resolves against the containing block.
+  Chrome makes such an image 816 wide at the top level and 400 inside a 400px paragraph: the full
+  content width, inline and block-level alike. Reading the viewBox extent as a size instead gives
+  40, and CSS 2.1's rule for a replaced element with no intrinsic width gives the default object
+  size's 300; both are plausible and both are wrong. `ImageData.HasIntrinsicSize` is the one bit
+  that distinguishes them, and it is the only thing about a vector image the layout engine has to
+  know — `Ratio` means the same for both kinds.
+- **The size read here and the size usvg resolves have to AGREE.** Layout computes a destination
+  rectangle from `SvgHeader`'s answer while krilla-svg scales the tree from usvg's, so a
+  disagreement fills a correctly-drawn picture into a wrongly-sized box. That is why `SvgHeader`
+  mirrors usvg's resolution — including its 100x100 fallback for a document declaring neither a
+  size nor a viewBox, which is not the 300x150 a browser would give — rather than implementing the
+  better rule and letting the two drift.
+- **A block-level replaced element is UNBREAKABLE, and nothing had noticed.** A page break landed
+  inside a picture and drew its top on the page before. Invisible until an image grew close to a
+  page tall, and every image in the corpus before this was a 64x32 swatch. It is the same thing to
+  the slice as a table row or a `break-inside: avoid` box, so it was one condition in
+  `Paginator.Unbreakable` — and all 119 existing scenarios stayed identical, which is what says the
+  case really was unreachable rather than merely unmeasured. The INLINE case is not fixed: an
+  inline image taller than a page goes through the line breaker rather than through
+  `Paginator.Unbreakable`, and is still sliced at the page edge where Chrome moves it whole.
 
 ## The diagnostic table is only as good as its audit
 

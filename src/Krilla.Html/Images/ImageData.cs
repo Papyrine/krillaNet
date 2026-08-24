@@ -12,23 +12,57 @@
 /// <para>
 /// The krilla image is created on first paint, and krilla does the real decoding.
 /// </para>
+/// <para>
+/// An SVG is carried here too, and the same rule applies to it: its intrinsic size is read out
+/// of the root element's own attributes in managed code, not by parsing the document through
+/// <see cref="PdfSvg"/>. The resolution mirrors usvg's — the <c>width</c> and <c>height</c>
+/// attributes when both are absolute lengths, the <c>viewBox</c>'s extent otherwise — because
+/// layout computes the destination rectangle from these numbers while krilla-svg scales the tree
+/// from the size IT resolved. Two different answers would leave the drawing correctly filling a
+/// rectangle that was the wrong size.
+/// </para>
 /// </remarks>
 sealed class ImageData :
     IDisposable
 {
     readonly byte[] data;
+    readonly ImageFormat? format;
     PdfImage? image;
+    PdfSvg? svg;
 
-    ImageData(byte[] data, ImageFormat format, int width, int height)
+    ImageData(byte[] data, ImageFormat? format, int width, int height, bool intrinsic = true)
     {
         this.data = data;
-        Format = format;
+        this.format = format;
         Width = width;
         Height = height;
+        HasIntrinsicSize = intrinsic;
     }
 
-    /// <summary>The encoding.</summary>
-    public ImageFormat Format { get; }
+    /// <summary>
+    /// Whether <see cref="Width"/> and <see cref="Height"/> are an intrinsic SIZE, or only carry
+    /// the aspect ratio.
+    /// </summary>
+    /// <remarks>
+    /// Always true for a raster image, which cannot be anything but a fixed grid of pixels. False
+    /// for an SVG declaring only a <c>viewBox</c>, whose root <c>width</c> and <c>height</c>
+    /// default to <c>100%</c> — a share of a containing block rather than a size. Such an image
+    /// still has a ratio, so <see cref="Ratio"/> means the same thing either way, and only the
+    /// case where NEITHER dimension is declared in CSS has to tell them apart.
+    /// </remarks>
+    public bool HasIntrinsicSize { get; }
+
+    /// <summary>
+    /// Whether this is an SVG rather than a raster image.
+    /// </summary>
+    /// <remarks>
+    /// The only thing outside this class that has to know: the painter draws through
+    /// <see cref="Krilla.Surface.DrawSvg"/> instead of <see cref="Krilla.Surface.DrawImage"/>.
+    /// Everything else — <c>object-fit</c>, background tiling, replaced sizing — works off
+    /// <see cref="Width"/>, <see cref="Height"/> and <see cref="Ratio"/>, which mean the same
+    /// thing either way.
+    /// </remarks>
+    public bool IsVector => format is null;
 
     /// <summary>Intrinsic width in pixels.</summary>
     public int Width { get; }
@@ -58,7 +92,37 @@ sealed class ImageData :
     }
 
     /// <summary>The krilla image, decoded on first use.</summary>
-    public PdfImage Image => image ??= PdfImage.Load(Format, data);
+    /// <exception cref="InvalidOperationException">This is an SVG.</exception>
+    public PdfImage Image =>
+        image ??= PdfImage.Load(
+            format ?? throw new InvalidOperationException("This is an SVG; use Svg."),
+            data);
+
+    /// <summary>
+    /// The fonts text inside this SVG is shaped against, supplied by <see cref="ImageStore"/>.
+    /// </summary>
+    /// <remarks>
+    /// Assigned rather than passed to <see cref="Read"/>, which is format-agnostic and reads a
+    /// header without knowing what it will find. Null leaves an SVG's text unshaped and therefore
+    /// undrawn, which is what happens when the native library has no SVG support at all — and in
+    /// that case the SVG never gets parsed either.
+    /// </remarks>
+    public SvgOptions? SvgOptions { get; set; }
+
+    /// <summary>The krilla SVG, parsed on first use.</summary>
+    /// <exception cref="InvalidOperationException">This is a raster image.</exception>
+    public PdfSvg Svg
+    {
+        get
+        {
+            if (!IsVector)
+            {
+                throw new InvalidOperationException("This is a raster image; use Image.");
+            }
+
+            return svg ??= PdfSvg.Load(data, SvgOptions);
+        }
+    }
 
     /// <summary>
     /// Reads <paramref name="data"/>, or returns null when it is not an image format krilla can
@@ -84,6 +148,14 @@ sealed class ImageData :
         if (TryWebp(data, out width, out height))
         {
             return new(data, ImageFormat.Webp, width, height);
+        }
+
+        // Last, because it is the one format identified by its content rather than by a magic
+        // number at a fixed offset, so its sniff is the only one that could plausibly match
+        // something else.
+        if (SvgHeader.TryRead(data, out width, out height, out var intrinsic))
+        {
+            return new(data, null, width, height, intrinsic);
         }
 
         return null;
@@ -243,5 +315,7 @@ sealed class ImageData :
     {
         image?.Dispose();
         image = null;
+        svg?.Dispose();
+        svg = null;
     }
 }

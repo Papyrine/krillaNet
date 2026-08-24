@@ -3,7 +3,7 @@
 [![Build status](https://github.com/Papyrine/krillaNet/actions/workflows/build.yml/badge.svg)](https://github.com/Papyrine/krillaNet/actions/workflows/build.yml)
 [![NuGet Status](https://img.shields.io/nuget/v/Krilla.svg?label=Krilla)](https://www.nuget.org/packages/Krilla/)
 
-A .NET wrapper over [krilla](https://github.com/LaurenzV/krilla), the Rust PDF-writing library that backs [typst](https://typst.app). Creates PDF documents: pages, vector paths, gradients, text, and images, and converts HTML to PDF through the companion [Krilla.Html](https://www.nuget.org/packages/Krilla.Html/) package.
+A .NET wrapper over [krilla](https://github.com/LaurenzV/krilla), the Rust PDF-writing library that backs [typst](https://typst.app). Creates PDF documents: pages, vector paths, gradients, text, raster images and SVG, and converts HTML to PDF through the companion [Krilla.Html](https://www.nuget.org/packages/Krilla.Html/) package.
 
 Krilla *writes* PDFs. To read, render or edit an existing one, use [Morph.PDFium](https://github.com/Papyrine/Morph.PDFium).
 
@@ -48,7 +48,7 @@ keywords, text decorations with their colour and style, `vertical-align` includi
 percentages, dashed, dotted and double borders, `border-radius`, `opacity`, `transform`,
 `z-index` and the stacking contexts that come with it, linear and
 radial gradients, `outline`, `object-fit` and `object-position`, both border models, `empty-cells`,
-images, and links — `<a href>` becomes a real PDF link annotation, and a `#fragment` becomes an
+images — raster and SVG alike — and links — `<a href>` becomes a real PDF link annotation, and a `#fragment` becomes an
 internal jump to wherever that element paginated to. Flexbox and grid lay out as plain blocks.
 
 Values resolve as CSS asks: `calc()`, the viewport units, and the whole length unit table. An inline
@@ -58,6 +58,14 @@ per line — and a background may be a raster image, with `background-repeat`, `
 `overflow-wrap` or `word-break` permits it; tabs under `pre` advance to `tab-size` stops.
 A `list-style-image` marker is drawn from an image and falls back to the counter style when the
 source does not resolve.
+
+An `<img src>` or a CSS `url()` naming an SVG is rendered as vector art rather than rasterised, and
+sizes the way a browser sizes one: a document declaring `width` and `height` has an intrinsic size,
+while one carrying only a `viewBox` has an aspect ratio and no size — SVG defaults those attributes
+to `100%` — so it fills its containing block and takes its height from the ratio. Text inside an SVG
+is shaped against the same fonts the document uses. An `<image>` inside an SVG is honoured only when
+its `href` is a `data:` URI: one naming a file resolves to nothing, on the same reasoning that keeps
+images from being fetched over the network.
 
 Pagination honours forced breaks: `page-break-before` and `page-break-after` with a forced value
 start a new page, and `page-break-inside: avoid` keeps a box whole by moving it to the next page

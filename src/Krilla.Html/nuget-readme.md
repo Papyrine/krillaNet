@@ -23,7 +23,7 @@ than discovered from the host. That is what makes output reproducible across mac
 
 Block and inline layout, inline-block, tables, floats, relative and absolute positioning, the box
 model including `box-sizing`, collapsing margins, line breaking, text alignment, pagination,
-images, links, list markers, and text shaping with kerning and ligatures.
+images — raster and SVG alike — links, list markers, and text shaping with kerning and ligatures.
 
 Also `calc()` and the viewport units, the inline box model, raster background images with the five
 properties that place them, soft hyphens, `overflow-wrap` and `word-break`, tabs under `pre`, text

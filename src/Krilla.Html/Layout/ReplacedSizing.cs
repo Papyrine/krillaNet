@@ -67,6 +67,18 @@ static class ReplacedSizing
                 width = ratio is {} r2 ? height.Value * r2 : image.Width;
                 break;
 
+            // Neither given, and the image has no size of its own: an SVG declaring only a
+            // viewBox, whose root width and height default to 100%. The percentage resolves
+            // against the containing block, and the height follows the ratio because the
+            // containing block has no definite height for the second percentage to resolve
+            // against. Measured — `image/svg`'s #viewbox row is 816 wide in Chrome and its
+            // #inline row is 400, each the full content width of its own container, inline and
+            // block-level alike.
+            case (null, null) when !image.HasIntrinsicSize && ratio is {} r3:
+                width = containing;
+                height = containing / r3;
+                break;
+
             // Neither given: the image's own size, in CSS pixels one-for-one with its pixels.
             default:
                 width = image.Width;

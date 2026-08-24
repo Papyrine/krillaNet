@@ -13,10 +13,65 @@
 /// rather than on every layout pass.
 /// </para>
 /// </remarks>
-sealed class ImageStore(Func<string, byte[]?> resolver, ImagePolicy local, ImagePolicy web)
+sealed class ImageStore(
+    Func<string, byte[]?> resolver,
+    ImagePolicy local,
+    ImagePolicy web,
+    FontSet? fonts = null)
     : IDisposable
 {
     readonly Dictionary<string, ImageData?> cache = new(StringComparer.Ordinal);
+    SvgOptions? svgOptions;
+    bool svgOptionsBuilt;
+
+    /// <summary>
+    /// The font database SVG text is shaped against, built from the document's own fonts on first
+    /// use, or null when the native library has no SVG support.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// usvg resolves text while it parses and matches families itself, so it cannot be handed the
+    /// face <see cref="FontSet"/> would pick — it needs the files and does its own matching. Every
+    /// registered face is loaded, and the fallback's family becomes the default, so an SVG whose
+    /// text names no family draws in the same face the document's own text would.
+    /// </para>
+    /// <para>
+    /// Deferred, because building it loads every font file into a second database and the great
+    /// majority of documents contain no SVG at all. Built at most once per conversion, which is
+    /// the point of caching a negative result too.
+    /// </para>
+    /// </remarks>
+    SvgOptions? SvgOptions
+    {
+        get
+        {
+            if (svgOptionsBuilt)
+            {
+                return svgOptions;
+            }
+
+            svgOptionsBuilt = true;
+
+            if (fonts is null || !PdfSvg.IsSupported)
+            {
+                return null;
+            }
+
+            svgOptions = new();
+
+            foreach (var face in fonts.Faces)
+            {
+                svgOptions.AddFont(face.Data);
+            }
+
+            if (fonts.Fallback is {} fallback)
+            {
+                svgOptions.SetDefaultFamily(fallback.Family);
+            }
+
+            return svgOptions;
+        }
+    }
 
     /// <summary>
     /// The image for <paramref name="source"/>, or null when policy refuses it, it cannot be
@@ -50,6 +105,11 @@ sealed class ImageStore(Func<string, byte[]?> resolver, ImagePolicy local, Image
             if (resolver(source) is {} bytes)
             {
                 image = ImageData.Read(bytes);
+
+                if (image is {IsVector: true})
+                {
+                    image.SvgOptions = SvgOptions;
+                }
             }
         }
         catch (Exception exception) when
@@ -210,5 +270,9 @@ sealed class ImageStore(Func<string, byte[]?> resolver, ImagePolicy local, Image
         }
 
         cache.Clear();
+
+        // After the images, which hold parsed SVGs that were built against it.
+        svgOptions?.Dispose();
+        svgOptions = null;
     }
 }

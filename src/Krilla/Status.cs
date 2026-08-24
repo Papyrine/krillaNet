@@ -25,6 +25,8 @@ static class Status
     public const int InvalidImage = 31;
     public const int WrongDocument = 32;
     public const int Consumed = 33;
+    public const int InvalidSvg = 34;
+    public const int Unsupported = 35;
 
     public const int KrillaError = 40;
 
@@ -75,6 +77,8 @@ static class Status
             InvalidImage => "the image data could not be decoded",
             WrongDocument => "the handle belongs to a different document",
             Consumed => "the builder has already been finished",
+            InvalidSvg => "the SVG data could not be parsed",
+            Unsupported => "the native library was built without the feature this call needs",
             Panic => "the native library faulted",
             _ => $"unexpected status {status}"
         };

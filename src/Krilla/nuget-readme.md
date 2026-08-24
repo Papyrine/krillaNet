@@ -1,6 +1,6 @@
 # Krilla
 
-A .NET wrapper over [krilla](https://github.com/LaurenzV/krilla), the Rust PDF-writing library that backs [typst](https://typst.app). Creates PDF documents: pages, vector paths, gradients, text, and images. The native library ships inside the package for Windows, Linux (glibc and musl) and macOS, on x64 and arm64.
+A .NET wrapper over [krilla](https://github.com/LaurenzV/krilla), the Rust PDF-writing library that backs [typst](https://typst.app). Creates PDF documents: pages, vector paths, gradients, text, raster images and SVG. The native library ships inside the package for Windows, Linux (glibc and musl) and macOS, on x64 and arm64.
 
 ```cs
 using var document = new KrillaDocument();

@@ -59,6 +59,12 @@ pub const INVALID_IMAGE: i32 = 31;
 pub const WRONG_DOCUMENT: i32 = 32;
 /// A builder handle was consumed by a previous call and can no longer be used.
 pub const CONSUMED: i32 = 33;
+/// SVG data could not be parsed. `krilla_last_error_message` carries usvg's own detail, which
+/// distinguishes malformed XML from a valid document with no resolvable size.
+pub const INVALID_SVG: i32 = 34;
+/// The library was built without the feature the call needs. Only `svg` is optional today, and
+/// only the `krilla_svg_*` family returns this — every other export is unconditional.
+pub const UNSUPPORTED: i32 = 35;
 
 // -- Output -----------------------------------------------------------------------------
 

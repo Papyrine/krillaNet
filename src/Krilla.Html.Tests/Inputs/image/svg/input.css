@@ -1,0 +1,5 @@
+img { display: block; margin-bottom: 12px; }
+.fit { width: 160px; height: 60px; object-fit: contain; background: #eeeeee; }
+p img { display: inline; margin-bottom: 0; }
+p { width: 400px; }
+.tall { width: 200px; }

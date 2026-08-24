@@ -379,6 +379,7 @@ dependencies = [
  "krilla",
  "krilla-svg",
  "rustybuzz",
+ "usvg",
 ]
 
 [[package]]

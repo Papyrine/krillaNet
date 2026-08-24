@@ -51,6 +51,7 @@ image/object_fit                 matched 10  offset    0.00  size    0.00  diffe
 image/object_position            matched  8  offset    0.00  size    0.00  differing  0  unmatched 0
 image/percent_width              matched  6  offset    0.00  size    0.00  differing  0  unmatched 0
 image/sized                      matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
+image/svg                        matched 10  offset    0.00  size    0.00  differing  0  unmatched 0
 inline/backgrounds               matched 16  offset    0.00  size    0.00  differing  0  unmatched 0
 inline/font_size_em              matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
 inline/font_style                matched  4  offset    0.00  size    0.00  differing  0  unmatched 0

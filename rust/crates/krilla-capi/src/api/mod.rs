@@ -14,5 +14,6 @@ pub mod outline;
 pub mod paint;
 pub mod path;
 pub mod surface;
+pub mod svg;
 pub mod tag;
 pub mod text;

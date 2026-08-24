@@ -14,7 +14,7 @@ it, that is stated, because an unmeasured gap is the more dangerous kind.
 
 ## Where the corpus stands
 
-119 scenarios across 10 categories, 1259 element boxes matched. **Box geometry matches Chrome
+120 scenarios across 10 categories, 1269 element boxes matched. **Box geometry matches Chrome
 exactly on every one** — worst offset 0.00px, worst size 0.00px, and nothing unmatched — and 88
 read SSIM 1.0000, of which 60 are pixel-identical outright. The other 28 differ on a scattering of
 antialiased pixels, which is what `AE` is there to show.
@@ -182,6 +182,12 @@ wrong is still unmeasured.
   convert HTML to PDF at all, and it needs a decision about how to express content that repeats per
   page — which makes it the natural companion to repeating table headers and to `position: fixed`
   above, since all three are the same missing capability seen from three directions. Reported.
+- **An INLINE image taller than a page is sliced at the page edge**, where Chrome moves it whole to
+  a fresh page and lets it overflow from there. The block-level case is fixed —
+  `Paginator.Unbreakable` lists a replaced element alongside a table row — but an inline image is
+  not a `LayoutBox`, it hangs off the line, so it goes through the line breaker instead and never
+  reaches that list. Unmeasured: `image/svg`'s `#tall` row is block-level, and an inline row for it
+  was removed for exactly this reason rather than committed failing.
 - **`break-before: avoid` and `break-after: avoid` are reported rather than implemented.**
   `break-inside: avoid` is done, because it names a rectangle to keep together and the slice
   already moves rectangles whole. Avoiding a break at a box EDGE asks for a break to be moved
@@ -254,7 +260,7 @@ work rather than as tidying.
 
 - **The corpus references are generated on one platform.** Regenerating on the machine that
   produced them is known to be byte-identical, so the generator is at least deterministic — but
-  that is the lesser half. The claim that matters is still untested: generating all 119 on a second
+  that is the lesser half. The claim that matters is still untested: generating all 120 on a second
   machine, with a different Chromium build, and diffing the PNGs. Until then a platform-specific
   difference would look like a layout regression.
 - **`Krilla.Html` is never packed or published by CI.** It packs perfectly well locally — the
