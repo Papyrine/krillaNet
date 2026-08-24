@@ -249,7 +249,7 @@ sealed class CharacterMap
                     return glyphs[index];
                 }
 
-                return (ushort) 0;
+                return 0;
             }
 
             return (ushort) ((codepoint + delta) & 0xFFFF);
