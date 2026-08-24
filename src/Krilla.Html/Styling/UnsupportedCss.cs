@@ -35,10 +35,18 @@ static class UnsupportedCss
         ("box-shadow", "none", "not painted"),
         ("writing-mode", "horizontal-tb", "laid out horizontally"),
         ("direction", "ltr", "laid out left to right"),
-        ("column-count", "auto", "laid out in one column"),
-        ("orphans", "2", "pages break between lines"),
-        ("widows", "2", "pages break between lines")
+        ("column-count", "auto", "laid out in one column")
     ];
+
+    /// <summary>
+    /// The two properties that constrain a page break, which are honoured only on request.
+    /// </summary>
+    /// <remarks>
+    /// They are not in the table above because whether they are honoured is a document-wide
+    /// decision rather than a property of the value — <see cref="HtmlOptions.HonourOrphansAndWidows"/>
+    /// decides, and it is off by default because Chromium does not implement them either.
+    /// </remarks>
+    static readonly string[] runs = ["orphans", "widows"];
 
     static readonly string[] corners =
     [
@@ -111,9 +119,23 @@ static class UnsupportedCss
         IElement element,
         ICssStyleDeclaration declaration,
         ComputedStyle style,
+        DocumentContext context,
         Action<HtmlDiagnostic> sink)
     {
         var name = element.LocalName;
+
+        if (!context.ConstrainRuns)
+        {
+            foreach (var property in runs)
+            {
+                if (Set(declaration, property) is {} value &&
+                    value != "2" &&
+                    !IsInitial(value))
+                {
+                    Diagnostic.Property(sink, name, property, value, "pages break between lines");
+                }
+            }
+        }
 
         Display(declaration, name, sink);
 
@@ -178,10 +200,8 @@ static class UnsupportedCss
     /// together rather than an edge to keep clear.
     /// </para>
     /// <para>
-    /// The four that name a side get their break taken and the side ignored. That is a partial
-    /// answer rather than a wrong one, and it still earns a report: a browser inserts a further
-    /// blank page to land on the sheet asked for, so a document using them has a different page
-    /// COUNT here, not merely different page furniture.
+    /// The four that name a side are honoured now, blank page and all, so they are silent. What is
+    /// left is <c>avoid</c> alone.
     /// </para>
     /// </remarks>
     static void Breaks(ICssStyleDeclaration declaration, string element, Action<HtmlDiagnostic> sink)
@@ -193,8 +213,6 @@ static class UnsupportedCss
             var reason = value switch
             {
                 "avoid" or "avoid-page" => "a page break is taken where pagination puts it",
-                "left" or "right" or "recto" or "verso" =>
-                    "a page is started, but not necessarily on that side of the sheet",
                 _ => null
             };
 

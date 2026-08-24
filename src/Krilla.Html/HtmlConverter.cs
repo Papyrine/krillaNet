@@ -12,9 +12,14 @@ namespace Krilla.Html;
 /// can be measured without going near a PDF.
 /// </para>
 /// <para>
-/// What is implemented: block and inline layout, the box model, collapsing margins, line breaking,
-/// text alignment, and pagination. What is not, and lays out as a plain block instead: floats,
-/// positioned boxes, flexbox, grid and tables.
+/// Media queries resolve against PRINT, and a document's <c>@page</c> rules decide the paper unless
+/// <see cref="HtmlOptions.HonourPageRules"/> says otherwise — both because a PDF is print, and the
+/// second because a document declaring A4 means it.
+/// </para>
+/// <para>
+/// What lays out as a plain block instead of in a mode of its own: flexbox, grid and multi-column.
+/// <see cref="HtmlOptions.OnDiagnostic"/> reports each of them, along with everything else
+/// recognised and not rendered the way a browser would.
 /// </para>
 /// </remarks>
 public static class HtmlConverter
@@ -39,6 +44,11 @@ public static class HtmlConverter
     /// </remarks>
     public static byte[] Convert(IDocument document, HtmlOptions options)
     {
+        // Before anything measures a page: the geometry decides the containing block every
+        // percentage resolves against and every viewport unit, so a document declaring its own
+        // paper has to be read first or the whole tree is laid out against the wrong rectangle.
+        options = Paged(document, options);
+
         // The layout holds the decoded images, so it has to outlive painting — they are decoded
         // on first draw, not during layout.
         using var layout = LayoutDocument(document, options);
@@ -58,7 +68,7 @@ public static class HtmlConverter
             options.ContentWidth,
             options.ContentHeight);
 
-        var tops = Paginator.PageTops(root, options.ContentHeight);
+        var tops = Paginator.PageTops(root, options.ContentHeight, options.HonourOrphansAndWidows);
 
         // After pagination, because a fragment names an element while a PDF internal link names a
         // page and a point on it — and which page an element landed on is what pagination decides.
@@ -87,6 +97,49 @@ public static class HtmlConverter
         }
 
         return pdf.Finish();
+    }
+
+    /// <summary>
+    /// Folds a document's <c>@page</c> rules into the options, or returns them unchanged.
+    /// </summary>
+    /// <remarks>
+    /// An orientation keyword is applied to whatever size resulted rather than to the one the rule
+    /// named, so <c>@page { size: landscape }</c> turns the caller's paper and
+    /// <c>size: A4 landscape</c> turns A4 — which is the same rule stated once.
+    /// </remarks>
+    internal static HtmlOptions Paged(IDocument document, HtmlOptions options)
+    {
+        if (!options.HonourPageRules)
+        {
+            return options;
+        }
+
+        var rules = PageRules.For(document, options.RootFontSize);
+
+        foreach (var (property, value, reason) in rules.Unsupported)
+        {
+            Diagnostic.Rule(options.OnDiagnostic, "@page", property, value, reason);
+        }
+
+        if (!rules.Any)
+        {
+            return options;
+        }
+
+        var (width, height) = rules.Size ?? (options.PageWidth, options.PageHeight);
+
+        if (rules.Landscape is {} landscape && landscape != width > height)
+        {
+            (width, height) = (height, width);
+        }
+
+        return options.WithPage(
+            width,
+            height,
+            rules.MarginTop ?? options.MarginTop,
+            rules.MarginRight ?? options.MarginRight,
+            rules.MarginBottom ?? options.MarginBottom,
+            rules.MarginLeft ?? options.MarginLeft);
     }
 
     /// <summary>

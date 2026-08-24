@@ -32,6 +32,17 @@ sealed class DocumentContext :
     /// <summary>What <c>rem</c> and the viewport units resolve against.</summary>
     public CssRoot Root { get; }
 
+    /// <summary>
+    /// Whether <c>orphans</c> and <c>widows</c> are honoured, from
+    /// <see cref="HtmlOptions.HonourOrphansAndWidows"/>.
+    /// </summary>
+    /// <remarks>
+    /// Carried here for the diagnostic table alone: the properties are read into every style
+    /// regardless, and whether reading them means anything is a document-wide decision the
+    /// per-element reporter has no other way to see.
+    /// </remarks>
+    public bool ConstrainRuns { get; private init; }
+
     /// <summary>Images resolved from <c>src</c> attributes, deduplicated across the document.</summary>
     public ImageStore Images { get; }
 
@@ -64,7 +75,12 @@ sealed class DocumentContext :
             DeviceHeight = (int) options.ContentHeight,
             ViewPortWidth = (int) options.ContentWidth,
             ViewPortHeight = (int) options.ContentHeight,
-            Category = DeviceCategory.Screen
+            // A PDF is print. Media queries resolved against `Screen` mean a document's
+            // `@media print` block — the one written FOR this — was excluded while its
+            // `@media screen` block was applied, which is the wrong way round for every document
+            // that has both. The corpus reference agrees: its page renders always came from
+            // Chromium's printer, and its box geometry now does too.
+            Category = DeviceCategory.Printer
         };
 
         var window = document.DefaultView ??
@@ -82,7 +98,10 @@ sealed class DocumentContext :
             // between the margins rather than the sheet itself.
             new(options.RootFontSize, options.ContentWidth, options.ContentHeight),
             images,
-            options.OnDiagnostic);
+            options.OnDiagnostic)
+        {
+            ConstrainRuns = options.HonourOrphansAndWidows
+        };
     }
 
     /// <summary>

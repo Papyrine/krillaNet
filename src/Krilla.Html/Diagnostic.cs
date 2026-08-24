@@ -19,6 +19,21 @@ static class Diagnostic
         string reason) =>
         sink?.Invoke(new(HtmlDiagnosticKind.UnsupportedProperty, element, name, value, reason));
 
+    /// <summary>
+    /// A document-level construct, with no element to attribute it to.
+    /// </summary>
+    /// <remarks>
+    /// The element field carries the at-rule's own name instead, since <c>@page</c> is read once for
+    /// the document rather than per element and there is nothing in the tree it belongs to.
+    /// </remarks>
+    internal static void Rule(
+        Action<HtmlDiagnostic>? sink,
+        string rule,
+        string name,
+        string? value,
+        string reason) =>
+        sink?.Invoke(new(HtmlDiagnosticKind.UnsupportedProperty, rule, name, value, reason));
+
     internal static void Attribute(
         Action<HtmlDiagnostic>? sink,
         string element,

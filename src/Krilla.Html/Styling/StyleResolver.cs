@@ -135,6 +135,8 @@ static class StyleResolver
             LineHeight = lineHeight.Absolute,
             LineHeightScale = lineHeight.Scale,
             TabSize = ParseTabSize(declaration.GetPropertyValue("tab-size"), parent.TabSize),
+            Orphans = Count(declaration, "orphans", parent.Orphans),
+            Widows = Count(declaration, "widows", parent.Widows),
             WordBreaking = ParseWordBreaking(declaration, parent.WordBreaking),
             Decorations = ParseDecorations(declaration, parent.Decorations),
             DecorationColor = DecorationColour(declaration, parent, color),
@@ -190,7 +192,7 @@ static class StyleResolver
         // a table cell has to be recognised as one before its vertical-align can be judged.
         if (context.Reports)
         {
-            UnsupportedCss.Report(element, declaration, style, context.OnDiagnostic);
+            UnsupportedCss.Report(element, declaration, style, context, context.OnDiagnostic);
         }
 
         return style;
@@ -424,9 +426,17 @@ static class StyleResolver
 
         return value.Trim().ToLowerInvariant() switch
         {
+            "always" or "page" => BreakKind.Always,
             // The four that name a side ask for a break AND for the page it lands on to be a
-            // particular sheet. The break is the half this engine can honour.
-            "always" or "page" or "left" or "right" or "recto" or "verso" => BreakKind.Always,
+            // particular sheet, which is a further blank page whenever the parity is wrong.
+            //
+            // Only two of the four ever arrive: AngleSharp accepts `always`, `left`, `right` and
+            // `avoid` on the legacy property and adds `page` on the modern one, and DROPS `recto`
+            // and `verso` from both — so those two are unreachable and, like `revert`, cannot even
+            // be reported. Mapped anyway, since a value that costs a word to accept should not need
+            // a second visit when the parser learns it.
+            "right" or "recto" => BreakKind.Recto,
+            "left" or "verso" => BreakKind.Verso,
             "avoid" or "avoid-page" => BreakKind.Avoid,
             _ => BreakKind.Auto
         };
@@ -1099,6 +1109,24 @@ static class StyleResolver
     static bool Declares(ICssStyleDeclaration declaration) =>
         !string.IsNullOrWhiteSpace(declaration.GetPropertyValue("text-decoration-line")) ||
         !string.IsNullOrWhiteSpace(declaration.GetPropertyValue("text-decoration"));
+
+    /// <summary>
+    /// A positive integer count, inheriting when the cascade says nothing.
+    /// </summary>
+    /// <remarks>
+    /// Zero and negative are rejected rather than clamped: <c>orphans: 0</c> asks for a constraint
+    /// that constrains nothing, and taking the inherited 2 is closer to what the author of an
+    /// invalid declaration meant than turning the property off.
+    /// </remarks>
+    static int Count(ICssStyleDeclaration declaration, string property, int inherited) =>
+        int.TryParse(
+            declaration.GetPropertyValue(property).Trim(),
+            NumberStyles.Integer,
+            CultureInfo.InvariantCulture,
+            out var value) &&
+        value > 0
+            ? value
+            : inherited;
 
     /// <summary>
     /// The tab stop spacing, in space advances. Inherited, as the property is.

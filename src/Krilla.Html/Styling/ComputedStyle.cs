@@ -143,14 +143,23 @@ enum BreakKind
 
     /// <summary>A page must start here.</summary>
     /// <remarks>
-    /// Every forced value collapses to this. CSS distinguishes <c>always</c> from <c>page</c>,
-    /// <c>left</c>, <c>right</c>, <c>recto</c> and <c>verso</c>, but the four that name a side
-    /// differ only by inserting a further blank page to land on the right-hand or left-hand sheet
-    /// — which is a duplex concern this engine has no notion of, and which is a stronger request
-    /// than <c>always</c> rather than a different one. Honouring the break and not the side is the
-    /// closer of the two available answers.
+    /// <c>always</c> and <c>page</c>, which ask for a page and say nothing about which sheet it
+    /// lands on.
     /// </remarks>
     Always,
+
+    /// <summary>A page must start here, and be a RIGHT-hand sheet.</summary>
+    /// <remarks>
+    /// <c>right</c> and <c>recto</c>. A right-hand page is an odd-numbered one, counting the first
+    /// page of the document as page one — so honouring it means inserting a blank page whenever the
+    /// break would otherwise land on an even one. That blank page is the whole of the difference
+    /// from <see cref="Always"/>, and it is a page COUNT difference rather than a cosmetic one.
+    /// </remarks>
+    Recto,
+
+    /// <summary>A page must start here, and be a LEFT-hand sheet.</summary>
+    /// <remarks><c>left</c> and <c>verso</c>: an even-numbered page.</remarks>
+    Verso,
 
     /// <summary>A page should not start here, which is not honoured.</summary>
     /// <remarks>
@@ -159,6 +168,22 @@ enum BreakKind
     /// earlier rather than for one to be taken — reported instead.
     /// </remarks>
     Avoid
+}
+
+/// <summary>Whether a break value asks for a page at all.</summary>
+static class BreakKinds
+{
+    /// <summary>
+    /// Whether the value forces a page, whichever sheet it asks to land on.
+    /// </summary>
+    /// <remarks>
+    /// Written as one predicate because three enumeration members now mean "a page starts here",
+    /// and a site that tested for <c>Always</c> alone would silently stop honouring the two that
+    /// name a side — the shape this defect took when the sided values were folded into
+    /// <c>Always</c>.
+    /// </remarks>
+    public static bool Forces(this BreakKind kind) =>
+        kind is BreakKind.Always or BreakKind.Recto or BreakKind.Verso;
 }
 
 /// <summary>The lines <c>text-decoration</c> draws through a run of text.</summary>
@@ -716,6 +741,20 @@ sealed record ComputedStyle
     /// confirms the property by staying still.
     /// </remarks>
     public bool HideEmptyCells { get; init; }
+
+    /// <summary>
+    /// The fewest lines of a block that may be left at the FOOT of a page.
+    /// </summary>
+    /// <remarks>
+    /// Inherited, and 2 by CSS's own initial value — which is why a browser never leaves a single
+    /// line of a paragraph stranded at the bottom of a page, and why ignoring the property is a
+    /// visible difference on any document long enough to paginate rather than an omission only
+    /// pedants notice.
+    /// </remarks>
+    public int Orphans { get; init; } = 2;
+
+    /// <summary>The fewest lines that may be carried to the HEAD of the next page.</summary>
+    public int Widows { get; init; } = 2;
 
     /// <summary>Which side of the table the caption sits on.</summary>
     public CaptionSideKind CaptionSide { get; init; }

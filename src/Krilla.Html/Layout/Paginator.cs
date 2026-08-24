@@ -32,7 +32,7 @@ static class Paginator
     /// than none — an empty PDF is not a valid document, and a blank page is the honest render of
     /// blank input.
     /// </remarks>
-    public static List<float> PageTops(LayoutBox root, float pageHeight)
+    public static List<float> PageTops(LayoutBox root, float pageHeight, bool constrainRuns = false)
     {
         var tops = new List<float> {0};
 
@@ -43,10 +43,12 @@ static class Paginator
 
         var units = Unbreakable(root);
         var forced = ForcedBreaks(root);
+        var sides = forced.ToDictionary(_ => _.Position, _ => _.Kind);
+        var positions = forced.Select(_ => _.Position).ToList();
 
         var documentHeight = Math.Max(
             root.BorderBox.Bottom,
-            units.Count == 0 ? 0 : units.Max(_ => _.Bottom));
+            units.Count == 0 ? 0 : units.Max(_ => _.Bounds.Bottom));
 
         var top = 0f;
 
@@ -55,14 +57,39 @@ static class Paginator
         // is short far more often than not: three boxes totalling 144px on a 1056px page still
         // want two pages if one of them said so.
         while (top + pageHeight < documentHeight ||
-               (forced.Count > 0 && forced[^1] > top))
+               (positions.Count > 0 && positions[^1] > top))
         {
-            top = NextTop(units, forced, top, pageHeight);
+            top = NextTop(units, positions, top, pageHeight, constrainRuns);
             tops.Add(top);
+
+            // A break that named a sheet gets a blank page inserted whenever the page it landed on
+            // is the wrong parity. The blank page is `top` repeated: its slice runs from `top` to
+            // `top`, so it holds nothing but the canvas — which is what a blank page in a browser
+            // holds too.
+            if (sides.TryGetValue(top, out var kind) && Misplaced(kind, tops.Count))
+            {
+                tops.Add(top);
+            }
         }
 
         return tops;
     }
+
+    /// <summary>
+    /// Whether a page of this number is the wrong sheet for the break that started it.
+    /// </summary>
+    /// <remarks>
+    /// Page one is a RIGHT-hand sheet, which is the convention for a left-to-right book and what
+    /// CSS's <c>recto</c> means — so odd pages are right-hand and even ones left. A break asking
+    /// for the sheet it already landed on inserts nothing.
+    /// </remarks>
+    static bool Misplaced(BreakKind kind, int pageNumber) =>
+        kind switch
+        {
+            BreakKind.Recto => pageNumber % 2 == 0,
+            BreakKind.Verso => pageNumber % 2 == 1,
+            _ => false
+        };
 
     /// <summary>
     /// The positions a page is required to start at, ascending and without duplicates.
@@ -89,7 +116,7 @@ static class Paginator
     /// block-level boxes.
     /// </para>
     /// </remarks>
-    static List<float> ForcedBreaks(LayoutBox root)
+    static List<(float Position, BreakKind Kind)> ForcedBreaks(LayoutBox root)
     {
         // Pre-order, so a box's descendants are exactly the entries between its own index and
         // `ends`. That is what makes "the next box after this subtree" an index rather than a
@@ -99,28 +126,31 @@ static class Paginator
 
         Collect(root);
 
-        var breaks = new SortedSet<float>();
+        // Keyed by position, so two boxes asking for a page at the same point produce one break.
+        // The kind of the LAST one to ask wins, which matches how a stylesheet's later rule wins
+        // and is only reachable when two adjacent boxes disagree about the sheet.
+        var breaks = new SortedDictionary<float, BreakKind>();
 
         for (var index = 0; index < flow.Count; index++)
         {
             var style = flow[index].Style;
 
-            if (style.BreakBefore == BreakKind.Always)
+            if (style.BreakBefore.Forces())
             {
-                Add(flow[index].BorderBox.Y);
+                Add(flow[index].BorderBox.Y, style.BreakBefore);
             }
 
             // Nothing follows the last box in the document, so there is nothing to move onto a
             // page of its own and no break worth taking. A browser emits a trailing blank page
             // here; one blank page at the end of a converted document is the less useful answer.
-            if (style.BreakAfter == BreakKind.Always &&
+            if (style.BreakAfter.Forces() &&
                 ends[index] < flow.Count)
             {
-                Add(flow[ends[index]].BorderBox.Y);
+                Add(flow[ends[index]].BorderBox.Y, style.BreakAfter);
             }
         }
 
-        return [.. breaks];
+        return [.. breaks.Select(_ => (_.Key, _.Value))];
 
         void Collect(LayoutBox box)
         {
@@ -136,7 +166,7 @@ static class Paginator
             ends[index] = flow.Count;
         }
 
-        void Add(float y)
+        void Add(float y, BreakKind kind)
         {
             // A break at the very start of the document asks for the page that already exists, and
             // taking it would emit a blank first page. That is the usual shape of this mistake
@@ -144,7 +174,7 @@ static class Paginator
             // written to separate the sections, not to precede the first of them.
             if (y > 0)
             {
-                breaks.Add(y);
+                breaks[y] = kind;
             }
         }
     }
@@ -166,11 +196,11 @@ static class Paginator
     /// A row taller than the page is handled the same way a line taller than the page is, by
     /// <see cref="NextTop"/>: it overflows rather than moving forever.
     /// </remarks>
-    static List<Rect> Unbreakable(LayoutBox root)
+    static List<PageUnit> Unbreakable(LayoutBox root)
     {
-        var units = new List<Rect>();
+        var units = new List<PageUnit>();
         Walk(root, covered: false);
-        units.Sort((left, right) => left.Y.CompareTo(right.Y));
+        units.Sort((left, right) => left.Bounds.Y.CompareTo(right.Bounds.Y));
         return units;
 
         void Walk(LayoutBox box, bool covered)
@@ -181,7 +211,7 @@ static class Paginator
             if (box.Style.Display == DisplayKind.TableRow ||
                 box.Style.BreakInside == BreakKind.Avoid)
             {
-                units.Add(box.BorderBox);
+                units.Add(new(box.BorderBox, null));
 
                 // The row's own box stands in for every line under it, including the ones inside
                 // a float in a cell: a cell establishes a formatting context, so it grows to
@@ -190,9 +220,21 @@ static class Paginator
             }
             else if (!covered)
             {
-                foreach (var line in box.Lines)
+                // Each line carries which block generated it and where it sits in that block's
+                // run, which is what `orphans` and `widows` need and what a flat sequence of
+                // rectangles cannot say. A block of one line is exempt from both by construction:
+                // a break can only fall inside a run of two or more.
+                for (var index = 0; index < box.Lines.Count; index++)
                 {
-                    units.Add(line.Bounds);
+                    units.Add(new(
+                        box.Lines[index].Bounds,
+                        new(
+                            index,
+                            box.Lines.Count,
+                            box.Style.Orphans,
+                            box.Style.Widows,
+                            box.Lines[0].Bounds.Y,
+                            box.Lines[^1].Bounds.Bottom)));
                 }
             }
 
@@ -230,7 +272,12 @@ static class Paginator
     /// without the fallback the break lands after the whole block and everything between the page
     /// edge and the block's end is simply never drawn.
     /// </remarks>
-    static float NextTop(List<Rect> units, List<float> forced, float top, float pageHeight)
+    static float NextTop(
+        List<PageUnit> units,
+        List<float> forced,
+        float top,
+        float pageHeight,
+        bool constrainRuns)
     {
         var limit = top + pageHeight;
 
@@ -254,14 +301,16 @@ static class Paginator
 
         foreach (var unit in units)
         {
+            var bounds = unit.Bounds;
+
             // Units already on this page or an earlier one.
-            if (unit.Y <= top || unit.Bottom <= limit)
+            if (bounds.Y <= top || bounds.Bottom <= limit)
             {
                 continue;
             }
 
             // Beyond the boundary entirely: nothing straddles it, so the page ends at its edge.
-            if (unit.Y > limit)
+            if (bounds.Y > limit)
             {
                 break;
             }
@@ -269,15 +318,114 @@ static class Paginator
             // A unit taller than the page has nowhere better to go — moving it to the top of the
             // next page would leave it still not fitting, and it would move again forever. Let it
             // overflow and keep looking for one that can actually be moved.
-            if (unit.Height > pageHeight)
+            if (bounds.Height > pageHeight)
             {
                 continue;
             }
 
-            return unit.Y;
+            return constrainRuns
+                ? Constrained(units, unit, top)
+                : bounds.Y;
         }
 
         return limit;
+    }
+
+    /// <summary>
+    /// Moves a break earlier when <c>orphans</c> or <c>widows</c> would otherwise be violated.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Reached only under <see cref="HtmlOptions.HonourOrphansAndWidows"/>, which is off by
+    /// default — not because the properties are hard but because CHROMIUM DOES NOT IMPLEMENT THEM,
+    /// and this engine is measured against Chromium. The corpus says so directly:
+    /// <c>page/break_between_lines</c> holds a reference in which a three-line paragraph is broken
+    /// after its second line, stranding one line overleaf under the initial <c>widows: 2</c>.
+    /// </para>
+    /// <para>
+    /// Both properties are counts of LINES either side of the break, so both are answered from the
+    /// same two numbers: how many of the block's lines are above the candidate, and how many below.
+    /// Too few above breaks <c>orphans</c>, too few below breaks <c>widows</c>, and the fix for
+    /// either is the same in kind — move the break earlier, which is the only direction available.
+    /// </para>
+    /// <para>
+    /// Widows is satisfied by moving up to the line that leaves enough below. Orphans cannot be
+    /// satisfied that way at all — moving earlier only removes lines from above — so the whole run
+    /// goes to the next page, and that is also the fallback when satisfying widows would leave too
+    /// few above. A block whose entire run is shorter than the two constraints together therefore
+    /// always moves whole, which is what a browser does with a three-line paragraph under
+    /// <c>orphans: 2; widows: 2</c>.
+    /// </para>
+    /// <para>
+    /// The break is moved to the first LINE's top rather than to the block's border edge, because
+    /// lines are what this slice deals in. The consequence is that a bordered block moved for
+    /// widows is cut above its first line rather than above its border — visible only on a block
+    /// whose padding is large enough to leave the border stranded, and the price of not giving the
+    /// paginator a second notion of what a unit is.
+    /// </para>
+    /// </remarks>
+    static float Constrained(List<PageUnit> units, PageUnit unit, float top)
+    {
+        if (unit.Group is not {} group)
+        {
+            return unit.Bounds.Y;
+        }
+
+        var above = group.Index;
+        var below = group.Count - group.Index;
+
+        // Nothing of the block is on this page: the break already falls at its start, so neither
+        // constraint has anything to say.
+        if (above == 0)
+        {
+            return unit.Bounds.Y;
+        }
+
+        if (above >= group.Orphans && below >= group.Widows)
+        {
+            return unit.Bounds.Y;
+        }
+
+        if (below < group.Widows)
+        {
+            // The line that leaves exactly `Widows` below it. Enough remains above only when the
+            // run is long enough to hold both constraints at once.
+            var wanted = group.Count - group.Widows;
+
+            if (wanted >= group.Orphans && Line(units, group, wanted) is {} moved)
+            {
+                return moved;
+            }
+        }
+
+        // Whole run overleaf. Guarded against a run that starts at or above the page top, where
+        // moving to it would not advance and the loop in `PageTops` would never terminate.
+        return group.FirstTop > top ? group.FirstTop : unit.Bounds.Y;
+    }
+
+    /// <summary>
+    /// The top of one line of a block's run, found by its index.
+    /// </summary>
+    /// <remarks>
+    /// Looked up rather than carried, because the units are sorted by position and a block's lines
+    /// are interleaved with everything else at the same depth — a float beside a paragraph puts its
+    /// own lines between two of the paragraph's. Matching on the run's extent and the index is what
+    /// picks the right one without giving every block an identity of its own.
+    /// </remarks>
+    static float? Line(List<PageUnit> units, LineGroup group, int index)
+    {
+        foreach (var unit in units)
+        {
+            if (unit.Group is {} candidate &&
+                candidate.Index == index &&
+                candidate.FirstTop == group.FirstTop &&
+                candidate.LastBottom == group.LastBottom)
+            {
+                return unit.Bounds.Y;
+            }
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -285,4 +433,35 @@ static class Paginator
     /// </summary>
     public static float DocumentHeight(LayoutBox root) =>
         root.BorderBox.Bottom;
+
+    /// <summary>
+    /// One thing a page break has to respect: a rectangle, and where it sits in a run of lines.
+    /// </summary>
+    /// <param name="Bounds">The rectangle a break must not fall inside.</param>
+    /// <param name="Group">
+    /// Null for a rectangle that moves whole — a table row, or a box carrying
+    /// <c>break-inside: avoid</c> — which has no lines either side of it to count.
+    /// </param>
+    readonly record struct PageUnit(Rect Bounds, LineGroup? Group);
+
+    /// <summary>
+    /// Where a line sits in the run its block generated, and what that block asks of a break.
+    /// </summary>
+    /// <param name="Index">Which line of the run this is, from zero.</param>
+    /// <param name="Count">How many lines the run holds.</param>
+    /// <param name="Orphans">The fewest that may be left above a break.</param>
+    /// <param name="Widows">The fewest that may be carried below one.</param>
+    /// <param name="FirstTop">
+    /// The top of the run's first line, which is where the whole run moves to when neither
+    /// constraint can be met. It doubles as half the run's identity, since the units are sorted by
+    /// position rather than grouped by block.
+    /// </param>
+    /// <param name="LastBottom">The bottom of the run's last line, the other half of that identity.</param>
+    readonly record struct LineGroup(
+        int Index,
+        int Count,
+        int Orphans,
+        int Widows,
+        float FirstTop,
+        float LastBottom);
 }

@@ -45,6 +45,29 @@ static class UserAgentStyles
         h5 { font-size: 0.83em; margin: 1.67em 0; font-weight: bold; }
         h6 { font-size: 0.67em; margin: 2.33em 0; font-weight: bold; }
 
+        /*
+          The HTML 4.01 PRINT stylesheet, neutralised. It is the sample sheet from that
+          specification's appendix rather than anything a browser implements, and resolving media
+          against the printer — which a PDF converter must — brings the whole of it in:
+
+            h1              { page-break-before: always }
+            h1, h2, ..., h6 { page-break-after: avoid }
+            ul, ol, dl      { page-break-before: avoid }
+
+          The first is the one that matters. No browser starts a new page before every <h1>, and
+          the corpus said so within a second of print media being switched on: `ua/headings`
+          grew a second page against a reference that has one. The other two are unobservable in a
+          document that fits on a page, and would report on every heading and every list in every
+          document converted — which is the noise the diagnostic table exists to avoid.
+
+          Restated as `auto` rather than removed, because AngleSharp's sheet cannot be edited: a
+          later user-agent rule of equal specificity is how anything here overrides it, and an
+          author rule still beats this.
+        */
+        h1 { page-break-before: auto; }
+        h1, h2, h3, h4, h5, h6 { page-break-after: auto; }
+        ul, ol, dl { page-break-before: auto; }
+
         p { margin: 1em 0; }
         blockquote { margin: 1em 40px; }
         figure { margin: 1em 40px; }

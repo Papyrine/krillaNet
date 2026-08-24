@@ -240,7 +240,13 @@ public static class BoxDump
     public static IReadOnlyList<BoxGeometry> Measure(string html, HtmlOptions options)
     {
         using var document = HtmlConverter.Parse(html, options);
-        using var layout = HtmlConverter.LayoutDocument(document, options);
+
+        // Through the same `@page` fold the conversion goes through, or a document declaring its own
+        // paper would be measured against one rectangle and painted against another.
+        using var layout = HtmlConverter.LayoutDocument(
+            document,
+            HtmlConverter.Paged(document, options));
+
         return Collect(layout.Root);
     }
 

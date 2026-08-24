@@ -106,6 +106,45 @@ public sealed class HtmlOptions
     /// </summary>
     public float RootFontSize { get; set; } = 16;
 
+    /// <summary>
+    /// Whether a document's <c>@page</c> rules override the page geometry set here.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// True by default. A document that declares <c>@page { size: A4 }</c> means it, and a
+    /// converter that ignores the declaration prints an A4 report onto US Letter — a
+    /// whole-document difference with nothing to explain it. Only the size, the orientation and the
+    /// four margins are read; a rule declaring nothing leaves everything here alone, so the default
+    /// changes nothing for a document that says nothing.
+    /// </para>
+    /// <para>
+    /// Set it false to keep the paper a caller has already chosen, which is the right answer when
+    /// the size comes from a printer or an envelope rather than from the document.
+    /// </para>
+    /// </remarks>
+    public bool HonourPageRules { get; set; } = true;
+
+    /// <summary>
+    /// Whether <c>orphans</c> and <c>widows</c> constrain where a page breaks. Off by default.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Off because CHROMIUM DOES NOT IMPLEMENT THEM, and this converter's fidelity is measured
+    /// against Chromium. That is not an assumption: the corpus scenario
+    /// <c>page/break_between_lines</c> holds a browser reference in which a three-line paragraph is
+    /// broken after its second line, leaving one line overleaf under the initial <c>widows: 2</c> —
+    /// so the browser ignored the property, and honouring it by default would make this engine
+    /// disagree with the reference on every document long enough to paginate.
+    /// </para>
+    /// <para>
+    /// Turn it on for typographic quality rather than for browser fidelity. The two are genuinely
+    /// in conflict here, which is why this is a switch rather than a decision taken once: a single
+    /// line stranded at the foot or head of a page is the defect the properties exist to prevent,
+    /// and a print engine that can prevent it should be able to.
+    /// </para>
+    /// </remarks>
+    public bool HonourOrphansAndWidows { get; set; }
+
     /// <summary>Metadata written into the PDF.</summary>
     public DocumentMetadata? Metadata { get; set; }
 
@@ -147,6 +186,35 @@ public sealed class HtmlOptions
         };
 
     /// <summary>Sets all four page margins.</summary>
+    /// <summary>
+    /// A copy of these options with the page geometry replaced.
+    /// </summary>
+    /// <remarks>
+    /// Used to fold a document's <c>@page</c> rules in without mutating what the caller handed
+    /// over: the same options object is often reused across conversions, and one document's page
+    /// size leaking into the next would be a memorable bug.
+    /// </remarks>
+    internal HtmlOptions WithPage(float width, float height, float top, float right, float bottom, float left) =>
+        new()
+        {
+            PageWidth = width,
+            PageHeight = height,
+            MarginTop = top,
+            MarginRight = right,
+            MarginBottom = bottom,
+            MarginLeft = left,
+            Fonts = Fonts,
+            BaseUrl = BaseUrl,
+            ImageResolver = ImageResolver,
+            LocalImages = LocalImages,
+            WebImages = WebImages,
+            RootFontSize = RootFontSize,
+            HonourPageRules = HonourPageRules,
+            HonourOrphansAndWidows = HonourOrphansAndWidows,
+            Metadata = Metadata,
+            OnDiagnostic = OnDiagnostic
+        };
+
     public HtmlOptions WithMargin(float margin)
     {
         MarginTop = margin;

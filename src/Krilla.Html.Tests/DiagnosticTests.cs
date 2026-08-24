@@ -183,12 +183,16 @@ public class DiagnosticTests
     /// What is left of the pagination properties once the forced breaks are honoured.
     /// </summary>
     /// <remarks>
-    /// The first three are silent, and are here for that reason rather than despite it: they are
-    /// the values this engine now paginates the way a browser does, and a report against one would
-    /// be a false positive of exactly the kind the sink exists not to produce. The last three are
-    /// the remainder — an <c>avoid</c> at a box edge, which asks for a break to be moved rather
-    /// than taken, a value naming a sheet side, whose break is taken and whose side is not, and
-    /// the two line-count properties.
+    /// Four of the six are silent, and are here for that reason rather than despite it: they are
+    /// the values this engine paginates the way a browser does, and a report against one would be a
+    /// false positive of exactly the kind the sink exists not to produce. A sheet side joined them
+    /// when the blank page it asks for was implemented, which is why it stays in the list — a value
+    /// that stops reporting has to be seen to stop.
+    ///
+    /// What remains is an <c>avoid</c> at a box edge, which asks for a break to be MOVED rather
+    /// than taken and so has nowhere to go in a forward-only slice, and the two line-count
+    /// properties, which are honoured only on request because the reference browser does not
+    /// implement them.
     /// </remarks>
     [Test]
     public Task PaginationPropertiesAreReported() =>

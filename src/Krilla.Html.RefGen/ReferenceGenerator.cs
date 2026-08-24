@@ -148,6 +148,13 @@ public class ReferenceGenerator
                 WaitUntil = WaitUntilState.Load
             });
 
+            // PRINT media for the geometry harvest, not screen. The page renders below already
+            // go through Chromium's printer and so already resolve `@media print`, and for a while
+            // the boxes did not — so the two halves of one reference disagreed about which rules
+            // applied. Nothing in the corpus distinguished them until `@media` did, and the
+            // converter resolves print media because a PDF is print.
+            await page.EmulateMediaAsync(new() {Media = Media.Print});
+
             // Block until every @font-face has loaded, so nothing is measured or captured while a
             // fallback face is still showing.
             await page.EvaluateAsync("async () => { await document.fonts.ready; }");
