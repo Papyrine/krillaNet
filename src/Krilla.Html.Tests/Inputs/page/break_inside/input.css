@@ -1,0 +1,13 @@
+/* Puts the card's last line across the 1056px boundary. */
+#spacer { height: 950px; background-color: #eaeaea; }
+
+#card {
+  width: 500px;
+  font-size: 16px;
+  line-height: 24px;
+  padding: 12px;
+  background-color: #f0dcdc;
+  page-break-inside: avoid;
+}
+
+p { font-size: 16px; line-height: 24px; background-color: #e0efdc; }

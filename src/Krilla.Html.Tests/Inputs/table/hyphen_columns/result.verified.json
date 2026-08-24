@@ -1,0 +1,15 @@
+﻿{
+  "ReferencePageCount": 1,
+  "ResultingPageCount": 1,
+  "Boxes": {
+    "Matched": 12
+  },
+  "PageDiffs": [
+    {
+      "Page": 1,
+      "Ssim": 1.0,
+      "ReferenceFile": "reference_0001.png",
+      "RenderedFile": "result#page_0001.verified.png"
+    }
+  ]
+}

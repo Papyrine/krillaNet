@@ -1,4 +1,4 @@
-# All scenarios (74)
+# All scenarios (80)
 
 The browser reference (left) beside the page Krilla.Html produced (right). `AE` is the fraction of pixels that differ and `SSIM` is structural similarity; neither is asserted. The worst offset is the largest positional disagreement in CSS pixels between the rendered element geometry and the browser's, and is the number to watch — it reaches zero exactly when the layout is right.
 
@@ -37,6 +37,7 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [inline/font_size_em](#inline-font_size_em)
 - [inline/font_style](#inline-font_style)
 - [inline/font_weight](#inline-font_weight)
+- [inline/hyphen_breaks](#inline-hyphen_breaks)
 - [inline/inline_block](#inline-inline_block)
 - [inline/inline_block_sizing](#inline-inline_block_sizing)
 - [inline/justify](#inline-justify)
@@ -48,12 +49,16 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [inline/text_indent](#inline-text_indent)
 - [inline/white_space](#inline-white_space)
 - [inline/white_space_pre](#inline-white_space_pre)
+- [inline/word_joins](#inline-word_joins)
 - [inline/wrapping](#inline-wrapping)
 - [link/external](#link-external)
 - [link/fragment](#link-fragment)
 - [link/wrapped](#link-wrapped)
 - [page/absolute_break](#page-absolute_break)
+- [page/break_after](#page-break_after)
+- [page/break_before](#page-break_before)
 - [page/break_between_lines](#page-break_between_lines)
+- [page/break_inside](#page-break_inside)
 - [page/float_break](#page-float_break)
 - [page/multi_page_flow](#page-multi_page_flow)
 - [page/page_size](#page-page_size)
@@ -67,6 +72,7 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [table/auto_widths](#table-auto_widths)
 - [table/empty](#table-empty)
 - [table/fixed_layout](#table-fixed_layout)
+- [table/hyphen_columns](#table-hyphen_columns)
 - [table/sections](#table-sections)
 - [table/spacing_borders](#table-spacing_borders)
 - [table/spans](#table-spans)
@@ -750,6 +756,52 @@ the difference only accumulates over a sentence.
 | <img src="inline/font_weight/reference_0001.png" width="480"> | <img src="inline/font_weight/result%23page_0001.verified.png" width="480"> |
 
 
+## inline/hyphen_breaks
+
+# inline/hyphen_breaks
+
+Where a dash offers a line break. Each box is 120px holding about 165px of text, so one line means
+no opportunity was taken and two means one was — which makes every row a yes-or-no answer rather
+than a measurement to interpret.
+
+It exists because the engine had no opportunity anywhere but a space. A hyphenated word was one
+unbreakable token, so `page-break-inside` in a narrow column overflowed where a browser wrapped it
+after `page-`. That was found by the `page/break_inside` scenario, whose card text happened to
+contain the word, and reworded out of it so that scenario measured one thing.
+
+The rules here were measured out of Chrome one arrangement at a time rather than read off UAX #14,
+and the reason to bother is that the obvious exceptions turn out not to exist:
+
+- **A hyphen between digits breaks.** `1234567890-1234567890` wraps. There is no numeric-context
+  rule to implement, which the specification's own numeric sequence rules would have suggested.
+- **A LEADING hyphen breaks**, leaving the dash alone on the line above with the whole word below
+  it. Suppressing that is the other exception a careful reading suggests, and it is wrong.
+- **A hyphen followed by digits breaks**, likewise.
+- **A run of dashes breaks after the LAST of the run**, and that needs no rule of its own. Every
+  dash offers an opportunity and greedy line breaking takes the last one that fits, so `a--b` keeps
+  both dashes on the line above by arithmetic rather than by special case.
+- **A dash with nothing after it offers nothing.** The `trailing` row stays on one line.
+- **The en and em dashes break; U+2011 and the solidus do not.** The non-breaking hyphen not
+  breaking is the whole of its purpose. The solidus is worth stating because a URL is the obvious
+  thing a reader expects to wrap, and Chrome does not wrap one.
+
+`&shy;` is absent because it is not implemented. It is a break opportunity in a browser AND paints
+a hyphen only when the break falls there, which is a conditional glyph rather than a break rule.
+
+Geometry and pixels are both exact against Chrome.
+
+What to look at: the line count per row, which is the whole assertion. `non-breaking` or `solidus`
+growing to two lines means the dash set has been widened too far; `plain` collapsing to one means
+splitting stopped happening at all.
+
+**Boxes**: 13 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| <img src="inline/hyphen_breaks/reference_0001.png" width="480"> | <img src="inline/hyphen_breaks/result%23page_0001.verified.png" width="480"> |
+
+
 ## inline/inline_block
 
 # inline/inline_block
@@ -993,6 +1045,51 @@ markup is.
 | <img src="inline/white_space_pre/reference_0001.png" width="480"> | <img src="inline/white_space_pre/result%23page_0001.verified.png" width="480"> |
 
 
+## inline/word_joins
+
+# inline/word_joins
+
+The other half of `inline/hyphen_breaks`, and the defect it found. Line breaking used to treat
+ADJACENCY as a break opportunity: any two tokens with nothing between them could be split, because
+a space was the only thing that ever produced two tokens in the first place. That assumption is
+invisible until something else produces two.
+
+`adjacent` is the case that shows it. `<span>abcdefghij</span><span>klmnopqrst</span>` is one word
+as far as a browser is concerned — Chrome overflows the 120px box on a single line — and this
+engine broke it at the element boundary into two. The same defect covered `<b>` around the first
+half of a word, which is ordinary markup rather than a contrived case.
+
+So the fix for hyphens could not be "emit more tokens and let adjacency do the rest": that would
+have inherited the bug and rendered `dash-at-join` correctly by accident. A break opportunity is
+a property of a token instead — `Token.BreaksBefore` — and every one of the five rows here is a
+separate answer to what sets it:
+
+- **`adjacent`** — no opportunity. Two words from two inline elements are one word.
+- **`dash-at-join`** — an opportunity, because the first element's text ENDS in a dash. So
+  breakability carries across the element boundary even though the boundary itself is not one.
+- **`space-at-join`** — an opportunity, from the space, as it always was.
+- **`image`** and **`inline-block`** — an opportunity, with no space present. Measured: Chrome
+  breaks before an atomic inline that follows text directly. This is the row that keeps the fix
+  from over-correcting, since "adjacency is never an opportunity" would wrongly glue an image to
+  the word before it.
+
+Geometry and pixels are both exact against Chrome. The `<span>` elements report as unmatched in
+the box comparison, which is the corpus's standing behaviour for inline elements rather than
+anything this scenario introduced — they generate no box in this engine's tree.
+
+What to look at: `adjacent` is the assertion. Two lines there is the old adjacency rule returning.
+Two lines on `image` or `inline-block` becoming one is the over-correction.
+
+**Boxes**: 9 matched, worst offset 0.00px, worst size 0.00px.
+
+Not rendered: `html > body:nth-child(2) > div:nth-child(1) > span:nth-child(1)`, `html > body:nth-child(2) > div:nth-child(1) > span:nth-child(2)`, `html > body:nth-child(2) > div:nth-child(2) > span:nth-child(1)`, `html > body:nth-child(2) > div:nth-child(2) > span:nth-child(2)`, `html > body:nth-child(2) > div:nth-child(3) > span:nth-child(1)`, `html > body:nth-child(2) > div:nth-child(3) > span:nth-child(2)`
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| <img src="inline/word_joins/reference_0001.png" width="480"> | <img src="inline/word_joins/result%23page_0001.verified.png" width="480"> |
+
+
 ## inline/wrapping
 
 Greedy line breaking at spaces. Where each break lands is decided by accumulated advances, so a
@@ -1097,6 +1194,77 @@ being assigned correctly — the same distinction `PdfPainter` draws between the
 | <img src="page/absolute_break/reference_0002.png" width="480"> | <img src="page/absolute_break/result%23page_0002.verified.png" width="480"> |
 
 
+## page/break_after
+
+# page/break_after
+
+`page-break-after` on the box BEFORE the break, where `page/break_before` declares it on the box
+after. The two are the same page in the end, and the scenario exists because getting there is not
+the same calculation.
+
+`#one` carries a 40px bottom margin, which is what makes the scenario discriminating: its border
+box ends at 48 and `#two` begins at 88, so "break after this box" has two plausible readings that
+are 40px apart. Measured out of Chrome before anything was implemented — it starts page two at
+`#two`'s top and the margin is gone entirely, never drawn at the foot of page one and never drawn at
+the head of page two.
+
+Breaking at the declaring box's own bottom edge instead is the mistake this catches, and it is the
+more obvious of the two readings to write: every box on page two lands 40px low, beneath a band of
+margin at the top of a page that should open with content. `Paginator.ForcedBreaks` resolves a
+`break-after` to the top of the next in-flow box in document order for this reason, which makes
+both properties the same thing to the slice — a page starts at some box's top border edge.
+
+A margin is the only thing that separates the two readings, so a version of this scenario without
+one would pass against either implementation.
+
+Both pages are pixel-identical to Chrome.
+
+What to look at: whether `#two` sits flush at the top of page two, and whether any part of the
+margin appears at the foot of page one.
+
+**Boxes**: 5 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| <img src="page/break_after/reference_0001.png" width="480"> | <img src="page/break_after/result%23page_0001.verified.png" width="480"> |
+| **Page 2** | **Page 2. AE 0.0000 · SSIM 1.0000** |
+| <img src="page/break_after/reference_0002.png" width="480"> | <img src="page/break_after/result%23page_0002.verified.png" width="480"> |
+
+
+## page/break_before
+
+# page/break_before
+
+The first scenario in the corpus whose page COUNT is decided by a declaration rather than by how
+much content there is. Three boxes of 48px each on a 1056px page: the document is 144px tall and
+fits five times over, and Chrome still prints two pages because `#two` asked to start one.
+
+That is the whole of what it isolates. `Paginator` used to run its loop while content remained
+below the boundary — `top + pageHeight < documentHeight` — which is exactly the condition a forced
+break in a short document fails. So the property could be read, resolved and looked up correctly
+and still produce one page, with nothing in the box geometry to say so.
+
+The break lands at `#two`'s top border edge, which is also where the box after it would have gone,
+so nothing here can distinguish a break taken at the declaring box's top from one taken at the
+previous box's bottom. `page/break_after` is where those two are pulled apart.
+
+Both pages are pixel-identical to Chrome.
+
+What to look at: the page count first — one page means the forced break never reached the loop
+condition. Then whether page one ends after `#one`, and whether page two holds both `#two` and
+`#three` rather than only `#two`.
+
+**Boxes**: 5 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| <img src="page/break_before/reference_0001.png" width="480"> | <img src="page/break_before/result%23page_0001.verified.png" width="480"> |
+| **Page 2** | **Page 2. AE 0.0000 · SSIM 1.0000** |
+| <img src="page/break_before/reference_0002.png" width="480"> | <img src="page/break_before/result%23page_0002.verified.png" width="480"> |
+
+
 ## page/break_between_lines
 
 A break landing inside a paragraph. The spacer leaves 76px of the first page, which fits two lines
@@ -1111,6 +1279,52 @@ page height instead would cut it in half.
 | <img src="page/break_between_lines/reference_0001.png" width="480"> | <img src="page/break_between_lines/result%23page_0001.verified.png" width="480"> |
 | **Page 2** | **Page 2. AE 0.0000 · SSIM 1.0000** |
 | <img src="page/break_between_lines/reference_0002.png" width="480"> | <img src="page/break_between_lines/result%23page_0002.verified.png" width="480"> |
+
+
+## page/break_inside
+
+# page/break_inside
+
+A box that would otherwise be split, asking not to be. The card runs 950..1070 with the boundary at
+1056 falling inside its fourth line, so a break taken between lines lands at 1034 and leaves three
+lines on page one and one line overleaf. `page-break-inside: avoid` moves the whole card instead,
+and Chrome puts the break at 950 — the card's top border edge.
+
+This is `page/table_break` reached from the other direction. A table row is one unbreakable unit by
+rule, and a box carrying `break-inside: avoid` is one by request, so `Paginator.Unbreakable` yields
+the box's border box in place of the lines inside it for both. Which means the case where the box
+does not fit was already answered: a card taller than the page overflows rather than descending
+forever looking for room, by the same guard in `NextTop` that a too-tall row uses.
+
+Nothing here needed the painter. `PdfPainter.PaintBox` already culls a box whose top edge is at or
+after the break, so the moved card paints nothing on page one — the distinction `page/table_break`
+drew between a box moved WHOLE and a box the break falls inside.
+
+It found something incidental on the way. The card's text originally contained the word
+`page-break-inside`, and Chrome broke the line INSIDE it — `page-` ending one line and
+`break-inside` opening the next — where this engine treated a hyphenated word as one unbreakable
+token. The text was reworded to take the hyphen out, because a scenario measuring two things
+reports one number for both.
+
+That gap is now closed, and `inline/hyphen_breaks` is where it is measured. The wording here stays
+hyphen-free anyway: this scenario is about where a page breaks, and a word that also decides where
+a LINE breaks would put two features behind one number again.
+
+**Residual**: SSIM 0.9998 on page two, from sub-pixel glyph positioning on the card's first line
+and on the paragraph. Page one is pixel-identical.
+
+What to look at: whether page one ends with the spacer alone. Three lines of the card at the foot
+of page one is the break-between-lines behaviour returning; a sliver of the card there with the
+whole card also overleaf is the painter culling on the wrong edge.
+
+**Boxes**: 5 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| <img src="page/break_inside/reference_0001.png" width="480"> | <img src="page/break_inside/result%23page_0001.verified.png" width="480"> |
+| **Page 2** | **Page 2. AE 0.0012 · SSIM 0.9998** |
+| <img src="page/break_inside/reference_0002.png" width="480"> | <img src="page/break_inside/result%23page_0002.verified.png" width="480"> |
 
 
 ## page/float_break
@@ -1482,6 +1696,16 @@ which is small enough to look like a rounding error and is not one.
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
 | <img src="table/fixed_layout/reference_0001.png" width="480"> | <img src="table/fixed_layout/result%23page_0001.verified.png" width="480"> |
+
+
+## table/hyphen_columns
+
+**Boxes**: 12 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| <img src="table/hyphen_columns/reference_0001.png" width="480"> | <img src="table/hyphen_columns/result%23page_0001.verified.png" width="480"> |
 
 
 ## table/sections

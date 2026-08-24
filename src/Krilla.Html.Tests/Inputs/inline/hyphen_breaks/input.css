@@ -1,0 +1,10 @@
+/* Narrow enough that every case below must either break or overflow: each string is around
+   165px of text in a 120px box, so one line means no break opportunity was taken and two
+   means one was. */
+.c {
+  width: 120px;
+  font-size: 16px;
+  line-height: 24px;
+  margin-bottom: 6px;
+  background-color: #e8eef6;
+}

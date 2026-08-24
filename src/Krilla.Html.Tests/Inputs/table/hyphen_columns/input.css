@@ -1,0 +1,10 @@
+/* A width a table cannot honour: it never renders narrower than its columns' min-content widths,
+   so this forces both tables to exactly that and makes the column width the measurement. */
+table { width: 1px; margin-bottom: 8px; }
+
+td {
+  padding: 4px;
+  font-size: 16px;
+  line-height: 24px;
+  background-color: #e8eef6;
+}

@@ -1,0 +1,9 @@
+div { width: 500px; font-size: 16px; line-height: 24px; padding: 12px; }
+
+#one { background-color: #dde5f0; }
+
+/* The whole scenario. Nothing else here would produce a second page: the three boxes together
+   are 144px tall on a 1056px page. */
+#two { background-color: #f0dcdc; page-break-before: always; }
+
+#three { background-color: #e0efdc; }

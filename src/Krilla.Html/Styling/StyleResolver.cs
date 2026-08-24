@@ -105,6 +105,9 @@ static class StyleResolver
             WhiteSpace = ParseWhiteSpace(declaration.GetPropertyValue("white-space"), parent.WhiteSpace),
             Float = ParseFloat(declaration.GetPropertyValue("float")),
             Clear = ParseClear(declaration.GetPropertyValue("clear")),
+            BreakBefore = ParseBreak(declaration, "break-before"),
+            BreakAfter = ParseBreak(declaration, "break-after"),
+            BreakInside = ParseBreak(declaration, "break-inside"),
             Position = ParsePosition(declaration.GetPropertyValue("position")),
             Top = Length(declaration, "top", fontSize, rootFontSize, CssLength.Auto),
             Right = Length(declaration, "right", fontSize, rootFontSize, CssLength.Auto),
@@ -267,6 +270,41 @@ static class StyleResolver
             "fixed" => PositionKind.Fixed,
             _ => PositionKind.Static
         };
+
+    /// <summary>
+    /// What a box asks of the page break at one of its edges, or inside it. Not inherited.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Both spellings are read, modern first. The cascade does not alias them — a
+    /// <c>page-break-after</c> declaration comes back under that name and nothing comes back under
+    /// <c>break-after</c> — so reading only one silently ignores half the documents that ask. The
+    /// legacy spelling is the one that matters most in practice: it is what the reporting tools
+    /// and mail merges this converter sees most of emit, and the only one older authoring tools
+    /// know.
+    /// </para>
+    /// <para>
+    /// Not inherited, which is worth stating because it would be a plausible mistake in the other
+    /// direction: a <c>page-break-before</c> that inherited would start a page at the top of every
+    /// descendant of the box that declared it.
+    /// </para>
+    /// </remarks>
+    static BreakKind ParseBreak(ICssStyleDeclaration declaration, string property)
+    {
+        var modern = declaration.GetPropertyValue(property);
+        var value = string.IsNullOrWhiteSpace(modern)
+            ? declaration.GetPropertyValue($"page-{property}")
+            : modern;
+
+        return value.Trim().ToLowerInvariant() switch
+        {
+            // The four that name a side ask for a break AND for the page it lands on to be a
+            // particular sheet. The break is the half this engine can honour.
+            "always" or "page" or "left" or "right" or "recto" or "verso" => BreakKind.Always,
+            "avoid" or "avoid-page" => BreakKind.Avoid,
+            _ => BreakKind.Auto
+        };
+    }
 
     /// <summary>
     /// Which side a box floats to. Not inherited.

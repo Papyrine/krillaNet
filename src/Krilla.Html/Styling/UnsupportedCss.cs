@@ -50,12 +50,6 @@ static class UnsupportedCss
         ("writing-mode", "horizontal-tb", "laid out horizontally"),
         ("direction", "ltr", "laid out left to right"),
         ("column-count", "auto", "laid out in one column"),
-        ("break-before", "auto", "pages break between lines"),
-        ("break-after", "auto", "pages break between lines"),
-        ("break-inside", "auto", "pages break between lines"),
-        ("page-break-before", "auto", "pages break between lines"),
-        ("page-break-after", "auto", "pages break between lines"),
-        ("page-break-inside", "auto", "pages break between lines"),
         ("orphans", "2", "pages break between lines"),
         ("widows", "2", "pages break between lines")
     ];
@@ -69,6 +63,18 @@ static class UnsupportedCss
     ];
 
     static readonly string[] sides = ["top", "right", "bottom", "left"];
+
+    /// <summary>
+    /// The two break properties whose values are only partly honoured, in the modern spelling.
+    /// </summary>
+    /// <remarks>
+    /// <c>break-inside</c> is absent because the only value it takes that means anything outside a
+    /// multi-column or paged-region context is <c>avoid</c>, and that one is honoured — the box
+    /// becomes an unbreakable unit. Its other values behave as <c>auto</c> here by the
+    /// specification's own rule rather than by omission, so reporting them would be a false
+    /// positive.
+    /// </remarks>
+    static readonly string[] breakEdges = ["break-before", "break-after"];
 
     static readonly string[] lines = ["overline", "line-through"];
 
@@ -109,6 +115,8 @@ static class UnsupportedCss
             }
         }
 
+        Breaks(declaration, name, sink);
+        Hyphens(declaration, name, sink);
         Fixed(declaration, name, sink);
         Radius(declaration, name, sink);
         BorderStyles(declaration, name, sink);
@@ -127,6 +135,100 @@ static class UnsupportedCss
         {
             Diagnostic.Property(sink, element, "display", value, "laid out as a block");
         }
+    }
+
+    /// <summary>
+    /// A break request that is recognised and not honoured as asked.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The forced values are honoured and silent, which is what this whole method is arranged
+    /// around: after the pagination work, most of what an author writes here is rendered the way a
+    /// browser renders it, and blanket-reporting the property would now be reporting documents
+    /// that convert correctly. What is left is two cases.
+    /// </para>
+    /// <para>
+    /// <c>avoid</c> asks for a break to be MOVED rather than taken, which the slice cannot do at a
+    /// box edge: <see cref="Paginator"/> chooses where a page ends from the unbreakable units
+    /// below it, and has no notion of a candidate it should reject in favour of an earlier one.
+    /// <c>break-inside: avoid</c> is different, and honoured, because it names a rectangle to keep
+    /// together rather than an edge to keep clear.
+    /// </para>
+    /// <para>
+    /// The four that name a side get their break taken and the side ignored. That is a partial
+    /// answer rather than a wrong one, and it still earns a report: a browser inserts a further
+    /// blank page to land on the sheet asked for, so a document using them has a different page
+    /// COUNT here, not merely different page furniture.
+    /// </para>
+    /// </remarks>
+    static void Breaks(ICssStyleDeclaration declaration, string element, Action<HtmlDiagnostic> sink)
+    {
+        foreach (var edge in breakEdges)
+        {
+            var (property, value) = Declared(declaration, edge);
+
+            var reason = value switch
+            {
+                "avoid" or "avoid-page" => "a page break is taken where pagination puts it",
+                "left" or "right" or "recto" or "verso" =>
+                    "a page is started, but not necessarily on that side of the sheet",
+                _ => null
+            };
+
+            if (reason is not null)
+            {
+                Diagnostic.Property(sink, element, property, value!, reason);
+            }
+        }
+    }
+
+    /// <summary>
+    /// Automatic hyphenation, which is not performed.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Only <c>auto</c> and <c>all</c> report. <c>manual</c> is what an author writes to DISABLE
+    /// automatic hyphenation, and a document asking for what this engine already does converts
+    /// exactly as written — reporting it would be a false positive of precisely the kind the table
+    /// exists to avoid, and it is also the property's initial value, so it arrives more often than
+    /// anyone types it.
+    /// </para>
+    /// <para>
+    /// The gap being reported is a dictionary, not a break rule. Lines DO break at a hyphen that
+    /// is present in the text; what is missing is inserting one where the text has none.
+    /// <c>manual</c> promises breaks at soft hyphens, which are not implemented either — so it is
+    /// silent here despite a difference that a document containing <c>&amp;shy;</c> would show.
+    /// That is a deliberate trade of one rare false negative against a common false positive.
+    /// </para>
+    /// </remarks>
+    static void Hyphens(ICssStyleDeclaration declaration, string element, Action<HtmlDiagnostic> sink)
+    {
+        if (Set(declaration, "hyphens") is {} value &&
+            value is "auto" or "all")
+        {
+            Diagnostic.Property(sink, element, "hyphens", value, "words are not hyphenated");
+        }
+    }
+
+    /// <summary>
+    /// A break property's declared value, under whichever of its two spellings carries it.
+    /// </summary>
+    /// <remarks>
+    /// The modern spelling is preferred and the legacy one is the fallback, matching what
+    /// <see cref="StyleResolver"/> resolves from — a report naming a property the resolver did not
+    /// read would point at the wrong declaration. The name comes back alongside the value so the
+    /// report names the spelling the AUTHOR used, which is the one they can search their
+    /// stylesheet for.
+    /// </remarks>
+    static (string Property, string? Value) Declared(ICssStyleDeclaration declaration, string property)
+    {
+        if (Set(declaration, property) is {} modern)
+        {
+            return (property, modern);
+        }
+
+        var legacy = $"page-{property}";
+        return (legacy, Set(declaration, legacy));
     }
 
     /// <summary>

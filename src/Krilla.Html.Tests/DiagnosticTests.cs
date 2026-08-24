@@ -154,6 +154,8 @@ public class DiagnosticTests
                 <div style="display: grid"><span>b</span></div>
                 <div style="position: fixed">e</div>
                 <table style="border-collapse: collapse"><tr><td>f</td></tr></table>
+                <p style="hyphens: auto">g</p>
+                <p style="hyphens: manual">h</p>
                 """));
 
     [Test]
@@ -171,6 +173,17 @@ public class DiagnosticTests
                 <div style="background-image: linear-gradient(red, blue)">h</div>
                 """));
 
+    /// <summary>
+    /// What is left of the pagination properties once the forced breaks are honoured.
+    /// </summary>
+    /// <remarks>
+    /// The first three are silent, and are here for that reason rather than despite it: they are
+    /// the values this engine now paginates the way a browser does, and a report against one would
+    /// be a false positive of exactly the kind the sink exists not to produce. The last three are
+    /// the remainder — an <c>avoid</c> at a box edge, which asks for a break to be moved rather
+    /// than taken, a value naming a sheet side, whose break is taken and whose side is not, and
+    /// the two line-count properties.
+    /// </remarks>
     [Test]
     public Task PaginationPropertiesAreReported() =>
         Verify(
@@ -179,7 +192,9 @@ public class DiagnosticTests
                 <div style="break-before: page">a</div>
                 <div style="page-break-after: always">b</div>
                 <div style="break-inside: avoid">c</div>
-                <p style="orphans: 3; widows: 3">d</p>
+                <div style="page-break-before: avoid">d</div>
+                <div style="break-after: left">e</div>
+                <p style="orphans: 3; widows: 3">f</p>
                 """));
 
     [Test]

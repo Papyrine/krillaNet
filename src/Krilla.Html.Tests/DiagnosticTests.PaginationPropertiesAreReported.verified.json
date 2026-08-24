@@ -1,21 +1,15 @@
 ﻿[
   {
     "Element": "div",
-    "Name": "break-before",
-    "Value": "page",
-    "Reason": "pages break between lines"
-  },
-  {
-    "Element": "div",
-    "Name": "page-break-after",
-    "Value": "always",
-    "Reason": "pages break between lines"
-  },
-  {
-    "Element": "div",
-    "Name": "break-inside",
+    "Name": "page-break-before",
     "Value": "avoid",
-    "Reason": "pages break between lines"
+    "Reason": "a page break is taken where pagination puts it"
+  },
+  {
+    "Element": "div",
+    "Name": "break-after",
+    "Value": "left",
+    "Reason": "a page is started, but not necessarily on that side of the sheet"
   },
   {
     "Element": "p",

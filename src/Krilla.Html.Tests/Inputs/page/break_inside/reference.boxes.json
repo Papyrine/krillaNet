@@ -1,0 +1,37 @@
+[
+  {
+    "selector": "html",
+    "x": 0,
+    "y": 0,
+    "width": 816,
+    "height": 1094
+  },
+  {
+    "selector": "html > body:nth-child(2)",
+    "x": 0,
+    "y": 0,
+    "width": 816,
+    "height": 1094
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(1)",
+    "x": 0,
+    "y": 0,
+    "width": 816,
+    "height": 950
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(2)",
+    "x": 0,
+    "y": 950,
+    "width": 524,
+    "height": 120
+  },
+  {
+    "selector": "html > body:nth-child(2) > p:nth-child(3)",
+    "x": 0,
+    "y": 1070,
+    "width": 816,
+    "height": 24
+  }
+]

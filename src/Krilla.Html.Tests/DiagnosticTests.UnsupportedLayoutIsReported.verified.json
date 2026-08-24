@@ -22,5 +22,11 @@
     "Name": "border-collapse",
     "Value": "collapse",
     "Reason": "laid out with the separated border model"
+  },
+  {
+    "Element": "p",
+    "Name": "hyphens",
+    "Value": "auto",
+    "Reason": "words are not hyphenated"
   }
 ]

@@ -47,6 +47,12 @@ images, and links —
 `<a href>` becomes a real PDF link annotation, and a `#fragment` becomes an internal jump to
 wherever that element paginated to. Flexbox and grid lay out as plain blocks.
 
+Pagination honours forced breaks: `page-break-before` and `page-break-after` with a forced value
+start a new page, and `page-break-inside: avoid` keeps a box whole by moving it to the next page
+rather than splitting it. The modern `break-*` spellings are read as well. What is not honoured is
+`avoid` at a box edge, `orphans` and `widows`, and the side a `left`/`right` value asks its page to
+land on — all three are reported through `OnDiagnostic`.
+
 Images resolve from `data:` URIs and from files relative to `BaseUrl`. Nothing is fetched over the
 network by default — converting an untrusted document would otherwise issue requests to whatever
 hosts it names. Set `HtmlOptions.ImageResolver` to take that decision explicitly, and the two
@@ -90,6 +96,9 @@ Two limits worth knowing before reaching for it:
 - Text is shaped through krilla's own shaper, so kerning and ligatures are applied. Bidirectional
   resolution, font fallback and complex-script shaping are still missing, so a run is shaped with
   one font and one script.
+- Lines break at spaces, at hyphens and dashes, and either side of an image or inline-block. There
+  is no hyphenation dictionary, no soft-hyphen support, and no Unicode line breaking algorithm
+  beyond that — so scripts that wrap without spaces overflow rather than wrapping.
 - AngleSharp compares CSS specificity across cascade origins, where the specification resolves
   origin first. A reset relying on `* { margin: 0 }` will not clear the default margins on `body`
   and `p`; name the elements explicitly instead.

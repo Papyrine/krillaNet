@@ -100,6 +100,39 @@ enum VerticalAlignKind
     Bottom
 }
 
+/// <summary>What a box asks of the page breaks around and inside it.</summary>
+/// <remarks>
+/// One enum for all three of <c>break-before</c>, <c>break-after</c> and <c>break-inside</c>,
+/// even though no single property takes every value: <c>break-inside</c> has no <c>always</c> and
+/// the other two are the only ones honouring it. Three near-identical enums would buy nothing
+/// beyond making an unreachable combination unrepresentable, and the reporter has to recognise the
+/// unhonoured values anyway.
+/// </remarks>
+enum BreakKind
+{
+    /// <summary>No constraint: the page falls where pagination puts it.</summary>
+    Auto,
+
+    /// <summary>A page must start here.</summary>
+    /// <remarks>
+    /// Every forced value collapses to this. CSS distinguishes <c>always</c> from <c>page</c>,
+    /// <c>left</c>, <c>right</c>, <c>recto</c> and <c>verso</c>, but the four that name a side
+    /// differ only by inserting a further blank page to land on the right-hand or left-hand sheet
+    /// — which is a duplex concern this engine has no notion of, and which is a stronger request
+    /// than <c>always</c> rather than a different one. Honouring the break and not the side is the
+    /// closer of the two available answers.
+    /// </remarks>
+    Always,
+
+    /// <summary>A page should not start here, which is not honoured.</summary>
+    /// <remarks>
+    /// Honoured for <c>break-inside</c>, where it makes the box one unbreakable unit. Not for
+    /// <c>break-before</c> and <c>break-after</c>, which ask for a break to be moved somewhere
+    /// earlier rather than for one to be taken — reported instead.
+    /// </remarks>
+    Avoid
+}
+
 /// <summary>How lines are aligned within their containing block.</summary>
 enum TextAlignKind
 {
@@ -445,6 +478,25 @@ sealed record ComputedStyle
     /// content box, which is the other half of what the property is for.
     /// </remarks>
     public CssLength TextIndent { get; init; } = CssLength.Zero;
+
+    /// <summary>Whether a page must start at this box's top border edge.</summary>
+    /// <remarks>
+    /// Not inherited, and deliberately absent from the anonymous box's style: a wrapper generated
+    /// around a run of text is not the box the author declared the break on, and giving it the
+    /// same request would take the break twice.
+    /// </remarks>
+    public BreakKind BreakBefore { get; init; } = BreakKind.Auto;
+
+    /// <summary>Whether a page must start after this box.</summary>
+    /// <remarks>
+    /// After this box, not at its bottom edge — the two differ by whatever margin sits between it
+    /// and what follows, and a browser drops that margin. <see cref="Paginator"/> resolves it to
+    /// the top of the next in-flow box for that reason.
+    /// </remarks>
+    public BreakKind BreakAfter { get; init; } = BreakKind.Auto;
+
+    /// <summary>Whether this box may be split across a page break.</summary>
+    public BreakKind BreakInside { get; init; } = BreakKind.Auto;
 
     /// <summary>How white space and wrapping are handled.</summary>
     public WhiteSpaceKind WhiteSpace { get; init; } = WhiteSpaceKind.Normal;

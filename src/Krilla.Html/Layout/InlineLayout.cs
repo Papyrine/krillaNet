@@ -8,10 +8,17 @@
 /// implementation of the same one — so matching a browser means being greedy here too.
 /// </para>
 /// <para>
-/// Break opportunities are at spaces only. No hyphenation dictionary, and no Unicode line
-/// breaking algorithm (UAX #14), so text without spaces does not break at all — CJK in particular
-/// will overflow rather than wrap. The corpus stays out of that territory until UAX #14 is worth
-/// implementing.
+/// A break opportunity is a property of a token rather than of the gap between two of them, and
+/// <c>Token.BreaksBefore</c> carries it. That is the more roundabout of the two available models
+/// and it is the one that matches a browser: adjacency is NOT an opportunity, so two inline
+/// elements written with no space between them are one word and overflow together, while a dash
+/// offers a break in the middle of what looks like a single token.
+/// </para>
+/// <para>
+/// Opportunities are at spaces, at dashes, and either side of an atomic inline. No hyphenation
+/// dictionary, no soft hyphen, and no Unicode line breaking algorithm (UAX #14) beyond the dashes
+/// — so text without any of those does not break at all, and CJK in particular will overflow
+/// rather than wrap. The corpus stays out of that territory until UAX #14 is worth implementing.
 /// </para>
 /// </remarks>
 static class InlineLayout
@@ -99,7 +106,14 @@ static class InlineLayout
 
             var spaceWidth = pendingSpace?.Width ?? 0;
 
+            // A pending space is an opportunity whatever follows it; otherwise the token has to
+            // offer one itself. Without this second half a line breaks between any two adjacent
+            // tokens, which puts a break inside a word split across two inline elements — measured
+            // against Chrome, which overflows the line instead.
+            var breakable = pendingSpace is not null || token.BreaksBefore;
+
             if (wraps &&
+                breakable &&
                 current.Count > 0 &&
                 currentWidth + spaceWidth + token.Width > band.Width)
             {
@@ -243,6 +257,16 @@ static class InlineLayout
                 continue;
             }
 
+            // A break opportunity that is not a space — after a dash, or either side of an
+            // atomic inline — ends the current unbreakable run exactly as a space does. Without
+            // this the min-content width of a hyphenated word is the whole word, so a table column
+            // is sized to hold text that layout would have broken and comes out too wide.
+            if (token.BreaksBefore && token.Style.Wraps)
+            {
+                min = Math.Max(min, unbreakable);
+                unbreakable = 0;
+            }
+
             // An inline-block contributes its max-content width to the maximum and its
             // min-content width to the minimum. Every other token is unbreakable, so the one
             // number serves for both.
@@ -269,6 +293,11 @@ static class InlineLayout
     {
         var tokens = new List<Token>();
 
+        // Whether a break is allowed BEFORE the next token emitted. It survives across items on
+        // purpose: an element boundary is not an opportunity, so a word ending one inline element
+        // and continuing in the next has to carry `false` over the join.
+        var breakable = true;
+
         foreach (var item in items)
         {
             var face = fonts.Resolve(item.Style.FontFamilies, item.Style.FontWeight, item.Style.Italic);
@@ -276,12 +305,19 @@ static class InlineLayout
             if (item.ForcedBreak)
             {
                 tokens.Add(new(item.Style, face, 0, TokenKind.Break, Link: item.Link));
+                breakable = true;
                 continue;
             }
 
             if (item.Box is {} inline)
             {
-                tokens.Add(InlineBlock(item, inline, face, fonts, contentWidth, measuring));
+                // Either side of an atomic inline is an opportunity, with or without a space —
+                // measured, and the reason this is stated rather than inherited from `breakable`.
+                tokens.Add(InlineBlock(item, inline, face, fonts, contentWidth, measuring) with
+                {
+                    BreaksBefore = true
+                });
+                breakable = true;
                 continue;
             }
 
@@ -297,7 +333,8 @@ static class InlineLayout
                     item.Style.SurroundY(contentWidth));
                 tokens.Add(new(
                     item.Style, face, width, TokenKind.Replaced, image, height, item.Selector,
-                    item.Link));
+                    item.Link, BreaksBefore: true));
+                breakable = true;
                 continue;
             }
 
@@ -313,6 +350,7 @@ static class InlineLayout
                 if (character == '\n')
                 {
                     tokens.Add(new(item.Style, face, 0, TokenKind.Break, Link: item.Link));
+                    breakable = true;
                     index++;
                     continue;
                 }
@@ -340,6 +378,7 @@ static class InlineLayout
                         Shaped: shaped,
                         TextStart: start,
                         TextEnd: end));
+                    breakable = true;
                     continue;
                 }
 
@@ -348,15 +387,47 @@ static class InlineLayout
                     index++;
                 }
 
-                tokens.Add(new(
-                    item.Style,
-                    face,
-                    shaped.Width(start, index),
-                    TokenKind.Word,
-                    Link: item.Link,
-                    Shaped: shaped,
-                    TextStart: start,
-                    TextEnd: index));
+                // One token per dash-terminated segment rather than one per word. Splitting here
+                // rather than at the break itself keeps every width a sub-range of the one shaped
+                // run, so the segments sum to exactly the width the whole word had and the kerning
+                // across the dash survives.
+                var segment = start;
+
+                for (var scan = start; scan < index; scan++)
+                {
+                    // Nothing follows a dash that ends the item's text, so it offers no break here
+                    // — though it still leaves `breakable` true, and the next item's first word
+                    // can start a line. That is what makes `<span>page-</span><span>break</span>`
+                    // break where `<span>page</span><span>break</span>` does not.
+                    if (!BreaksAfter(item.Text[scan]) || scan + 1 >= index)
+                    {
+                        continue;
+                    }
+
+                    Word(segment, scan + 1);
+                    segment = scan + 1;
+                }
+
+                Word(segment, index);
+
+                void Word(int from, int to)
+                {
+                    tokens.Add(new(
+                        item.Style,
+                        face,
+                        shaped.Width(from, to),
+                        TokenKind.Word,
+                        Link: item.Link,
+                        Shaped: shaped,
+                        TextStart: from,
+                        TextEnd: to,
+                        BreaksBefore: breakable));
+
+                    // A run of dashes therefore offers a break after each one, and greedy line
+                    // breaking takes the last that fits — which is how `a--b` keeps both dashes on
+                    // the line above rather than carrying the second one down.
+                    breakable = BreaksAfter(item.Text[to - 1]);
+                }
             }
         }
 
@@ -714,6 +785,33 @@ static class InlineLayout
     }
 
     /// <summary>
+    /// Whether a line may break directly after <paramref name="character"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The three dashes, and measured out of Chrome one arrangement at a time rather than taken
+    /// from UAX #14 — which was worth doing, because the obvious exceptions turn out not to exist.
+    /// A hyphen between two digits breaks (<c>1234567890-1234567890</c> wraps), a hyphen at the
+    /// START of a word breaks and leaves the dash alone on the line above, and a hyphen followed
+    /// by digits breaks. There is no numeric context rule here to implement and no leading-dash
+    /// rule either: every hyphen-minus with something after it offers a break.
+    /// </para>
+    /// <para>
+    /// U+2011 NON-BREAKING HYPHEN is excluded, which is the whole of its purpose, and it reads as
+    /// an ordinary word character here for that reason. U+00AD SOFT HYPHEN is a break opportunity
+    /// in a browser and is deliberately NOT one here: it has to paint a hyphen when the break is
+    /// taken there and nothing at all when it is not, which is a conditional glyph rather than a
+    /// break rule. It is unimplemented rather than decided against.
+    /// </para>
+    /// <para>
+    /// U+002F SOLIDUS is absent because Chrome does not break after one — measured, and worth
+    /// stating because a URL is the obvious thing a reader would expect to wrap.
+    /// </para>
+    /// </remarks>
+    static bool BreaksAfter(char character) =>
+        character is '-' or '\u2013' or '\u2014';
+
+    /// <summary>
     /// Whether a token is an atomic inline: one unbreakable box on the line, interrupting the run
     /// of glyphs around it rather than joining it.
     /// </summary>
@@ -734,6 +832,10 @@ static class InlineLayout
     /// <c>MinWidth</c> is an <c>inline-block</c>'s min-content width, which is not derivable from
     /// <c>Width</c>: the box has already been sized to the room available, and
     /// <see cref="Intrinsic"/> needs to know how far it could be squeezed.
+    ///
+    /// <c>BreaksBefore</c> is whether a line may START at this token. It is false for the ordinary
+    /// case of one word following another with nothing between them, which is what stops a word
+    /// split across two inline elements from breaking at the join.
     /// </remarks>
     readonly record struct Token(
         ComputedStyle Style,
@@ -749,7 +851,8 @@ static class InlineLayout
         int TextEnd = 0,
         LayoutBox? Box = null,
         float Baseline = 0,
-        float MinWidth = 0);
+        float MinWidth = 0,
+        bool BreaksBefore = false);
 }
 
 /// <summary>
