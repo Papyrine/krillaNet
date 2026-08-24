@@ -44,8 +44,8 @@ discovered from the host. That is what makes output reproducible across machines
 Implemented: block and inline layout, the box model including `box-sizing`, collapsing margins,
 line breaking, text alignment, pagination, tables, floats, relative and absolute positioning,
 `overflow` clipping, `visibility`, `text-transform`, letter and word spacing, the `font-size`
-keywords, text decorations, `vertical-align`, dashed, dotted and double borders, `border-radius`, `opacity`,
-images, and links —
+keywords, text decorations, `vertical-align`, dashed, dotted and double borders, `border-radius`, `opacity`, linear and radial
+gradients, images, and links —
 `<a href>` becomes a real PDF link annotation, and a `#fragment` becomes an internal jump to
 wherever that element paginated to. Flexbox and grid lay out as plain blocks.
 
@@ -104,6 +104,9 @@ Two limits worth knowing before reaching for it:
 - AngleSharp compares CSS specificity across cascade origins, where the specification resolves
   origin first. A reset relying on `* { margin: 0 }` will not clear the default margins on `body`
   and `p`; name the elements explicitly instead.
+- A gradient's corner keyword is rewritten as `45deg` by the cascade before it reaches the engine,
+  so `linear-gradient(to top right, …)` runs at 45° rather than at the angle the box's proportions
+  call for. Give an explicit angle where it matters.
 
 The default stylesheet AngleSharp ships is the HTML 4.01 one, which disagrees with browsers on most
 block elements — headings, paragraph spacing, and list indentation in particular. `Krilla.Html`

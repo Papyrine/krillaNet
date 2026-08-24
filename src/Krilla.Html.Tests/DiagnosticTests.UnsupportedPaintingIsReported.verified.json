@@ -26,7 +26,13 @@
   {
     "Element": "div",
     "Name": "background-image",
-    "Value": "linear-gradient(rgba(255, 0, 0, 1), rgba(0, 0, 255, 1))",
+    "Value": "url(\"missing.png\")",
+    "Reason": "not painted"
+  },
+  {
+    "Element": "div",
+    "Name": "background-image",
+    "Value": "repeating-linear-gradient(rgba(255, 0, 0, 1), rgba(0, 0, 255, 1) 20px)",
     "Reason": "not painted"
   }
 ]

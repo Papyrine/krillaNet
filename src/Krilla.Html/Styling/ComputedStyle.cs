@@ -690,6 +690,16 @@ sealed record ComputedStyle
     /// <summary>Whether this box and its descendants are painted.</summary>
     public VisibilityKind Visibility { get; init; } = VisibilityKind.Visible;
 
+    /// <summary>The gradient painted over this box's background colour, if any.</summary>
+    /// <remarks>
+    /// Parsed during the cascade and resolved against the box at paint time, since a corner
+    /// keyword's direction, the gradient line's length and a stop given in pixels all depend on the
+    /// box's size. Null for a value that is not a gradient this engine draws — a <c>url()</c>, a
+    /// repeating gradient, or a radial one carrying an explicit size — which is what
+    /// <see cref="UnsupportedCss"/> reports.
+    /// </remarks>
+    public CssGradient? BackgroundImage { get; init; }
+
     /// <summary>How opaque this box and its descendants are, from 0 to 1.</summary>
     /// <remarks>
     /// Not inherited, and not a fill alpha. The box and everything under it are drawn into a group

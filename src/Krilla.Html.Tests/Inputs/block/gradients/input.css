@@ -1,0 +1,36 @@
+div { width: 200px; height: 60px; margin-bottom: 8px; }
+
+#to-right { background-image: linear-gradient(to right, #c04040, #4060a0); }
+
+/* No direction, which is `to bottom` rather than `to right`. */
+#default { background-image: linear-gradient(#c04040, #4060a0); }
+
+/* An angle in a box that is not square, so the gradient line's length is a real question. */
+#angle { background-image: linear-gradient(45deg, #c04040, #4060a0); }
+
+/* Three stops, one placed off centre. */
+#stops { background-image: linear-gradient(to right, #c04040, #40a060 25%, #4060a0); }
+
+/* Two stops at the same position, which is a hard edge rather than a blend. */
+#hard { background-image: linear-gradient(to right, #c04040 50%, #4060a0 50%); }
+
+#radial { background-image: radial-gradient(circle, #c04040, #4060a0); }
+
+/* No shape given, which is an ellipse rather than a circle — so in a box three times as wide as
+   it is tall the gradient is stretched with it. */
+#ellipse { background-image: radial-gradient(#c04040, #4060a0); }
+
+/* Where the gradient's box is. CSS sizes it to the PADDING box and paints it out to the border
+   box, so the strip under the border carries the edge colour rather than continuing the ramp. */
+#padded {
+  padding: 10px;
+  border: 10px solid #806040;
+  background-image: linear-gradient(to right, #c04040, #4060a0);
+}
+
+/* A translucent gradient over a background COLOUR, which is what says the colour is painted first
+   and the image over it rather than one replacing the other. */
+#over-colour {
+  background-color: #40a060;
+  background-image: linear-gradient(to right, rgba(192, 64, 64, 1), rgba(192, 64, 64, 0));
+}

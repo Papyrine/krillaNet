@@ -167,7 +167,8 @@ public class DiagnosticTests
                 <div style="border-radius: 4px; border: 2px dashed red">b</div>
                 <div style="text-transform: full-width">f</div>
                 <div style="visibility: collapse">g</div>
-                <div style="background-image: linear-gradient(red, blue)">h</div>
+                <div style="background-image: url(missing.png)">h</div>
+                <div style="background-image: repeating-linear-gradient(red, blue 20px)">i</div>
                 """));
 
     /// <summary>
@@ -315,6 +316,8 @@ public class DiagnosticTests
             <div style="border: 3px dotted red; border-radius: 0">dotted</div>
             <div style="border-radius: 8px; background: silver">rounded</div>
             <div style="opacity: 0.4">faded</div>
+            <div style="background-image: linear-gradient(to right, red, blue)">ramped</div>
+            <div style="background-image: radial-gradient(circle, red, blue)">round</div>
             """);
 
         await Assert.That(reports).IsEmpty();

@@ -33,7 +33,6 @@ static class UnsupportedCss
         ("list-style-position", "outside", "the marker is drawn outside the item"),
         ("list-style-image", "none", "the counter style is drawn instead"),
         ("transform", "none", "painted untransformed"),
-        ("background-image", "none", "not painted"),
         ("font-variant", "normal", "the regular face is used"),
         ("font-stretch", "normal", "the regular face is used"),
         ("text-shadow", "none", "not painted"),
@@ -113,6 +112,7 @@ static class UnsupportedCss
         Breaks(declaration, name, sink);
         Hyphens(declaration, name, sink);
         Collapse(declaration, name, sink);
+        Background(declaration, name, style, sink);
         Casing(declaration, name, sink);
         Fixed(declaration, name, sink);
         Radius(declaration, name, style, sink);
@@ -174,6 +174,35 @@ static class UnsupportedCss
             {
                 Diagnostic.Property(sink, element, property, value!, reason);
             }
+        }
+    }
+
+    /// <summary>
+    /// A <c>background-image</c> that is not a gradient this engine draws.
+    /// </summary>
+    /// <remarks>
+    /// Asked of the resolved style rather than of the declaration, so the report follows exactly
+    /// what the painter can do: anything <see cref="CssGradient"/> parses is silent and anything
+    /// it returns null for is reported. That keeps the two from drifting as the accepted syntax
+    /// grows — a `url()`, a `repeating-` gradient, a `conic-gradient`, a radial one carrying an
+    /// explicit size, and a comma-separated stack of layers are all reported today.
+    /// </remarks>
+    static void Background(
+        ICssStyleDeclaration declaration,
+        string element,
+        ComputedStyle style,
+        Action<HtmlDiagnostic> sink)
+    {
+        if (style.BackgroundImage is not null)
+        {
+            return;
+        }
+
+        if (Set(declaration, "background-image") is {} value &&
+            value != "none" &&
+            !IsInitial(value))
+        {
+            Diagnostic.Property(sink, element, "background-image", value, "not painted");
         }
     }
 

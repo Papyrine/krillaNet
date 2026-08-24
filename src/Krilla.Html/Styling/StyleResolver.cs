@@ -88,6 +88,10 @@ static class StyleResolver
             // Inherited, so an absent declaration takes the parent's rather than zero.
             TextIndent = Length(declaration, "text-indent", fontSize, rootFontSize, parent.TextIndent),
             BackgroundColor = CssValues.ParseColor(declaration.GetPropertyValue("background-color")),
+            BackgroundImage = CssGradient.Parse(
+                declaration.GetPropertyValue("background-image"),
+                fontSize,
+                rootFontSize),
             Color = color,
             FontFamilies = families,
             FontSize = fontSize,

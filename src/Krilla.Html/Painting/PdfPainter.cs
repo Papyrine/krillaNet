@@ -564,28 +564,50 @@ static class PdfPainter
 
     static void PaintBackground(Surface surface, LayoutBox box)
     {
-        if (box.Style.BackgroundColor is not {} color)
-        {
-            return;
-        }
-
+        var style = box.Style;
         var rect = box.BorderBox;
+
         if (rect.Width <= 0 || rect.Height <= 0)
         {
             return;
         }
 
-        if (!box.Style.HasRadius)
+        // The colour first and the image over it: they are two layers of one background rather
+        // than alternatives, so a translucent gradient shows the colour through it.
+        if (style.BackgroundColor is {} color)
         {
-            surface.FillRectangle(Rectangle.FromSize(rect.X, rect.Y, rect.Width, rect.Height), color);
-            return;
+            Fill(Krilla.Paint.Solid(color));
         }
 
-        using var builder = new PathBuilder();
-        RoundedBox.Resolve(box.Style, rect).Trace(builder, rect, clockwise: true);
+        if (style.BackgroundImage is {} gradient)
+        {
+            // Sized to the PADDING box, which is `background-origin: padding-box`, and painted out
+            // to the border box below — so the two differ exactly when the box has a border, which
+            // is also the only time the browser's tiling of the image becomes visible.
+            Fill(GradientPaint.Create(
+                gradient,
+                rect.Deflate(style.BorderTop, style.BorderRight, style.BorderBottom, style.BorderLeft),
+                tiles: style.HasBorder));
+        }
 
-        using var path = builder.Build();
-        surface.SetFill(color).DrawPath(path);
+        void Fill(Krilla.Paint paint)
+        {
+            using var owned = paint;
+
+            if (!style.HasRadius)
+            {
+                using var rectangle = PdfPath.Rectangle(
+                    Rectangle.FromSize(rect.X, rect.Y, rect.Width, rect.Height));
+                surface.SetFill(owned).DrawPath(rectangle);
+                return;
+            }
+
+            using var builder = new PathBuilder();
+            RoundedBox.Resolve(style, rect).Trace(builder, rect, clockwise: true);
+
+            using var path = builder.Build();
+            surface.SetFill(owned).DrawPath(path);
+        }
     }
 
     /// <summary>
