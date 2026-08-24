@@ -51,14 +51,26 @@ static class TableLayout
         var style = table.Style;
         var grid = TableGrid.Build(table);
 
+        // Before anything measures a cell. The collapsing model rewrites every box's borders to
+        // half the line beside it, and the column algorithm sizes columns from cell border-box
+        // widths — so resolving afterwards would size the table with one set of borders and paint
+        // it with another.
+        var collapsed = CollapsedBorders.Resolve(grid, table);
+
+        // Re-read, because the resolve above may have replaced the table's own borders with the
+        // halves of its outer lines.
+        style = table.Style;
+
         var paddingLeft = style.PaddingLeft.Resolve(containingWidth);
         var paddingRight = style.PaddingRight.Resolve(containingWidth);
         var paddingTop = style.PaddingTop.Resolve(containingWidth);
         var paddingBottom = style.PaddingBottom.Resolve(containingWidth);
         var surround = paddingLeft + paddingRight + style.BorderWidthX;
 
-        var spacingX = style.BorderSpacingX;
-        var spacingY = style.BorderSpacingY;
+        // Collapsed tables have no spacing at all: the boundary a gap would sit in is where the
+        // shared line goes instead.
+        var spacingX = collapsed is null ? style.BorderSpacingX : 0;
+        var spacingY = collapsed is null ? style.BorderSpacingY : 0;
         // No columns means no edge spacing. The separated model puts a gap outside the first and
         // last column, and with neither of them there is nothing for a gap to be outside of — so an
         // empty table is empty rather than two pixels square.
@@ -129,6 +141,9 @@ static class TableLayout
 
         table.BorderBox = new(borderBoxX, y, borderBoxWidth, borderBoxHeight);
         table.ContentBox = new(contentX, contentY, contentWidth, contentHeight);
+
+        // After placement, since every line is centred on a boundary two placed cells share.
+        table.CollapsedLines = collapsed?.Lines(grid);
 
         return borderBoxHeight;
     }

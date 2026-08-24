@@ -77,7 +77,7 @@ public class Samples
         options.OnDiagnostic = diagnostic => Console.WriteLine(diagnostic);
 
         // <div> display: flex — laid out as a block
-        // <table> border-collapse: collapse — laid out with the separated border model
+        // <div> column-count: 2 — laid out in one column
         // <p> align: left — not applied, because presentational attributes are not mapped onto the cascade
         // <img> src: logo.png — did not resolve to an image, so no box was generated
 
@@ -92,9 +92,7 @@ public class Samples
         HtmlConverter.Convert(
             """
             <div style="display: flex">Flexed</div>
-            <table style="border-collapse: collapse">
-              <tr><td>Cell</td></tr>
-            </table>
+            <div style="column-count: 2">Columned</div>
             <p align="left">Aligned</p>
             <img src="logo.png">
             """,
@@ -103,7 +101,7 @@ public class Samples
         await Assert.That(reported).IsEquivalentTo(
         [
             "<div> display: flex — laid out as a block",
-            "<table> border-collapse: collapse — laid out with the separated border model",
+            "<div> column-count: 2 — laid out in one column",
             "<p> align: left — not applied, because presentational attributes are not mapped onto the cascade",
             "<img> src: logo.png — did not resolve to an image, so no box was generated"
         ]);

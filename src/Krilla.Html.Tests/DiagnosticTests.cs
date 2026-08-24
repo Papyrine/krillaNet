@@ -322,6 +322,9 @@ public class DiagnosticTests
             <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAIAAAB7QOjdAAAAD0lEQVR4nGM8YWPDwMAAAAbaAUIi0kNIAAAAAElFTkSuQmCC" style="object-fit: cover" alt="">
             <table style="caption-side: bottom"><caption>below</caption><tr><td>a</td></tr></table>
             <ul style="list-style-position: inside"><li>inside</li></ul>
+            <table style="border-collapse: collapse; border: 2px solid red">
+              <tr><td style="border: 1px solid blue">a</td><td>b</td></tr>
+            </table>
             <div style="background-image: linear-gradient(to right, red, blue)">ramped</div>
             <div style="background-image: radial-gradient(circle, red, blue)">round</div>
             <div style="transform: rotate(15deg) scale(1.2); transform-origin: top left">turned</div>
@@ -345,13 +348,15 @@ public class DiagnosticTests
         var reports = Collect(
             """
             <div style="box-shadow: 0 0 4px #000">shadowed</div>
-            <table style="border-collapse: collapse"><tr><td>a</td></tr></table>
+            <table style="border-collapse: collapse">
+              <tr><td style="border-left-style: hidden">a</td></tr>
+            </table>
             """);
 
         await Assert.That(reports.Select(_ => _.ToString()))
             .Contains(_ => _.Contains("box-shadow"))
             .And
-            .Contains(_ => _.Contains("border-collapse"));
+            .Contains(_ => _.Contains("hidden"));
     }
 
     static List<HtmlDiagnostic> Collect(string body, string? css = null)

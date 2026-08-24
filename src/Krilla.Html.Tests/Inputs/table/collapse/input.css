@@ -1,0 +1,26 @@
+table { margin-bottom: 10px; font-size: 16px; line-height: 24px; }
+td { padding: 6px; width: 80px; }
+
+/* Adjacent cells share one edge rather than each drawing its own, so the line between two 2px
+   borders is 2px and not 4px, and `border-spacing` stops applying. */
+#basic { border-collapse: collapse; }
+#basic td { border: 2px solid #c04040; }
+
+/* A wider border wins the shared edge outright, whatever its neighbour asked for. */
+#widths { border-collapse: collapse; }
+#widths td { border: 2px solid #c04040; }
+#widths .thick { border: 6px solid #4060a0; }
+
+/* The table's own border against its cells', which it wins on width. */
+#frame { border-collapse: collapse; border: 4px solid #40a060; }
+#frame td { border: 2px solid #c04040; }
+
+/* An ODD width, so each half lands on a half pixel. Two cells each painting their own half would
+   seam down the middle of every line; one line painted once does not. */
+#odd { border-collapse: collapse; }
+#odd td { border: 3px solid #806040; }
+
+/* The same markup under the separated model, so the difference between them is the measurement
+   rather than the look of either. */
+#separate { border-collapse: separate; border-spacing: 4px; }
+#separate td { border: 2px solid #c04040; }

@@ -29,7 +29,6 @@ static class UnsupportedCss
     /// </summary>
     static readonly (string Property, string NoOp, string Reason)[] ignored =
     [
-        ("border-collapse", "separate", "laid out with the separated border model"),
         ("list-style-image", "none", "the counter style is drawn instead"),
         ("font-variant", "normal", "the regular face is used"),
         ("font-stretch", "normal", "the regular face is used"),
@@ -110,6 +109,7 @@ static class UnsupportedCss
         Hyphens(declaration, name, sink);
         Collapse(declaration, name, sink);
         Outline(declaration, name, sink);
+        HiddenEdge(declaration, name, style, sink);
         Background(declaration, name, style, sink);
         Transform(declaration, name, style, sink);
         Casing(declaration, name, sink);
@@ -172,6 +172,50 @@ static class UnsupportedCss
             if (reason is not null)
             {
                 Diagnostic.Property(sink, element, property, value!, reason);
+            }
+        }
+    }
+
+    /// <summary>
+    /// <c>border-style: hidden</c> inside a collapsed table, which does not suppress its
+    /// neighbour's border.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The one thing the collapsing model does that this engine cannot. CSS gives <c>hidden</c>
+    /// absolute priority over every other border at a shared edge — it wins even against a wider
+    /// one — which is how a table hides an internal rule without touching the cells around it.
+    /// </para>
+    /// <para>
+    /// It cannot be honoured because <see cref="StyleResolver"/> folds <c>none</c> and
+    /// <c>hidden</c> into a zero width before anything downstream sees them, so by the time the
+    /// edges are resolved a hidden border is indistinguishable from an absent one and simply loses
+    /// on width. Silent everywhere else, because outside a collapsed table the two really are the
+    /// same thing.
+    /// </para>
+    /// </remarks>
+    static void HiddenEdge(
+        ICssStyleDeclaration declaration,
+        string element,
+        ComputedStyle style,
+        Action<HtmlDiagnostic> sink)
+    {
+        if (style.BorderCollapse != BorderCollapseKind.Collapse)
+        {
+            return;
+        }
+
+        foreach (var side in sides)
+        {
+            if (Set(declaration, $"border-{side}-style") is "hidden")
+            {
+                Diagnostic.Property(
+                    sink,
+                    element,
+                    "border-style",
+                    "hidden",
+                    "the neighbouring border is drawn anyway");
+                return;
             }
         }
     }

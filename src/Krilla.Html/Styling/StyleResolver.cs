@@ -73,6 +73,11 @@ static class StyleResolver
             OutlineWidth = OutlineWidth(declaration, fontSize, rootFontSize),
             OutlineColor = CssValues.ParseColor(declaration.GetPropertyValue("outline-color")) ?? color,
             OutlineOffset = Length(declaration, "outline-offset", fontSize, rootFontSize).Resolve(0),
+            BorderCollapse = declaration.GetPropertyValue("border-collapse")
+                .Trim()
+                .Equals("collapse", StringComparison.OrdinalIgnoreCase)
+                ? BorderCollapseKind.Collapse
+                : parent.BorderCollapse,
             CaptionSide = declaration.GetPropertyValue("caption-side")
                 .Trim()
                 .Equals("bottom", StringComparison.OrdinalIgnoreCase)

@@ -365,6 +365,16 @@ enum BoxSizingKind
     BorderBox
 }
 
+/// <summary>Whether a table's cells share their borders.</summary>
+enum BorderCollapseKind
+{
+    /// <summary>Each cell draws its own border, separated by <c>border-spacing</c>.</summary>
+    Separate,
+
+    /// <summary>Adjacent cells share one line, and there is no spacing.</summary>
+    Collapse
+}
+
 /// <summary>Which side of a table its caption sits on.</summary>
 enum CaptionSideKind
 {
@@ -501,6 +511,14 @@ sealed record ComputedStyle
 
     /// <summary>How far outside the border edge the outline sits.</summary>
     public float OutlineOffset { get; init; }
+
+    /// <summary>Whether this table's cells share their borders.</summary>
+    /// <remarks>
+    /// Inherited, which CSS specifies and which matters here: it is declared on the table and read
+    /// on the cells, both by <see cref="CollapsedBorders"/> and by the diagnostic that reports a
+    /// <c>hidden</c> border a collapsed table cannot honour.
+    /// </remarks>
+    public BorderCollapseKind BorderCollapse { get; init; }
 
     /// <summary>Which side of the table the caption sits on.</summary>
     public CaptionSideKind CaptionSide { get; init; }

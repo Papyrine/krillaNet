@@ -334,6 +334,7 @@ static class PdfPainter
         {
             PaintBackground(surface, box);
             PaintBorders(surface, box);
+            PaintCollapsedLines(surface, box);
             PaintOutline(surface, box);
         }
 
@@ -345,6 +346,38 @@ static class PdfPainter
         foreach (var child in InFlow(box))
         {
             Backgrounds(surface, child, page);
+        }
+    }
+
+    /// <summary>
+    /// Draws a collapsed table's grid lines, which belong to the table rather than to its cells.
+    /// </summary>
+    /// <remarks>
+    /// One rectangle per line, drawn once. Letting the two boxes either side each paint their own
+    /// half seams at any odd width — 3px gives two 1.5px halves meeting on a half pixel, which
+    /// antialiases into a visible join down the middle of every line. <c>table/collapse</c> keeps a
+    /// 3px table for exactly that reason.
+    ///
+    /// With the backgrounds and borders, not with the cells' content: a grid line is the table's
+    /// own decoration, and a cell whose text overflows should sit over it the way it sits over any
+    /// other background.
+    /// </remarks>
+    static void PaintCollapsedLines(Surface surface, LayoutBox box)
+    {
+        if (box.CollapsedLines is not {Count: > 0} lines)
+        {
+            return;
+        }
+
+        foreach (var line in lines)
+        {
+            surface.FillRectangle(
+                Rectangle.FromSize(
+                    line.Bounds.X,
+                    line.Bounds.Y,
+                    line.Bounds.Width,
+                    line.Bounds.Height),
+                line.Color);
         }
     }
 

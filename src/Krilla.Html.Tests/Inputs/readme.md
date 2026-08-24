@@ -29,8 +29,8 @@ toolchain. Zero means the box tree agrees with Chrome exactly.
 
 **Pixels** are AbsoluteError and SSIM against the printed reference.
 
-Boxes sit at zero across the whole corpus: all 98 scenarios match Chrome's geometry exactly. Pixels
-are close behind — 67 read SSIM 1.0000 and 46 are identical outright.
+Boxes sit at zero across the whole corpus: all 99 scenarios match Chrome's geometry exactly. Pixels
+are close behind — 68 read SSIM 1.0000 and 47 are identical outright.
 
 Four defects reached that state rather than starting there, each found by the scenario named for
 it: `block/anonymous` hoisted trailing inline content above a block sibling, `position/fixed`

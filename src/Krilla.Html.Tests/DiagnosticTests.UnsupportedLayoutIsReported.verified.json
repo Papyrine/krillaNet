@@ -18,12 +18,6 @@
     "Reason": "placed once rather than repeated on every page"
   },
   {
-    "Element": "table",
-    "Name": "border-collapse",
-    "Value": "collapse",
-    "Reason": "laid out with the separated border model"
-  },
-  {
     "Element": "p",
     "Name": "hyphens",
     "Value": "auto",

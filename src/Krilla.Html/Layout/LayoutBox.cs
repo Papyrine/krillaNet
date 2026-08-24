@@ -40,7 +40,12 @@ readonly record struct Rect(float X, float Y, float Width, float Height)
 sealed class LayoutBox
 {
     /// <summary>The resolved style for this box.</summary>
-    public required ComputedStyle Style { get; init; }
+    /// <remarks>
+    /// Settable, and only one caller uses that: <see cref="CollapsedBorders"/> rewrites a table's
+    /// boxes to the halved borders the collapsing model gives them, before anything measures one.
+    /// Everything else treats it as fixed from construction.
+    /// </remarks>
+    public required ComputedStyle Style { get; set; }
 
     /// <summary>
     /// The element this box came from, or null for an anonymous box.
@@ -87,6 +92,15 @@ sealed class LayoutBox
     /// geometry the corpus compares against.
     /// </remarks>
     public ListMarker? Marker { get; init; }
+
+    /// <summary>
+    /// The grid lines a collapsed table paints, or null for every other box.
+    /// </summary>
+    /// <remarks>
+    /// Held on the table rather than on the cells because a line belongs to the boundary and not to
+    /// either box beside it — two cells each painting their half seams at any odd width.
+    /// </remarks>
+    public List<CollapsedLine>? CollapsedLines { get; set; }
 
     /// <summary>Child boxes, in document order.</summary>
     public List<LayoutBox> Children { get; } = [];
