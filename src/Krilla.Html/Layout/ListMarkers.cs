@@ -33,6 +33,15 @@ static class ListMarkers
     const int symbolPadding = 7;
 
     /// <summary>
+    /// The gap an outside marker leaves between itself and the item's border edge.
+    /// </summary>
+    /// <remarks>
+    /// Read by <see cref="InlineLayout"/> for a marker IMAGE, which is placed the same way and so
+    /// must not carry a second copy of the number.
+    /// </remarks>
+    public const int MarkerGap = symbolPadding;
+
+    /// <summary>
     /// What a counter marker has appended to it: a full stop and a space.
     /// </summary>
     /// <remarks>

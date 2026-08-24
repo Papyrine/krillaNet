@@ -29,7 +29,6 @@ static class UnsupportedCss
     /// </summary>
     static readonly (string Property, string NoOp, string Reason)[] ignored =
     [
-        ("list-style-image", "none", "the counter style is drawn instead"),
         ("font-variant", "normal", "the regular face is used"),
         ("font-stretch", "normal", "the regular face is used"),
         ("text-shadow", "none", "not painted"),
@@ -110,6 +109,7 @@ static class UnsupportedCss
         Wrapping(declaration, name, sink);
         Tabs(declaration, name, sink);
         Decoration(declaration, name, sink);
+        Marker(declaration, name, style, sink);
         Collapse(declaration, name, sink);
         Outline(declaration, name, sink);
         HiddenEdge(declaration, name, style, sink);
@@ -486,6 +486,35 @@ static class UnsupportedCss
             !CssValues.TryParseNumber(value, out _))
         {
             Diagnostic.Property(sink, element, "tab-size", value, "tab stops are a multiple of the space advance");
+        }
+    }
+
+    /// <summary>
+    /// A <c>list-style-image</c> that did not resolve, where the counter style is drawn instead.
+    /// </summary>
+    /// <remarks>
+    /// Asked of the resolved style, like the background reporters, so an image that loaded is
+    /// silent and one the policy refused reports. The fallback is what a browser does, so the
+    /// report is about the picture being absent rather than about the marker being wrong — but it
+    /// is still worth saying, since a document whose bullets are a brand asset renders with plain
+    /// discs and nothing else would say why.
+    /// </remarks>
+    static void Marker(
+        ICssStyleDeclaration declaration,
+        string element,
+        ComputedStyle style,
+        Action<HtmlDiagnostic> sink)
+    {
+        if (style.MarkerImage is not null)
+        {
+            return;
+        }
+
+        if (Set(declaration, "list-style-image") is {} value &&
+            value != "none" &&
+            !IsInitial(value))
+        {
+            Diagnostic.Property(sink, element, "list-style-image", value, "the counter style is drawn instead");
         }
     }
 

@@ -44,7 +44,13 @@ public class DiagnosticTests
         // on. The scenario is a single page, so the unimplemented half is a no-op there and the
         // geometry is exact — but the report is about the construct, and the reporter cannot know
         // the page count from the cascade.
-        "position/fixed"
+        "position/fixed",
+
+        // A row that deliberately names an image which does not exist, to measure the fallback to
+        // the counter style. The fallback is exactly what a browser does, so the RENDER is right
+        // and the report is still wanted: from the resolved style, an image the policy refused and
+        // an image that is simply absent are the same null, and the first is worth hearing about.
+        "block/list_image"
     ];
 
     /// <summary>

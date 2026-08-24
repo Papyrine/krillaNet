@@ -1,0 +1,18 @@
+img {
+  display: block; width: 160px; height: 60px; margin-bottom: 6px;
+  background-color: #dde6f2; object-fit: none;
+}
+
+/* The initial value, stated so the rows below have something to differ from. */
+#centre { object-position: 50% 50%; }
+
+#topleft { object-position: left top; }
+#bottomright { object-position: right bottom; }
+#lengths { object-position: 20px 8px; }
+
+/* A percentage aligns that fraction of the CONTENT with the same fraction of the box, the same
+   rule background-position follows. */
+#proportional { object-position: 25% 75%; }
+
+/* With a fit that overflows, the position decides which part of the image survives the clip. */
+#covered { object-fit: cover; object-position: right bottom; }

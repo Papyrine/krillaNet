@@ -87,6 +87,9 @@ static class StyleResolver
                 declaration.GetPropertyValue("list-style-position"),
                 parent.ListStylePosition),
             ObjectFit = ParseObjectFit(declaration.GetPropertyValue("object-fit")),
+            ObjectPositionX = Position(declaration, "object-position", fontSize, root, horizontal: true),
+            ObjectPositionY = Position(declaration, "object-position", fontSize, root, horizontal: false),
+            HideEmptyCells = EmptyCells(declaration, parent.HideEmptyCells),
             BorderTopStyle = BorderStyle(declaration, "top"),
             BorderRightStyle = BorderStyle(declaration, "right"),
             BorderBottomStyle = BorderStyle(declaration, "bottom"),
@@ -109,13 +112,14 @@ static class StyleResolver
                 declaration.GetPropertyValue("background-image"),
                 fontSize,
                 root),
-            BackgroundPicture = Picture(declaration, context),
+            BackgroundPicture = Picture(declaration, context, "background-image"),
+            MarkerImage = Picture(declaration, context, "list-style-image") ?? parent.MarkerImage,
             BackgroundClip = Area(declaration, "background-clip", BoxArea.Border),
             BackgroundOrigin = Area(declaration, "background-origin", BoxArea.Padding),
             BackgroundRepeatX = Repeats(declaration, horizontal: true),
             BackgroundRepeatY = Repeats(declaration, horizontal: false),
-            BackgroundPositionX = Position(declaration, fontSize, root, horizontal: true),
-            BackgroundPositionY = Position(declaration, fontSize, root, horizontal: false),
+            BackgroundPositionX = Position(declaration, "background-position", fontSize, root, horizontal: true),
+            BackgroundPositionY = Position(declaration, "background-position", fontSize, root, horizontal: false),
             BackgroundSize = Sizing(declaration),
             BackgroundSizeX = SizeComponent(declaration, fontSize, root, first: true),
             BackgroundSizeY = SizeComponent(declaration, fontSize, root, first: false),
@@ -475,9 +479,9 @@ static class StyleResolver
     /// resolve comes back null and is reported by <see cref="UnsupportedCss"/> like any other
     /// background this engine cannot paint.
     /// </remarks>
-    static ImageData? Picture(ICssStyleDeclaration declaration, DocumentContext context)
+    static ImageData? Picture(ICssStyleDeclaration declaration, DocumentContext context, string property)
     {
-        var value = declaration.GetPropertyValue("background-image").AsSpan().Trim();
+        var value = declaration.GetPropertyValue(property).AsSpan().Trim();
 
         if (!value.StartsWith("url(", StringComparison.OrdinalIgnoreCase) || !value.EndsWith(")"))
         {
@@ -531,15 +535,19 @@ static class StyleResolver
     /// </remarks>
     static CssLength Position(
         ICssStyleDeclaration declaration,
+        string property,
         float fontSize,
         CssRoot root,
         bool horizontal)
     {
-        var value = declaration.GetPropertyValue("background-position").Trim().ToLowerInvariant();
+        var value = declaration.GetPropertyValue(property).Trim().ToLowerInvariant();
 
         if (value.Length == 0)
         {
-            return CssLength.Zero;
+            // The two properties have different initial values — a background starts at the near
+            // edge and a replaced element's content is centred — so the fallback follows the one
+            // being read rather than a shared default.
+            return property == "object-position" ? CssLength.Percentage(50) : CssLength.Zero;
         }
 
         var parts = value.Split(' ', StringSplitOptions.RemoveEmptyEntries);
@@ -557,6 +565,15 @@ static class StyleResolver
             _ => CssValues.ParseLength(part, fontSize, root, CssLength.Zero)
         };
     }
+
+    /// <summary>Whether an empty table cell paints nothing. Inherited.</summary>
+    static bool EmptyCells(ICssStyleDeclaration declaration, bool inherited) =>
+        declaration.GetPropertyValue("empty-cells").Trim().ToLowerInvariant() switch
+        {
+            "hide" => true,
+            "show" => false,
+            _ => inherited
+        };
 
     /// <summary>How the background image is scaled before tiling.</summary>
     static BackgroundSizing Sizing(ICssStyleDeclaration declaration) =>

@@ -682,6 +682,41 @@ sealed record ComputedStyle
     /// <summary>The declared height under <see cref="BackgroundSizing.Explicit"/>.</summary>
     public CssLength BackgroundSizeY { get; init; } = CssLength.Auto;
 
+    /// <summary>
+    /// An image standing in for this list item's marker, or null.
+    /// </summary>
+    /// <remarks>
+    /// Inherited, like the rest of the <c>list-style</c> family, so it is set on the list and read
+    /// on the items. Null when the source did not resolve, which is what makes the counter style
+    /// the fallback rather than an empty marker — measured: Chrome draws the square a
+    /// <c>list-style-type</c> asked for when the image behind it is missing.
+    /// </remarks>
+    public ImageData? MarkerImage { get; init; }
+
+    /// <summary>Where a replaced element's content sits inside its box.</summary>
+    /// <remarks>
+    /// The same rule <see cref="BackgroundPositionX"/> follows, and measured to be exactly that: a
+    /// percentage aligns that fraction of the content with the same fraction of the box, so
+    /// <c>25%</c> of the 96px left over is 24px. It applies AFTER
+    /// <see cref="ObjectFit"/> has decided the content's size, so under <c>cover</c> the offsets go
+    /// negative and choose which part survives the clip.
+    /// </remarks>
+    public CssLength ObjectPositionX { get; init; } = CssLength.Percentage(50);
+
+    /// <summary>Where a replaced element's content sits vertically.</summary>
+    public CssLength ObjectPositionY { get; init; } = CssLength.Percentage(50);
+
+    /// <summary>
+    /// Whether an empty table cell paints nothing, from <c>empty-cells: hide</c>.
+    /// </summary>
+    /// <remarks>
+    /// Inherited, and read on the cell — which is how a declaration on the table reaches its cells,
+    /// the same route <c>vertical-align: middle</c> takes. It hides the ink and nothing else: the
+    /// cell keeps its place in the grid and the rows do not close up, so the geometry comparison
+    /// confirms the property by staying still.
+    /// </remarks>
+    public bool HideEmptyCells { get; init; }
+
     /// <summary>Which side of the table the caption sits on.</summary>
     public CaptionSideKind CaptionSide { get; init; }
 

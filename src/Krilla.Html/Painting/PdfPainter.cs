@@ -330,7 +330,8 @@ static class PdfPainter
         // Bounding only the lines is what left a table row moved overleaf with a sliver of its
         // cell backgrounds stranded at the foot of the page before. `page/table_break` measures it.
         if (box.BorderBox.Y < page.End &&
-            box.Style.Visibility == VisibilityKind.Visible)
+            box.Style.Visibility == VisibilityKind.Visible &&
+            !Suppressed(box))
         {
             PaintBackground(surface, box);
             PaintBorders(surface, box);
@@ -670,7 +671,7 @@ static class PdfPainter
             box.BorderBox.Y < page.End &&
             box.Style.Visibility == VisibilityKind.Visible)
         {
-            PaintReplaced(surface, replaced, box.ContentBox, box.Style.ObjectFit);
+            PaintReplaced(surface, replaced, box.ContentBox, box.Style);
         }
 
         if (box.Style.Visibility == VisibilityKind.Visible)
@@ -955,6 +956,29 @@ static class PdfPainter
             }
         }
     }
+
+    /// <summary>
+    /// Whether <c>empty-cells: hide</c> keeps this box's background and border off the page.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// It suppresses the INK and nothing else. The cell keeps its place in the grid and the rows do
+    /// not close up, which is what makes the geometry comparison confirm the property by staying
+    /// still — and it is the whole difference from <c>display: none</c>.
+    /// </para>
+    /// <para>
+    /// Empty means no box and no line was generated, which is exactly what a cell holding only
+    /// white space produces: collapsible white space generates no inline content, so the cell comes
+    /// out indistinguishable from one written with nothing in it. Measured, and what Chrome does.
+    /// </para>
+    /// </remarks>
+    static bool Suppressed(LayoutBox box) =>
+        box.Style is {Display: DisplayKind.TableCell, HideEmptyCells: true} &&
+        box.Children.Count == 0 &&
+        box.Lines.Count == 0 &&
+        box.Floats.Count == 0 &&
+        box.Positioned.Count == 0 &&
+        box.Image is null;
 
     /// <summary>One of a box's three nested rectangles.</summary>
     static Rect Area(LayoutBox box, BoxArea area)
@@ -1444,8 +1468,10 @@ static class PdfPainter
     /// push in the PDF — and <c>fill</c> and <c>contain</c> never need one.
     /// </para>
     /// </remarks>
-    static void PaintReplaced(Surface surface, ImageData image, Rect content, ObjectFitKind fit)
+    static void PaintReplaced(Surface surface, ImageData image, Rect content, ComputedStyle style)
     {
+        var fit = style.ObjectFit;
+
         if (fit == ObjectFitKind.Fill || image.Width <= 0 || image.Height <= 0)
         {
             PaintImage(surface, image, content);
@@ -1467,8 +1493,8 @@ static class PdfPainter
         var height = image.Height * scale;
 
         var bounds = new Rect(
-            content.X + (content.Width - width) / 2,
-            content.Y + (content.Height - height) / 2,
+            content.X + Place(style.ObjectPositionX, content.Width, width),
+            content.Y + Place(style.ObjectPositionY, content.Height, height),
             width,
             height);
 

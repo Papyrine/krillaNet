@@ -1,0 +1,7 @@
+ul { margin: 0 0 10px 0; padding-left: 90px; font-size: 16px; line-height: 24px; }
+li { background-color: #eef2f8; }
+
+#image { list-style-image: url("../../image/swatch.png"); }
+#inside { list-style-image: url("../../image/swatch.png"); list-style-position: inside; }
+#missing { list-style-image: url("nothing-here.png"); list-style-type: square; }
+#symbol { list-style-type: disc; }

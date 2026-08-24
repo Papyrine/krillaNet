@@ -1,0 +1,12 @@
+table { border-collapse: separate; border-spacing: 4px; margin-bottom: 10px; }
+td { width: 50px; height: 24px; border: 2px solid #204080; background-color: #cfd8e8; }
+
+/* The initial value: an empty cell is drawn like any other. */
+#shown { empty-cells: show; }
+
+/* Hidden: an empty cell draws neither its border nor its background, and still occupies its
+   space — the grid does not close up. */
+#hidden { empty-cells: hide; }
+
+/* Whitespace-only content still counts as empty, since no box is generated for it. */
+#whitespace { empty-cells: hide; }

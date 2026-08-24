@@ -626,9 +626,21 @@ static class InlineLayout
                     contentWidth,
                     item.Style.SurroundX(contentWidth),
                     item.Style.SurroundY(contentWidth));
+                // A marker image is measured differently from an ordinary inline image, and the
+                // two placements differ again. OUTSIDE takes no advance at all — the line starts
+                // where it would have without one and the image is drawn back beyond that. INSIDE
+                // takes its own width plus the marker gap, which is the same seven pixels an
+                // outside marker leaves and was measured on both.
+                var advance = item.Marker switch
+                {
+                    MarkerPlacement.Outside => 0,
+                    MarkerPlacement.Inside => image.Width + ListMarkers.MarkerGap,
+                    _ => width
+                };
+
                 tokens.Add(new(
-                    item.Style, face, width, TokenKind.Replaced, image, height, item.Selector,
-                    item.Link, BreaksBefore: true));
+                    item.Style, face, advance, TokenKind.Replaced, image, height,
+                    item.Selector, item.Link, BreaksBefore: true, Marker: item.Marker));
                 breakable = true;
                 continue;
             }
@@ -1035,12 +1047,18 @@ static class InlineLayout
             // edge sits on the baseline.
             if (tokens[runStart] is {Kind: TokenKind.Replaced, Image: {} image} replaced)
             {
+                // An outside marker sits its own width to the left of the line, with the same gap
+                // a symbol marker leaves — the same constant, because it is the same gap.
+                var left = replaced.Marker == MarkerPlacement.Outside
+                    ? x - image.Width - ListMarkers.MarkerGap
+                    : x;
+
                 line.Images.Add(new(
                     image,
                     new(
-                        x,
+                        left,
                         y + above + shifts[runStart] - replaced.Height,
-                        replaced.Width,
+                        replaced.Marker == MarkerPlacement.None ? replaced.Width : image.Width,
                         replaced.Height),
                     replaced.Selector));
 
@@ -1436,6 +1454,7 @@ static class InlineLayout
         float MinWidth = 0,
         bool BreaksBefore = false,
         bool HyphenAfter = false,
+        MarkerPlacement Marker = MarkerPlacement.None,
         IReadOnlyList<InlineBackdrop>? Backdrops = null,
         InlineEdgeKind Edge = InlineEdgeKind.None);
 }

@@ -262,6 +262,24 @@ sealed class LayoutBox
 /// </param>
 readonly record struct FloatChild(LayoutBox Box, int Index);
 
+/// <summary>Whether an inline image is a list marker, and where it sits.</summary>
+enum MarkerPlacement
+{
+    /// <summary>Not a marker: an ordinary inline image.</summary>
+    None,
+
+    /// <summary>
+    /// Outside the item's border edge. It takes no advance and is drawn back beyond where the line
+    /// starts, while still contributing its height.
+    /// </summary>
+    Outside,
+
+    /// <summary>
+    /// At the start of the item's first line, taking its own width plus the marker gap.
+    /// </summary>
+    Inside
+}
+
 /// <summary>Which end of an inline element a marker item stands for.</summary>
 enum InlineEdgeKind
 {
@@ -305,6 +323,11 @@ enum InlineEdgeKind
 /// The styles of the inline ANCESTORS that paint a background over this item, outermost first.
 /// Null when there are none, which is nearly always.
 /// </param>
+/// <param name="Marker">
+/// Set on the image standing in for a list marker. Either way it contributes its height, which is
+/// measured: a 32px image marker grows a 24px item to 39px, exactly as an atomic inline of that
+/// height would. The two placements differ in the advance they take.
+/// </param>
 /// <param name="Edge">
 /// Set when this item is not content at all but the opening or closing edge of an inline element
 /// carrying padding or a border. Emitted only for an element that has one, so a document full of
@@ -319,7 +342,8 @@ sealed record InlineItem(
     string? Link = null,
     LayoutBox? Box = null,
     IReadOnlyList<ComputedStyle>? Backdrops = null,
-    InlineEdgeKind Edge = InlineEdgeKind.None);
+    InlineEdgeKind Edge = InlineEdgeKind.None,
+    MarkerPlacement Marker = MarkerPlacement.None);
 
 /// <summary>
 /// An inline element enclosing a run that is not its own text.

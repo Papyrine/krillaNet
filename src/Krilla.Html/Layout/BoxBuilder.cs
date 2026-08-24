@@ -50,6 +50,31 @@ static class BoxBuilder
             Collect(node, style, context, blocks, inlines, floats, positioned, link, numbering);
         }
 
+        // A marker IMAGE is inline content rather than a marker drawn beside the item, which is
+        // what makes it grow the item's first line: a 32px image takes a 24px item to 39px, exactly
+        // as an atomic inline of that height does. Prepended here, before the runs are closed, so
+        // it lands on the item's own first line.
+        //
+        // Only when the item has inline content of its own. An item whose whole content is a block
+        // has no line here to hang it from, and `Marker` has already given it a counter marker to
+        // fall back to.
+        if (box.Marker is null &&
+            style.Display == DisplayKind.ListItem &&
+            style.MarkerImage is {} marker &&
+            inlines.Count > 0)
+        {
+            inlines.Insert(
+                0,
+                new(
+                    "",
+                    style,
+                    null,
+                    Image: marker,
+                    Marker: style.ListStylePosition == ListStylePositionKind.Inside
+                        ? MarkerPlacement.Inside
+                        : MarkerPlacement.Outside));
+        }
+
         // A run with no block after it never met a boundary to be closed at. Only when a block
         // turned up at all: with none, the container is all-inline and the runs stay runs.
         if (blocks.Count > 0)
@@ -598,6 +623,15 @@ static class BoxBuilder
         var ordinal = numbering.Take(element);
 
         if (style.ListStyle == ListStyleKind.None)
+        {
+            return null;
+        }
+
+        // A marker image replaces the counter style entirely, and is drawn as inline content by
+        // `AddChildren` rather than as a marker here. It falls back to this when the source did not
+        // resolve — measured, and the reason the check is on the RESOLVED image rather than on the
+        // declaration.
+        if (style.MarkerImage is not null)
         {
             return null;
         }

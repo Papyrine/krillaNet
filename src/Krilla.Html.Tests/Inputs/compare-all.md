@@ -1,4 +1,4 @@
-# All scenarios (109)
+# All scenarios (112)
 
 The browser reference (left) beside the page Krilla.Html produced (right). `AE` is the fraction of pixels that differ and `SSIM` is structural similarity; neither is asserted. The worst offset is the largest positional disagreement in CSS pixels between the rendered element geometry and the browser's, and is the number to watch — it reaches zero exactly when the layout is right.
 
@@ -17,6 +17,7 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [block/box_sizing](#block-box_sizing)
 - [block/calc](#block-calc)
 - [block/gradients](#block-gradients)
+- [block/list_image](#block-list_image)
 - [block/list_position](#block-list_position)
 - [block/margin_collapse](#block-margin_collapse)
 - [block/margin_collapse_blocked](#block-margin_collapse_blocked)
@@ -46,6 +47,7 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [image/intrinsic](#image-intrinsic)
 - [image/max_width](#image-max_width)
 - [image/object_fit](#image-object_fit)
+- [image/object_position](#image-object_position)
 - [image/percent_width](#image-percent_width)
 - [image/sized](#image-sized)
 - [inline/backgrounds](#inline-backgrounds)
@@ -91,6 +93,7 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [table/caption_side](#table-caption_side)
 - [table/collapse](#table-collapse)
 - [table/empty](#table-empty)
+- [table/empty_cells](#table-empty_cells)
 - [table/fixed_layout](#table-fixed_layout)
 - [table/hyphen_columns](#table-hyphen_columns)
 - [table/sections](#table-sections)
@@ -550,6 +553,52 @@ border strips of `#padded`, which are where the tiling does.
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0500 · SSIM 0.9999** |
 | <img src="block/gradients/reference_0001.png" width="480"> | <img src="block/gradients/result%23page_0001.verified.png" width="480"> |
+
+
+## block/list_image
+
+# block/list_image
+
+`list-style-image` was in the table of properties the engine does not read at all, and closing it
+turned out to be a layout change rather than a painting one. The measurement said so immediately:
+an item whose marker is a 32px image is **39px tall**, not 24. The marker is an atomic inline on the
+item's first line, bottom edge on the baseline, so it grows the line exactly as an inline image of
+that height does — 32 above the baseline plus the strut's 7 below.
+
+That is why the image is prepended to the item's own inline content rather than handed to
+`ListMarkers` like a symbol or a counter. A marker drawn beside the item could not have grown it.
+
+The two placements differ only in the advance they take, and both numbers were measured:
+
+- **`outside`** takes none. The line starts where it would have with no marker, and the image is
+  drawn back beyond that, its right edge held clear of the item's border edge by the same **seven
+  pixels** a symbol marker leaves. It is the same constant, because it is the same gap — checked by
+  putting `#symbol` in the scenario and finding its bullet's right edge at the same place.
+- **`inside`** takes its own width PLUS that gap. Reading it as the width alone is off by seven
+  pixels, and the pixels invite that mistake: the item's background becomes visible
+  exactly at the image's right edge, so the image looks like the whole advance until the text is
+  measured instead of the fill.
+
+`#missing` names an image that does not resolve, and Chrome draws the `list-style-type` behind it —
+a square here. So the fallback is on the RESOLVED image rather than on the declaration, which is
+also what makes the counter style worth keeping in the box tree at all.
+
+An item whose entire content is a block has no line here to hang a marker from, and keeps the
+counter marker it would have had. That is a limitation rather than a rule: a browser puts the marker
+on the first line wherever it is, including inside a nested block.
+
+**Residual**: SSIM 0.9999, and every differing pixel is a glyph edge or the antialiasing of the
+disc in `#symbol` — the marker positions and the item heights are exact.
+
+What to look at: the item heights, which the geometry comparison pins at 39px, and where the text
+starts in `#inside`.
+
+**Boxes**: 11 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0006 · SSIM 0.9999** |
+| <img src="block/list_image/reference_0001.png" width="480"> | <img src="block/list_image/result%23page_0001.verified.png" width="480"> |
 
 
 ## block/list_position
@@ -1366,6 +1415,41 @@ the missing clip.
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
 | <img src="image/object_fit/reference_0001.png" width="480"> | <img src="image/object_fit/result%23page_0001.verified.png" width="480"> |
+
+
+## image/object_position
+
+# image/object_position
+
+Pixel-identical to Chrome. The last of the four properties named in the diagnostic audit as read by
+nothing, and the smallest: it was silently the centre for every document that asked for anything
+else.
+
+`object-position` follows exactly the rule `background-position` follows, which is worth stating
+because it is not the rule the syntax suggests. A percentage does not offset by a fraction of the
+box: it aligns that fraction of the CONTENT with the same fraction of the box, so `25%` of the 96px
+left over is 24px rather than 40. `left`/`top` are `0%`, `right`/`bottom` are `100%`, and the
+initial `50% 50%` is the centring that was already there.
+
+Every box is the same 160x60 and the image the same 64x32, so the geometry comparison confirms for
+free what `object-fit` established: the property changes what is drawn inside the box and never the
+box. `object-fit: none` on the first five rows keeps the content at its intrinsic size, which is
+what makes the offsets readable as offsets.
+
+`#covered` is the row that needs the property to apply AFTER the fit rather than before. Under
+`cover` the content is scaled to 160x80 in a 60px box, so the vertical slack is negative and
+`bottom` resolves to -20 — choosing which band of the image survives the clip. Applying the position
+to the unscaled content instead would put it nowhere near.
+
+What to look at: the left edge of `#proportional` at 24px, and `#lengths` at 20px. Equal values
+there mean percentages are being treated as fractions of the box.
+
+**Boxes**: 8 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| <img src="image/object_position/reference_0001.png" width="480"> | <img src="image/object_position/result%23page_0001.verified.png" width="480"> |
 
 
 ## image/percent_width
@@ -2634,6 +2718,41 @@ spacing being added twice; a 40px one is `#spaced`'s own declaration being added
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
 | <img src="table/empty/reference_0001.png" width="480"> | <img src="table/empty/result%23page_0001.verified.png" width="480"> |
+
+
+## table/empty_cells
+
+# table/empty_cells
+
+Pixel-identical to Chrome, and the geometry is what confirms the property: it must not move.
+
+`empty-cells: hide` suppresses an empty cell's border and background and nothing else. The cell
+keeps its place in the grid, the rows do not close up, and every cell in `#hidden` reports the same
+54x28 as its counterpart in `#shown`. That is the whole difference from `display: none`, and it is
+why a scenario measuring this needs both tables laid out identically.
+
+`#whitespace` is the row worth having. A cell containing a single space counts as empty, which
+follows from something the engine already does rather than from a rule about tables: collapsible
+white space generates no inline content, so a cell written with a space in it produces exactly what
+a cell written with nothing produces. Measured, and what Chrome does.
+
+The suppression is tested on the LAID-OUT box — no children, no lines, no floats, no positioned
+descendants and no image — rather than on the element, because the question is whether anything
+was generated rather than whether anything was written. An item that was written and then removed
+by `display: none` leaves an empty cell, and a browser hides that one too.
+
+The property is inherited and read on the cell, which is how a declaration on the table reaches
+its cells: the same route `vertical-align: middle` takes, and for the same reason.
+
+What to look at: the borders in `#hidden`. Five of the six cells should be blank paper, and the
+grid should be laid out identically to `#shown` above it.
+
+**Boxes**: 28 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| <img src="table/empty_cells/reference_0001.png" width="480"> | <img src="table/empty_cells/result%23page_0001.verified.png" width="480"> |
 
 
 ## table/fixed_layout

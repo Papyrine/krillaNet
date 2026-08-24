@@ -14,6 +14,7 @@ block/box_model                  matched  3  offset    0.00  size    0.00  diffe
 block/box_sizing                 matched 14  offset    0.00  size    0.00  differing  0  unmatched 0
 block/calc                       matched 11  offset    0.00  size    0.00  differing  0  unmatched 0
 block/gradients                  matched 11  offset    0.00  size    0.00  differing  0  unmatched 0
+block/list_image                 matched 11  offset    0.00  size    0.00  differing  0  unmatched 0
 block/list_position              matched 13  offset    0.00  size    0.00  differing  0  unmatched 0
 block/margin_collapse            matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
 block/margin_collapse_blocked    matched  4  offset    0.00  size    0.00  differing  0  unmatched 0
@@ -43,6 +44,7 @@ image/inline_flow                matched  4  offset    0.00  size    0.00  diffe
 image/intrinsic                  matched  4  offset    0.00  size    0.00  differing  0  unmatched 0
 image/max_width                  matched  4  offset    0.00  size    0.00  differing  0  unmatched 0
 image/object_fit                 matched 10  offset    0.00  size    0.00  differing  0  unmatched 0
+image/object_position            matched  8  offset    0.00  size    0.00  differing  0  unmatched 0
 image/percent_width              matched  6  offset    0.00  size    0.00  differing  0  unmatched 0
 image/sized                      matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
 inline/backgrounds               matched 16  offset    0.00  size    0.00  differing  0  unmatched 0
@@ -88,6 +90,7 @@ table/auto_widths                matched 25  offset    0.00  size    0.00  diffe
 table/caption_side               matched 14  offset    0.00  size    0.00  differing  0  unmatched 0
 table/collapse                   matched 42  offset    0.00  size    0.00  differing  0  unmatched 0
 table/empty                      matched 10  offset    0.00  size    0.00  differing  0  unmatched 0
+table/empty_cells                matched 28  offset    0.00  size    0.00  differing  0  unmatched 0
 table/fixed_layout               matched 27  offset    0.00  size    0.00  differing  0  unmatched 0
 table/hyphen_columns             matched 12  offset    0.00  size    0.00  differing  0  unmatched 0
 table/sections                   matched 33  offset    0.00  size    0.00  differing  0  unmatched 0
