@@ -400,7 +400,14 @@ static class TableLayout
 
         for (var index = start; index < start + span; index++)
         {
-            sizes[index] += current > 0 ? extra * sizes[index] / current : extra / span;
+            if (current > 0)
+            {
+                sizes[index] += extra * sizes[index] / current;
+            }
+            else
+            {
+                sizes[index] += extra / span;
+            }
         }
     }
 
