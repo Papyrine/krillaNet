@@ -131,7 +131,8 @@ static class CssCalc
                 // The outermost close belongs to `calc(` itself and is not part of the grammar.
                 if (depth == 0 && index == text.Length - 1)
                 {
-                    return tokens.Count > 0 && tokens[0] == "(" ? tokens[1..] : null;
+                    return tokens.Count > 0 &&
+                           tokens[0] == "(" ? tokens[1..] : null;
                 }
 
                 tokens.Add(")");
@@ -276,7 +277,9 @@ static class CssCalc
             index++;
             var inner = Expression(tokens, ref index, fontSize, root);
 
-            if (inner is null || index >= tokens.Count || tokens[index] != ")")
+            if (inner is null ||
+                index >= tokens.Count ||
+                tokens[index] != ")")
             {
                 return null;
             }

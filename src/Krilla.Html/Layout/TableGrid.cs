@@ -103,10 +103,11 @@ sealed class TableGrid
 
         foreach (var row in loose)
         {
-            rows.Add(new()
-            {
-                Box = row
-            });
+            rows.Add(
+                new()
+                {
+                    Box = row
+                });
         }
 
         var (cells, columns) = Place(rows);

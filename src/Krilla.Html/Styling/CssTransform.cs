@@ -82,7 +82,8 @@ sealed record CssTransform(
     {
         var text = transform.Trim();
 
-        if (text.Length == 0 || text.Equals("none", StringComparison.OrdinalIgnoreCase))
+        if (text.Length == 0 ||
+            text.Equals("none", StringComparison.OrdinalIgnoreCase))
         {
             return null;
         }
@@ -258,40 +259,65 @@ sealed record CssTransform(
                 : null;
         }
 
-        float? Angle(int index, float fallback) =>
-            index < arguments.Count ? CssValues.ParseAngle(arguments[index]) : fallback;
+        float? Angle(int index, float fallback)
+        {
+            if (index < arguments.Count)
+            {
+                return CssValues.ParseAngle(arguments[index]);
+            }
+
+            return fallback;
+        }
 
         switch (name)
         {
             case "translate" when arguments.Count is 1 or 2:
-                return Length(0) is {} tx && Length(1) is {} ty
-                    ? new(TransformKind.Translate, tx, ty, 0)
-                    : null;
+                if (Length(0) is { } tx && Length(1) is { } ty)
+                {
+                    return new(TransformKind.Translate, tx, ty, 0);
+                }
+
+                return null;
 
             case "translatex" when arguments.Count == 1:
-                return Length(0) is {} onlyX
-                    ? new(TransformKind.Translate, onlyX, CssLength.Zero, 0)
-                    : null;
+                if (Length(0) is { } onlyX)
+                {
+                    return new(TransformKind.Translate, onlyX, CssLength.Zero, 0);
+                }
+
+                return null;
 
             case "translatey" when arguments.Count == 1:
-                return Length(0) is {} onlyY
-                    ? new(TransformKind.Translate, CssLength.Zero, onlyY, 0)
-                    : null;
+                if (Length(0) is { } onlyY)
+                {
+                    return new(TransformKind.Translate, CssLength.Zero, onlyY, 0);
+                }
+
+                return null;
 
             case "scale" when arguments.Count is 1 or 2:
-                return Number(0, 1) is {} sx && Number(1, sx) is {} sy
-                    ? new(TransformKind.Scale, CssLength.Zero, CssLength.Zero, sx, sy)
-                    : null;
+                if (Number(0, 1) is { } sx && Number(1, sx) is { } sy)
+                {
+                    return new(TransformKind.Scale, CssLength.Zero, CssLength.Zero, sx, sy);
+                }
+
+                return null;
 
             case "scalex" when arguments.Count == 1:
-                return Number(0, 1) is {} scaleX
-                    ? new(TransformKind.Scale, CssLength.Zero, CssLength.Zero, scaleX, 1)
-                    : null;
+                if (Number(0, 1) is { } scaleX)
+                {
+                    return new(TransformKind.Scale, CssLength.Zero, CssLength.Zero, scaleX, 1);
+                }
+
+                return null;
 
             case "scaley" when arguments.Count == 1:
-                return Number(0, 1) is {} scaleY
-                    ? new(TransformKind.Scale, CssLength.Zero, CssLength.Zero, 1, scaleY)
-                    : null;
+                if (Number(0, 1) is { } scaleY)
+                {
+                    return new(TransformKind.Scale, CssLength.Zero, CssLength.Zero, 1, scaleY);
+                }
+
+                return null;
 
             case "rotate" when arguments.Count == 1:
                 return Angle(0, 0) is {} degrees
@@ -299,19 +325,28 @@ sealed record CssTransform(
                     : null;
 
             case "skew" when arguments.Count is 1 or 2:
-                return Angle(0, 0) is {} skewX && Angle(1, 0) is {} skewY
-                    ? new(TransformKind.Skew, CssLength.Zero, CssLength.Zero, skewX, skewY)
-                    : null;
+                if (Angle(0, 0) is { } skewX && Angle(1, 0) is { } skewY)
+                {
+                    return new(TransformKind.Skew, CssLength.Zero, CssLength.Zero, skewX, skewY);
+                }
+
+                return null;
 
             case "skewx" when arguments.Count == 1:
-                return Angle(0, 0) is {} onlySkewX
-                    ? new(TransformKind.Skew, CssLength.Zero, CssLength.Zero, onlySkewX)
-                    : null;
+                if (Angle(0, 0) is { } onlySkewX)
+                {
+                    return new(TransformKind.Skew, CssLength.Zero, CssLength.Zero, onlySkewX);
+                }
+
+                return null;
 
             case "skewy" when arguments.Count == 1:
-                return Angle(0, 0) is {} onlySkewY
-                    ? new(TransformKind.Skew, CssLength.Zero, CssLength.Zero, 0, onlySkewY)
-                    : null;
+                if (Angle(0, 0) is { } onlySkewY)
+                {
+                    return new(TransformKind.Skew, CssLength.Zero, CssLength.Zero, 0, onlySkewY);
+                }
+
+                return null;
 
             case "matrix" when arguments.Count == 6:
                 var numbers = new float[6];

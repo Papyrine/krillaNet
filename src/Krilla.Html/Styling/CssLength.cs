@@ -91,7 +91,10 @@ readonly record struct CssLength(LengthKind Kind, float Value)
             return Percentage(percent);
         }
 
-        return new(LengthKind.Calc, pixels) {Percent = percent};
+        return new(LengthKind.Calc, pixels)
+        {
+            Percent = percent
+        };
     }
 
     /// <summary>Whether this is <c>auto</c>.</summary>

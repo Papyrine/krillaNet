@@ -96,7 +96,12 @@ static class CssContent
             items.Add(item);
         }
 
-        return items.Count == 0 ? null : items;
+        if (items.Count == 0)
+        {
+            return null;
+        }
+
+        return items;
     }
 
     /// <summary>
@@ -284,11 +289,19 @@ static class CssContent
         return parts;
     }
 
-    static string Unquote(string value) =>
-        value.Length >= 2 &&
-        ((value[0] == '"' && value[^1] == '"') || (value[0] == '\'' && value[^1] == '\''))
-            ? Unescape(value[1..^1])
-            : value;
+    static string Unquote(string value)
+    {
+        if (value.Length >= 2 &&
+            ((value[0] == '"' &&
+              value[^1] == '"') ||
+             (value[0] == '\'' &&
+              value[^1] == '\'')))
+        {
+            return Unescape(value[1..^1]);
+        }
+
+        return value;
+    }
 
     /// <summary>
     /// Resolves the escapes a CSS string may carry.

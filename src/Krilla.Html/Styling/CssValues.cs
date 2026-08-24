@@ -47,9 +47,12 @@ static class CssValues
 
         if (text.EndsWith('%'))
         {
-            return TryParseNumber(text[..^1], out var percent)
-                ? CssLength.Percentage(percent)
-                : fallback;
+            if (TryParseNumber(text[..^1], out var percent))
+            {
+                return CssLength.Percentage(percent);
+            }
+
+            return fallback;
         }
 
         var split = UnitStart(text);
@@ -247,13 +250,16 @@ static class CssValues
             return null;
         }
 
-        return float.TryParse(
-            text[..^suffix.Length],
-            NumberStyles.Float,
-            CultureInfo.InvariantCulture,
-            out var parsed)
-            ? parsed * scale
-            : null;
+        if (float.TryParse(
+                text[..^suffix.Length],
+                NumberStyles.Float,
+                CultureInfo.InvariantCulture,
+                out var parsed))
+        {
+            return parsed * scale;
+        }
+
+        return null;
     }
 
     public static float ParseAlpha(string value)
@@ -287,7 +293,8 @@ static class CssValues
         }
 
         var components = Components(text);
-        if (components.Count >= 4 && TryParseNumber(components[3], out var alpha))
+        if (components.Count >= 4 &&
+            TryParseNumber(components[3], out var alpha))
         {
             return Math.Clamp(alpha, 0f, 1f);
         }

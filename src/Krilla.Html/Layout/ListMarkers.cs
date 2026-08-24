@@ -311,7 +311,7 @@ static class ListMarkers
         // both and a plain one leaves the first empty. A table of one and two character STRINGS
         // reads better and is slower, because copying one out is a call into Buffer.Memmove for
         // the sake of a character or two — which is most of what a short numeral costs.
-        ReadOnlySpan<char> letters =
+        CharSpan letters =
         [
             '\0', 'M', 'C', 'M', '\0', 'D', 'C', 'D', '\0', 'C', 'X', 'C', '\0', 'L',
             'X', 'L', '\0', 'X', 'I', 'X', '\0', 'V', 'I', 'V', '\0', 'I'

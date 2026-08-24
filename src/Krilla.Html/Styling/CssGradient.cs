@@ -98,7 +98,8 @@ sealed record CssGradient(
                 ? GradientKind.Ellipse
                 : (GradientKind?) null;
 
-        if (kind is not {} shape || !text.EndsWith(')'))
+        if (kind is not {} shape ||
+            !text.EndsWith(')'))
         {
             return null;
         }
@@ -140,7 +141,12 @@ sealed record CssGradient(
         }
 
         // One stop is a flat fill rather than a gradient, and CSS requires at least two.
-        return stops.Count < 2 ? null : new(shape, angle, corner, stops);
+        if (stops.Count < 2)
+        {
+            return null;
+        }
+
+        return new(shape, angle, corner, stops);
     }
 
     /// <summary>
@@ -183,7 +189,12 @@ sealed record CssGradient(
                 };
         }
 
-        return CssValues.ParseAngle(text) is {} degrees ? (degrees, GradientCorner.None) : null;
+        if (CssValues.ParseAngle(text) is { } degrees)
+        {
+            return (degrees, GradientCorner.None);
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -262,9 +273,12 @@ sealed record CssGradient(
             text = text[..split];
         }
 
-        return CssValues.ParseColor(text) is {} color
-            ? new CssGradientStop(color, CssValues.ParseAlpha(text), position)
-            : null;
+        if (CssValues.ParseColor(text) is { } color)
+        {
+            return new CssGradientStop(color, CssValues.ParseAlpha(text), position);
+        }
+
+        return null;
     }
 
     /// <summary>

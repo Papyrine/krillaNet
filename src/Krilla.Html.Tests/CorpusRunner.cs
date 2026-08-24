@@ -124,14 +124,12 @@ static class CorpusRunner
         {
             using var page = document.LoadPage(index);
 
-            foreach (var link in page.GetLinks())
+            foreach (var (rect, pdfDestination, action) in page.GetLinks())
             {
-                var target = link.Action?.Uri ??
-                             (link.Destination is {} destination
+                var target = action?.Uri ??
+                             (pdfDestination is {} destination
                                  ? $"page {destination.PageIndex + 1}"
                                  : "(none)");
-
-                var rect = link.Rectangle;
 
                 records.Add(new(
                     index + 1,
@@ -176,7 +174,8 @@ static class CorpusRunner
     /// </summary>
     static List<PageDiff>? ComparePages(string[] referencePages, List<byte[]> rendered)
     {
-        if (referencePages.Length == 0 || referencePages.Length != rendered.Count)
+        if (referencePages.Length == 0 ||
+            referencePages.Length != rendered.Count)
         {
             return null;
         }
@@ -214,15 +213,9 @@ static class CorpusRunner
         if (set.Fallback is null)
         {
             throw new InvalidOperationException(
-                $"No fonts found in {CorpusLayout.FontsDirectory}. The corpus cannot be compared " +
-                "to a browser without the faces both sides render with.");
+                $"No fonts found in {CorpusLayout.FontsDirectory}. The corpus cannot be compared to a browser without the faces both sides render with.");
         }
 
         return set;
     }
 }
-
-/// <summary>Serialization for the reference geometry files.</summary>
-[JsonSourceGenerationOptions(PropertyNamingPolicy = JsonKnownNamingPolicy.CamelCase)]
-[JsonSerializable(typeof(List<BoxGeometry>))]
-partial class CorpusJson : JsonSerializerContext;

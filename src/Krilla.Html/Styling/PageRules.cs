@@ -79,8 +79,10 @@ sealed class PageRules
     public bool Any =>
         Size is not null ||
         Landscape is not null ||
-        MarginTop is not null || MarginRight is not null ||
-        MarginBottom is not null || MarginLeft is not null;
+        MarginTop is not null ||
+        MarginRight is not null ||
+        MarginBottom is not null ||
+        MarginLeft is not null;
 
     /// <summary>
     /// Reads every <c>@page</c> rule in <paramref name="document"/>, later rules winning.
@@ -229,7 +231,12 @@ sealed class PageRules
         // A percentage margin resolves against the page's own dimension, which is not settled until
         // the size below is — and a page margin given as a percentage is rare enough that taking
         // the fallback is a better trade than ordering the two.
-        return length.Kind == LengthKind.Absolute ? length.Value : null;
+        if (length.Kind == LengthKind.Absolute)
+        {
+            return length.Value;
+        }
+
+        return null;
     }
 
     /// <summary>

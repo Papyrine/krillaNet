@@ -1404,8 +1404,13 @@ sealed record ComputedStyle
     /// The line height to use with <paramref name="face"/>, resolving <c>normal</c> against the
     /// face's own metrics.
     /// </summary>
-    public float ResolveLineHeight(FontFace face) =>
-        LineHeightScale is {} scale
-            ? scale * FontSize
-            : LineHeight ?? face.NormalLineHeight(FontSize);
+    public float ResolveLineHeight(FontFace face)
+    {
+        if (LineHeightScale is { } scale)
+        {
+            return scale * FontSize;
+        }
+
+        return LineHeight ?? face.NormalLineHeight(FontSize);
+    }
 }
