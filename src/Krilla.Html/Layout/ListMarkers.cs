@@ -278,14 +278,18 @@ static class ListMarkers
             return ordinal.ToString(CultureInfo.InvariantCulture);
         }
 
-        var builder = new StringBuilder();
+        // Seven digits is the most an int can reach in bijective base 26, so the buffer is a fixed
+        // one. The digits arrive least significant first, which is what the builder's Insert was
+        // paying for; writing backwards into a span gets the same order for nothing.
+        Span<char> digits = stackalloc char[7];
+        var index = digits.Length;
 
         for (var value = ordinal; value > 0; value = (value - 1) / 26)
         {
-            builder.Insert(0, (char) (first + (value - 1) % 26));
+            digits[--index] = (char) (first + (value - 1) % 26);
         }
 
-        return builder.ToString();
+        return new(digits[index..]);
     }
 
     /// <summary>The Roman numeral for <paramref name="ordinal"/>, in upper case.</summary>
@@ -305,18 +309,22 @@ static class ListMarkers
         ReadOnlySpan<string> numerals =
             ["M", "CM", "D", "CD", "C", "XC", "L", "XL", "X", "IX", "V", "IV", "I"];
 
-        var builder = new StringBuilder();
+        // Fifteen characters is the longest numeral in range: 3888 is MMMDCCCLXXXVIII, and the
+        // bound above is what makes the buffer a fixed one.
+        Span<char> numeral = stackalloc char[15];
+        var length = 0;
         var remaining = ordinal;
 
         for (var index = 0; index < values.Length; index++)
         {
             while (remaining >= values[index])
             {
-                builder.Append(numerals[index]);
+                numerals[index].CopyTo(numeral[length..]);
+                length += numerals[index].Length;
                 remaining -= values[index];
             }
         }
 
-        return builder.ToString();
+        return new(numeral[..length]);
     }
 }
