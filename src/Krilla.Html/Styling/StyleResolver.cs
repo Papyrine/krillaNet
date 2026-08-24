@@ -124,6 +124,11 @@ static class StyleResolver
             BreakInside = ParseBreak(declaration, "break-inside"),
             Visibility = ParseVisibility(declaration.GetPropertyValue("visibility"), parent.Visibility),
             Opacity = ParseOpacity(declaration.GetPropertyValue("opacity")),
+            Transform = CssTransform.Parse(
+                declaration.GetPropertyValue("transform"),
+                declaration.GetPropertyValue("transform-origin"),
+                fontSize,
+                rootFontSize),
             TextTransform = ParseTextTransform(
                 declaration.GetPropertyValue("text-transform"),
                 parent.TextTransform),

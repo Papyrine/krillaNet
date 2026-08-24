@@ -183,35 +183,7 @@ sealed record CssGradient(
                 };
         }
 
-        return Degrees(text) is {} degrees ? (degrees, GradientCorner.None) : null;
-    }
-
-    /// <summary>
-    /// An angle in any of CSS's four units, in degrees.
-    /// </summary>
-    static float? Degrees(string text)
-    {
-        var (suffix, scale) = text switch
-        {
-            _ when text.EndsWith("deg", StringComparison.Ordinal) => ("deg", 1f),
-            _ when text.EndsWith("grad", StringComparison.Ordinal) => ("grad", 0.9f),
-            _ when text.EndsWith("turn", StringComparison.Ordinal) => ("turn", 360f),
-            _ when text.EndsWith("rad", StringComparison.Ordinal) => ("rad", 180f / MathF.PI),
-            _ => ("", 0f)
-        };
-
-        if (suffix.Length == 0)
-        {
-            return null;
-        }
-
-        return float.TryParse(
-            text[..^suffix.Length],
-            NumberStyles.Float,
-            CultureInfo.InvariantCulture,
-            out var value)
-            ? value * scale
-            : null;
+        return CssValues.ParseAngle(text) is {} degrees ? (degrees, GradientCorner.None) : null;
     }
 
     /// <summary>

@@ -167,6 +167,7 @@ public class DiagnosticTests
                 <div style="border-radius: 4px; border: 2px dashed red">b</div>
                 <div style="text-transform: full-width">f</div>
                 <div style="visibility: collapse">g</div>
+                <div style="transform: rotate3d(1, 1, 0, 45deg)">t</div>
                 <div style="background-image: url(missing.png)">h</div>
                 <div style="background-image: repeating-linear-gradient(red, blue 20px)">i</div>
                 """));
@@ -272,16 +273,16 @@ public class DiagnosticTests
     [Test]
     public async Task ADiagnosticReadsAsASentence()
     {
-        var reports = Collect("<div style=\"transform: rotate(5deg)\">a</div>");
+        var reports = Collect("<div style=\"column-count: 3\">a</div>");
 
         var report = reports.Single();
 
         await Assert.That(report.Kind).IsEqualTo(HtmlDiagnosticKind.UnsupportedProperty);
         await Assert.That(report.Element).IsEqualTo("div");
-        await Assert.That(report.Name).IsEqualTo("transform");
-        await Assert.That(report.Value).IsEqualTo("rotate(5deg)");
+        await Assert.That(report.Name).IsEqualTo("column-count");
+        await Assert.That(report.Value).IsEqualTo("3");
         await Assert.That(report.ToString())
-            .IsEqualTo("<div> transform: rotate(5deg) — painted untransformed");
+            .IsEqualTo("<div> column-count: 3 — laid out in one column");
     }
 
     /// <summary>
@@ -318,6 +319,7 @@ public class DiagnosticTests
             <div style="opacity: 0.4">faded</div>
             <div style="background-image: linear-gradient(to right, red, blue)">ramped</div>
             <div style="background-image: radial-gradient(circle, red, blue)">round</div>
+            <div style="transform: rotate(15deg) scale(1.2); transform-origin: top left">turned</div>
             """);
 
         await Assert.That(reports).IsEmpty();

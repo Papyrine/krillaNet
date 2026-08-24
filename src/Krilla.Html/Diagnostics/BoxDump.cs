@@ -41,11 +41,25 @@ public static class BoxDump
     {
         var boxes = new List<BoxGeometry>();
 
-        foreach (var box in root.Descendants())
+        Walk(root, null);
+        return boxes;
+
+        // Recursive rather than over `Descendants()`, because a transform has to accumulate down
+        // the tree: a transformed box inside a transformed one carries both, and a flat walk has
+        // nowhere to keep the matrix that says so.
+        void Walk(LayoutBox box, Matrix? inherited)
         {
+            var matrix = inherited;
+
+            if (box.Style.Transform is {} transform)
+            {
+                var own = transform.Resolve(box.BorderBox);
+                matrix = inherited is {} outer ? CssTransform.Combine(outer, own) : own;
+            }
+
             if (box.Selector is {} selector)
             {
-                boxes.Add(Geometry(selector, box.BorderBox));
+                boxes.Add(Geometry(selector, Visual(box.BorderBox, matrix)));
             }
 
             foreach (var line in box.Lines)
@@ -54,14 +68,44 @@ public static class BoxDump
                 {
                     if (image.Selector is {} imageSelector)
                     {
-                        boxes.Add(Geometry(imageSelector, image.Bounds));
+                        boxes.Add(Geometry(imageSelector, Visual(image.Bounds, matrix)));
                     }
                 }
+
+                foreach (var atomic in line.Boxes)
+                {
+                    Walk(atomic, matrix);
+                }
+            }
+
+            foreach (var child in box.Children)
+            {
+                Walk(child, matrix);
+            }
+
+            foreach (var floated in box.Floats)
+            {
+                Walk(floated.Box, matrix);
+            }
+
+            foreach (var positioned in box.Positioned)
+            {
+                Walk(positioned.Box, matrix);
             }
         }
-
-        return boxes;
     }
+
+    /// <summary>
+    /// A box's rectangle as a browser reports it: transformed, when a transform applies.
+    /// </summary>
+    /// <remarks>
+    /// <c>getBoundingClientRect()</c> returns the VISUAL rectangle, so a rotated 60x40 tile comes
+    /// back as the 71.96x64.6 box that encloses it. Reporting the untransformed layout box instead
+    /// would make every transformed element in the corpus look like a defect, and would leave the
+    /// transform arithmetic measured by nothing but pixels.
+    /// </remarks>
+    static Rect Visual(Rect rect, Matrix? matrix) =>
+        matrix is {} applied ? CssTransform.Bounds(applied, rect) : rect;
 
     static BoxGeometry Geometry(string selector, Rect rect) =>
         new(selector, Round(rect.X), Round(rect.Y), Round(rect.Width), Round(rect.Height));

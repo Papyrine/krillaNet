@@ -700,6 +700,15 @@ sealed record ComputedStyle
     /// </remarks>
     public CssGradient? BackgroundImage { get; init; }
 
+    /// <summary>The transform applied to this box when it is painted, if any.</summary>
+    /// <remarks>
+    /// Painting only: the box keeps the space layout gave it and its siblings sit where they would
+    /// have, which is what makes a transform as cheap as <c>position: relative</c>. Null for a
+    /// value carrying a function this engine does not apply, which is what
+    /// <see cref="UnsupportedCss"/> reports.
+    /// </remarks>
+    public CssTransform? Transform { get; init; }
+
     /// <summary>How opaque this box and its descendants are, from 0 to 1.</summary>
     /// <remarks>
     /// Not inherited, and not a fill alpha. The box and everything under it are drawn into a group
@@ -713,13 +722,13 @@ sealed record ComputedStyle
     /// Whether this box establishes a stacking context of its own.
     /// </summary>
     /// <remarks>
-    /// Only <c>opacity</c> answers here, being the only property this engine reads that does it.
+    /// <c>opacity</c> and <c>transform</c>, the two properties this engine reads that do it.
     /// The consequence that matters is paint ORDER: such a box leaves its parent's phases and
     /// paints with the positioned content, after every in-flow background and line on the page —
     /// so a faded box written first covers an opaque sibling written after it, which is measurable
     /// and is what <c>block/opacity</c>'s last row measures.
     /// </remarks>
-    public bool CreatesStackingContext => Opacity < 1;
+    public bool CreatesStackingContext => Opacity < 1 || Transform is not null;
 
     /// <summary>How this box's text is cased before shaping.</summary>
     public TextTransformKind TextTransform { get; init; } = TextTransformKind.None;

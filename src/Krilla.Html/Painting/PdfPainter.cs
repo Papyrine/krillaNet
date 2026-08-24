@@ -153,13 +153,20 @@ static class PdfPainter
     /// </remarks>
     static LayerScope Fade(Surface surface, LayoutBox box)
     {
-        if (box.Style.Opacity >= 1)
+        var style = box.Style;
+
+        // The transform goes outermost, so everything the fade covers is drawn through it.
+        Layer? transform = style.Transform is {} css
+            ? surface.PushTransform(css.Resolve(box.BorderBox))
+            : null;
+
+        if (style.Opacity >= 1)
         {
-            return default;
+            return new(transform);
         }
 
         var isolated = surface.PushIsolated();
-        return new(surface.PushOpacity(box.Style.Opacity), isolated);
+        return new(surface.PushOpacity(style.Opacity), isolated, transform);
     }
 
     /// <summary>
@@ -395,15 +402,16 @@ static class PdfPainter
     /// directly. Wrapping it beats the alternative of branching around each phase's whole walk,
     /// which would mean writing every recursion twice.
     ///
-    /// Two of them because a fade is an isolated group AND an opacity, pushed in that order and
-    /// released in the other.
+    /// Three of them because a faded, transformed box pushes a transform, an isolated group and an
+    /// opacity, in that order, and releases them in the other.
     /// </remarks>
-    readonly struct LayerScope(Layer? inner, Layer? outer = null) :
+    readonly struct LayerScope(Layer? inner, Layer? middle = null, Layer? outer = null) :
         IDisposable
     {
         public void Dispose()
         {
             inner?.Dispose();
+            middle?.Dispose();
             outer?.Dispose();
         }
     }

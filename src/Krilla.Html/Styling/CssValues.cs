@@ -126,6 +126,41 @@ static class CssValues
     /// Separate from <see cref="ParseColor"/> because krilla models opacity as a fill property
     /// rather than as a fourth colour component — <see cref="Krilla.Color"/> has no alpha.
     /// </remarks>
+    /// <summary>
+    /// An angle in any of CSS's four units, in degrees, or null when the value is not one.
+    /// </summary>
+    /// <remarks>
+    /// Read here rather than in the two places that need it, because the suffixes overlap:
+    /// <c>grad</c> ends with <c>rad</c>, so the order the units are tested in is load-bearing and
+    /// worth having once.
+    /// </remarks>
+    public static float? ParseAngle(string value)
+    {
+        var text = value.Trim().ToLowerInvariant();
+
+        var (suffix, scale) = text switch
+        {
+            _ when text.EndsWith("deg", StringComparison.Ordinal) => ("deg", 1f),
+            _ when text.EndsWith("grad", StringComparison.Ordinal) => ("grad", 0.9f),
+            _ when text.EndsWith("turn", StringComparison.Ordinal) => ("turn", 360f),
+            _ when text.EndsWith("rad", StringComparison.Ordinal) => ("rad", 180f / MathF.PI),
+            _ => ("", 0f)
+        };
+
+        if (suffix.Length == 0)
+        {
+            return null;
+        }
+
+        return float.TryParse(
+            text[..^suffix.Length],
+            NumberStyles.Float,
+            CultureInfo.InvariantCulture,
+            out var parsed)
+            ? parsed * scale
+            : null;
+    }
+
     public static float ParseAlpha(string value)
     {
         if (string.IsNullOrWhiteSpace(value))

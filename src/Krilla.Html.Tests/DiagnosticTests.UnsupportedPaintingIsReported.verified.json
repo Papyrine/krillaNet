@@ -25,6 +25,12 @@
   },
   {
     "Element": "div",
+    "Name": "transform",
+    "Value": "rotate3d(1, 1, 0, 45deg)",
+    "Reason": "painted untransformed"
+  },
+  {
+    "Element": "div",
     "Name": "background-image",
     "Value": "url(\"missing.png\")",
     "Reason": "not painted"

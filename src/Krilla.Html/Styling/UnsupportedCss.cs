@@ -32,7 +32,6 @@ static class UnsupportedCss
         ("border-collapse", "separate", "laid out with the separated border model"),
         ("list-style-position", "outside", "the marker is drawn outside the item"),
         ("list-style-image", "none", "the counter style is drawn instead"),
-        ("transform", "none", "painted untransformed"),
         ("font-variant", "normal", "the regular face is used"),
         ("font-stretch", "normal", "the regular face is used"),
         ("text-shadow", "none", "not painted"),
@@ -113,6 +112,7 @@ static class UnsupportedCss
         Hyphens(declaration, name, sink);
         Collapse(declaration, name, sink);
         Background(declaration, name, style, sink);
+        Transform(declaration, name, style, sink);
         Casing(declaration, name, sink);
         Fixed(declaration, name, sink);
         Radius(declaration, name, style, sink);
@@ -174,6 +174,34 @@ static class UnsupportedCss
             {
                 Diagnostic.Property(sink, element, property, value!, reason);
             }
+        }
+    }
+
+    /// <summary>
+    /// A <c>transform</c> carrying a function this engine does not apply.
+    /// </summary>
+    /// <remarks>
+    /// Asked of the resolved style, so the report follows exactly what the painter can do. What is
+    /// left is the three-dimensional functions and <c>perspective</c>: applying their
+    /// two-dimensional shadow would put the box somewhere plausible and wrong, so the whole
+    /// transform is dropped and said to be dropped.
+    /// </remarks>
+    static void Transform(
+        ICssStyleDeclaration declaration,
+        string element,
+        ComputedStyle style,
+        Action<HtmlDiagnostic> sink)
+    {
+        if (style.Transform is not null)
+        {
+            return;
+        }
+
+        if (Set(declaration, "transform") is {} value &&
+            value != "none" &&
+            !IsInitial(value))
+        {
+            Diagnostic.Property(sink, element, "transform", value, "painted untransformed");
         }
     }
 
