@@ -5,9 +5,7 @@ its baseline from the deepest, so a mismatched face changes both the wrap points
 positions. Note the explicit b and i rules: the shared reset flattens the UA stylesheet, so these
 elements carry no styling of their own until a scenario gives them some.
 
-**Boxes**: 3 matched, worst offset 0.00px, worst size 0.00px.
-
-Not rendered: `html > body:nth-child(2) > p:nth-child(1) > b:nth-child(1)`, `html > body:nth-child(2) > p:nth-child(1) > i:nth-child(2)`, `html > body:nth-child(2) > p:nth-child(1) > b:nth-child(3)`, `html > body:nth-child(2) > p:nth-child(1) > b:nth-child(3) > i:nth-child(1)`
+**Boxes**: 7 matched, worst offset 0.00px, worst size 0.00px.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |

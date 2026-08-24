@@ -41,7 +41,26 @@ public static class BoxDump
     {
         var boxes = new List<BoxGeometry>();
 
+        // Inline elements have no box of their own, so their geometry is accumulated from the text
+        // runs they produced and added once the whole tree is walked. Keyed by selector because an
+        // inline that wraps has one fragment per line and the browser reports their union.
+        var inlines = new Dictionary<string, Rect>();
+
         Walk(root, null);
+
+        // Anything that also produced a real box is dropped rather than reported twice: an
+        // inline-block, a float and a table cell all generate text runs AND a LayoutBox, and the
+        // box is the better answer — it carries the borders and padding the runs do not.
+        var placed = boxes.Select(_ => _.Selector).ToHashSet(StringComparer.Ordinal);
+
+        foreach (var (selector, rect) in inlines)
+        {
+            if (!placed.Contains(selector))
+            {
+                boxes.Add(Geometry(selector, rect));
+            }
+        }
+
         return boxes;
 
         // Recursive rather than over `Descendants()`, because a transform has to accumulate down
@@ -64,12 +83,30 @@ public static class BoxDump
 
             foreach (var line in box.Lines)
             {
+                foreach (var run in line.Runs)
+                {
+                    Fragment(run.Selector, Rectangle(run), run.Backdrops, run.Y, matrix);
+                }
+
+                // An inline element's padding and border are part of the rectangle a browser
+                // reports for it, and no text run reaches them — so without these an element with
+                // `padding: 1px 4px` measures 8px narrow and 2px short.
+                foreach (var edge in line.Edges)
+                {
+                    Fragment(edge.Selector, edge.Bounds, edge.Ancestors, edge.Baseline, matrix);
+                }
+
                 foreach (var image in line.Images)
                 {
                     if (image.Selector is {} imageSelector)
                     {
                         boxes.Add(Geometry(imageSelector, Visual(image.Bounds, matrix)));
                     }
+                }
+
+                foreach (var ended in line.Breaks)
+                {
+                    boxes.Add(Geometry(ended.Selector, Visual(ended.Bounds, matrix)));
                 }
 
                 foreach (var atomic in line.Boxes)
@@ -93,6 +130,93 @@ public static class BoxDump
                 Walk(positioned.Box, matrix);
             }
         }
+
+        // Unions one run into the element that produced it AND into every inline ancestor of that
+        // element, because a browser's rectangle for `<em>` covers the `<b>` nested inside it. The
+        // ancestors are reachable without any extra bookkeeping: a selector path is its own
+        // ancestry, so every prefix of it names one. Prefixes that turn out to be block-level are
+        // filtered above, having produced a box of their own.
+        // The run's Y is its baseline, and the rectangle a browser reports around inline text
+        // reaches the font's whole-pixel ascent above it and its whole-pixel descent below — 17px
+        // tall for 16px Liberation Sans and 14px for the same face at 12px, neither of which is a
+        // fixed ratio of the size. It is NOT the leading box: `line-height` moves the fragments
+        // apart without making any of them taller.
+        static Rect Rectangle(TextRun run)
+        {
+            var size = run.Style.FontSize;
+            var ascent = run.Face.Ascent(size);
+
+            return new(run.X, run.Y - ascent, run.Width, ascent + run.Face.Descent(size));
+        }
+
+        void Fragment(
+            string? selector,
+            Rect bounds,
+            IReadOnlyList<InlineBackdrop>? ancestors,
+            float baseline,
+            Matrix? matrix)
+        {
+            if (selector is null)
+            {
+                return;
+            }
+
+            var path = selector;
+
+            // The innermost enclosing inline element is LAST in the chain, and the walk goes
+            // outward, so the index counts down alongside the prefixes.
+            var index = ancestors?.Count ?? 0;
+
+            Add(path, bounds);
+
+            while (true)
+            {
+                var cut = path.LastIndexOf(" > ", StringComparison.Ordinal);
+                if (cut < 0)
+                {
+                    return;
+                }
+
+                path = path[..cut];
+                index--;
+
+                // An enclosing inline element is reported at ITS OWN height rather than at the
+                // height of whatever is nested inside it: a browser's rectangle for a plain
+                // <span> holding a bordered one stops at the span's own text box, and taking the
+                // union of the two vertically is two pixels too tall at each end. Horizontally the
+                // union is right, which is why only the vertical span is replaced.
+                //
+                // Past the inline ancestry the prefixes are block-level and have boxes of their
+                // own, so whatever is accumulated for them here is discarded.
+                Add(
+                    path,
+                    index >= 0 && ancestors is not null
+                        ? InlineMetrics.Reframe(bounds, ancestors[index].Style, ancestors[index].Face, baseline)
+                        : bounds);
+            }
+
+            void Add(string key, Rect rect)
+            {
+                var visual = Visual(rect, matrix);
+
+                inlines[key] = inlines.TryGetValue(key, out var existing)
+                    ? Union(existing, visual)
+                    : visual;
+            }
+        }
+    }
+
+    /// <summary>The smallest rectangle containing both.</summary>
+    static Rect Union(Rect first, Rect second)
+    {
+        var left = MathF.Min(first.X, second.X);
+        var top = MathF.Min(first.Y, second.Y);
+
+        return new(
+            left,
+            top,
+            MathF.Max(first.Right, second.Right) - left,
+            MathF.Max(first.Bottom, second.Bottom) - top);
     }
 
     /// <summary>

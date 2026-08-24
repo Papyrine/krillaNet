@@ -8,9 +8,7 @@ disturbed no layout.
 The rectangle covers the text's em box rather than the whole line, so a generous line-height does
 not make blank space clickable.
 
-**Boxes**: 4 matched, worst offset 0.00px, worst size 0.00px.
-
-Not rendered: `html > body:nth-child(2) > p:nth-child(1) > a:nth-child(1)`, `html > body:nth-child(2) > p:nth-child(2) > a:nth-child(1)`
+**Boxes**: 6 matched, worst offset 0.00px, worst size 0.00px.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |

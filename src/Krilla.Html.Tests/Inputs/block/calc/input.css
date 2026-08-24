@@ -1,0 +1,26 @@
+#frame { width: 600px; background-color: #eef2f8; }
+#frame > div { font-size: 16px; line-height: 24px; background-color: #cfd8e8; margin-bottom: 6px; }
+
+/* The mixed case: the only one that cannot fold to a single kind before layout. */
+#mixed { width: calc(100% - 120px); }
+
+/* Both terms absolute, so this is 172px and nothing downstream sees a calc at all. */
+#absolute { width: calc(10em + 12px); }
+
+/* Purely proportional, so it folds to a plain percentage: a quarter of the frame. */
+#proportion { width: calc(50% / 2); }
+
+/* Nesting, and a product with the number on the left. */
+#nested { width: calc(100% - calc(2 * 30px)); }
+
+/* Resolves negative. A used width is floored at zero rather than going through. */
+#clamped { width: calc(50% - 400px); background-color: #e8cfcf; }
+
+/* A calc on a property whose percentage basis is the container's WIDTH either way. */
+#padded { width: calc(100% - 200px); padding-left: calc(1em - 4px); background-color: #d8e8cf; }
+
+/* Vertical, where the calc is absolute and the height is honoured as declared. */
+#tall { height: calc(3em + 10px); background-color: #f0e8b0; }
+
+/* An offset margin, mixing both kinds again. */
+#shifted { width: 200px; margin-left: calc(10% + 8px); background-color: #e8d8cf; }

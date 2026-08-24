@@ -16,18 +16,21 @@ sealed class DocumentContext :
 
     DocumentContext(
         IStyleCollection styles,
-        float rootFontSize,
+        CssRoot root,
         ImageStore images,
         Action<HtmlDiagnostic>? onDiagnostic)
     {
         this.styles = styles;
-        RootFontSize = rootFontSize;
+        Root = root;
         Images = images;
         OnDiagnostic = onDiagnostic;
     }
 
     /// <summary>The root element's font size in CSS pixels.</summary>
-    public float RootFontSize { get; }
+    public float RootFontSize => Root.FontSize;
+
+    /// <summary>What <c>rem</c> and the viewport units resolve against.</summary>
+    public CssRoot Root { get; }
 
     /// <summary>Images resolved from <c>src</c> attributes, deduplicated across the document.</summary>
     public ImageStore Images { get; }
@@ -74,7 +77,10 @@ sealed class DocumentContext :
 
         return new(
             window.GetStyleCollection(device),
-            options.RootFontSize,
+            // The viewport in paged media is the page's CONTENT box, which is what a browser
+            // printing to PDF resolves `vh` and `vw` against — so `height: 100vh` fills the sheet
+            // between the margins rather than the sheet itself.
+            new(options.RootFontSize, options.ContentWidth, options.ContentHeight),
             images,
             options.OnDiagnostic);
     }

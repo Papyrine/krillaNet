@@ -33,9 +33,7 @@ anything this scenario introduced — they generate no box in this engine's tree
 What to look at: `adjacent` is the assertion. Two lines there is the old adjacency rule returning.
 Two lines on `image` or `inline-block` becoming one is the over-correction.
 
-**Boxes**: 9 matched, worst offset 0.00px, worst size 0.00px.
-
-Not rendered: `html > body:nth-child(2) > div:nth-child(1) > span:nth-child(1)`, `html > body:nth-child(2) > div:nth-child(1) > span:nth-child(2)`, `html > body:nth-child(2) > div:nth-child(2) > span:nth-child(1)`, `html > body:nth-child(2) > div:nth-child(2) > span:nth-child(2)`, `html > body:nth-child(2) > div:nth-child(3) > span:nth-child(1)`, `html > body:nth-child(2) > div:nth-child(3) > span:nth-child(2)`
+**Boxes**: 15 matched, worst offset 0.00px, worst size 0.00px.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |

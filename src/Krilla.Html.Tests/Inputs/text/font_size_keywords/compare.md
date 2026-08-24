@@ -32,9 +32,7 @@ Geometry is exact and pixels read SSIM 0.9997, from glyph positioning across nin
 What to look at: the widths. Any two rows coming out equal means a keyword fell through to the
 inherited size.
 
-**Boxes**: 12 matched, worst offset 0.00px, worst size 0.00px.
-
-Not rendered: `html > body:nth-child(2) > p:nth-child(10) > span:nth-child(1)`
+**Boxes**: 13 matched, worst offset 0.00px, worst size 0.00px.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |

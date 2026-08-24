@@ -427,6 +427,158 @@ static class PdfPainter
     }
 
     /// <summary>
+    /// Draws the backgrounds of the inline ELEMENTS this run sits inside.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// An inline element generates no box, so there is nothing for the background phase to paint —
+    /// its background belongs to step 7 with the inline content, one rectangle per line fragment.
+    /// A single rectangle round the whole element would be wrong the moment it wrapped: it would
+    /// colour the blank space at the end of one line and the indent at the start of the next.
+    /// </para>
+    /// <para>
+    /// The rectangle is the run's baseline less the font's whole-pixel ascent, as tall as that
+    /// ascent plus the whole-pixel descent — which is the same box the browser reports for the
+    /// element and, measured, the same box it fills. Not the line box: two spans on a line with a
+    /// generous <c>line-height</c> are backed to their text, with the leading left uncoloured.
+    /// </para>
+    /// <para>
+    /// Ancestors first and innermost last, so a highlight nested inside another comes out on top.
+    /// Each is measured against its OWN font rather than the run's, which is what backs a small
+    /// nested element to the height of the large one containing it.
+    /// </para>
+    /// <para>
+    /// Padding and border on an inline element are NOT drawn, and are reported instead. They are
+    /// not a painting question: horizontal padding advances the text after it, so honouring them
+    /// means changing where the words go.
+    /// </para>
+    /// </remarks>
+    static void PaintInlineBackground(Surface surface, TextRun run)
+    {
+        if (run.Backdrops is {} backdrops)
+        {
+            foreach (var backdrop in backdrops)
+            {
+                Fill(surface, backdrop.Style, backdrop.Face, run);
+            }
+        }
+
+        // A run with no selector is the block's OWN text, whose background the block already
+        // painted. Filling it again is invisible while the colour is opaque and doubles the
+        // coverage the moment it is not.
+        if (run.Selector is not null)
+        {
+            Fill(surface, run.Style, run.Face, run);
+        }
+
+        static void Fill(Surface surface, ComputedStyle style, FontFace face, TextRun run)
+        {
+            if (run.Width <= 0)
+            {
+                return;
+            }
+
+            // Snapped to whole pixels, because that is what the browser fills. A run starting at
+            // 49.81 and ending at 127.21 is painted over columns 50 to 126 with hard edges rather
+            // than with a fifth of a pixel of coverage at each end — and the rasteriser reading our
+            // PDF snaps too, upward at both edges, so leaving the fractional rectangle in place
+            // puts one whole extra column of colour at the right of every fragment. Rounding here
+            // makes the two agree by construction instead of by luck.
+            var left = Snap(run.X);
+            var (top, bottom) = InlineMetrics.Extent(style, face, run.Y);
+
+            var bounds = new Rect(left, top, Snap(run.X + run.Width) - left, bottom - top);
+
+            PaintInlineSurface(surface, style, bounds, InlineEdgeKind.None);
+        }
+    }
+
+    /// <summary>
+    /// Paints one fragment of an inline element: its background, then the border edges this
+    /// fragment owns.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The top and bottom borders run the whole length of every fragment; the left is drawn only on
+    /// the fragment holding the element's opening edge and the right only on its closing one. That
+    /// is what makes a padded inline that wraps come out open at the break — a browser draws no
+    /// vertical rule where a line ended, because the element did not end there.
+    /// </para>
+    /// <para>
+    /// Four rectangles rather than the mitred path a block border takes. An inline border is a
+    /// strip a couple of pixels thick around text, so the mitre is at most a pixel of a corner, and
+    /// the fragment boundaries would break the path anyway.
+    /// </para>
+    /// </remarks>
+    static void PaintInlineSurface(
+        Surface surface,
+        ComputedStyle style,
+        Rect bounds,
+        InlineEdgeKind kind)
+    {
+        if (bounds.Width <= 0 || bounds.Height <= 0)
+        {
+            return;
+        }
+
+        if (style.BackgroundColor is {} background)
+        {
+            using var path = PdfPath.Rectangle(
+                Rectangle.FromSize(bounds.X, bounds.Y, bounds.Width, bounds.Height));
+
+            surface.SetFill(background).DrawPath(path);
+        }
+
+        Edge(style.BorderTopColor, style.BorderTop, bounds.X, bounds.Y, bounds.Width, style.BorderTop);
+
+        Edge(
+            style.BorderBottomColor,
+            style.BorderBottom,
+            bounds.X,
+            bounds.Bottom - style.BorderBottom,
+            bounds.Width,
+            style.BorderBottom);
+
+        if (kind == InlineEdgeKind.Leading)
+        {
+            Edge(style.BorderLeftColor, style.BorderLeft, bounds.X, bounds.Y, style.BorderLeft, bounds.Height);
+        }
+
+        if (kind == InlineEdgeKind.Trailing)
+        {
+            Edge(
+                style.BorderRightColor,
+                style.BorderRight,
+                bounds.Right - style.BorderRight,
+                bounds.Y,
+                style.BorderRight,
+                bounds.Height);
+        }
+
+        void Edge(Color? color, float width, float x, float y, float w, float h)
+        {
+            if (color is not {} painted || width <= 0 || w <= 0 || h <= 0)
+            {
+                return;
+            }
+
+            using var path = PdfPath.Rectangle(Rectangle.FromSize(x, y, w, h));
+            surface.SetFill(painted).DrawPath(path);
+        }
+    }
+
+    /// <summary>
+    /// Rounds to the nearest whole pixel, halves upward.
+    /// </summary>
+    /// <remarks>
+    /// Explicitly halves-up rather than through <see cref="MathF.Round(float)"/>, whose default is
+    /// banker's rounding — which would send exactly one edge in a thousand the other way from the
+    /// browser and leave a column of colour nobody could account for.
+    /// </remarks>
+    static float Snap(float value) =>
+        MathF.Floor(value + 0.5f);
+
+    /// <summary>
     /// The clip an <c>overflow</c> box imposes on its descendants, or nothing.
     /// </summary>
     /// <remarks>
@@ -543,10 +695,26 @@ static class PdfPainter
                 // hiding the text does not hide the rectangle in a browser either.
                 if (run.Style.Visibility == VisibilityKind.Visible)
                 {
+                    PaintInlineBackground(surface, run);
                     PaintRun(surface, run);
                 }
 
+
                 PaintLink(surface, run, page.Links, page.ToPage);
+            }
+
+            // Ahead of the images and the atomic inlines, and after the runs, because an edge is
+            // part of the same inline content step and nothing on a line overlaps it.
+            foreach (var edge in line.Edges)
+            {
+                if (edge.Style.Visibility == VisibilityKind.Visible)
+                {
+                    PaintInlineSurface(
+                        surface,
+                        edge.Style,
+                        edge.Bounds with {X = Snap(edge.Bounds.X), Width = Snap(edge.Bounds.Width)},
+                        edge.Kind);
+                }
             }
 
             foreach (var image in line.Images)

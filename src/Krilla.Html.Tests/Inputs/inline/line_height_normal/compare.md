@@ -5,9 +5,7 @@ descent and line gap, and from whether OS/2 asks for its typographic metrics to 
 Deliberately isolated, because every other text scenario sets line-height explicitly so that this
 one question cannot contaminate them.
 
-**Boxes**: 3 matched, worst offset 0.00px, worst size 0.00px.
-
-Not rendered: `html > body:nth-child(2) > p:nth-child(1) > br:nth-child(1)`, `html > body:nth-child(2) > p:nth-child(1) > br:nth-child(2)`
+**Boxes**: 5 matched, worst offset 0.00px, worst size 0.00px.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |

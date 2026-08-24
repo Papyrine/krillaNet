@@ -25,9 +25,7 @@ What to look at when it moves: any of the four boxes on a line of its own is the
 path being lost entirely. `#two` a line too low is the first-line baseline. `#baseline` sitting a
 few pixels low with its text still aligned is half-leading, not this.
 
-**Boxes**: 10 matched, worst offset 0.00px, worst size 0.00px.
-
-Not rendered: `html > body:nth-child(2) > p:nth-child(2) > span:nth-child(1) > br:nth-child(1)`
+**Boxes**: 11 matched, worst offset 0.00px, worst size 0.00px.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |

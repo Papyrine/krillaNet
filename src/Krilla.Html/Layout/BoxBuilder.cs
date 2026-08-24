@@ -384,6 +384,15 @@ static class BoxBuilder
             // its own. Backgrounds and borders on inlines are not painted yet; the element still
             // carries a selector so its geometry becomes comparable once they are.
             var selector = SelectorPath.For(element);
+
+            // The element's opening edge, carrying its left padding and border. Emitted only when
+            // there is a surround to carry, so a document full of plain <span>s produces none of
+            // these and the tokeniser never sees the case.
+            if (style.HasSurround)
+            {
+                inlines.Add(new("", style, selector, Edge: InlineEdgeKind.Leading));
+            }
+
             var before = inlines.Count;
 
             foreach (var child in element.ChildNodes)
@@ -397,8 +406,29 @@ static class BoxBuilder
             {
                 if (inlines[index].Selector is null)
                 {
+                    // This element's own text, which carries this element's style already — so its
+                    // background is painted from that rather than recorded as a backdrop.
                     inlines[index] = inlines[index] with {Selector = selector};
+                    continue;
                 }
+
+                // A run belonging to a NESTED inline element. Its own style is the nested one's,
+                // so without recording this one there is nothing to paint its background from —
+                // which is what makes `<mark>a <b>b</b></mark>` lose its highlight behind the bold
+                // word — and nothing to report its geometry from either.
+                //
+                // Recorded whether or not it paints anything, because the box dump needs the chain
+                // regardless: a browser reports an enclosing inline at its OWN height, so a tall
+                // element wrapping a short one cannot be measured from the short one's runs.
+                inlines[index] = inlines[index] with
+                {
+                    Backdrops = [style, .. inlines[index].Backdrops ?? []]
+                };
+            }
+
+            if (style.HasSurround)
+            {
+                inlines.Add(new("", style, selector, Edge: InlineEdgeKind.Trailing));
             }
 
             return;

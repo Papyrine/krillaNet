@@ -32,9 +32,7 @@ same places; a scenario with a coloured strike would report it.
 What to look at: whether `#all` carries three rules and `#through` one. A missing overline is the
 rule with no font metric behind it.
 
-**Boxes**: 8 matched, worst offset 0.00px, worst size 0.00px.
-
-Not rendered: `html > body:nth-child(2) > p:nth-child(6) > span:nth-child(1)`
+**Boxes**: 9 matched, worst offset 0.00px, worst size 0.00px.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |

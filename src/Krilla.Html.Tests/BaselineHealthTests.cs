@@ -111,4 +111,56 @@ public class BaselineHealthTests
             .Because("run Krilla.Html.RefGen to generate the browser reference for these " +
                      "scenarios; without one they measure nothing");
     }
+
+    /// <summary>
+    /// Every element the browser laid out has a box on this side to compare against.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The counterpart to <see cref="ScenariosHaveReferences"/>, and it closes the same kind of
+    /// hole one level down. A scenario with a reference still measures nothing about an element
+    /// this engine generates no box for: the comparison counts it as unmatched and carries on
+    /// green, so a construct can be added to the corpus, look measured, and be measured by nothing
+    /// but pixels.
+    /// </para>
+    /// <para>
+    /// It can be an equality rather than a budget because the count really is zero across the
+    /// corpus — inline elements, inline images, inline-blocks and <c>&lt;br&gt;</c> all report
+    /// their geometry. Anything that puts an element out of reach again has to be a deliberate
+    /// change to this test rather than a number quietly going up.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task EveryElementIsMeasured()
+    {
+        var unmatched = new List<string>();
+
+        foreach (var directory in CorpusLayout.Directories())
+        {
+            var path = CorpusLayout.BoxesPath(directory);
+            if (!File.Exists(path))
+            {
+                continue;
+            }
+
+            var reference = JsonSerializer.Deserialize(
+                                File.ReadAllText(path),
+                                CorpusJson.Default.ListBoxGeometry) ??
+                            [];
+
+            var result = BoxComparison.Compare(
+                reference,
+                BoxDump.Measure(CorpusLayout.Html(directory), CorpusRunner.Options(directory)));
+
+            foreach (var selector in result.MissingFromRender.Concat(result.NotInReference))
+            {
+                unmatched.Add($"{CorpusLayout.Name(directory)}: {selector}");
+            }
+        }
+
+        await Assert.That(unmatched)
+            .IsEmpty()
+            .Because("these elements are laid out by the browser and have no box here, so nothing " +
+                     "compares their geometry");
+    }
 }

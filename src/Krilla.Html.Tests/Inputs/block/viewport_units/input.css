@@ -1,0 +1,8 @@
+div { font-size: 16px; line-height: 24px; margin-bottom: 6px; background-color: #cfd8e8; }
+
+/* The page is 816 by 1056, and has no margins, so the viewport is the sheet. */
+#half { width: 50vw; }
+#short { width: 300px; height: 5vh; background-color: #d8e8cf; }
+#least { width: 10vmin; height: 40px; background-color: #f0e8b0; }
+#most { width: 10vmax; height: 40px; background-color: #e8d8cf; }
+#mixed { width: calc(50vw - 8px); background-color: #e8cfcf; }

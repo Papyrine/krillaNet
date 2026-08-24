@@ -78,7 +78,7 @@ sealed record CssTransform(
         string transform,
         string origin,
         float fontSize,
-        float rootFontSize)
+        CssRoot root)
     {
         var text = transform.Trim();
 
@@ -91,7 +91,7 @@ sealed record CssTransform(
 
         foreach (var (name, arguments) in Calls(text))
         {
-            if (Function(name, arguments, fontSize, rootFontSize) is not {} function)
+            if (Function(name, arguments, fontSize, root) is not {} function)
             {
                 return null;
             }
@@ -104,7 +104,7 @@ sealed record CssTransform(
             return null;
         }
 
-        var (x, y) = Origin(origin, fontSize, rootFontSize);
+        var (x, y) = Origin(origin, fontSize, root);
         return new(functions, x, y);
     }
 
@@ -232,11 +232,11 @@ sealed record CssTransform(
         string name,
         IReadOnlyList<string> arguments,
         float fontSize,
-        float rootFontSize)
+        CssRoot root)
     {
         CssLength? Length(int index) =>
             index < arguments.Count
-                ? CssValues.ParseLength(arguments[index], fontSize, rootFontSize, CssLength.None) is
+                ? CssValues.ParseLength(arguments[index], fontSize, root, CssLength.None) is
                   {Kind: not LengthKind.None} parsed
                     ? parsed
                     : null
@@ -348,7 +348,7 @@ sealed record CssTransform(
     /// <c>top left</c> arrives as <c>left top</c> and the two can be read positionally. A single
     /// value leaves the other centred.
     /// </remarks>
-    static (CssLength X, CssLength Y) Origin(string value, float fontSize, float rootFontSize)
+    static (CssLength X, CssLength Y) Origin(string value, float fontSize, CssRoot root)
     {
         var half = CssLength.Percentage(50);
         var parts = value.Trim().ToLowerInvariant()
@@ -370,7 +370,7 @@ sealed record CssTransform(
                 "left" or "top" => CssLength.Zero,
                 "center" => CssLength.Percentage(50),
                 "right" or "bottom" => CssLength.Percentage(100),
-                _ => CssValues.ParseLength(part, fontSize, rootFontSize, CssLength.None) is
+                _ => CssValues.ParseLength(part, fontSize, root, CssLength.None) is
                      {Kind: not LengthKind.None} parsed
                     ? parsed
                     : null

@@ -21,7 +21,7 @@ public class ReferenceGenerator
     [Test]
     public async Task GenerateReferences()
     {
-        var scenarios = CorpusLayout.Directories().ToList();
+        var scenarios = Selected().ToList();
         if (scenarios.Count == 0)
         {
             Console.WriteLine($"No scenarios found under {CorpusLayout.InputsDirectory}.");
@@ -60,6 +60,60 @@ public class ReferenceGenerator
 
         Console.WriteLine($"Regenerated {scenarios.Count} scenarios.");
     }
+
+    /// <summary>
+    /// The scenarios to regenerate: every one, or those the <c>KRILLA_REFGEN</c> variable names.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The variable holds a comma-separated list of scenario names or category prefixes, so
+    /// <c>KRILLA_REFGEN=block/calc,text/</c> regenerates one scenario and one whole category.
+    /// It exists for the measure-first workflow rather than for maintenance: probing a browser for
+    /// a number means standing up a throwaway scenario, and regenerating the other hundred to read
+    /// one of them back is most of a minute each time.
+    /// </para>
+    /// <para>
+    /// Deliberately not a command-line argument. This runs under TUnit, whose own argument parser
+    /// owns the command line, and a filter that has to survive <c>--treenode-filter</c> beside it
+    /// is worse than an environment variable.
+    /// </para>
+    /// <para>
+    /// A name that matches nothing is an error rather than an empty run, because the failure it
+    /// otherwise produces is silent: the generator reports success, the reference the scenario
+    /// needed is never written, and the comparison that follows measures nothing at all.
+    /// </para>
+    /// </remarks>
+    static IEnumerable<string> Selected()
+    {
+        var filter = Environment.GetEnvironmentVariable("KRILLA_REFGEN");
+
+        if (string.IsNullOrWhiteSpace(filter))
+        {
+            return CorpusLayout.Directories();
+        }
+
+        var wanted = filter
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .ToList();
+
+        var all = CorpusLayout.Directories().ToList();
+
+        foreach (var name in wanted)
+        {
+            if (!all.Any(_ => Matches(_, name)))
+            {
+                throw new($"KRILLA_REFGEN names '{name}', which matches no scenario.");
+            }
+        }
+
+        return all.Where(_ => wanted.Any(name => Matches(_, name)));
+    }
+
+    static bool Matches(string directory, string name) =>
+        CorpusLayout.Name(directory).Equals(name, StringComparison.OrdinalIgnoreCase) ||
+        CorpusLayout.Name(directory).StartsWith(
+            name.EndsWith('/') ? name : $"{name}/",
+            StringComparison.OrdinalIgnoreCase);
 
     static async Task Generate(IBrowser browser, string directory)
     {

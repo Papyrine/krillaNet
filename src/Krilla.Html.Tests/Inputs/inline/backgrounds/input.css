@@ -1,0 +1,22 @@
+p { font-size: 16px; line-height: 24px; margin: 0 0 8px 0; background-color: #eef2f8; }
+
+/* The highlight, and the point of the scenario: an inline element generates no box, so this is
+   painted per line fragment by the text inside it. */
+.hl { background-color: #f0d060; }
+
+/* Nested, with its own background: both are painted and the inner one is on top. */
+.deep { background-color: #90c090; }
+
+/* Nested with NO background, inside a larger one: the outer's fill has to cover it at the OUTER
+   element's height rather than at this one's. */
+#sized .hl { font-size: 24px; }
+.small { font-size: 11px; }
+
+/* Generous leading, where the fill hugs the text rather than the line box. */
+#leading { line-height: 40px; }
+
+/* Narrow, so the highlight wraps and gets one rectangle per line rather than one overall. */
+#wrapped { width: 320px; }
+
+/* An inline element with no background at all, which must paint nothing over the paragraph. */
+.none { color: #204080; }

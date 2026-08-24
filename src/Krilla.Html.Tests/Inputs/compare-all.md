@@ -1,4 +1,4 @@
-# All scenarios (99)
+# All scenarios (104)
 
 The browser reference (left) beside the page Krilla.Html produced (right). `AE` is the fraction of pixels that differ and `SSIM` is structural similarity; neither is asserted. The worst offset is the largest positional disagreement in CSS pixels between the rendered element geometry and the browser's, and is the number to watch — it reaches zero exactly when the layout is right.
 
@@ -14,6 +14,7 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [block/border_styles](#block-border_styles)
 - [block/box_model](#block-box_model)
 - [block/box_sizing](#block-box_sizing)
+- [block/calc](#block-calc)
 - [block/gradients](#block-gradients)
 - [block/list_position](#block-list_position)
 - [block/margin_collapse](#block-margin_collapse)
@@ -29,6 +30,7 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [block/overflow_paint](#block-overflow_paint)
 - [block/percentage_width](#block-percentage_width)
 - [block/transform](#block-transform)
+- [block/viewport_units](#block-viewport_units)
 - [block/visibility](#block-visibility)
 - [float/basic](#float-basic)
 - [float/clear](#float-clear)
@@ -45,6 +47,7 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [image/object_fit](#image-object_fit)
 - [image/percent_width](#image-percent_width)
 - [image/sized](#image-sized)
+- [inline/backgrounds](#inline-backgrounds)
 - [inline/font_size_em](#inline-font_size_em)
 - [inline/font_style](#inline-font_style)
 - [inline/font_weight](#inline-font_weight)
@@ -55,10 +58,12 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [inline/line_height](#inline-line_height)
 - [inline/line_height_normal](#inline-line_height_normal)
 - [inline/nested_inline](#inline-nested_inline)
+- [inline/padded](#inline-padded)
 - [inline/simple_text](#inline-simple_text)
 - [inline/text_align](#inline-text_align)
 - [inline/text_indent](#inline-text_indent)
 - [inline/vertical_align](#inline-vertical_align)
+- [inline/vertical_align_length](#inline-vertical_align_length)
 - [inline/white_space](#inline-white_space)
 - [inline/white_space_pre](#inline-white_space_pre)
 - [inline/word_joins](#inline-word_joins)
@@ -361,6 +366,49 @@ cause as `text/kerning`, and not a geometry difference: every one of the fourtee
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0004 · SSIM 0.9999** |
 | <img src="block/box_sizing/reference_0001.png" width="480"> | <img src="block/box_sizing/result%23page_0001.verified.png" width="480"> |
+
+
+## block/calc
+
+# block/calc
+
+`calc()` reaches this engine verbatim. AngleSharp.Css hands it back exactly as written, the same
+way it hands back a bare percentage, so evaluating it is this engine's job — and before this it
+fell through to the "unparseable" fallback and the property silently took its default. For a
+`width` that means the box fills its container, which is a whole-page difference that no diagnostic
+reported, because a value nothing recognises is a value nothing can report.
+
+The eight rows are chosen to separate the cases that fold from the one that cannot:
+
+- `#absolute` is `calc(10em + 12px)`, which is 172px before layout starts. Nothing downstream ever
+  sees a calc, and the twenty-odd places that decide whether a length is definite by testing for an
+  absolute one keep answering correctly without knowing the syntax exists.
+- `#proportion` is `calc(50% / 2)`, which folds the other way — to a plain 25%.
+- `#mixed` is `calc(100% - 120px)`, the case that needs both halves at once, and `CssLength` grew a
+  kind for exactly this one. It resolves against the containing block like a percentage, which is
+  why the sites testing for a definite length treat it as indefinite and why that is right rather
+  than an omission.
+- `#nested` proves the recursion and the product with the number on the left.
+- `#clamped` is `calc(50% - 400px)` in a 600px frame, so it resolves to -100px. Chrome floors the
+  used width at zero rather than at the declared value, and the row is 144px tall because six words
+  each wrap onto a line of their own.
+- `#padded`, `#tall` and `#shifted` put a calc on the three other properties that take one, since a
+  value resolved correctly for `width` and forgotten for `padding-left` is how this defect
+  usually presents.
+
+Whitespace around `+` and `-` is required, which is CSS's own rule and not a shortcut here. Without
+it `calc(2e-5px)` and `calc(10px -5px)` cannot be told apart.
+
+Geometry is exact against Chrome on all eleven boxes.
+
+What to look at: `#mixed` at 480px. A frame-wide box there is the calc falling back to `auto`.
+
+**Boxes**: 11 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0001 · SSIM 1.0000** |
+| <img src="block/calc/reference_0001.png" width="480"> | <img src="block/calc/result%23page_0001.verified.png" width="480"> |
 
 
 ## block/gradients
@@ -847,6 +895,41 @@ missing; both wrong together means the composition order is reversed.
 | <img src="block/transform/reference_0001.png" width="480"> | <img src="block/transform/result%23page_0001.verified.png" width="480"> |
 
 
+## block/viewport_units
+
+# block/viewport_units
+
+The four viewport units, which were parsed as unrecognised and fell back to the property's default.
+
+In paged media the viewport is the page's CONTENT box rather than a window, so `100vh` is one page
+tall. That is what a browser printing to PDF resolves against, and it is what makes this scenario
+possible at all: the corpus uses zero page margins, so the page content box and the browser's
+screen viewport are the same 816 by 1056 rectangle and both sides of the comparison mean the same
+thing by `vw`.
+
+Unlike a percentage, a viewport unit does NOT depend on the containing block — `50vw` is half the
+page wherever the box sits — so it resolves during parsing and never reaches layout as anything but
+an absolute length.
+
+`#least` and `#most` are the rows worth having. `10vmin` and `10vmax` are 81.59 and 105.59 rather
+than 81.6 and 105.6, because Chrome holds every layout length on a 1/64 pixel grid and truncates
+onto it. Both sides agree at two decimals regardless, which is what the comparison reads.
+
+`#mixed` puts a viewport unit inside a `calc()`, since the two features were written together and a
+unit table consulted by only one of the two parsers is the obvious way for them to disagree.
+
+Geometry is exact against Chrome.
+
+What to look at: `#half` at 408px. Anything else means the viewport is not the page.
+
+**Boxes**: 7 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| <img src="block/viewport_units/reference_0001.png" width="480"> | <img src="block/viewport_units/result%23page_0001.verified.png" width="480"> |
+
+
 ## block/visibility
 
 # block/visibility
@@ -876,9 +959,7 @@ that does paint.
 What to look at: whether `#after` sits at y=48. If it has moved to y=24 the property is being read
 as `display: none`. If `#child` disappears, the check has been put on the box instead of the run.
 
-**Boxes**: 7 matched, worst offset 0.00px, worst size 0.00px.
-
-Not rendered: `html > body:nth-child(2) > div:nth-child(4) > span:nth-child(1)`
+**Boxes**: 8 matched, worst offset 0.00px, worst size 0.00px.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |
@@ -1263,6 +1344,64 @@ declarations, so they are applied after the cascade.
 | <img src="image/sized/reference_0001.png" width="480"> | <img src="image/sized/result%23page_0001.verified.png" width="480"> |
 
 
+## inline/backgrounds
+
+# inline/backgrounds
+
+A background on an inline element, which was read and not painted — so every highlighted phrase in
+every document came out on the paragraph's colour, and nothing said so. The scenario exists because
+the corpus had no way to notice: an inline element generates no box, so until text runs started
+carrying their element's selector there was nothing for the geometry comparison to match and the
+pixels were the only witness.
+
+An inline element's background is **one rectangle per line fragment**, not one around the element.
+`#wrapped` is the row that shows why: its highlight breaks across three lines, and a single
+rectangle round the lot would colour the blank space at the end of each line and the indent at the
+start of the next.
+
+The rectangle is the **font box**, not the line box — the baseline less the whole-pixel ascent, as
+tall as that ascent plus the whole-pixel descent. `#leading` gives its paragraph a 40px line height
+and the fill stays 17px tall, hugging the text with the leading left uncoloured. Filling the line
+box instead is indistinguishable whenever `line-height` is close to the font's own height, which is
+most of the time.
+
+`#nested` and `#sized` are the two rows about nesting, and they fail differently:
+
+- `#nested` has a background inside a background. The inner element's text carries the INNER
+  element's style, so without recording the ancestor there is nothing to paint the outer one from
+  and the highlight has a hole in it exactly where the nested word sits.
+- `#sized` has a 24px outer with an 11px inner that has no background of its own. The outer's fill
+  behind that word has to be the OUTER element's height — measured against its own font rather than
+  the run's — or the highlight narrows to 12px for one word and reads as a rendering fault.
+
+`#clear` is the control: an inline element with no background of its own must paint nothing, which
+is what keeps the block's own text from being filled twice over. Text belonging to the block rather
+than to any inline element is skipped for the same reason — the block already painted it, and
+filling it again is invisible while the colour is opaque and wrong the moment it is not.
+
+The fill is snapped to whole pixels, which is the browser's construction rather than a rounding
+convenience. A fragment from 49.81 to 127.21 is filled over columns 50 to 126 with hard edges at
+both ends; left as a fractional rectangle it picked up one whole extra column of colour on the
+right, because the rasteriser reading the PDF snaps outward where the browser snaps to nearest.
+That single column was the whole of the difference between 0.9999 and 1.0000.
+
+Padding and a border on an inline element are still not drawn, and are reported. That is a layout
+question rather than a painting one: horizontal padding advances the text after it.
+
+Geometry is exact on all sixteen boxes and the page reads SSIM 1.0000, with the residual confined
+to glyph edges at 24px.
+
+What to look at: the left and right ends of each highlight, and the gap between the fill and the
+paragraph edge in `#leading`.
+
+**Boxes**: 16 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0002 · SSIM 1.0000** |
+| <img src="inline/backgrounds/reference_0001.png" width="480"> | <img src="inline/backgrounds/result%23page_0001.verified.png" width="480"> |
+
+
 ## inline/font_size_em
 
 The em trap. A relative font-size resolves against the PARENT size, while every other em in the
@@ -1377,9 +1516,7 @@ What to look at when it moves: any of the four boxes on a line of its own is the
 path being lost entirely. `#two` a line too low is the first-line baseline. `#baseline` sitting a
 few pixels low with its text still aligned is half-leading, not this.
 
-**Boxes**: 10 matched, worst offset 0.00px, worst size 0.00px.
-
-Not rendered: `html > body:nth-child(2) > p:nth-child(2) > span:nth-child(1) > br:nth-child(1)`
+**Boxes**: 11 matched, worst offset 0.00px, worst size 0.00px.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |
@@ -1453,9 +1590,7 @@ descent and line gap, and from whether OS/2 asks for its typographic metrics to 
 Deliberately isolated, because every other text scenario sets line-height explicitly so that this
 one question cannot contaminate them.
 
-**Boxes**: 3 matched, worst offset 0.00px, worst size 0.00px.
-
-Not rendered: `html > body:nth-child(2) > p:nth-child(1) > br:nth-child(1)`, `html > body:nth-child(2) > p:nth-child(1) > br:nth-child(2)`
+**Boxes**: 5 matched, worst offset 0.00px, worst size 0.00px.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |
@@ -1470,14 +1605,22 @@ its baseline from the deepest, so a mismatched face changes both the wrap points
 positions. Note the explicit b and i rules: the shared reset flattens the UA stylesheet, so these
 elements carry no styling of their own until a scenario gives them some.
 
-**Boxes**: 3 matched, worst offset 0.00px, worst size 0.00px.
-
-Not rendered: `html > body:nth-child(2) > p:nth-child(1) > b:nth-child(1)`, `html > body:nth-child(2) > p:nth-child(1) > i:nth-child(2)`, `html > body:nth-child(2) > p:nth-child(1) > b:nth-child(3)`, `html > body:nth-child(2) > p:nth-child(1) > b:nth-child(3) > i:nth-child(1)`
+**Boxes**: 7 matched, worst offset 0.00px, worst size 0.00px.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
 | <img src="inline/nested_inline/reference_0001.png" width="480"> | <img src="inline/nested_inline/result%23page_0001.verified.png" width="480"> |
+
+
+## inline/padded
+
+**Boxes**: 15 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0001 · SSIM 1.0000** |
+| <img src="inline/padded/reference_0001.png" width="480"> | <img src="inline/padded/result%23page_0001.verified.png" width="480"> |
 
 
 ## inline/simple_text
@@ -1610,6 +1753,56 @@ cannot be derived and so are the two most likely to drift.
 | <img src="inline/vertical_align/reference_0001.png" width="480"> | <img src="inline/vertical_align/result%23page_0001.verified.png" width="480"> |
 
 
+## inline/vertical_align_length
+
+# inline/vertical_align_length
+
+`vertical-align` given a length or a percentage, which the resolver previously read and dropped
+onto `baseline` — so a document raising a footnote marker by 4px rendered it exactly where an
+unaligned one goes, and nothing said so.
+
+Two things are measured, and the second was not obvious:
+
+- A **length** raises the box off the baseline, so a negative value lowers it. `#raised` at `6px`
+  grows its paragraph from 24px to 30px, because the shifted box carries its whole leading box up
+  with it and the line grows to contain both it and the strut.
+- A **percentage** resolves against the element's own `line-height`, not its font size. `#proportional`
+  at `25%` of a 24px line lands in exactly the place `#raised` at `6px` does — same paragraph
+  height, same span position, to the pixel. Resolving it against the 16px font size instead would
+  give 4px, which is close enough to look like a rounding error and wrong on every line whose
+  height is not its font size.
+
+`#relative` is the row that separates a length from the keywords. Every `vertical-align` KEYWORD in
+this engine measures against the parent's font, which is what CSS says for `middle` and what
+measurement confirmed for the rest. A length does not: `em` and a percentage are ordinary value
+resolution against the element that declared them, so a `0.5em` on a 12px span inside a 16px
+paragraph is 6px rather than 8px. Its paragraph comes out 29px tall, which is a number neither
+reading of the em produces by accident.
+
+`#none` states `0px` explicitly so the rows above have a baseline to differ from, and because
+`vertical-align: 0` genuinely is the baseline — which is why an unparseable value has to fall back
+to something distinguishable from zero rather than to `CssLength.Zero`, the same trap
+`ResolveFontSize` records.
+
+This is also the scenario that made inline text geometry measurable at all. Its six spans generate
+no box of their own, so the comparison had nothing to match them against and reported the scenario
+as passing while measuring only the paragraphs. Text runs now carry their element's selector and
+the box dump unions their fragments, which took the corpus from eighteen unmatched elements to
+none.
+
+Geometry is exact against Chrome on all fourteen boxes, spans included.
+
+What to look at: the paragraph heights — 30, 28, 29, 30, 30, 24. They encode every shift on the
+page, since each is the line grown to contain a box that moved.
+
+**Boxes**: 14 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| <img src="inline/vertical_align_length/reference_0001.png" width="480"> | <img src="inline/vertical_align_length/result%23page_0001.verified.png" width="480"> |
+
+
 ## inline/white_space
 
 # inline/white_space
@@ -1694,9 +1887,7 @@ anything this scenario introduced — they generate no box in this engine's tree
 What to look at: `adjacent` is the assertion. Two lines there is the old adjacency rule returning.
 Two lines on `image` or `inline-block` becoming one is the over-correction.
 
-**Boxes**: 9 matched, worst offset 0.00px, worst size 0.00px.
-
-Not rendered: `html > body:nth-child(2) > div:nth-child(1) > span:nth-child(1)`, `html > body:nth-child(2) > div:nth-child(1) > span:nth-child(2)`, `html > body:nth-child(2) > div:nth-child(2) > span:nth-child(1)`, `html > body:nth-child(2) > div:nth-child(2) > span:nth-child(2)`, `html > body:nth-child(2) > div:nth-child(3) > span:nth-child(1)`, `html > body:nth-child(2) > div:nth-child(3) > span:nth-child(2)`
+**Boxes**: 15 matched, worst offset 0.00px, worst size 0.00px.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |
@@ -1728,9 +1919,7 @@ disturbed no layout.
 The rectangle covers the text's em box rather than the whole line, so a generous line-height does
 not make blank space clickable.
 
-**Boxes**: 4 matched, worst offset 0.00px, worst size 0.00px.
-
-Not rendered: `html > body:nth-child(2) > p:nth-child(1) > a:nth-child(1)`, `html > body:nth-child(2) > p:nth-child(2) > a:nth-child(1)`
+**Boxes**: 6 matched, worst offset 0.00px, worst size 0.00px.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |
@@ -1748,9 +1937,7 @@ The second anchor points at an id no element carries. It produces no annotation 
 one aimed at page one: a link that silently goes somewhere wrong is worse than a link that is not
 there. Expect exactly one annotation.
 
-**Boxes**: 6 matched, worst offset 0.00px, worst size 0.00px.
-
-Not rendered: `html > body:nth-child(2) > p:nth-child(1) > a:nth-child(1)`, `html > body:nth-child(2) > p:nth-child(1) > a:nth-child(2)`
+**Boxes**: 8 matched, worst offset 0.00px, worst size 0.00px.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |
@@ -1769,9 +1956,7 @@ of the link at all.
 
 Expect one annotation per line the anchor touches, each covering only its own fragment.
 
-**Boxes**: 3 matched, worst offset 0.00px, worst size 0.00px.
-
-Not rendered: `html > body:nth-child(2) > p:nth-child(1) > a:nth-child(1)`
+**Boxes**: 4 matched, worst offset 0.00px, worst size 0.00px.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |
@@ -2539,9 +2724,7 @@ same places; a scenario with a coloured strike would report it.
 What to look at: whether `#all` carries three rules and `#through` one. A missing overline is the
 rule with no font metric behind it.
 
-**Boxes**: 8 matched, worst offset 0.00px, worst size 0.00px.
-
-Not rendered: `html > body:nth-child(2) > p:nth-child(6) > span:nth-child(1)`
+**Boxes**: 9 matched, worst offset 0.00px, worst size 0.00px.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |
@@ -2583,9 +2766,7 @@ Geometry is exact and pixels read SSIM 0.9997, from glyph positioning across nin
 What to look at: the widths. Any two rows coming out equal means a keyword fell through to the
 inherited size.
 
-**Boxes**: 12 matched, worst offset 0.00px, worst size 0.00px.
-
-Not rendered: `html > body:nth-child(2) > p:nth-child(10) > span:nth-child(1)`
+**Boxes**: 13 matched, worst offset 0.00px, worst size 0.00px.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |

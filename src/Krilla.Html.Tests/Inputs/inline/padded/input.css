@@ -1,0 +1,14 @@
+p { font-size: 16px; line-height: 24px; margin: 0 0 14px 0; background-color: #eef2f8; }
+
+/* Horizontal padding is the whole point: it advances the text after it, so this is a layout
+   property rather than a painting one. */
+.chip { padding: 1px 6px; background-color: #f0d060; }
+
+.framed { border: 2px solid #c04020; }
+
+/* Vertical padding overflows the line box rather than growing it, so nothing below this moves. */
+.tall { padding: 8px 4px; background-color: #90c090; }
+
+/* Narrow, so the padded element wraps: the left border goes on the first fragment only and the
+   right on the last, leaving the break open at both ends. */
+#wrapped { width: 300px; }

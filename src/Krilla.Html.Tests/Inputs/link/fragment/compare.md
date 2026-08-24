@@ -8,9 +8,7 @@ The second anchor points at an id no element carries. It produces no annotation 
 one aimed at page one: a link that silently goes somewhere wrong is worse than a link that is not
 there. Expect exactly one annotation.
 
-**Boxes**: 6 matched, worst offset 0.00px, worst size 0.00px.
-
-Not rendered: `html > body:nth-child(2) > p:nth-child(1) > a:nth-child(1)`, `html > body:nth-child(2) > p:nth-child(1) > a:nth-child(2)`
+**Boxes**: 8 matched, worst offset 0.00px, worst size 0.00px.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |

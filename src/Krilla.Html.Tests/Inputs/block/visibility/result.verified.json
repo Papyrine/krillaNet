@@ -2,10 +2,7 @@
   "ReferencePageCount": 1,
   "ResultingPageCount": 1,
   "Boxes": {
-    "Matched": 7,
-    "MissingFromRender": [
-      "html > body:nth-child(2) > div:nth-child(4) > span:nth-child(1)"
-    ]
+    "Matched": 8
   },
   "PageDiffs": [
     {

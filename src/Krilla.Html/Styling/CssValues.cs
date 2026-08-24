@@ -17,13 +17,20 @@ static class CssValues
     /// </summary>
     /// <param name="value">The serialized value.</param>
     /// <param name="fontSize">The element's own font size, for <c>em</c>, <c>ex</c> and <c>ch</c>.</param>
-    /// <param name="rootFontSize">The root element's font size, for <c>rem</c>.</param>
+    /// <param name="root">The root font size and viewport, for <c>rem</c> and the <c>v*</c> units.</param>
     /// <param name="fallback">Returned when the value is missing or unparseable.</param>
-    public static CssLength ParseLength(string? value, float fontSize, float rootFontSize, CssLength fallback)
+    public static CssLength ParseLength(string? value, float fontSize, CssRoot root, CssLength fallback)
     {
         if (string.IsNullOrWhiteSpace(value))
         {
             return fallback;
+        }
+
+        // Ahead of the unit scan, because a calc() ends in a parenthesis rather than in a unit and
+        // would otherwise be read as a number with an unrecognised one.
+        if (CssCalc.Looks(value))
+        {
+            return CssCalc.Parse(value, fontSize, root) ?? fallback;
         }
 
         var text = value.AsSpan().Trim();
@@ -53,15 +60,15 @@ static class CssValues
 
         var unit = text[split..].Trim();
 
-        // No unit below is longer than three characters, so anything longer cannot match one and
+        // No unit below is longer than four characters, so anything longer cannot match one and
         // takes the fallback either way. Which is what lets the case folding CSS asks for happen
         // in a fixed buffer rather than in a string nobody keeps.
-        if (unit.Length > 3)
+        if (unit.Length > 4)
         {
             return fallback;
         }
 
-        Span<char> lower = stackalloc char[3];
+        Span<char> lower = stackalloc char[4];
         unit.ToLowerInvariant(lower);
 
         return lower[..unit.Length] switch
@@ -74,7 +81,15 @@ static class CssValues
             "mm" => CssLength.Pixels(amount * 96 / 25.4f),
             "q" => CssLength.Pixels(amount * 96 / 101.6f),
             "em" => CssLength.Pixels(amount * fontSize),
-            "rem" => CssLength.Pixels(amount * rootFontSize),
+            "rem" => CssLength.Pixels(amount * root.FontSize),
+            // The viewport units. In paged media the viewport is the page's content box, so these
+            // are a proportion of the sheet — resolved here rather than carried as percentages,
+            // because unlike a percentage they do NOT depend on the containing block and a box
+            // sized `50vw` is half the page wherever it sits.
+            "vw" => CssLength.Pixels(amount * root.ViewportWidth / 100),
+            "vh" => CssLength.Pixels(amount * root.ViewportHeight / 100),
+            "vmin" => CssLength.Pixels(amount * root.ViewportMin / 100),
+            "vmax" => CssLength.Pixels(amount * root.ViewportMax / 100),
             // Approximations, and knowingly so. Exact values need the font's x-height and the
             // advance of "0", which would mean threading a face through every parse. Both units
             // are rare in the corpus, and the ratios below are the conventional defaults.

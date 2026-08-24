@@ -13,7 +13,21 @@ enum LengthKind
     Percent,
 
     /// <summary>The property was <c>none</c>, as <c>max-width</c> allows.</summary>
-    None
+    None,
+
+    /// <summary>
+    /// A <c>calc()</c> mixing an absolute length with a percentage, as
+    /// <c>calc(100% - 20px)</c> does.
+    /// </summary>
+    /// <remarks>
+    /// Only the MIXED case reaches this. A <c>calc()</c> whose parts are all absolute folds into
+    /// <see cref="Absolute"/> during parsing and one that is purely proportional folds into
+    /// <see cref="Percent"/>, so the twenty-odd places that ask whether a length is definite by
+    /// testing for <see cref="Absolute"/> keep answering correctly without knowing this kind
+    /// exists. A mixed one is not definite — it depends on the containing block exactly as a
+    /// percentage does — so falling out of those tests is the right answer rather than an omission.
+    /// </remarks>
+    Calc
 }
 
 /// <summary>
@@ -35,6 +49,12 @@ enum LengthKind
 /// </remarks>
 readonly record struct CssLength(LengthKind Kind, float Value)
 {
+    /// <summary>
+    /// The percentage component of a <see cref="LengthKind.Calc"/>, where <see cref="Value"/>
+    /// holds the absolute one. Zero for every other kind.
+    /// </summary>
+    public float Percent { get; init; }
+
     /// <summary><c>auto</c>.</summary>
     public static CssLength Auto => new(LengthKind.Auto, 0);
 
@@ -49,6 +69,30 @@ readonly record struct CssLength(LengthKind Kind, float Value)
 
     /// <summary>A percentage of the containing block.</summary>
     public static CssLength Percentage(float value) => new(LengthKind.Percent, value);
+
+    /// <summary>
+    /// A sum of an absolute length and a percentage, folded to a simpler kind when either half is
+    /// zero.
+    /// </summary>
+    /// <remarks>
+    /// The folding is what keeps <see cref="LengthKind.Calc"/> rare. <c>calc(2em + 4px)</c> is an
+    /// ordinary absolute length by the time anything downstream sees it, and only a value that
+    /// genuinely needs both parts carries both.
+    /// </remarks>
+    public static CssLength Sum(float pixels, float percent)
+    {
+        if (percent == 0)
+        {
+            return Pixels(pixels);
+        }
+
+        if (pixels == 0)
+        {
+            return Percentage(percent);
+        }
+
+        return new(LengthKind.Calc, pixels) {Percent = percent};
+    }
 
     /// <summary>Whether this is <c>auto</c>.</summary>
     public bool IsAuto => Kind == LengthKind.Auto;
@@ -65,6 +109,7 @@ readonly record struct CssLength(LengthKind Kind, float Value)
         {
             LengthKind.Absolute => Value,
             LengthKind.Percent => containing * Value / 100f,
+            LengthKind.Calc => Value + containing * Percent / 100f,
             _ => fallback
         };
 
@@ -81,6 +126,18 @@ readonly record struct CssLength(LengthKind Kind, float Value)
         {
             LengthKind.Absolute => Value,
             LengthKind.Percent => containing * Value / 100f,
+            LengthKind.Calc => Value + containing * Percent / 100f,
             _ => null
         };
+
+    /// <summary>
+    /// Whether this resolves against a containing block rather than standing on its own.
+    /// </summary>
+    /// <remarks>
+    /// True for a percentage and for a mixed <c>calc()</c>, which are the two kinds a site wanting
+    /// "proportional to something" has to accept. Written as a property because the alternative —
+    /// testing the two kinds at each site — is exactly how a <c>calc()</c> gets forgotten at one of
+    /// them.
+    /// </remarks>
+    public bool IsProportional => Kind is LengthKind.Percent or LengthKind.Calc;
 }

@@ -1,0 +1,16 @@
+p { font-size: 16px; line-height: 24px; margin: 0 0 8px 0; background-color: #eef2f8; }
+span { background-color: #cfd8e8; }
+
+/* A positive length raises the box off the baseline; a negative one drops it. */
+#raised { vertical-align: 6px; }
+#lowered { vertical-align: -4px; }
+
+/* Font-relative, against the span's OWN font size, which differs from its parent's. */
+#relative { font-size: 12px; vertical-align: 0.5em; }
+
+/* A percentage, whose basis is the element's own line-height rather than its font size. */
+#proportional { vertical-align: 25%; }
+#under { vertical-align: -25%; }
+
+/* Zero is the baseline exactly, and is here so the rows above have something to differ from. */
+#none { vertical-align: 0px; }

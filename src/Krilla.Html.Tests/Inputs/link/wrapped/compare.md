@@ -7,9 +7,7 @@ of the link at all.
 
 Expect one annotation per line the anchor touches, each covering only its own fragment.
 
-**Boxes**: 3 matched, worst offset 0.00px, worst size 0.00px.
-
-Not rendered: `html > body:nth-child(2) > p:nth-child(1) > a:nth-child(1)`
+**Boxes**: 4 matched, worst offset 0.00px, worst size 0.00px.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |

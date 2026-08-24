@@ -116,7 +116,16 @@ enum VerticalAlignKind
     TextTop,
 
     /// <summary>Bottom edge against the bottom of the parent's text.</summary>
-    TextBottom
+    TextBottom,
+
+    /// <summary>
+    /// Raised off the baseline by <see cref="ComputedStyle.VerticalAlignOffset"/>.
+    /// </summary>
+    /// <remarks>
+    /// The one value carrying a number of its own, which is why the offset is a separate property
+    /// rather than folded into this. Positive raises, so a negative length lowers.
+    /// </remarks>
+    Length
 }
 
 /// <summary>What a box asks of the page breaks around and inside it.</summary>
@@ -519,6 +528,18 @@ sealed record ComputedStyle
     /// <c>hidden</c> border a collapsed table cannot honour.
     /// </remarks>
     public BorderCollapseKind BorderCollapse { get; init; }
+
+    /// <summary>
+    /// How far <see cref="VerticalAlignKind.Length"/> raises the box off the baseline.
+    /// </summary>
+    /// <remarks>
+    /// A percentage resolves against the element's OWN <c>line-height</c> rather than its font
+    /// size, which is CSS's rule and measures out of Chrome exactly: at a line height of 24px,
+    /// <c>25%</c> lands a box in the same place <c>6px</c> does. That basis is a layout-time
+    /// quantity when the line height is <c>normal</c>, so the value is carried unresolved and
+    /// settled where the font is known.
+    /// </remarks>
+    public CssLength VerticalAlignOffset { get; init; }
 
     /// <summary>Which side of the table the caption sits on.</summary>
     public CaptionSideKind CaptionSide { get; init; }
@@ -944,6 +965,25 @@ sealed record ComputedStyle
     public float BorderWidthY => BorderTop + BorderBottom;
 
     /// <summary>Whether any border edge would actually paint.</summary>
+    /// <summary>
+    /// Whether this element has any padding or border at all, on any side.
+    /// </summary>
+    /// <remarks>
+    /// Read to decide whether an inline element needs the two marker items that carry its edges.
+    /// Deliberately tests the DECLARED padding rather than a resolved one: a percentage padding is
+    /// not zero however small the containing block turns out to be.
+    /// </remarks>
+    public bool HasSurround =>
+        BorderTop > 0 || BorderRight > 0 || BorderBottom > 0 || BorderLeft > 0 ||
+        !IsZeroLength(PaddingTop) || !IsZeroLength(PaddingRight) ||
+        !IsZeroLength(PaddingBottom) || !IsZeroLength(PaddingLeft) ||
+        // The horizontal margins alone. CSS applies those to an inline element and drops the
+        // vertical pair, so a top margin here is not a reason to give the element edges.
+        !IsZeroLength(MarginLeft) || !IsZeroLength(MarginRight);
+
+    static bool IsZeroLength(CssLength length) =>
+        length.Value == 0 && length.Percent == 0;
+
     public bool HasBorder =>
         (BorderTop > 0 && BorderTopColor is not null) ||
         (BorderRight > 0 && BorderRightColor is not null) ||

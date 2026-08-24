@@ -34,9 +34,9 @@ static class StyleResolver
     public static ComputedStyle Resolve(IElement element, ComputedStyle parent, DocumentContext context)
     {
         var declaration = context.Cascade(element);
-        var rootFontSize = context.RootFontSize;
+        var root = context.Root;
 
-        var fontSize = ResolveFontSize(declaration, parent, rootFontSize);
+        var fontSize = ResolveFontSize(declaration, parent, root);
         var color = CssValues.ParseColor(declaration.GetPropertyValue("color")) ?? parent.Color;
 
         var families = CssValues.ParseFamilies(declaration.GetPropertyValue("font-family"));
@@ -48,31 +48,31 @@ static class StyleResolver
         var lineHeight = ParseLineHeight(
             declaration.GetPropertyValue("line-height"),
             fontSize,
-            rootFontSize,
+            root,
             parent);
 
         var style = new ComputedStyle
         {
             Display = ParseDisplay(declaration.GetPropertyValue("display"), element.LocalName),
-            MarginTop = Length(declaration, "margin-top", fontSize, rootFontSize),
-            MarginRight = Length(declaration, "margin-right", fontSize, rootFontSize),
-            MarginBottom = Length(declaration, "margin-bottom", fontSize, rootFontSize),
-            MarginLeft = Length(declaration, "margin-left", fontSize, rootFontSize),
-            PaddingTop = Length(declaration, "padding-top", fontSize, rootFontSize),
-            PaddingRight = Length(declaration, "padding-right", fontSize, rootFontSize),
-            PaddingBottom = Length(declaration, "padding-bottom", fontSize, rootFontSize),
-            PaddingLeft = Length(declaration, "padding-left", fontSize, rootFontSize),
-            BorderTop = BorderWidth(declaration, "top", fontSize, rootFontSize),
-            BorderRight = BorderWidth(declaration, "right", fontSize, rootFontSize),
-            BorderBottom = BorderWidth(declaration, "bottom", fontSize, rootFontSize),
-            BorderLeft = BorderWidth(declaration, "left", fontSize, rootFontSize),
-            RadiusTopLeft = Radius(declaration, "top-left", fontSize, rootFontSize),
-            RadiusTopRight = Radius(declaration, "top-right", fontSize, rootFontSize),
-            RadiusBottomRight = Radius(declaration, "bottom-right", fontSize, rootFontSize),
-            RadiusBottomLeft = Radius(declaration, "bottom-left", fontSize, rootFontSize),
-            OutlineWidth = OutlineWidth(declaration, fontSize, rootFontSize),
+            MarginTop = Length(declaration, "margin-top", fontSize, root),
+            MarginRight = Length(declaration, "margin-right", fontSize, root),
+            MarginBottom = Length(declaration, "margin-bottom", fontSize, root),
+            MarginLeft = Length(declaration, "margin-left", fontSize, root),
+            PaddingTop = Length(declaration, "padding-top", fontSize, root),
+            PaddingRight = Length(declaration, "padding-right", fontSize, root),
+            PaddingBottom = Length(declaration, "padding-bottom", fontSize, root),
+            PaddingLeft = Length(declaration, "padding-left", fontSize, root),
+            BorderTop = BorderWidth(declaration, "top", fontSize, root),
+            BorderRight = BorderWidth(declaration, "right", fontSize, root),
+            BorderBottom = BorderWidth(declaration, "bottom", fontSize, root),
+            BorderLeft = BorderWidth(declaration, "left", fontSize, root),
+            RadiusTopLeft = Radius(declaration, "top-left", fontSize, root),
+            RadiusTopRight = Radius(declaration, "top-right", fontSize, root),
+            RadiusBottomRight = Radius(declaration, "bottom-right", fontSize, root),
+            RadiusBottomLeft = Radius(declaration, "bottom-left", fontSize, root),
+            OutlineWidth = OutlineWidth(declaration, fontSize, root),
             OutlineColor = CssValues.ParseColor(declaration.GetPropertyValue("outline-color")) ?? color,
-            OutlineOffset = Length(declaration, "outline-offset", fontSize, rootFontSize).Resolve(0),
+            OutlineOffset = Length(declaration, "outline-offset", fontSize, root).Resolve(0),
             BorderCollapse = declaration.GetPropertyValue("border-collapse")
                 .Trim()
                 .Equals("collapse", StringComparison.OrdinalIgnoreCase)
@@ -96,19 +96,19 @@ static class StyleResolver
             BorderBottomColor = BorderColor(declaration, "bottom", color),
             BorderLeftColor = BorderColor(declaration, "left", color),
             BoxSizing = ParseBoxSizing(declaration.GetPropertyValue("box-sizing")),
-            Width = Length(declaration, "width", fontSize, rootFontSize, CssLength.Auto),
-            Height = Length(declaration, "height", fontSize, rootFontSize, CssLength.Auto),
-            MaxWidth = Length(declaration, "max-width", fontSize, rootFontSize, CssLength.None),
-            MinWidth = Length(declaration, "min-width", fontSize, rootFontSize),
-            MaxHeight = Length(declaration, "max-height", fontSize, rootFontSize, CssLength.None),
-            MinHeight = Length(declaration, "min-height", fontSize, rootFontSize),
+            Width = Length(declaration, "width", fontSize, root, CssLength.Auto),
+            Height = Length(declaration, "height", fontSize, root, CssLength.Auto),
+            MaxWidth = Length(declaration, "max-width", fontSize, root, CssLength.None),
+            MinWidth = Length(declaration, "min-width", fontSize, root),
+            MaxHeight = Length(declaration, "max-height", fontSize, root, CssLength.None),
+            MinHeight = Length(declaration, "min-height", fontSize, root),
             // Inherited, so an absent declaration takes the parent's rather than zero.
-            TextIndent = Length(declaration, "text-indent", fontSize, rootFontSize, parent.TextIndent),
+            TextIndent = Length(declaration, "text-indent", fontSize, root, parent.TextIndent),
             BackgroundColor = CssValues.ParseColor(declaration.GetPropertyValue("background-color")),
             BackgroundImage = CssGradient.Parse(
                 declaration.GetPropertyValue("background-image"),
                 fontSize,
-                rootFontSize),
+                root),
             Color = color,
             FontFamilies = families,
             FontSize = fontSize,
@@ -122,14 +122,21 @@ static class StyleResolver
             LineHeightScale = lineHeight.Scale,
             Decorations = ParseDecorations(declaration, parent.Decorations),
             ListStyle = ParseListStyle(declaration.GetPropertyValue("list-style-type"), parent.ListStyle),
-            BorderSpacingX = Spacing(declaration, "border-spacing", fontSize, rootFontSize, first: true)
+            BorderSpacingX = Spacing(declaration, "border-spacing", fontSize, root, first: true)
                              ?? parent.BorderSpacingX,
-            BorderSpacingY = Spacing(declaration, "border-spacing", fontSize, rootFontSize, first: false)
+            BorderSpacingY = Spacing(declaration, "border-spacing", fontSize, root, first: false)
                              ?? parent.BorderSpacingY,
             TableLayout = ParseTableLayout(declaration.GetPropertyValue("table-layout")),
             VerticalAlign = ParseVerticalAlign(
                 declaration.GetPropertyValue("vertical-align"),
-                UserAgentStyles.DefaultVerticalAlign(element.LocalName) ?? parent.VerticalAlign),
+                UserAgentStyles.DefaultVerticalAlign(element.LocalName) ?? parent.VerticalAlign,
+                fontSize,
+                root),
+            VerticalAlignOffset = CssValues.ParseLength(
+                declaration.GetPropertyValue("vertical-align"),
+                fontSize,
+                root,
+                CssLength.Zero),
             VerticalAlignDeclared =
                 !string.IsNullOrWhiteSpace(declaration.GetPropertyValue("vertical-align")),
             TextAlign = ParseTextAlign(declaration.GetPropertyValue("text-align"), parent.TextAlign),
@@ -145,20 +152,20 @@ static class StyleResolver
                 declaration.GetPropertyValue("transform"),
                 declaration.GetPropertyValue("transform-origin"),
                 fontSize,
-                rootFontSize),
+                root),
             TextTransform = ParseTextTransform(
                 declaration.GetPropertyValue("text-transform"),
                 parent.TextTransform),
-            LetterSpacing = Advance(declaration, "letter-spacing", fontSize, rootFontSize)
+            LetterSpacing = Advance(declaration, "letter-spacing", fontSize, root)
                             ?? parent.LetterSpacing,
-            WordSpacing = Advance(declaration, "word-spacing", fontSize, rootFontSize)
+            WordSpacing = Advance(declaration, "word-spacing", fontSize, root)
                           ?? parent.WordSpacing,
             Overflow = ParseOverflow(declaration),
             Position = ParsePosition(declaration.GetPropertyValue("position")),
-            Top = Length(declaration, "top", fontSize, rootFontSize, CssLength.Auto),
-            Right = Length(declaration, "right", fontSize, rootFontSize, CssLength.Auto),
-            Bottom = Length(declaration, "bottom", fontSize, rootFontSize, CssLength.Auto),
-            Left = Length(declaration, "left", fontSize, rootFontSize, CssLength.Auto)
+            Top = Length(declaration, "top", fontSize, root, CssLength.Auto),
+            Right = Length(declaration, "right", fontSize, root, CssLength.Auto),
+            Bottom = Length(declaration, "bottom", fontSize, root, CssLength.Auto),
+            Left = Length(declaration, "left", fontSize, root, CssLength.Auto)
         };
 
         // After the style, not before: the scan reports against what the element resolved to, and
@@ -182,7 +189,7 @@ static class StyleResolver
     public static ComputedStyle ForText(ComputedStyle parent) =>
         parent;
 
-    static float ResolveFontSize(ICssStyleDeclaration declaration, ComputedStyle parent, float rootFontSize)
+    static float ResolveFontSize(ICssStyleDeclaration declaration, ComputedStyle parent, CssRoot root)
     {
         var value = declaration.GetPropertyValue("font-size");
         if (string.IsNullOrWhiteSpace(value))
@@ -203,7 +210,7 @@ static class StyleResolver
             return keyword;
         }
 
-        var length = CssValues.ParseLength(value, parent.FontSize, rootFontSize, CssLength.None);
+        var length = CssValues.ParseLength(value, parent.FontSize, root, CssLength.None);
         return length.Kind switch
         {
             LengthKind.Absolute => length.Value,
@@ -266,12 +273,12 @@ static class StyleResolver
         ICssStyleDeclaration declaration,
         string property,
         float fontSize,
-        float rootFontSize,
+        CssRoot root,
         CssLength? fallback = null) =>
         CssValues.ParseLength(
             declaration.GetPropertyValue(property),
             fontSize,
-            rootFontSize,
+            root,
             fallback ?? CssLength.Zero);
 
     /// <summary>
@@ -282,7 +289,7 @@ static class StyleResolver
     /// Folding the style into the width here means layout never has to consult border-style at
     /// all — an edge that does not paint also does not take space, which is exactly the CSS rule.
     /// </remarks>
-    static float BorderWidth(ICssStyleDeclaration declaration, string side, float fontSize, float rootFontSize)
+    static float BorderWidth(ICssStyleDeclaration declaration, string side, float fontSize, CssRoot root)
     {
         var style = declaration.GetPropertyValue($"border-{side}-style");
         if (string.IsNullOrWhiteSpace(style) ||
@@ -311,7 +318,7 @@ static class StyleResolver
             return 5;
         }
 
-        return CssValues.ParseLength(value, fontSize, rootFontSize, CssLength.Zero).Resolve(0);
+        return CssValues.ParseLength(value, fontSize, root, CssLength.Zero).Resolve(0);
     }
 
     static Color? BorderColor(ICssStyleDeclaration declaration, string side, Color inherited)
@@ -420,7 +427,7 @@ static class StyleResolver
         ICssStyleDeclaration declaration,
         string corner,
         float fontSize,
-        float rootFontSize)
+        CssRoot root)
     {
         var value = declaration.GetPropertyValue($"border-{corner}-radius");
 
@@ -436,9 +443,9 @@ static class StyleResolver
             return (CssLength.Zero, CssLength.Zero);
         }
 
-        var horizontal = CssValues.ParseLength(parts[0], fontSize, rootFontSize, CssLength.Zero);
+        var horizontal = CssValues.ParseLength(parts[0], fontSize, root, CssLength.Zero);
         var vertical = parts.Length > 1
-            ? CssValues.ParseLength(parts[1], fontSize, rootFontSize, CssLength.Zero)
+            ? CssValues.ParseLength(parts[1], fontSize, root, CssLength.Zero)
             : horizontal;
 
         return (horizontal, vertical);
@@ -453,7 +460,7 @@ static class StyleResolver
     /// <c>solid</c> is honoured; the rest are reported, so they zero the width too rather than
     /// painting solid and claiming to be right.
     /// </remarks>
-    static float OutlineWidth(ICssStyleDeclaration declaration, float fontSize, float rootFontSize)
+    static float OutlineWidth(ICssStyleDeclaration declaration, float fontSize, CssRoot root)
     {
         var style = declaration.GetPropertyValue("outline-style").Trim().ToLowerInvariant();
 
@@ -469,7 +476,7 @@ static class StyleResolver
             "" or "medium" => 3,
             "thin" => 1,
             "thick" => 5,
-            _ => CssValues.ParseLength(value, fontSize, rootFontSize, CssLength.Zero).Resolve(0)
+            _ => CssValues.ParseLength(value, fontSize, root, CssLength.Zero).Resolve(0)
         };
     }
 
@@ -528,7 +535,7 @@ static class StyleResolver
         ICssStyleDeclaration declaration,
         string property,
         float fontSize,
-        float rootFontSize)
+        CssRoot root)
     {
         var value = declaration.GetPropertyValue(property);
         if (string.IsNullOrWhiteSpace(value))
@@ -541,7 +548,7 @@ static class StyleResolver
             return 0;
         }
 
-        return CssValues.ParseLength(value, fontSize, rootFontSize, CssLength.Zero).Resolve(0);
+        return CssValues.ParseLength(value, fontSize, root, CssLength.Zero).Resolve(0);
     }
 
     /// <summary>
@@ -697,7 +704,7 @@ static class StyleResolver
         ICssStyleDeclaration declaration,
         string property,
         float fontSize,
-        float rootFontSize,
+        CssRoot root,
         bool first)
     {
         var value = declaration.GetPropertyValue(property);
@@ -713,7 +720,7 @@ static class StyleResolver
         }
 
         var part = first || parts.Length < 2 ? parts[0] : parts[1];
-        return CssValues.ParseLength(part, fontSize, rootFontSize, CssLength.Zero).Resolve(0);
+        return CssValues.ParseLength(part, fontSize, root, CssLength.Zero).Resolve(0);
     }
 
     /// <summary>
@@ -748,21 +755,47 @@ static class StyleResolver
     /// implementing <c>inherit</c> as a general keyword. It is only ever read on a cell, so the
     /// difference does not reach anything else.
     /// </remarks>
-    static VerticalAlignKind ParseVerticalAlign(string value, VerticalAlignKind inherited) =>
-        value.Trim().ToLowerInvariant() switch
+    static VerticalAlignKind ParseVerticalAlign(
+        string value,
+        VerticalAlignKind inherited,
+        float fontSize,
+        CssRoot root)
+    {
+        var text = value.Trim().ToLowerInvariant();
+
+        switch (text)
         {
-            null or "" or "inherit" => inherited,
-            "top" => VerticalAlignKind.Top,
-            "middle" => VerticalAlignKind.Middle,
-            "bottom" => VerticalAlignKind.Bottom,
-            "super" => VerticalAlignKind.Super,
-            "sub" => VerticalAlignKind.Sub,
-            "text-top" => VerticalAlignKind.TextTop,
-            "text-bottom" => VerticalAlignKind.TextBottom,
-            // A length or a percentage raises the box by that much, which is not implemented and
-            // lands on the initial value rather than on something arbitrary.
-            _ => VerticalAlignKind.Baseline
-        };
+            case null or "" or "inherit":
+                return inherited;
+            case "top":
+                return VerticalAlignKind.Top;
+            case "middle":
+                return VerticalAlignKind.Middle;
+            case "bottom":
+                return VerticalAlignKind.Bottom;
+            case "super":
+                return VerticalAlignKind.Super;
+            case "sub":
+                return VerticalAlignKind.Sub;
+            case "text-top":
+                return VerticalAlignKind.TextTop;
+            case "text-bottom":
+                return VerticalAlignKind.TextBottom;
+            case "baseline":
+                return VerticalAlignKind.Baseline;
+        }
+
+        // Anything left is a length or a percentage, which raises the box by that much. The
+        // fallback is None rather than Zero so that an unparseable value is distinguishable from a
+        // deliberate `vertical-align: 0`, which really is the baseline — the same trap
+        // ResolveFontSize records, where an absolute-kind fallback silently took the branch meant
+        // for real lengths.
+        var offset = CssValues.ParseLength(text, fontSize, root, CssLength.None);
+
+        return offset.IsNone
+            ? VerticalAlignKind.Baseline
+            : VerticalAlignKind.Length;
+    }
 
     static int ParseWeight(string value, int inherited)
     {
@@ -828,7 +861,7 @@ static class StyleResolver
     static (float? Absolute, float? Scale) ParseLineHeight(
         string value,
         float fontSize,
-        float rootFontSize,
+        CssRoot root,
         ComputedStyle parent)
     {
         var text = value.Trim();
@@ -848,7 +881,7 @@ static class StyleResolver
             return (null, multiplier);
         }
 
-        var length = CssValues.ParseLength(text, fontSize, rootFontSize, CssLength.Zero);
+        var length = CssValues.ParseLength(text, fontSize, root, CssLength.Zero);
         return (
             length.Kind == LengthKind.Percent
                 ? fontSize * length.Value / 100f

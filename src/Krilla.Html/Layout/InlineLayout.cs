@@ -78,13 +78,17 @@ static class InlineLayout
             band = new(band.Left + indent, Math.Max(0, band.Width - indent));
         }
 
-        foreach (var token in tokens)
+        var unbreakable = UnbreakableWidths(tokens);
+
+        for (var index = 0; index < tokens.Count; index++)
         {
+            var token = tokens[index];
+
             if (token.Kind == TokenKind.Break)
             {
                 // A forced break ends the line even when empty, which is what produces the blank
                 // line for a double newline in preformatted text.
-                Flush(box, current, currentWidth, band, fonts, ref y, forced: true);
+                Flush(box, current, currentWidth, band, fonts, ref y, forced: true, token.Selector);
                 band = OpenLine(floats, contentX, contentY, contentWidth, strut, ref y);
                 current = [];
                 currentWidth = 0;
@@ -118,10 +122,16 @@ static class InlineLayout
             // against Chrome, which overflows the line instead.
             var breakable = pendingSpace is not null || token.BreaksBefore;
 
+            // Measured over the whole UNBREAKABLE RUN starting here, not over this token alone.
+            // The two differ whenever a break opportunity is followed by tokens that offer none —
+            // an inline element's padding and the first word inside it, or two elements written
+            // with no space between them. Measuring the first token alone lets it onto the line
+            // and then appends the rest with nowhere left to break, so the line overruns its band
+            // instead of moving the group down whole.
             if (wraps &&
                 breakable &&
                 current.Count > 0 &&
-                currentWidth + spaceWidth + token.Width > band.Width)
+                currentWidth + spaceWidth + unbreakable[index] > band.Width)
             {
                 // The pending space is deliberately dropped rather than carried down: it sits at
                 // the break, and a trailing space must not affect where the previous line's
@@ -155,6 +165,46 @@ static class InlineLayout
         }
 
         return y;
+    }
+
+    /// <summary>
+    /// For each token, the width of the unbreakable run that starts there.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A run is the token plus every token after it that offers no break of its own, which is how
+    /// a group that has to move together is recognised: an inline element's opening edge glued to
+    /// the first word inside it, a word split across two elements, a word followed by the closing
+    /// edge of the element it sat in and then a comma.
+    /// </para>
+    /// <para>
+    /// Computed backwards in one pass rather than by looking ahead at each candidate, which would
+    /// be quadratic in the length of a paragraph made entirely of glued tokens.
+    /// </para>
+    /// </remarks>
+    static float[] UnbreakableWidths(List<Token> tokens)
+    {
+        var widths = new float[tokens.Count];
+
+        for (var index = tokens.Count - 1; index >= 0; index--)
+        {
+            // A space or a forced break is not content and ends the run rather than joining it.
+            if (tokens[index].Kind is TokenKind.Space or TokenKind.Break)
+            {
+                continue;
+            }
+
+            widths[index] = tokens[index].Width;
+
+            if (index + 1 < tokens.Count &&
+                tokens[index + 1].Kind is not (TokenKind.Space or TokenKind.Break) &&
+                !tokens[index + 1].BreaksBefore)
+            {
+                widths[index] += widths[index + 1];
+            }
+        }
+
+        return widths;
     }
 
     /// <summary>
@@ -308,9 +358,51 @@ static class InlineLayout
         {
             var face = fonts.Resolve(item.Style.FontFamilies, item.Style.FontWeight, item.Style.Italic);
 
+            // Resolved once per item rather than once per token: the faces are the same for every
+            // word the item produces, and resolving is a lookup through the whole family list.
+            var backdrops = item.Backdrops is {Count: > 0} ancestors
+                ? ancestors
+                    .Select(_ => new InlineBackdrop(
+                        _,
+                        fonts.Resolve(_.FontFamilies, _.FontWeight, _.Italic)))
+                    .ToArray()
+                : null;
+
+            // An inline element's opening or closing edge. It carries no text and takes the
+            // advance its padding and border ask for, which is what pushes the words after it
+            // along — the whole reason this is a layout concern rather than a painting one.
+            if (item.Edge != InlineEdgeKind.None)
+            {
+                var leading = item.Edge == InlineEdgeKind.Leading;
+
+                // The horizontal margin is part of the advance and outside the border box, so it
+                // is carried in the token's width and subtracted again when the box is placed.
+                // CSS drops the VERTICAL margins on an inline element entirely, which is why only
+                // this pair appears anywhere in the inline path.
+                tokens.Add(new(
+                    item.Style,
+                    face,
+                    leading
+                        ? item.Style.MarginLeft.Resolve(contentWidth) +
+                          item.Style.PaddingLeft.Resolve(contentWidth) + item.Style.BorderLeft
+                        : item.Style.MarginRight.Resolve(contentWidth) +
+                          item.Style.PaddingRight.Resolve(contentWidth) + item.Style.BorderRight,
+                    TokenKind.Edge,
+                    Link: item.Link,
+                    Selector: item.Selector,
+                    Backdrops: backdrops,
+                    BreaksBefore: breakable,
+                    Edge: item.Edge));
+
+                // A line may break before the opening edge and never between it and the first word
+                // inside, which would leave the padding stranded at the end of the line above.
+                breakable = false;
+                continue;
+            }
+
             if (item.ForcedBreak)
             {
-                tokens.Add(new(item.Style, face, 0, TokenKind.Break, Link: item.Link));
+                tokens.Add(new(item.Style, face, 0, TokenKind.Break, Link: item.Link, Selector: item.Selector));
                 breakable = true;
                 continue;
             }
@@ -360,6 +452,8 @@ static class InlineLayout
 
                 if (character == '\n')
                 {
+                    // A newline in preformatted text ends a line without being an element, so it reports
+                    // no rectangle — unlike the <br> above, which is one.
                     tokens.Add(new(item.Style, face, 0, TokenKind.Break, Link: item.Link));
                     breakable = true;
                     index++;
@@ -386,6 +480,8 @@ static class InlineLayout
                         shaped.Width(start, end),
                         TokenKind.Space,
                         Link: item.Link,
+                        Selector: item.Selector,
+                        Backdrops: backdrops,
                         Shaped: shaped,
                         TextStart: start,
                         TextEnd: end));
@@ -429,10 +525,12 @@ static class InlineLayout
                         shaped.Width(from, to),
                         TokenKind.Word,
                         Link: item.Link,
+                        Selector: item.Selector,
                         Shaped: shaped,
                         TextStart: from,
                         TextEnd: to,
-                        BreaksBefore: breakable));
+                        BreaksBefore: breakable,
+                        Backdrops: backdrops));
 
                     // A run of dashes therefore offers a break after each one, and greedy line
                     // breaking takes the last that fits — which is how `a--b` keeps both dashes on
@@ -583,12 +681,14 @@ static class InlineLayout
         Band band,
         FontSet fonts,
         ref float y,
-        bool forced)
+        bool forced,
+        string? endedBy = null)
     {
         // Trailing spaces hang outside the line box: they must not push a right-aligned line left
         // or shift a centred one. Preserved white space is exempt, being content rather than
         // separation.
-        var lastContent = tokens.FindLastIndex(_ => _.Kind == TokenKind.Word || IsAtomic(_.Kind));
+        var lastContent = tokens.FindLastIndex(
+            _ => _.Kind is TokenKind.Word or TokenKind.Edge || IsAtomic(_.Kind));
         if (lastContent >= 0 && !box.Style.PreservesSpaces)
         {
             for (var index = tokens.Count - 1; index > lastContent; index--)
@@ -626,7 +726,7 @@ static class InlineLayout
                 continue;
             }
 
-            var shift = Shift(align, tokenAbove, tokenBelow, box.Style, strutFace);
+            var shift = Shift(align, tokens[index], tokenAbove, tokenBelow, box.Style, strutFace);
             shifts[index] = shift;
 
             above = Math.Max(above, tokenAbove - shift);
@@ -697,6 +797,35 @@ static class InlineLayout
                 continue;
             }
 
+            if (tokens[runStart] is {Kind: TokenKind.Edge} edge)
+            {
+                var baseline = y + above + shifts[runStart];
+                var (top, bottom) = InlineMetrics.Extent(edge.Style, edge.Face, baseline);
+
+                // The margin is advance and nothing else: it sits outside the border box, before
+                // it at the opening edge and after it at the closing one.
+                var margin = edge.Edge == InlineEdgeKind.Leading
+                    ? edge.Style.MarginLeft.Resolve(0)
+                    : 0;
+
+                var surround = edge.Width - (edge.Edge == InlineEdgeKind.Leading
+                    ? edge.Style.MarginLeft.Resolve(0)
+                    : edge.Style.MarginRight.Resolve(0));
+
+                line.Edges.Add(new(
+                    edge.Style,
+                    edge.Face,
+                    new(x + margin, top, surround, bottom - top),
+                    edge.Edge,
+                    edge.Selector,
+                    baseline,
+                    edge.Backdrops));
+
+                x += edge.Width;
+                runStart++;
+                continue;
+            }
+
             // An inline-block was laid out with its margin box at the origin, so one translate
             // puts the whole tree where the line wants it: its own baseline onto the line's.
             if (tokens[runStart] is {Kind: TokenKind.Box, Box: {} inline} atomic)
@@ -715,6 +844,10 @@ static class InlineLayout
                    tokens[runEnd + 1].Link == tokens[runStart].Link &&
                    ReferenceEquals(tokens[runEnd + 1].Style, tokens[runStart].Style) &&
                    ReferenceEquals(tokens[runEnd + 1].Face, tokens[runStart].Face) &&
+                   // Two runs under different inline ancestors paint different backgrounds, so
+                   // merging them would put one element's highlight behind the other's text.
+                   ReferenceEquals(tokens[runEnd + 1].Backdrops, tokens[runStart].Backdrops) &&
+                   tokens[runEnd + 1].Selector == tokens[runStart].Selector &&
                    // Only tokens contiguous within one shaped run can be joined: their glyph
                    // ranges are adjacent slices of the same array, and merging across a gap
                    // would silently swallow whatever sat between them.
@@ -749,10 +882,25 @@ static class InlineLayout
                 y + above + shifts[runStart],
                 runWidth,
                 tokens[runStart].Link,
-                glyphs));
+                glyphs,
+                tokens[runStart].Selector,
+                tokens[runStart].Backdrops));
 
             x += runWidth;
             runStart = runEnd + 1;
+        }
+
+        // The <br> that ended the line, where the line stopped and as tall as the block's own
+        // text. Measured: Chrome puts it at the end of the content rather than at the band's edge,
+        // so an empty line reports it at the start and a centred one at the end of the centred
+        // text.
+        if (endedBy is {} selector)
+        {
+            var size = box.Style.FontSize;
+
+            line.Breaks.Add(new(
+                selector,
+                new(x, y + above - strutFace.Ascent(size), 0, strutFace.Ascent(size) + strutFace.Descent(size))));
         }
 
         box.Lines.Add(line);
@@ -828,6 +976,7 @@ static class InlineLayout
     /// </remarks>
     static float Shift(
         VerticalAlignKind align,
+        Token token,
         float tokenAbove,
         float tokenBelow,
         ComputedStyle block,
@@ -843,6 +992,12 @@ static class InlineLayout
             VerticalAlignKind.TextBottom => strut.Descent(size) - tokenBelow,
             VerticalAlignKind.Middle =>
                 tokenAbove - (tokenAbove + tokenBelow) / 2 - strut.XHeight(size) / 2,
+            // The exception to the paragraph above: a length is the box's OWN, because `em` and a
+            // percentage are ordinary CSS value resolution against the element that declared them
+            // rather than the user-agent arithmetic the keywords are. Negated because a positive
+            // `vertical-align` raises and this is down-positive.
+            VerticalAlignKind.Length => -Quantise(
+                token.Style.VerticalAlignOffset.Resolve(token.Style.ResolveLineHeight(token.Face))),
             _ => 0
         };
     }
@@ -923,7 +1078,13 @@ static class InlineLayout
         Replaced,
 
         /// <summary>An <c>inline-block</c>, which occupies a box holding a tree of its own.</summary>
-        Box
+        Box,
+
+        /// <summary>
+        /// One end of an inline element carrying padding or a border: no glyphs, and the advance
+        /// that surround asks for.
+        /// </summary>
+        Edge
     }
 
     /// <summary>
@@ -994,7 +1155,9 @@ static class InlineLayout
         LayoutBox? Box = null,
         float Baseline = 0,
         float MinWidth = 0,
-        bool BreaksBefore = false);
+        bool BreaksBefore = false,
+        IReadOnlyList<InlineBackdrop>? Backdrops = null,
+        InlineEdgeKind Edge = InlineEdgeKind.None);
 }
 
 /// <summary>

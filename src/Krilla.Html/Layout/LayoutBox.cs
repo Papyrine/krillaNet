@@ -262,6 +262,19 @@ sealed class LayoutBox
 /// </param>
 readonly record struct FloatChild(LayoutBox Box, int Index);
 
+/// <summary>Which end of an inline element a marker item stands for.</summary>
+enum InlineEdgeKind
+{
+    /// <summary>Not a marker; ordinary content.</summary>
+    None,
+
+    /// <summary>The element's opening edge, carrying its left padding and border.</summary>
+    Leading,
+
+    /// <summary>Its closing edge, carrying the right padding and border.</summary>
+    Trailing
+}
+
 /// <summary>A run of text waiting to be flowed into lines.</summary>
 /// <param name="Text">The text, after white-space processing.</param>
 /// <param name="Style">The style it is measured and painted with.</param>
@@ -288,6 +301,15 @@ readonly record struct FloatChild(LayoutBox Box, int Index);
 /// box on the line the way an image does, and differs in having contents of its own that were laid
 /// out in their own formatting context before the line was filled.
 /// </param>
+/// <param name="Backdrops">
+/// The styles of the inline ANCESTORS that paint a background over this item, outermost first.
+/// Null when there are none, which is nearly always.
+/// </param>
+/// <param name="Edge">
+/// Set when this item is not content at all but the opening or closing edge of an inline element
+/// carrying padding or a border. Emitted only for an element that has one, so a document full of
+/// plain <c>&lt;span&gt;</c>s produces none.
+/// </param>
 sealed record InlineItem(
     string Text,
     ComputedStyle Style,
@@ -295,7 +317,49 @@ sealed record InlineItem(
     bool ForcedBreak = false,
     ImageData? Image = null,
     string? Link = null,
-    LayoutBox? Box = null);
+    LayoutBox? Box = null,
+    IReadOnlyList<ComputedStyle>? Backdrops = null,
+    InlineEdgeKind Edge = InlineEdgeKind.None);
+
+/// <summary>
+/// An inline element enclosing a run that is not its own text.
+/// </summary>
+/// <remarks>
+/// An inline element generates no box, so both its painting and its geometry are carried by
+/// whatever text sits inside it — including text belonging to a nested inline element, which is
+/// the case this exists for. The face is resolved alongside the style because the rectangle is the
+/// ANCESTOR's font box rather than the run's: a small nested element inside a large one is backed
+/// to the large one's height, and a browser reports it at that height too.
+/// </remarks>
+readonly record struct InlineBackdrop(ComputedStyle Style, FontFace Face);
+
+/// <summary>
+/// The vertical span of an inline element's border box around a baseline.
+/// </summary>
+/// <remarks>
+/// Shared between the painter and the box dump so the rectangle drawn and the rectangle reported
+/// cannot drift apart. The font box grown by the element's own padding and border — which
+/// OVERFLOWS the line box rather than growing it, CSS's rule for an inline element, and why
+/// vertical padding here moves nothing on the page.
+/// </remarks>
+static class InlineMetrics
+{
+    public static (float Top, float Bottom) Extent(ComputedStyle style, FontFace face, float baseline)
+    {
+        var size = style.FontSize;
+
+        return (
+            baseline - face.Ascent(size) - style.PaddingTop.Resolve(0) - style.BorderTop,
+            baseline + face.Descent(size) + style.PaddingBottom.Resolve(0) + style.BorderBottom);
+    }
+
+    /// <summary>The same rectangle horizontally, at <paramref name="style"/>'s own extent.</summary>
+    public static Rect Reframe(Rect bounds, ComputedStyle style, FontFace face, float baseline)
+    {
+        var (top, bottom) = Extent(style, face, baseline);
+        return new(bounds.X, top, bounds.Width, bottom - top);
+    }
+}
 
 /// <summary>One laid-out line, and the glyph runs positioned on it.</summary>
 sealed class LineBox
@@ -311,6 +375,28 @@ sealed class LineBox
 
     /// <summary>The images on this line.</summary>
     public List<InlineImage> Images { get; } = [];
+
+    /// <summary>
+    /// The opening and closing edges of the inline elements with a surround on this line.
+    /// </summary>
+    /// <remarks>
+    /// One per element per line at most, and only for an element carrying padding or a border.
+    /// They occupy advance on the line like a word does, which is what makes an inline element's
+    /// left padding push the text after it along.
+    /// </remarks>
+    public List<InlineEdgeBox> Edges { get; } = [];
+
+    /// <summary>
+    /// The <c>&lt;br&gt;</c> that ended this line, if one did.
+    /// </summary>
+    /// <remarks>
+    /// Carried for the box dump alone: a browser reports a zero-width rectangle for a
+    /// <c>&lt;br&gt;</c> at the point the line stopped, and without this it is the last element in
+    /// the corpus that the geometry comparison cannot see. Kept apart from
+    /// <see cref="Runs"/> rather than added as an empty run, so nothing that paints has to know
+    /// about a run with no glyphs in it.
+    /// </remarks>
+    public List<InlineBreak> Breaks { get; } = [];
 
     /// <summary>
     /// The <c>inline-block</c> boxes on this line, each already laid out.
@@ -346,12 +432,62 @@ sealed class LineBox
             };
         }
 
+        for (var index = 0; index < Edges.Count; index++)
+        {
+            Edges[index] = Edges[index] with
+            {
+                Bounds = Edges[index].Bounds.Offset(dx, dy),
+                Baseline = Edges[index].Baseline + dy
+            };
+        }
+
+        for (var index = 0; index < Breaks.Count; index++)
+        {
+            Breaks[index] = Breaks[index] with
+            {
+                Bounds = Breaks[index].Bounds.Offset(dx, dy)
+            };
+        }
+
         foreach (var box in Boxes)
         {
             box.Translate(dx, dy);
         }
     }
 }
+
+/// <summary>
+/// One end of an inline element on one line: the strip its padding and border occupy.
+/// </summary>
+/// <param name="Style">The element's style, for the colours and widths.</param>
+/// <param name="Face">Its resolved face, which sizes the strip vertically.</param>
+/// <param name="Bounds">The strip's border box.</param>
+/// <param name="Kind">Which end this is, and so which side border is drawn.</param>
+/// <param name="Selector">
+/// The element's path. Carried for the box dump, where an edge is what gives a padded inline its
+/// real extent — a browser's rectangle for one covers the padding and border, and the text runs
+/// alone reach neither.
+/// </param>
+/// <param name="Baseline">
+/// The baseline of the line this edge sits on, so an enclosing element's own extent can be
+/// recovered from it.
+/// </param>
+/// <param name="Ancestors">The inline elements enclosing this one, outermost first, or null.</param>
+readonly record struct InlineEdgeBox(
+    ComputedStyle Style,
+    FontFace Face,
+    Rect Bounds,
+    InlineEdgeKind Kind,
+    string? Selector,
+    float Baseline,
+    IReadOnlyList<InlineBackdrop>? Ancestors);
+
+/// <summary>A line break element, and the empty rectangle a browser reports for it.</summary>
+/// <param name="Selector">The selector path of the <c>&lt;br&gt;</c>.</param>
+/// <param name="Bounds">
+/// Zero-width, at the end of the line it ended, as tall as the font's ascent plus descent.
+/// </param>
+readonly record struct InlineBreak(string Selector, Rect Bounds);
 
 /// <summary>An image positioned on a line.</summary>
 /// <param name="Image">The image to draw.</param>
@@ -380,6 +516,14 @@ readonly record struct InlineImage(ImageData Image, Rect Bounds, string? Selecto
 /// re-derived at paint time so that what is drawn is exactly what the line was measured with —
 /// shaping twice would leave the two free to disagree.
 /// </param>
+/// <param name="Backdrops">
+/// The inline ancestors painting a background behind this run, outermost first, or null.
+/// </param>
+/// <param name="Selector">
+/// The path of the element this run's text came from, or null for text with no element of its own.
+/// Carried so <see cref="Krilla.Html.Diagnostics.BoxDump"/> can report a rectangle for an inline
+/// element, which produces no box and would otherwise be geometry the corpus cannot see at all.
+/// </param>
 readonly record struct TextRun(
     string Text,
     ComputedStyle Style,
@@ -388,4 +532,6 @@ readonly record struct TextRun(
     float Y,
     float Width,
     string? Link = null,
-    IReadOnlyList<Glyph>? Glyphs = null);
+    IReadOnlyList<Glyph>? Glyphs = null,
+    string? Selector = null,
+    IReadOnlyList<InlineBackdrop>? Backdrops = null);

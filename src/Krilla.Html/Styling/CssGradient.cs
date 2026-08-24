@@ -88,7 +88,7 @@ sealed record CssGradient(
     /// Parses a <c>background-image</c> value, or returns null when it is not a gradient this
     /// engine draws.
     /// </summary>
-    public static CssGradient? Parse(string value, float fontSize, float rootFontSize)
+    public static CssGradient? Parse(string value, float fontSize, CssRoot root)
     {
         var text = value.Trim();
 
@@ -131,7 +131,7 @@ sealed record CssGradient(
 
         for (var index = first; index < arguments.Count; index++)
         {
-            if (Stop(arguments[index], fontSize, rootFontSize) is not {} stop)
+            if (Stop(arguments[index], fontSize, root) is not {} stop)
             {
                 return null;
             }
@@ -235,7 +235,7 @@ sealed record CssGradient(
     /// <summary>
     /// One <c>&lt;color&gt; [&lt;position&gt;]</c> argument.
     /// </summary>
-    static CssGradientStop? Stop(string argument, float fontSize, float rootFontSize)
+    static CssGradientStop? Stop(string argument, float fontSize, CssRoot root)
     {
         var text = argument.Trim();
         if (text.Length == 0)
@@ -251,7 +251,7 @@ sealed record CssGradient(
         if (split > 0 && !text.EndsWith(')'))
         {
             var tail = text[(split + 1)..];
-            var parsed = CssValues.ParseLength(tail, fontSize, rootFontSize, CssLength.None);
+            var parsed = CssValues.ParseLength(tail, fontSize, root, CssLength.None);
 
             if (parsed.Kind is LengthKind.None)
             {

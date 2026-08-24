@@ -27,9 +27,7 @@ that does paint.
 What to look at: whether `#after` sits at y=48. If it has moved to y=24 the property is being read
 as `display: none`. If `#child` disappears, the check has been put on the box instead of the run.
 
-**Boxes**: 7 matched, worst offset 0.00px, worst size 0.00px.
-
-Not rendered: `html > body:nth-child(2) > div:nth-child(4) > span:nth-child(1)`
+**Boxes**: 8 matched, worst offset 0.00px, worst size 0.00px.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |

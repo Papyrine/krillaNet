@@ -113,6 +113,7 @@ static class UnsupportedCss
         Background(declaration, name, style, sink);
         Transform(declaration, name, style, sink);
         Casing(declaration, name, sink);
+        InlineSurround(declaration, name, style, sink);
         Fixed(declaration, name, sink);
         Radius(declaration, name, style, sink);
         BorderStyles(declaration, name, sink);
@@ -333,6 +334,64 @@ static class UnsupportedCss
     }
 
     /// <summary>
+    /// The parts of an inline element's box that are still not drawn.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Most of the inline box model IS honoured — the background, the padding, the border and the
+    /// horizontal margins, each per line fragment — so what is left is two decorations that a real
+    /// box gets and a fragment does not.
+    /// </para>
+    /// <para>
+    /// A rounded corner cannot be reported through <see cref="Radius"/>, which asks whether the
+    /// border is painted as one ring and answers yes for the uniform solid case. An inline border
+    /// is never a ring: it is up to four rectangles, because a fragment has no corners to mitre at
+    /// the end where the line broke.
+    /// </para>
+    /// <para>
+    /// Vertical margins are silent, and correctly so: CSS drops them on an inline element, so
+    /// ignoring them is what a browser does rather than something left undone.
+    /// </para>
+    /// </remarks>
+    static void InlineSurround(
+        ICssStyleDeclaration declaration,
+        string element,
+        ComputedStyle style,
+        Action<HtmlDiagnostic> sink)
+    {
+        if (style.Display != DisplayKind.Inline)
+        {
+            return;
+        }
+
+        if (style.BackgroundImage is not null)
+        {
+            Diagnostic.Property(
+                sink,
+                element,
+                "background-image",
+                Set(declaration, "background-image") ?? "set",
+                "only the background colour is painted on an inline element");
+        }
+
+        foreach (var corner in corners)
+        {
+            if (Set(declaration, corner) is {} value &&
+                !IsZero(value) &&
+                !IsInitial(value))
+            {
+                Diagnostic.Property(
+                    sink,
+                    element,
+                    corner,
+                    value,
+                    "an inline element's border is painted with square corners");
+                return;
+            }
+        }
+    }
+
+    /// <summary>
     /// Automatic hyphenation, which is not performed.
     /// </summary>
     /// <remarks>
@@ -525,7 +584,7 @@ static class UnsupportedCss
         value is "0" or "0px" or "0%" or "0em" or "0rem";
 
     /// <summary>
-    /// Whether the value is the keyword meaning the property's own initial value.
+    /// Whether the value is one of the keywords meaning "leave this property alone".
     /// </summary>
     /// <remarks>
     /// <para>
@@ -541,10 +600,23 @@ static class UnsupportedCss
     /// imported test that used it five times.
     /// </para>
     /// <para>
+    /// <c>unset</c> is the same answer by a different route. It means <c>inherit</c> for an
+    /// inherited property and <c>initial</c> for the rest, and every property in the table above is
+    /// one the engine ignores entirely — so where it inherits, whatever the ancestor declared was
+    /// already reported on the ancestor, and where it does not, this is <c>initial</c> exactly.
+    /// Either way the declaration adds no difference of its own to report.
+    /// </para>
+    /// <para>
+    /// <c>revert</c> is absent because it never arrives: AngleSharp drops the declaration
+    /// carrying it rather than passing the keyword through, so the cascaded style comes back empty
+    /// and this is never asked. Listing it would suggest a case that had been handled when it is
+    /// one that cannot be seen.
+    /// </para>
+    /// <para>
     /// Deliberately not applied to <c>display</c> or <c>font-size</c>: their initial values are
     /// <c>inline</c> and <c>medium</c>, neither of which this engine treats as a no-op.
     /// </para>
     /// </remarks>
     static bool IsInitial(string value) =>
-        value == "initial";
+        value is "initial" or "unset";
 }
