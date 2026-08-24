@@ -21,13 +21,16 @@ static class GradientPaint
     /// <remarks>
     /// The caller owns the result and must dispose it.
     /// </remarks>
-    public static Krilla.Paint Create(CssGradient gradient, Rect box, bool tiles)
+    public static Paint Create(CssGradient gradient, Rect box, bool tiles)
     {
         var stops = Stops(gradient, Length(gradient, box));
 
-        return gradient.Kind == GradientKind.Linear
-            ? Linear(gradient, box, stops, tiles)
-            : Radial(gradient, box, stops);
+        if (gradient.Kind == GradientKind.Linear)
+        {
+            return Linear(gradient, box, stops, tiles);
+        }
+
+        return Radial(gradient, box, stops);
     }
 
     /// <summary>
@@ -54,7 +57,7 @@ static class GradientPaint
     /// company and padding is the closer of the answers available here.
     /// </para>
     /// </remarks>
-    static Krilla.Paint Linear(
+    static Paint Linear(
         CssGradient gradient,
         Rect box,
         IReadOnlyList<GradientStop> stops,
@@ -69,7 +72,7 @@ static class GradientPaint
 
         var axisAligned = tiles && MathF.Abs(MathF.IEEERemainder(angle, 90f)) < 0.0001f;
 
-        return Krilla.Paint.LinearGradient(
+        return Paint.LinearGradient(
             cx - dx * half,
             cy - dy * half,
             cx + dx * half,
@@ -94,7 +97,7 @@ static class GradientPaint
     /// that scales the vertical axis about the centre.
     /// </para>
     /// </remarks>
-    static Krilla.Paint Radial(CssGradient gradient, Rect box, IReadOnlyList<GradientStop> stops)
+    static Paint Radial(CssGradient gradient, Rect box, IReadOnlyList<GradientStop> stops)
     {
         var (cx, cy) = (box.X + box.Width / 2, box.Y + box.Height / 2);
         var (halfWidth, halfHeight) = (box.Width / 2, box.Height / 2);
@@ -102,14 +105,14 @@ static class GradientPaint
         if (gradient.Kind == GradientKind.Circle)
         {
             var radius = MathF.Sqrt(halfWidth * halfWidth + halfHeight * halfHeight);
-            return Krilla.Paint.RadialGradient(cx, cy, 0, cx, cy, radius, stops);
+            return Paint.RadialGradient(cx, cy, 0, cx, cy, radius, stops);
         }
 
         var rx = MathF.Max(0.01f, halfWidth * MathF.Sqrt(2));
         var ry = MathF.Max(0.01f, halfHeight * MathF.Sqrt(2));
         var scale = ry / rx;
 
-        return Krilla.Paint.RadialGradient(
+        return Paint.RadialGradient(
             cx,
             cy,
             0,

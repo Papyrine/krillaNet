@@ -59,14 +59,14 @@ static class BoxBuilder
         context.PendingColumns = [];
         context.PendingColumnBoxes = [];
 
-        Generated(element, "before", style, context, blocks, inlines, floats, positioned, link);
+        Generated(element, "before", style, context, inlines, link);
 
         foreach (var node in element.ChildNodes)
         {
             Collect(node, style, context, blocks, inlines, floats, positioned, link, numbering);
         }
 
-        Generated(element, "after", style, context, blocks, inlines, floats, positioned, link);
+        Generated(element, "after", style, context, inlines, link);
 
         // The scopes this element created end with its subtree, which is what keeps a second list
         // from continuing the first one's numbering.
@@ -90,8 +90,7 @@ static class BoxBuilder
         // has no line here to hang it from, and `Marker` has already given it a counter marker to
         // fall back to.
         if (box.Marker is null &&
-            style.Display == DisplayKind.ListItem &&
-            style.MarkerImage is {} marker &&
+            style is {Display: DisplayKind.ListItem, MarkerImage: {} marker} &&
             inlines.Count > 0)
         {
             inlines.Insert(
@@ -487,14 +486,14 @@ static class BoxBuilder
             // `counter-increment` has to affect the counters its own content reads.
             var counters = context.Counters.Enter(style);
 
-            Generated(element, "before", style, context, blocks, inlines, floats, positioned, link);
+            Generated(element, "before", style, context, inlines, link);
 
             foreach (var child in element.ChildNodes)
             {
                 Collect(child, style, context, blocks, inlines, floats, positioned, link, numbering);
             }
 
-            Generated(element, "after", style, context, blocks, inlines, floats, positioned, link);
+            Generated(element, "after", style, context, inlines, link);
             context.Counters.Leave(counters);
 
             // Only the runs this recursion added, and only those no nested inline has already
@@ -737,13 +736,9 @@ static class BoxBuilder
         string pseudo,
         ComputedStyle host,
         DocumentContext context,
-        List<LayoutBox> blocks,
         List<InlineItem> inlines,
-        List<FloatChild> floats,
-        List<FloatChild> positioned,
         string? link)
     {
-
         if (StyleResolver.ResolvePseudo(element, pseudo, host, context) is not var (style, content))
         {
             return;

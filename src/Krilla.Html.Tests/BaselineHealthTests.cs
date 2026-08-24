@@ -144,7 +144,7 @@ public class BaselineHealthTests
             }
 
             var reference = JsonSerializer.Deserialize(
-                                File.ReadAllText(path),
+                                await File.ReadAllTextAsync(path),
                                 CorpusJson.Default.ListBoxGeometry) ??
                             [];
 

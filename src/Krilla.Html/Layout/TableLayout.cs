@@ -48,7 +48,6 @@ static class TableLayout
     /// <param name="fonts">The faces available for measuring text.</param>
     public static float Layout(LayoutBox table, float x, float y, float containingWidth, FontSet fonts)
     {
-        var style = table.Style;
         var grid = TableGrid.Build(table);
 
         // Before anything measures a cell. The collapsing model rewrites every box's borders to
@@ -59,7 +58,7 @@ static class TableLayout
 
         // Re-read, because the resolve above may have replaced the table's own borders with the
         // halves of its outer lines.
-        style = table.Style;
+        var style = table.Style;
 
         var paddingLeft = style.PaddingLeft.Resolve(containingWidth);
         var paddingRight = style.PaddingRight.Resolve(containingWidth);
@@ -123,7 +122,8 @@ static class TableLayout
         // Below the grid, and below the trailing edge spacing the grid already added — measured
         // against Chrome, where a bottom caption sits exactly as far under the last row as a top
         // one sits above the first.
-        if (grid.Caption is {} below && style.CaptionSide == CaptionSideKind.Bottom)
+        if (grid.Caption is {} below &&
+            style.CaptionSide == CaptionSideKind.Bottom)
         {
             contentHeight += BlockLayout.Layout(
                 below,

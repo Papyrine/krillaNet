@@ -250,8 +250,7 @@ static class UnsupportedCss
     /// </remarks>
     static void Outline(ICssStyleDeclaration declaration, string element, Action<HtmlDiagnostic> sink)
     {
-        if (Set(declaration, "outline-style") is {} value &&
-            value is not ("none" or "hidden" or "solid") &&
+        if (Set(declaration, "outline-style") is {} value and not ("none" or "hidden" or "solid") &&
             !IsInitial(value))
         {
             Diagnostic.Property(sink, element, "outline-style", value, "not painted");
@@ -435,8 +434,7 @@ static class UnsupportedCss
     /// </remarks>
     static void Hyphens(ICssStyleDeclaration declaration, string element, Action<HtmlDiagnostic> sink)
     {
-        if (Set(declaration, "hyphens") is {} value &&
-            value is "auto" or "all")
+        if (Set(declaration, "hyphens") is {} value and ("auto" or "all"))
         {
             Diagnostic.Property(sink, element, "hyphens", value, "words are not hyphenated");
         }
@@ -459,8 +457,7 @@ static class UnsupportedCss
     /// </remarks>
     static void Wrapping(ICssStyleDeclaration declaration, string element, Action<HtmlDiagnostic> sink)
     {
-        if (Set(declaration, "word-break") is {} word &&
-            word is "keep-all" or "break-word")
+        if (Set(declaration, "word-break") is {} word and ("keep-all" or "break-word"))
         {
             Diagnostic.Property(
                 sink,

@@ -138,17 +138,20 @@ public static class HtmlConverter
     static DocumentMetadata? Metadata(IDocument document, HtmlOptions options)
     {
         var title = Text(document.Title);
-        var language = Text(document.DocumentElement?.GetAttribute("lang"));
+        var language = Text(document.DocumentElement.GetAttribute("lang"));
 
         if (options.Metadata is not {} given)
         {
-            return title is null && language is null
-                ? null
-                : new()
-                {
-                    Title = title,
-                    Language = language
-                };
+            if (title is null && language is null)
+            {
+                return null;
+            }
+
+            return new()
+            {
+                Title = title,
+                Language = language
+            };
         }
 
         return new()

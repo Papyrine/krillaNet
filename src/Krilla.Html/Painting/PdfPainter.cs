@@ -869,7 +869,7 @@ static class PdfPainter
     /// about NON-positioned descendants. <see cref="Hoisted"/> collects it instead.
     /// </remarks>
     static IEnumerable<LayoutBox> InFlow(LayoutBox box) =>
-        box.Children.Where(_ => !_.Style.IsPositioned && !_.Style.CreatesStackingContext);
+        box.Children.Where(_ => _.Style is {IsPositioned: false, CreatesStackingContext: false});
 
     /// <summary>
     /// Every float in a layer, in tree order, gathered across the whole in-flow subtree rather
@@ -981,7 +981,7 @@ static class PdfPainter
             PaintBackgroundImage(surface, style, rect, Area(box, style.BackgroundOrigin), picture);
         }
 
-        void Fill(Krilla.Paint paint, float opacity = 1f)
+        void Fill(Paint paint, float opacity = 1f)
         {
             using var owned = paint;
             var fill = new Fill(owned, opacity);
@@ -1119,12 +1119,19 @@ static class PdfPainter
     /// </para>
     /// </remarks>
     static bool Suppressed(LayoutBox box) =>
-        box.Style is {Display: DisplayKind.TableCell, HideEmptyCells: true} &&
-        box.Children.Count == 0 &&
-        box.Lines.Count == 0 &&
-        box.Floats.Count == 0 &&
-        box.Positioned.Count == 0 &&
-        box.Image is null;
+        box is
+        {
+            Style:
+            {
+                Display: DisplayKind.TableCell,
+                HideEmptyCells: true
+            },
+            Children.Count: 0,
+            Lines.Count: 0,
+            Floats.Count: 0,
+            Positioned.Count: 0,
+            Image: null
+        };
 
     /// <summary>One of a box's three nested rectangles.</summary>
     static Rect Area(LayoutBox box, BoxArea area)
@@ -1193,10 +1200,15 @@ static class PdfPainter
     /// <c>50%</c> centre the image and <c>100%</c> put its far edge on the area's far edge. An
     /// absolute length is an offset from the near edge, as it reads.
     /// </remarks>
-    static float Place(CssLength position, float area, float tile) =>
-        position.Kind == LengthKind.Percent
-            ? (area - tile) * position.Value / 100f
-            : position.Resolve(area);
+    static float Place(CssLength position, float area, float tile)
+    {
+        if (position.Kind == LengthKind.Percent)
+        {
+            return (area - tile) * position.Value / 100f;
+        }
+
+        return position.Resolve(area);
+    }
 
     /// <summary>
     /// Paints one box shadow: the border box, moved by the offset.
@@ -1286,8 +1298,12 @@ static class PdfPainter
         // colours cleanly on a diagonal, is not what they want.
         PaintPatternedEdges(surface, style, outer);
 
-        if (style is {BorderTop: > 0, BorderTopColor: {} topColor} &&
-            style.BorderTopStyle == BorderStyleKind.Solid)
+        if (style is
+            {
+                BorderTop: > 0,
+                BorderTopColor: {} topColor,
+                BorderTopStyle: BorderStyleKind.Solid
+            })
         {
             FillPolygon(
                 surface,
@@ -1298,8 +1314,12 @@ static class PdfPainter
                 new(innerLeft, innerTop));
         }
 
-        if (style is {BorderBottom: > 0, BorderBottomColor: {} bottomColor} &&
-            style.BorderBottomStyle == BorderStyleKind.Solid)
+        if (style is
+            {
+                BorderBottom: > 0,
+                BorderBottomColor: {} bottomColor,
+                BorderBottomStyle: BorderStyleKind.Solid
+            })
         {
             FillPolygon(
                 surface,
@@ -1310,8 +1330,12 @@ static class PdfPainter
                 new(innerRight, innerBottom));
         }
 
-        if (style is {BorderLeft: > 0, BorderLeftColor: {} leftColor} &&
-            style.BorderLeftStyle == BorderStyleKind.Solid)
+        if (style is
+            {
+                BorderLeft: > 0,
+                BorderLeftColor: {} leftColor,
+                BorderLeftStyle: BorderStyleKind.Solid
+            })
         {
             FillPolygon(
                 surface,
@@ -1322,8 +1346,12 @@ static class PdfPainter
                 new(innerLeft, innerBottom));
         }
 
-        if (style is {BorderRight: > 0, BorderRightColor: {} rightColor} &&
-            style.BorderRightStyle == BorderStyleKind.Solid)
+        if (style is
+            {
+                BorderRight: > 0,
+                BorderRightColor: {} rightColor,
+                BorderRightStyle: BorderStyleKind.Solid
+            })
         {
             FillPolygon(
                 surface,
@@ -1414,10 +1442,10 @@ static class PdfPainter
                 // The fill is cleared first: `DrawPath` applies whichever of the two are set, and
                 // a stroked line left with a fill from the previous call would be filled as a
                 // degenerate polygon as well.
-                surface.SetFill((Fill?) null);
+                surface.SetFill(null);
                 surface.SetStroke(line, thickness, round ? LineCap.Round : LineCap.Butt, dashes);
                 surface.DrawPath(path);
-                surface.SetStroke((Stroke?) null);
+                surface.SetStroke(null);
             }
         }
     }

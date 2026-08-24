@@ -162,9 +162,7 @@ public class PaginationTests
             <div id="one">one</div>
             <div id="floating">two</div>
             """,
-            """
-            #floating { position: absolute; top: 200px; page-break-before: always }
-            """);
+            "#floating { position: absolute; top: 200px; page-break-before: always }");
 
         await Assert.That(PageCount(absolute)).IsEqualTo(1);
 
@@ -173,9 +171,7 @@ public class PaginationTests
             <div id="one">one</div>
             <div id="floating">two</div>
             """,
-            """
-            #floating { float: left; width: 100px; page-break-before: always }
-            """);
+            "#floating { float: left; width: 100px; page-break-before: always }");
 
         await Assert.That(PageCount(floated)).IsEqualTo(1);
     }

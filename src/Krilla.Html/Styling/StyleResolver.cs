@@ -1554,7 +1554,12 @@ static class StyleResolver
 
         var length = CssValues.ParseLength(text, fontSize, root, CssLength.None);
 
-        return length.Kind == LengthKind.Absolute && length.Value > 0 ? length.Value : inherited;
+        if (length is {Kind: LengthKind.Absolute, Value: > 0})
+        {
+            return length.Value;
+        }
+
+        return inherited;
     }
 
     /// <summary>

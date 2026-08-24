@@ -1365,7 +1365,7 @@ sealed record ComputedStyle
         !IsZeroLength(MarginLeft) || !IsZeroLength(MarginRight);
 
     static bool IsZeroLength(CssLength length) =>
-        length.Value == 0 && length.Percent == 0;
+        length is {Value: 0, Percent: 0};
 
     public bool HasBorder =>
         (BorderTop > 0 && BorderTopColor is not null) ||

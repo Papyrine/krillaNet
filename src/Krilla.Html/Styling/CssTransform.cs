@@ -305,7 +305,7 @@ sealed record CssTransform(
 
             case "skewx" when arguments.Count == 1:
                 return Angle(0, 0) is {} onlySkewX
-                    ? new(TransformKind.Skew, CssLength.Zero, CssLength.Zero, onlySkewX, 0)
+                    ? new(TransformKind.Skew, CssLength.Zero, CssLength.Zero, onlySkewX)
                     : null;
 
             case "skewy" when arguments.Count == 1:
@@ -359,12 +359,12 @@ sealed record CssTransform(
             return (half, half);
         }
 
-        var x = Component(parts[0], horizontal: true) ?? half;
-        var y = parts.Length > 1 ? Component(parts[1], horizontal: false) ?? half : half;
+        var x = Component(parts[0]) ?? half;
+        var y = parts.Length > 1 ? Component(parts[1]) ?? half : half;
 
         return (x, y);
 
-        CssLength? Component(string part, bool horizontal) =>
+        CssLength? Component(string part) =>
             part switch
             {
                 "left" or "top" => CssLength.Zero,
