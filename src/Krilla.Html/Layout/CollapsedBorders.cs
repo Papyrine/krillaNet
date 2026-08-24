@@ -1,11 +1,4 @@
 /// <summary>
-/// One resolved grid line, ready to paint.
-/// </summary>
-/// <param name="Bounds">The rectangle the line fills.</param>
-/// <param name="Color">Its colour.</param>
-sealed record CollapsedLine(Rect Bounds, Color Color);
-
-/// <summary>
 /// The collapsing border model: one line per grid edge, shared by the boxes either side of it.
 /// </summary>
 /// <remarks>
@@ -513,7 +506,12 @@ sealed class CollapsedBorders
             bottom = MathF.Max(bottom, cell.Box.BorderBox.Bottom);
         }
 
-        return top > bottom ? (0, 0) : (top, bottom);
+        if (top > bottom)
+        {
+            return (0, 0);
+        }
+
+        return (top, bottom);
     }
 
     /// <summary>The horizontal extent of one column at one row boundary.</summary>
@@ -524,6 +522,11 @@ sealed class CollapsedBorders
         var cell = line < rows ? occupancy[line, column] : null;
         cell ??= line > 0 ? occupancy[line - 1, column] : null;
 
-        return cell is null ? null : (cell.Box.BorderBox.X, cell.Box.BorderBox.Right);
+        if (cell is null)
+        {
+            return null;
+        }
+
+        return (cell.Box.BorderBox.X, cell.Box.BorderBox.Right);
     }
 }

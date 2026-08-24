@@ -197,7 +197,8 @@ sealed class FloatContext
 
         foreach (var (margin, _) in placed)
         {
-            if (margin.Bottom > y && (next is null || margin.Bottom < next))
+            if (margin.Bottom > y &&
+                (next is null || margin.Bottom < next))
             {
                 next = margin.Bottom;
             }

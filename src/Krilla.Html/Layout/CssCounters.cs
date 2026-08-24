@@ -1,5 +1,3 @@
-namespace Krilla.Html.Layout;
-
 /// <summary>
 /// The CSS counters in scope while the box tree is built.
 /// </summary>

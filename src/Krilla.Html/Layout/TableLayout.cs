@@ -102,7 +102,8 @@ static class TableLayout
 
         var top = 0f;
 
-        if (grid.Caption is {} caption && style.CaptionSide == CaptionSideKind.Top)
+        if (grid.Caption is {} caption &&
+            style.CaptionSide == CaptionSideKind.Top)
         {
             top = BlockLayout.Layout(caption, contentX, contentY, contentWidth, fonts);
         }
