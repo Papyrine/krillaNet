@@ -45,7 +45,7 @@ Implemented: block and inline layout, the box model including `box-sizing`, coll
 line breaking, text alignment, pagination, tables, floats, relative and absolute positioning,
 `overflow` clipping, `visibility`, `text-transform`, letter and word spacing, the `font-size`
 keywords, text decorations, `vertical-align`, dashed, dotted and double borders, `border-radius`, `opacity`, `transform`, linear and
-radial gradients, images, and links —
+radial gradients, `outline`, `object-fit`, images, and links —
 `<a href>` becomes a real PDF link annotation, and a `#fragment` becomes an internal jump to
 wherever that element paginated to. Flexbox and grid lay out as plain blocks.
 

@@ -1,0 +1,100 @@
+[
+  {
+    "selector": "html",
+    "x": 0,
+    "y": 0,
+    "width": 816,
+    "height": 148
+  },
+  {
+    "selector": "html > body:nth-child(2)",
+    "x": 0,
+    "y": 0,
+    "width": 816,
+    "height": 138
+  },
+  {
+    "selector": "html > body:nth-child(2) > table:nth-child(1)",
+    "x": 0,
+    "y": 0,
+    "width": 230,
+    "height": 64
+  },
+  {
+    "selector": "html > body:nth-child(2) > table:nth-child(1) > caption:nth-child(1)",
+    "x": 0,
+    "y": 0,
+    "width": 230,
+    "height": 24
+  },
+  {
+    "selector": "html > body:nth-child(2) > table:nth-child(1) > tbody:nth-child(2)",
+    "x": 2,
+    "y": 26,
+    "width": 226,
+    "height": 36
+  },
+  {
+    "selector": "html > body:nth-child(2) > table:nth-child(1) > tbody:nth-child(2) > tr:nth-child(1)",
+    "x": 2,
+    "y": 26,
+    "width": 226,
+    "height": 36
+  },
+  {
+    "selector": "html > body:nth-child(2) > table:nth-child(1) > tbody:nth-child(2) > tr:nth-child(1) > td:nth-child(1)",
+    "x": 2,
+    "y": 26,
+    "width": 112,
+    "height": 36
+  },
+  {
+    "selector": "html > body:nth-child(2) > table:nth-child(1) > tbody:nth-child(2) > tr:nth-child(1) > td:nth-child(2)",
+    "x": 116,
+    "y": 26,
+    "width": 112,
+    "height": 36
+  },
+  {
+    "selector": "html > body:nth-child(2) > table:nth-child(2)",
+    "x": 0,
+    "y": 74,
+    "width": 230,
+    "height": 64
+  },
+  {
+    "selector": "html > body:nth-child(2) > table:nth-child(2) > caption:nth-child(1)",
+    "x": 0,
+    "y": 114,
+    "width": 230,
+    "height": 24
+  },
+  {
+    "selector": "html > body:nth-child(2) > table:nth-child(2) > tbody:nth-child(2)",
+    "x": 2,
+    "y": 76,
+    "width": 226,
+    "height": 36
+  },
+  {
+    "selector": "html > body:nth-child(2) > table:nth-child(2) > tbody:nth-child(2) > tr:nth-child(1)",
+    "x": 2,
+    "y": 76,
+    "width": 226,
+    "height": 36
+  },
+  {
+    "selector": "html > body:nth-child(2) > table:nth-child(2) > tbody:nth-child(2) > tr:nth-child(1) > td:nth-child(1)",
+    "x": 2,
+    "y": 76,
+    "width": 112,
+    "height": 36
+  },
+  {
+    "selector": "html > body:nth-child(2) > table:nth-child(2) > tbody:nth-child(2) > tr:nth-child(1) > td:nth-child(2)",
+    "x": 116,
+    "y": 76,
+    "width": 112,
+    "height": 36
+  }
+]

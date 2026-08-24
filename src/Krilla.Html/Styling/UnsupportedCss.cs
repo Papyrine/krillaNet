@@ -30,13 +30,11 @@ static class UnsupportedCss
     static readonly (string Property, string NoOp, string Reason)[] ignored =
     [
         ("border-collapse", "separate", "laid out with the separated border model"),
-        ("list-style-position", "outside", "the marker is drawn outside the item"),
         ("list-style-image", "none", "the counter style is drawn instead"),
         ("font-variant", "normal", "the regular face is used"),
         ("font-stretch", "normal", "the regular face is used"),
         ("text-shadow", "none", "not painted"),
         ("box-shadow", "none", "not painted"),
-        ("caption-side", "top", "the caption is laid out above the grid"),
         ("writing-mode", "horizontal-tb", "laid out horizontally"),
         ("direction", "ltr", "laid out left to right"),
         ("column-count", "auto", "laid out in one column"),
@@ -111,6 +109,7 @@ static class UnsupportedCss
         Breaks(declaration, name, sink);
         Hyphens(declaration, name, sink);
         Collapse(declaration, name, sink);
+        Outline(declaration, name, sink);
         Background(declaration, name, style, sink);
         Transform(declaration, name, style, sink);
         Casing(declaration, name, sink);
@@ -174,6 +173,25 @@ static class UnsupportedCss
             {
                 Diagnostic.Property(sink, element, property, value!, reason);
             }
+        }
+    }
+
+    /// <summary>
+    /// An outline style other than solid, which is not drawn at all.
+    /// </summary>
+    /// <remarks>
+    /// Not "painted solid", which is what a border of an unsupported style gets: an outline is
+    /// decoration with no layout consequence, so drawing the wrong one is a worse answer than
+    /// drawing none. <see cref="StyleResolver"/> zeroes the width to match, which is why the
+    /// report is the only trace such an outline leaves.
+    /// </remarks>
+    static void Outline(ICssStyleDeclaration declaration, string element, Action<HtmlDiagnostic> sink)
+    {
+        if (Set(declaration, "outline-style") is {} value &&
+            value is not ("none" or "hidden" or "solid") &&
+            !IsInitial(value))
+        {
+            Diagnostic.Property(sink, element, "outline-style", value, "not painted");
         }
     }
 

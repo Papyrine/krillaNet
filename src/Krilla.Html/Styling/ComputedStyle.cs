@@ -365,6 +365,45 @@ enum BoxSizingKind
     BorderBox
 }
 
+/// <summary>Which side of a table its caption sits on.</summary>
+enum CaptionSideKind
+{
+    /// <summary>Above the grid.</summary>
+    Top,
+
+    /// <summary>Below it.</summary>
+    Bottom
+}
+
+/// <summary>Where a list item's marker sits.</summary>
+enum ListStylePositionKind
+{
+    /// <summary>Outside the item's border edge, hanging in the padding of the list.</summary>
+    Outside,
+
+    /// <summary>On the item's first line, as its first content.</summary>
+    Inside
+}
+
+/// <summary>How a replaced element's content fills the box it was given.</summary>
+enum ObjectFitKind
+{
+    /// <summary>Stretched to the box, ignoring its own proportions.</summary>
+    Fill,
+
+    /// <summary>Scaled to fit inside the box, keeping its proportions.</summary>
+    Contain,
+
+    /// <summary>Scaled to cover the box, keeping its proportions, and clipped.</summary>
+    Cover,
+
+    /// <summary>Drawn at its intrinsic size, centred and clipped.</summary>
+    None,
+
+    /// <summary>The smaller of <see cref="None"/> and <see cref="Contain"/>.</summary>
+    ScaleDown
+}
+
 /// <summary>How a border edge is drawn.</summary>
 /// <remarks>
 /// <c>none</c> and <c>hidden</c> are absent: <see cref="StyleResolver"/> folds them into a zero
@@ -448,6 +487,33 @@ sealed record ComputedStyle
 
     /// <summary>Left border width.</summary>
     public float BorderLeft { get; init; }
+
+    /// <summary>Width of the outline, in CSS pixels, or zero when there is none.</summary>
+    /// <remarks>
+    /// An outline takes no space. It is drawn outside the border edge and moves nothing, which is
+    /// what makes it the usual choice for a focus ring — a border there would shift the page every
+    /// time focus moved.
+    /// </remarks>
+    public float OutlineWidth { get; init; }
+
+    /// <summary>Colour of the outline, or null when it is not painted.</summary>
+    public Color? OutlineColor { get; init; }
+
+    /// <summary>How far outside the border edge the outline sits.</summary>
+    public float OutlineOffset { get; init; }
+
+    /// <summary>Which side of the table the caption sits on.</summary>
+    public CaptionSideKind CaptionSide { get; init; }
+
+    /// <summary>Where this list item's marker sits.</summary>
+    /// <remarks>
+    /// Inherited, like the rest of the <c>list-style</c> family, so it is set on the list and read
+    /// on the items.
+    /// </remarks>
+    public ListStylePositionKind ListStylePosition { get; init; }
+
+    /// <summary>How this replaced element's content fills its box.</summary>
+    public ObjectFitKind ObjectFit { get; init; }
 
     /// <summary>Horizontal and vertical radii of the top-left corner.</summary>
     /// <remarks>

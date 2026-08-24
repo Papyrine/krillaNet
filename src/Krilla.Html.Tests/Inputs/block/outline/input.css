@@ -1,0 +1,17 @@
+div {
+  width: 200px;
+  margin-bottom: 14px;
+  font-size: 16px;
+  line-height: 24px;
+  background-color: #dde5f0;
+}
+
+/* Drawn outside the border edge and taking no space, so the box below sits where it would have. */
+#plain { outline: 3px solid #c04040; }
+
+#offset { outline: 3px solid #4060a0; outline-offset: 4px; }
+
+/* Against a real border, so the two rings are distinguishable and their order is visible. */
+#both { border: 4px solid #40a060; outline: 3px solid #c04040; }
+
+#neighbour { background-color: #e0efdc; }

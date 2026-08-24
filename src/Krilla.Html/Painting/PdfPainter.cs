@@ -334,6 +334,7 @@ static class PdfPainter
         {
             PaintBackground(surface, box);
             PaintBorders(surface, box);
+            PaintOutline(surface, box);
         }
 
         // The clip covers the DESCENDANTS and not the box itself: `overflow` clips what overflows
@@ -345,6 +346,51 @@ static class PdfPainter
         {
             Backgrounds(surface, child, page);
         }
+    }
+
+    /// <summary>
+    /// Draws the outline, which sits outside the border edge and takes no space.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Its inner edge is the border box grown by <c>outline-offset</c>, and it reaches outward from
+    /// there by its own width — measured: a 3px outline at an offset of 4 on a box starting at y=38
+    /// paints rows 31 to 33, so the gap is the offset and the ink is entirely outside it.
+    /// </para>
+    /// <para>
+    /// Drawn as one ring rather than four edges, for the reason a uniform border is: two
+    /// antialiased edges meeting on a mitre diagonal do not composite to full coverage, and an
+    /// outline is uniform by construction — it has one width and one colour on all four sides.
+    /// </para>
+    /// </remarks>
+    static void PaintOutline(Surface surface, LayoutBox box)
+    {
+        var style = box.Style;
+
+        if (style.OutlineWidth <= 0 || style.OutlineColor is not {} color)
+        {
+            return;
+        }
+
+        var inner = box.BorderBox.Deflate(
+            -style.OutlineOffset,
+            -style.OutlineOffset,
+            -style.OutlineOffset,
+            -style.OutlineOffset);
+
+        var outer = inner.Deflate(
+            -style.OutlineWidth,
+            -style.OutlineWidth,
+            -style.OutlineWidth,
+            -style.OutlineWidth);
+
+        using var builder = new PathBuilder();
+
+        AddRectangle(builder, outer.X, outer.Y, outer.Right, outer.Bottom, clockwise: true);
+        AddRectangle(builder, inner.X, inner.Y, inner.Right, inner.Bottom, clockwise: false);
+
+        using var path = builder.Build();
+        surface.SetFill(color).DrawPath(path);
     }
 
     /// <summary>
@@ -439,9 +485,7 @@ static class PdfPainter
             box.BorderBox.Y < page.End &&
             box.Style.Visibility == VisibilityKind.Visible)
         {
-            // Into its content box, which replaced sizing already gave the right aspect ratio, so
-            // no fitting is needed here.
-            PaintImage(surface, replaced, box.ContentBox);
+            PaintReplaced(surface, replaced, box.ContentBox, box.Style.ObjectFit);
         }
 
         if (box.Style.Visibility == VisibilityKind.Visible)
@@ -1018,12 +1062,69 @@ static class PdfPainter
     }
 
     /// <summary>
+    /// Draws a replaced element's content into its content box under <c>object-fit</c>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The four values differ only in what rectangle the image is drawn into, and every one of them
+    /// was checked against Chrome with a 64x32 image in a 160x60 box: <c>fill</c> stretches to the
+    /// whole box, <c>contain</c> gives 120x60 centred, <c>cover</c> gives 160x80 clipped, and
+    /// <c>none</c> gives 64x32 centred. The centring is <c>object-position</c>'s initial value,
+    /// which is the centre.
+    /// </para>
+    /// <para>
+    /// A clip is pushed only where the content can reach outside the box, which is
+    /// <c>cover</c> and an oversized <c>none</c>. It is not free — every clip is a graphics state
+    /// push in the PDF — and <c>fill</c> and <c>contain</c> never need one.
+    /// </para>
+    /// </remarks>
+    static void PaintReplaced(Surface surface, ImageData image, Rect content, ObjectFitKind fit)
+    {
+        if (fit == ObjectFitKind.Fill || image.Width <= 0 || image.Height <= 0)
+        {
+            PaintImage(surface, image, content);
+            return;
+        }
+
+        var horizontal = content.Width / image.Width;
+        var vertical = content.Height / image.Height;
+
+        var scale = fit switch
+        {
+            ObjectFitKind.Contain => MathF.Min(horizontal, vertical),
+            ObjectFitKind.Cover => MathF.Max(horizontal, vertical),
+            ObjectFitKind.ScaleDown => MathF.Min(1, MathF.Min(horizontal, vertical)),
+            _ => 1f
+        };
+
+        var width = image.Width * scale;
+        var height = image.Height * scale;
+
+        var bounds = new Rect(
+            content.X + (content.Width - width) / 2,
+            content.Y + (content.Height - height) / 2,
+            width,
+            height);
+
+        if (width <= content.Width && height <= content.Height)
+        {
+            PaintImage(surface, image, bounds);
+            return;
+        }
+
+        using var clipPath = PdfPath.Rectangle(
+            Rectangle.FromSize(content.X, content.Y, content.Width, content.Height));
+        using var clip = surface.PushClip(clipPath);
+
+        PaintImage(surface, image, bounds);
+    }
+
+    /// <summary>
     /// Draws an image into <paramref name="bounds"/>.
     /// </summary>
     /// <remarks>
     /// krilla stretches an image to whatever size it is given without preserving the aspect ratio,
-    /// which is correct here: <see cref="ReplacedSizing"/> has already decided the shape, and
-    /// deciding it twice is how a picture ends up subtly the wrong proportion.
+    /// which is what lets the rectangle its caller computed decide the shape on its own.
     /// </remarks>
     static void PaintImage(Surface surface, ImageData image, Rect bounds)
     {

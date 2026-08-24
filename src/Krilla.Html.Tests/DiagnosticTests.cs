@@ -168,6 +168,7 @@ public class DiagnosticTests
                 <div style="text-transform: full-width">f</div>
                 <div style="visibility: collapse">g</div>
                 <div style="transform: rotate3d(1, 1, 0, 45deg)">t</div>
+                <div style="outline: 2px dashed red">o</div>
                 <div style="background-image: url(missing.png)">h</div>
                 <div style="background-image: repeating-linear-gradient(red, blue 20px)">i</div>
                 """));
@@ -317,6 +318,10 @@ public class DiagnosticTests
             <div style="border: 3px dotted red; border-radius: 0">dotted</div>
             <div style="border-radius: 8px; background: silver">rounded</div>
             <div style="opacity: 0.4">faded</div>
+            <div style="outline: 2px solid red; outline-offset: 3px">ringed</div>
+            <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAIAAAABCAIAAAB7QOjdAAAAD0lEQVR4nGM8YWPDwMAAAAbaAUIi0kNIAAAAAElFTkSuQmCC" style="object-fit: cover" alt="">
+            <table style="caption-side: bottom"><caption>below</caption><tr><td>a</td></tr></table>
+            <ul style="list-style-position: inside"><li>inside</li></ul>
             <div style="background-image: linear-gradient(to right, red, blue)">ramped</div>
             <div style="background-image: radial-gradient(circle, red, blue)">round</div>
             <div style="transform: rotate(15deg) scale(1.2); transform-origin: top left">turned</div>
@@ -340,13 +345,13 @@ public class DiagnosticTests
         var reports = Collect(
             """
             <div style="box-shadow: 0 0 4px #000">shadowed</div>
-            <table style="caption-side: bottom"><caption>below</caption><tr><td>a</td></tr></table>
+            <table style="border-collapse: collapse"><tr><td>a</td></tr></table>
             """);
 
         await Assert.That(reports.Select(_ => _.ToString()))
             .Contains(_ => _.Contains("box-shadow"))
             .And
-            .Contains(_ => _.Contains("caption-side"));
+            .Contains(_ => _.Contains("border-collapse"));
     }
 
     static List<HtmlDiagnostic> Collect(string body, string? css = null)

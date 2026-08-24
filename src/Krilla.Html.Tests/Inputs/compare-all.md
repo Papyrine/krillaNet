@@ -1,4 +1,4 @@
-# All scenarios (94)
+# All scenarios (98)
 
 The browser reference (left) beside the page Krilla.Html produced (right). `AE` is the fraction of pixels that differ and `SSIM` is structural similarity; neither is asserted. The worst offset is the largest positional disagreement in CSS pixels between the rendered element geometry and the browser's, and is the number to watch — it reaches zero exactly when the layout is right.
 
@@ -15,6 +15,7 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [block/box_model](#block-box_model)
 - [block/box_sizing](#block-box_sizing)
 - [block/gradients](#block-gradients)
+- [block/list_position](#block-list_position)
 - [block/margin_collapse](#block-margin_collapse)
 - [block/margin_collapse_blocked](#block-margin_collapse_blocked)
 - [block/margin_collapse_parent](#block-margin_collapse_parent)
@@ -23,6 +24,7 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [block/min_width](#block-min_width)
 - [block/nested_blocks](#block-nested_blocks)
 - [block/opacity](#block-opacity)
+- [block/outline](#block-outline)
 - [block/overflow_hidden](#block-overflow_hidden)
 - [block/overflow_paint](#block-overflow_paint)
 - [block/percentage_width](#block-percentage_width)
@@ -40,6 +42,7 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [image/inline_flow](#image-inline_flow)
 - [image/intrinsic](#image-intrinsic)
 - [image/max_width](#image-max_width)
+- [image/object_fit](#image-object_fit)
 - [image/percent_width](#image-percent_width)
 - [image/sized](#image-sized)
 - [inline/font_size_em](#inline-font_size_em)
@@ -79,6 +82,7 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [position/relative](#position-relative)
 - [table/anonymous](#table-anonymous)
 - [table/auto_widths](#table-auto_widths)
+- [table/caption_side](#table-caption_side)
 - [table/empty](#table-empty)
 - [table/fixed_layout](#table-fixed_layout)
 - [table/hyphen_columns](#table-hyphen_columns)
@@ -427,6 +431,53 @@ border strips of `#padded`, which are where the tiling does.
 | <img src="block/gradients/reference_0001.png" width="480"> | <img src="block/gradients/result%23page_0001.verified.png" width="480"> |
 
 
+## block/list_position
+
+# block/list_position
+
+`list-style-position: inside` moves the marker onto the item's first line, where `outside` hangs it
+before the item's border edge. The box geometry is identical either way — Chrome reports the same
+300x24 item for both — so this is a scenario the pixels have to carry, and the geometry comparison
+is here to confirm that nothing moved rather than that something did.
+
+The marker's advance is the whole measurement, and it took two attempts to get. Detecting where the
+text starts from the INK is confounded by the first glyph's left side bearing, which grows with the
+font size and made a clean rule look like a drifting one. Wrapping the text in a span and reading
+its own rectangle gives the origin exactly, and then two rules fall out:
+
+- A **counter** takes the advance of `N. ` with its trailing space — the same string the outside
+  marker is right-aligned by. It agrees to a hundredth of a pixel at every size because both sides
+  shape the string rather than summing raw advances.
+- A **symbol** takes `side + font-size + 1`, in whole pixels off the whole-pixel ascent. That is
+  not derivable from anything and was measured at six sizes from 12px to 40px, exact at every one.
+  No fraction of the em fits: the ratio drifts from 1.375 down to 1.325 across that range, because
+  the symbol's own side moves in the uneven steps `SymbolSize` produces. Fitting the 1.375 that
+  16px and 24px both give would be a pixel out at 32px and two out at 40px.
+
+The reserved space reuses `text-indent`'s mechanism, which already narrows a block's first line
+from its start edge, and the two ADD rather than one winning — an indented inside list item starts
+its text past both, which is what a browser does.
+
+`#inside-wrap` is the row that shows what inside really means: a long item's second line starts
+under the MARKER rather than under the text above it, because the marker took inline space on the
+first line and nothing reserves it on the rest.
+
+`#inside-number` is here because the two marker kinds take their advance from different places, so
+a rule that is right for one can be wrong for the other.
+
+Geometry is exact and the page reads SSIM 1.0000.
+
+What to look at: where the text starts on each first line, and where the second line of
+`#inside-wrap` begins. Text starting at the content edge is the marker not reserving its space.
+
+**Boxes**: 13 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0002 · SSIM 1.0000** |
+| <img src="block/list_position/reference_0001.png" width="480"> | <img src="block/list_position/result%23page_0001.verified.png" width="480"> |
+
+
 ## block/margin_collapse
 
 Adjacent siblings. The 30px below the first box meets the 50px above the second and collapses to
@@ -610,6 +661,49 @@ gone; a plain green overlap in `#order` is the box painting in document order.
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
 | <img src="block/opacity/reference_0001.png" width="480"> | <img src="block/opacity/result%23page_0001.verified.png" width="480"> |
+
+
+## block/outline
+
+# block/outline
+
+An outline is a border that takes no space. It is drawn outside the border edge and moves nothing,
+which is what makes it the usual choice for a focus ring — a border there would shift the page
+every time focus moved.
+
+That is the whole of what the first and last rows measure together: `#plain` carries a 3px outline
+and `#neighbour` sits exactly where it would have without one. The geometry comparison is what
+catches a regression there, since an outline that took space would move every box below it.
+
+`#offset` pins the offset's meaning. A 3px outline at an offset of 4 on a box starting at y=38
+paints rows 31 to 33 — so the gap between the box and the ink is the offset, and the ink is
+entirely outside it. Reading the offset as moving the ring's centre rather than its inner edge is
+off by half the width, which is a pixel and a half here and invisible until it is measured.
+
+`#both` puts an outline against a real border, so the two rings are distinguishable and their order
+is visible: red at 73-75, green at 76-79, background from 80.
+
+The ring is drawn as one path rather than four edges, for the reason a uniform border is: two
+antialiased edges meeting on a mitre diagonal do not composite to full coverage. An outline is
+uniform by construction — one width and one colour on all four sides — so the question never
+arises.
+
+Only `solid` is drawn. The other styles zero the width and report, rather than painting solid the
+way an unsupported BORDER style does. The two differ because an outline is decoration with no
+layout consequence: drawing the wrong ring is a worse answer than drawing none, where for a border
+the box has already reserved the space and something has to fill it.
+
+**Residual**: SSIM 0.9999, and every differing pixel is in a row of text rather than in a ring —
+the corpus's usual sub-pixel glyph positioning. The outlines themselves are exact.
+
+What to look at: the position of `#neighbour`. If it has moved, the outline is taking space.
+
+**Boxes**: 6 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0006 · SSIM 0.9999** |
+| <img src="block/outline/reference_0001.png" width="480"> | <img src="block/outline/result%23page_0001.verified.png" width="480"> |
 
 
 ## block/overflow_hidden
@@ -1078,6 +1172,46 @@ images end up distorted inside responsive containers, so this scenario exists to
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
 | <img src="image/max_width/reference_0001.png" width="480"> | <img src="image/max_width/result%23page_0001.verified.png" width="480"> |
+
+
+## image/object_fit
+
+# image/object_fit
+
+Pixel-identical to Chrome. Four values, one image, one box — and the box is the same 160x60 in all
+four rows, which is the point: `object-fit` changes what is drawn INSIDE a replaced element's box
+and never the box itself. The geometry comparison confirms that for free.
+
+The swatch is 64x32 and the box is 160x60, deliberately a different aspect ratio, because the four
+values are indistinguishable when the two agree. Measured against Chrome:
+
+- **`fill`** stretches to the whole 160x60, ignoring the image's proportions. It is what this
+  engine already did, so it is here as the control.
+- **`contain`** scales to fit inside: 120x60, centred, leaving 20px of frame either side.
+- **`cover`** scales to cover: 160x80, clipped to the box's height.
+- **`none`** draws at the intrinsic 64x32, centred, at x=48 and y=14.
+
+The centring is `object-position`'s initial value and is not separately implemented — a document
+naming a different position gets the centre, which the diagnostic table does not yet cover.
+
+A clip is pushed only where the content can reach outside the box, which is `cover` and an
+oversized `none`. Every clip is a graphics state push in the PDF, and `fill` and `contain` never
+need one.
+
+The frame carries a background so the letterboxing `contain` leaves reads as itself rather than as
+blank paper — without it, a `contain` that silently fell back to `fill` and one that worked would
+both look like a picture on white.
+
+What to look at: the left and right edges of `#contain` and the top and bottom of `#cover`. Ink
+reaching the frame's edge in `#contain` is a fallback to `fill`; ink outside the box in `#cover` is
+the missing clip.
+
+**Boxes**: 10 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| <img src="image/object_fit/reference_0001.png" width="480"> | <img src="image/object_fit/result%23page_0001.verified.png" width="480"> |
 
 
 ## image/percent_width
@@ -2116,6 +2250,33 @@ word in each cell is the longest.
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
 | <img src="table/auto_widths/reference_0001.png" width="480"> | <img src="table/auto_widths/result%23page_0001.verified.png" width="480"> |
+
+
+## table/caption_side
+
+# table/caption_side
+
+Pixel-identical to Chrome. Two tables differing in one declaration, so what is measured is the
+property rather than the look of a caption.
+
+A caption is a block laid out at the table's own width, above or below the grid, inside the table's
+box. The measurement that matters is the gap: Chrome puts a bottom caption exactly as far under the
+last row as a top one sits above the first, and that gap is the table's own edge spacing rather
+than anything the caption carries. So the bottom caption goes after the grid's trailing edge
+spacing, which the grid had already added — the alternative, adding a gap of its own, doubles it.
+
+`#top` states the default explicitly. It is there so the two rows differ in exactly one
+declaration, which is what makes a difference between them attributable.
+
+What to look at: the 2px band between the caption and the grid in each table. Four pixels in either
+one is the edge spacing being applied twice.
+
+**Boxes**: 14 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| <img src="table/caption_side/reference_0001.png" width="480"> | <img src="table/caption_side/result%23page_0001.verified.png" width="480"> |
 
 
 ## table/empty

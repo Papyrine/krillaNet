@@ -1,0 +1,12 @@
+/* A frame with a background, so the letterboxing `contain` leaves is visible as itself rather
+   than as blank paper. */
+.frame { background-color: #eaeaea; margin-bottom: 8px; width: 160px; }
+
+/* Deliberately a different aspect ratio from the swatch, which is what makes the four values
+   differ at all. */
+img { display: block; width: 160px; height: 60px; }
+
+#fill { object-fit: fill; }
+#contain { object-fit: contain; }
+#cover { object-fit: cover; }
+#none { object-fit: none; }

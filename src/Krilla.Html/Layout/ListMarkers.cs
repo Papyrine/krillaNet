@@ -64,15 +64,70 @@ static class ListMarkers
         // The item's BORDER box, not its content box. A marker is placed outside the item's
         // padding as well as its border, so padding-left on an <li> indents the text and leaves
         // the bullet where it was.
-        var edge = box.BorderBox.X;
+        //
+        // Under `inside` it is the CONTENT box instead, and the marker sits at the start of the
+        // first line rather than before it — so padding does move it, because it is content now.
+        var inside = style.ListStylePosition == ListStylePositionKind.Inside;
+        var edge = inside
+            ? box.ContentBox.X + Advance(style, face, marker)
+            : box.BorderBox.X;
 
         if (style.HasSymbolMarker)
         {
-            PlaceSymbol(marker, style, face, baseline, edge);
+            PlaceSymbol(marker, style, face, baseline, edge, inside);
             return;
         }
 
         PlaceCounter(marker, style, face, baseline, edge);
+    }
+
+    /// <summary>
+    /// How much room an <c>inside</c> marker takes at the start of the first line.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A counter takes the advance of its own text, <c>N. </c> with the trailing space, which is
+    /// the same string the outside marker is right-aligned by. Measured to a hundredth of a pixel
+    /// at three sizes, and it agrees because both sides shape the string rather than summing raw
+    /// advances.
+    /// </para>
+    /// <para>
+    /// A symbol takes <c>side + font-size + 1</c>, in whole pixels off the whole-pixel ascent —
+    /// which is not derivable from anything and was measured at six sizes from 12px to 40px, where
+    /// it is exact at every one. No fraction of the em fits: the ratio drifts from 1.375 to 1.325
+    /// across that range because the symbol's own side moves in the uneven steps
+    /// <see cref="SymbolSize"/> produces.
+    /// </para>
+    /// </remarks>
+    public static float Advance(ComputedStyle style, FontFace face, ListMarker marker)
+    {
+        if (!style.HasSymbolMarker)
+        {
+            var text = Counter(marker.Kind, marker.Ordinal) + counterSuffix;
+            return ShapedText.Create(face, text, style.FontSize).Width(0, text.Length);
+        }
+
+        return SymbolSize((int) face.Ascent(style.FontSize)) + style.FontSize + 1;
+    }
+
+    /// <summary>
+    /// The room an <c>inside</c> marker needs on <paramref name="box"/>'s first line, or zero.
+    /// </summary>
+    /// <remarks>
+    /// Read by <see cref="InlineLayout"/> before the line is filled, where
+    /// <see cref="Place"/> runs after the whole subtree is laid out. The two have to agree, so the
+    /// arithmetic lives in one place and both call it.
+    /// </remarks>
+    public static float Reserved(LayoutBox box, FontSet fonts)
+    {
+        if (box.Marker is not {} marker ||
+            box.Style.ListStylePosition != ListStylePositionKind.Inside)
+        {
+            return 0;
+        }
+
+        var style = box.Style;
+        return Advance(style, fonts.Resolve(style.FontFamilies, style.FontWeight, style.Italic), marker);
     }
 
     /// <summary>
@@ -88,7 +143,8 @@ static class ListMarkers
         ComputedStyle style,
         FontFace face,
         float baseline,
-        float edge)
+        float edge,
+        bool inside)
     {
         var ascent = (int) face.Ascent(style.FontSize);
         var size = SymbolSize(ascent);
@@ -97,9 +153,15 @@ static class ListMarkers
         // ascent, which is what keeps a bullet visually centred against lower-case text instead of
         // riding up level with the capitals.
         var top = baseline - ascent + 3 * (ascent - ascent * 2 / 3) / 2;
-        var right = edge - symbolPadding - ascent / 3;
 
-        marker.Bounds = new(right - size, top, size, size);
+        // Outside, the marker's right edge is held clear of the item; inside, its LEFT edge starts
+        // the line and the reserved advance was already added to `edge`, so the same number is
+        // subtracted back off.
+        var left = inside
+            ? edge - Advance(style, face, marker)
+            : edge - symbolPadding - ascent / 3 - size;
+
+        marker.Bounds = new(left, top, size, size);
     }
 
     /// <summary>

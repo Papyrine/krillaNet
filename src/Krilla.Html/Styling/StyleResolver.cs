@@ -70,6 +70,18 @@ static class StyleResolver
             RadiusTopRight = Radius(declaration, "top-right", fontSize, rootFontSize),
             RadiusBottomRight = Radius(declaration, "bottom-right", fontSize, rootFontSize),
             RadiusBottomLeft = Radius(declaration, "bottom-left", fontSize, rootFontSize),
+            OutlineWidth = OutlineWidth(declaration, fontSize, rootFontSize),
+            OutlineColor = CssValues.ParseColor(declaration.GetPropertyValue("outline-color")) ?? color,
+            OutlineOffset = Length(declaration, "outline-offset", fontSize, rootFontSize).Resolve(0),
+            CaptionSide = declaration.GetPropertyValue("caption-side")
+                .Trim()
+                .Equals("bottom", StringComparison.OrdinalIgnoreCase)
+                ? CaptionSideKind.Bottom
+                : CaptionSideKind.Top,
+            ListStylePosition = ParseListPosition(
+                declaration.GetPropertyValue("list-style-position"),
+                parent.ListStylePosition),
+            ObjectFit = ParseObjectFit(declaration.GetPropertyValue("object-fit")),
             BorderTopStyle = BorderStyle(declaration, "top"),
             BorderRightStyle = BorderStyle(declaration, "right"),
             BorderBottomStyle = BorderStyle(declaration, "bottom"),
@@ -426,6 +438,59 @@ static class StyleResolver
 
         return (horizontal, vertical);
     }
+
+    /// <summary>
+    /// The outline's width, zeroed when its style says it is not drawn.
+    /// </summary>
+    /// <remarks>
+    /// Folded the same way <see cref="BorderWidth"/> folds a border's, so nothing downstream has to
+    /// consult <c>outline-style</c> — an outline that is not drawn is one of zero width. Only
+    /// <c>solid</c> is honoured; the rest are reported, so they zero the width too rather than
+    /// painting solid and claiming to be right.
+    /// </remarks>
+    static float OutlineWidth(ICssStyleDeclaration declaration, float fontSize, float rootFontSize)
+    {
+        var style = declaration.GetPropertyValue("outline-style").Trim().ToLowerInvariant();
+
+        if (style is not "solid")
+        {
+            return 0;
+        }
+
+        var value = declaration.GetPropertyValue("outline-width").Trim().ToLowerInvariant();
+
+        return value switch
+        {
+            "" or "medium" => 3,
+            "thin" => 1,
+            "thick" => 5,
+            _ => CssValues.ParseLength(value, fontSize, rootFontSize, CssLength.Zero).Resolve(0)
+        };
+    }
+
+    /// <summary>
+    /// Where a list marker sits, inheriting when the cascade said nothing.
+    /// </summary>
+    static ListStylePositionKind ParseListPosition(string value, ListStylePositionKind inherited) =>
+        value.Trim().ToLowerInvariant() switch
+        {
+            "inside" => ListStylePositionKind.Inside,
+            "outside" => ListStylePositionKind.Outside,
+            _ => inherited
+        };
+
+    /// <summary>
+    /// How a replaced element's content fills its box. Not inherited.
+    /// </summary>
+    static ObjectFitKind ParseObjectFit(string value) =>
+        value.Trim().ToLowerInvariant() switch
+        {
+            "contain" => ObjectFitKind.Contain,
+            "cover" => ObjectFitKind.Cover,
+            "none" => ObjectFitKind.None,
+            "scale-down" => ObjectFitKind.ScaleDown,
+            _ => ObjectFitKind.Fill
+        };
 
     /// <summary>
     /// How one border edge is drawn. Not inherited.

@@ -12,6 +12,7 @@ block/border_styles              matched  7  offset    0.00  size    0.00  diffe
 block/box_model                  matched  3  offset    0.00  size    0.00  differing  0  unmatched 0
 block/box_sizing                 matched 14  offset    0.00  size    0.00  differing  0  unmatched 0
 block/gradients                  matched 11  offset    0.00  size    0.00  differing  0  unmatched 0
+block/list_position              matched 13  offset    0.00  size    0.00  differing  0  unmatched 0
 block/margin_collapse            matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
 block/margin_collapse_blocked    matched  4  offset    0.00  size    0.00  differing  0  unmatched 0
 block/margin_collapse_parent     matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
@@ -20,6 +21,7 @@ block/min_height                 matched  9  offset    0.00  size    0.00  diffe
 block/min_width                  matched  8  offset    0.00  size    0.00  differing  0  unmatched 0
 block/nested_blocks              matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
 block/opacity                    matched 12  offset    0.00  size    0.00  differing  0  unmatched 0
+block/outline                    matched  6  offset    0.00  size    0.00  differing  0  unmatched 0
 block/overflow_hidden            matched  8  offset    0.00  size    0.00  differing  0  unmatched 0
 block/overflow_paint             matched  8  offset    0.00  size    0.00  differing  0  unmatched 0
 block/percentage_width           matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
@@ -37,6 +39,7 @@ image/data_uri                   matched  3  offset    0.00  size    0.00  diffe
 image/inline_flow                matched  4  offset    0.00  size    0.00  differing  0  unmatched 0
 image/intrinsic                  matched  4  offset    0.00  size    0.00  differing  0  unmatched 0
 image/max_width                  matched  4  offset    0.00  size    0.00  differing  0  unmatched 0
+image/object_fit                 matched 10  offset    0.00  size    0.00  differing  0  unmatched 0
 image/percent_width              matched  6  offset    0.00  size    0.00  differing  0  unmatched 0
 image/sized                      matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
 inline/font_size_em              matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
@@ -76,6 +79,7 @@ position/fixed                   matched  6  offset    0.00  size    0.00  diffe
 position/relative                matched 12  offset    0.00  size    0.00  differing  0  unmatched 0
 table/anonymous                  matched  8  offset    0.00  size    0.00  differing  0  unmatched 0
 table/auto_widths                matched 25  offset    0.00  size    0.00  differing  0  unmatched 0
+table/caption_side               matched 14  offset    0.00  size    0.00  differing  0  unmatched 0
 table/empty                      matched 10  offset    0.00  size    0.00  differing  0  unmatched 0
 table/fixed_layout               matched 27  offset    0.00  size    0.00  differing  0  unmatched 0
 table/hyphen_columns             matched 12  offset    0.00  size    0.00  differing  0  unmatched 0

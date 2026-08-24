@@ -31,6 +31,12 @@
   },
   {
     "Element": "div",
+    "Name": "outline-style",
+    "Value": "dashed",
+    "Reason": "not painted"
+  },
+  {
+    "Element": "div",
     "Name": "background-image",
     "Value": "url(\"missing.png\")",
     "Reason": "not painted"

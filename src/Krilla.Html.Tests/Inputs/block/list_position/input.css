@@ -1,0 +1,18 @@
+ul, ol {
+  width: 300px;
+  padding-left: 40px;
+  margin-bottom: 8px;
+  font-size: 16px;
+  line-height: 24px;
+  background-color: #f2f2f2;
+}
+
+li { background-color: #dde5f0; }
+
+/* The default: the marker hangs outside the item's border edge and the text starts at it. */
+#outside { list-style-position: outside; }
+
+/* Inside: the marker becomes the first thing ON the first line, so the text is pushed right by
+   the marker's own width and the wrap of a long item lines up under the MARKER rather than under
+   the text above it. */
+#inside, #inside-wrap, #inside-number { list-style-position: inside; }

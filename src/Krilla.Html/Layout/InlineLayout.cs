@@ -67,7 +67,13 @@ static class InlineLayout
         // that method and must not pick it up. It narrows the band from the start edge rather than
         // shifting it, so alignment still measures against the room the line actually has. A
         // negative value widens it the other way, hanging the first line outside the content box.
-        if (box.Style.TextIndent.Resolve(contentWidth) is var indent and not 0)
+        // An `inside` list marker narrows the first line exactly as `text-indent` does, and for
+        // the same reason: it occupies the start of that line and nothing else. Adding the two
+        // rather than choosing between them is what a browser does — an indented inside list item
+        // starts its text past both.
+        var indent = box.Style.TextIndent.Resolve(contentWidth) + ListMarkers.Reserved(box, fonts);
+
+        if (indent != 0)
         {
             band = new(band.Left + indent, Math.Max(0, band.Width - indent));
         }
