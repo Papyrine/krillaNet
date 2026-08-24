@@ -44,8 +44,18 @@ sealed class ImageData :
     /// layout down with it — an image is content, and content being wrong is better than a
     /// document failing to render.
     /// </remarks>
-    public float? Ratio =>
-        Width > 0 && Height > 0 ? (float) Width / Height : null;
+    public float? Ratio
+    {
+        get
+        {
+            if (Width > 0 && Height > 0)
+            {
+                return (float) Width / Height;
+            }
+
+            return null;
+        }
+    }
 
     /// <summary>The krilla image, decoded on first use.</summary>
     public PdfImage Image => image ??= PdfImage.Load(Format, data);

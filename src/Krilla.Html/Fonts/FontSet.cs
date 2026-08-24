@@ -195,7 +195,12 @@ public sealed class FontSet :
         var isLighter = available < desired;
 
         var distance = Math.Abs(available - desired);
-        return isLighter == preferLighter ? distance : wrongDirection + distance;
+        if (isLighter == preferLighter)
+        {
+            return distance;
+        }
+
+        return wrongDirection + distance;
     }
 
     /// <inheritdoc />

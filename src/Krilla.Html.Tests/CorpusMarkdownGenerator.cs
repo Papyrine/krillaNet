@@ -232,8 +232,15 @@ static class CorpusMarkdownGenerator
         return $"**{page}. AE {metrics.AbsoluteError:F4}{ssim}**";
     }
 
-    static string Image(string? file, string prefix) =>
-        file is null ? "" : $"""<img src="{Encode(prefix + file)}" width="480">""";
+    static string Image(string? file, string prefix)
+    {
+        if (file is null)
+        {
+            return "";
+        }
+
+        return $"""<img src="{Encode(prefix + file)}" width="480">""";
+    }
 
     static string Encode(string path) =>
         path.Replace("#", "%23");

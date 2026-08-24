@@ -127,8 +127,11 @@ public sealed class ImagePolicy
         var full = Path.GetFullPath(directory);
 
         // With a trailing separator, so that an allowed "C:\a" does not also allow "C:\ab".
-        return full.EndsWith(Path.DirectorySeparatorChar) || full.EndsWith(Path.AltDirectorySeparatorChar)
-            ? full
-            : full + Path.DirectorySeparatorChar;
+        if (full.EndsWith(Path.DirectorySeparatorChar) || full.EndsWith(Path.AltDirectorySeparatorChar))
+        {
+            return full;
+        }
+
+        return full + Path.DirectorySeparatorChar;
     }
 }

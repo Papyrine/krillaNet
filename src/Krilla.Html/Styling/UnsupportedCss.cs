@@ -836,7 +836,13 @@ static class UnsupportedCss
     static string? Set(ICssStyleDeclaration declaration, string property)
     {
         var value = declaration.GetPropertyValue(property);
-        return string.IsNullOrWhiteSpace(value) ? null : value.Trim().ToLowerInvariant();
+
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        return value.Trim().ToLowerInvariant();
     }
 
     static bool IsZero(string value) =>

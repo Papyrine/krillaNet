@@ -244,7 +244,12 @@ sealed class CharacterMap
             if (glyphs is not null)
             {
                 var index = codepoint - Start;
-                return index < glyphs.Length ? glyphs[index] : (ushort) 0;
+                if (index < glyphs.Length)
+                {
+                    return glyphs[index];
+                }
+
+                return (ushort) 0;
             }
 
             return (ushort) ((codepoint + delta) & 0xFFFF);

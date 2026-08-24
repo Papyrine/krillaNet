@@ -235,13 +235,21 @@ sealed record CssTransform(
         float fontSize,
         CssRoot root)
     {
-        CssLength? Length(int index) =>
-            index < arguments.Count
-                ? CssValues.ParseLength(arguments[index], fontSize, root, CssLength.None) is
-                  {Kind: not LengthKind.None} parsed
-                    ? parsed
-                    : null
-                : CssLength.Zero;
+        CssLength? Length(int index)
+        {
+            if (index >= arguments.Count)
+            {
+                return CssLength.Zero;
+            }
+
+            if (CssValues.ParseLength(arguments[index], fontSize, root, CssLength.None) is
+                {Kind: not LengthKind.None} parsed)
+            {
+                return parsed;
+            }
+
+            return null;
+        }
 
         float? Number(int index, float fallback)
         {
@@ -250,13 +258,16 @@ sealed record CssTransform(
                 return fallback;
             }
 
-            return float.TryParse(
-                arguments[index],
-                NumberStyles.Float,
-                CultureInfo.InvariantCulture,
-                out var value)
-                ? value
-                : null;
+            if (float.TryParse(
+                    arguments[index],
+                    NumberStyles.Float,
+                    CultureInfo.InvariantCulture,
+                    out var value))
+            {
+                return value;
+            }
+
+            return null;
         }
 
         float? Angle(int index, float fallback)
@@ -320,9 +331,12 @@ sealed record CssTransform(
                 return null;
 
             case "rotate" when arguments.Count == 1:
-                return Angle(0, 0) is {} degrees
-                    ? new(TransformKind.Rotate, CssLength.Zero, CssLength.Zero, degrees)
-                    : null;
+                if (Angle(0, 0) is {} degrees)
+                {
+                    return new(TransformKind.Rotate, CssLength.Zero, CssLength.Zero, degrees);
+                }
+
+                return null;
 
             case "skew" when arguments.Count is 1 or 2:
                 if (Angle(0, 0) is { } skewX && Angle(1, 0) is { } skewY)

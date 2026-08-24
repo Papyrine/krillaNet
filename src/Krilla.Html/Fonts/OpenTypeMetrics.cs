@@ -133,8 +133,15 @@ sealed class OpenTypeMetrics
     /// past that shares the last one. Monospace fonts exploit this and ship a single entry, so the
     /// clamp is the normal path there rather than an edge case.
     /// </remarks>
-    public float Advance(ushort glyphId) =>
-        advances.Length == 0 ? 0 : advances[Math.Min(glyphId, advances.Length - 1)];
+    public float Advance(ushort glyphId)
+    {
+        if (advances.Length == 0)
+        {
+            return 0;
+        }
+
+        return advances[Math.Min(glyphId, advances.Length - 1)];
+    }
 
     /// <summary>
     /// Parses <paramref name="data"/>, selecting <paramref name="index"/> from a collection.
@@ -315,7 +322,12 @@ sealed class OpenTypeMetrics
             }
         }
 
-        return typographic.Length > 0 ? typographic : legacy;
+        if (typographic.Length > 0)
+        {
+            return typographic;
+        }
+
+        return legacy;
     }
 
     static Dictionary<string, int> ReadTableDirectory(ReadOnlySpan<byte> data, uint index)

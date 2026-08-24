@@ -227,8 +227,15 @@ public static class BoxDump
     /// would make every transformed element in the corpus look like a defect, and would leave the
     /// transform arithmetic measured by nothing but pixels.
     /// </remarks>
-    static Rect Visual(Rect rect, Matrix? matrix) =>
-        matrix is {} applied ? CssTransform.Bounds(applied, rect) : rect;
+    static Rect Visual(Rect rect, Matrix? matrix)
+    {
+        if (matrix is {} applied)
+        {
+            return CssTransform.Bounds(applied, rect);
+        }
+
+        return rect;
+    }
 
     static BoxGeometry Geometry(string selector, Rect rect) =>
         new(selector, Round(rect.X), Round(rect.Y), Round(rect.Width), Round(rect.Height));

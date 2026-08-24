@@ -161,12 +161,17 @@ static class PdfPainter
     /// Empty when <paramref name="collects"/> is false, which is the case for a positioned box
     /// that establishes no context: what is inside it belongs to the walk that found it.
     /// </remarks>
-    static List<LayoutBox> Ordered(LayoutBox box, bool collects) =>
-        collects
-            ? Hoisted(box)
+    static List<LayoutBox> Ordered(LayoutBox box, bool collects)
+    {
+        if (collects)
+        {
+            return Hoisted(box)
                 .OrderBy(_ => _.Style.StackingOrder)
-                .ToList()
-            : [];
+                .ToList();
+        }
+
+        return [];
+    }
 
     /// <summary>
     /// Paints one hoisted box, and anything that establishes a context inside it.
@@ -1465,12 +1470,15 @@ static class PdfPainter
             return null;
         }
 
-        return style.BorderTopColor is {} color &&
-               style.BorderRightColor == color &&
-               style.BorderBottomColor == color &&
-               style.BorderLeftColor == color
-            ? color
-            : null;
+        if (style.BorderTopColor is {} color &&
+            style.BorderRightColor == color &&
+            style.BorderBottomColor == color &&
+            style.BorderLeftColor == color)
+        {
+            return color;
+        }
+
+        return null;
     }
 
     /// <summary>

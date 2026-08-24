@@ -1200,7 +1200,18 @@ sealed record ComputedStyle
     /// CSS Color's rule for an unpositioned faded box says exactly that: paint it where a
     /// positioned box with <c>z-index: 0</c> would go.
     /// </remarks>
-    public int StackingOrder => IsPositioned ? ZIndex ?? 0 : 0;
+    public int StackingOrder
+    {
+        get
+        {
+            if (IsPositioned)
+            {
+                return ZIndex ?? 0;
+            }
+
+            return 0;
+        }
+    }
 
     /// <summary>
     /// Whether this box establishes a stacking context of its own.
@@ -1319,8 +1330,15 @@ sealed record ComputedStyle
     /// <summary>
     /// <see cref="ContentSize(float,float)"/> for a length that may be absent.
     /// </summary>
-    public float? ContentSize(float? declared, float surround) =>
-        declared is {} value ? ContentSize(value, surround) : null;
+    public float? ContentSize(float? declared, float surround)
+    {
+        if (declared is {} value)
+        {
+            return ContentSize(value, surround);
+        }
+
+        return null;
+    }
 
     /// <summary>
     /// The horizontal padding and border, with percentages resolved against

@@ -69,14 +69,26 @@ readonly record struct RoundedBox(
                 Ratio(size.Height, box.TopLeft.Y + box.BottomLeft.Y),
                 Ratio(size.Height, box.TopRight.Y + box.BottomRight.Y)));
 
-        return scale >= 1 ? box : box.Scaled(scale);
+        if (scale >= 1)
+        {
+            return box;
+        }
+
+        return box.Scaled(scale);
 
         static (float X, float Y) Corner((CssLength X, CssLength Y) radius, Rect size) =>
             (MathF.Max(0, radius.X.Resolve(size.Width)),
              MathF.Max(0, radius.Y.Resolve(size.Height)));
 
-        static float Ratio(float side, float sum) =>
-            sum <= 0 ? float.PositiveInfinity : side / sum;
+        static float Ratio(float side, float sum)
+        {
+            if (sum <= 0)
+            {
+                return float.PositiveInfinity;
+            }
+
+            return side / sum;
+        }
     }
 
     /// <summary>

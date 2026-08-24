@@ -98,13 +98,18 @@ static class CorpusLayout
     /// Empty rather than throwing when the corpus is absent, so the smoke tests and the markdown
     /// regeneration hook both work in a tree where no scenario has been committed yet.
     /// </remarks>
-    public static IEnumerable<string> Directories() =>
-        System.IO.Directory.Exists(InputsDirectory)
-            ? System.IO.Directory
+    public static IEnumerable<string> Directories()
+    {
+        if (System.IO.Directory.Exists(InputsDirectory))
+        {
+            return System.IO.Directory
                 .EnumerateFiles(InputsDirectory, HtmlFile, SearchOption.AllDirectories)
                 .Select(_ => Directory(_))
-                .OrderBy(_ => _, StringComparer.OrdinalIgnoreCase)
-            : [];
+                .OrderBy(_ => _, StringComparer.OrdinalIgnoreCase);
+        }
+
+        return [];
+    }
 
     /// <summary>Scenario directories under one category.</summary>
     public static IEnumerable<string> Directories(string category) =>

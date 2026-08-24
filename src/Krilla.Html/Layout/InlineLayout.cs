@@ -1278,10 +1278,15 @@ static class InlineLayout
     /// stylesheet and are therefore declared.
     /// </para>
     /// </remarks>
-    static VerticalAlignKind InlineAlign(Token token, ComputedStyle block) =>
-        !ReferenceEquals(token.Style, block) && token.Style.VerticalAlignDeclared
-            ? token.Style.VerticalAlign
-            : VerticalAlignKind.Baseline;
+    static VerticalAlignKind InlineAlign(Token token, ComputedStyle block)
+    {
+        if (!ReferenceEquals(token.Style, block) && token.Style.VerticalAlignDeclared)
+        {
+            return token.Style.VerticalAlign;
+        }
+
+        return VerticalAlignKind.Baseline;
+    }
 
     /// <summary>
     /// How far <c>vertical-align</c> moves a token off the baseline, down-positive.

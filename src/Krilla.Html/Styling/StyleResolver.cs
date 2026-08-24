@@ -105,7 +105,12 @@ static class StyleResolver
             Display = ParseDisplay(Own(declaration, host, "display") ?? "inline", "span")
         };
 
-        return style.Display == DisplayKind.None ? null : (style, content);
+        if (style.Display == DisplayKind.None)
+        {
+            return null;
+        }
+
+        return (style, content);
     }
 
     /// <summary>
@@ -119,9 +124,12 @@ static class StyleResolver
     {
         var value = pseudo.GetPropertyValue(property);
 
-        return string.IsNullOrWhiteSpace(value) || value == host.GetPropertyValue(property)
-            ? null
-            : value;
+        if (string.IsNullOrWhiteSpace(value) || value == host.GetPropertyValue(property))
+        {
+            return null;
+        }
+
+        return value;
     }
 
     static ComputedStyle Resolve(
@@ -524,14 +532,19 @@ static class StyleResolver
     /// not an integer — so <c>z-index: 2.7</c> arrives as nothing at all and takes the same path an
     /// undeclared one does, which is what CSS asks for anyway.
     /// </remarks>
-    static int? ParseZIndex(string value) =>
-        int.TryParse(
-            value.Trim(),
-            NumberStyles.Integer,
-            CultureInfo.InvariantCulture,
-            out var parsed)
-            ? parsed
-            : null;
+    static int? ParseZIndex(string value)
+    {
+        if (int.TryParse(
+                value.Trim(),
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out var parsed))
+        {
+            return parsed;
+        }
+
+        return null;
+    }
 
     /// <summary>
     /// What a box asks of the page break at one of its edges, or inside it. Not inherited.
@@ -640,7 +653,12 @@ static class StyleResolver
             source = source[1..^1];
         }
 
-        return source.IsEmpty ? null : context.Images.Resolve(source.ToString(), out _);
+        if (source.IsEmpty)
+        {
+            return null;
+        }
+
+        return context.Images.Resolve(source.ToString(), out _);
     }
 
     /// <summary>Which of a box's three rectangles a background property names.</summary>
@@ -691,7 +709,12 @@ static class StyleResolver
             // The two properties have different initial values — a background starts at the near
             // edge and a replaced element's content is centred — so the fallback follows the one
             // being read rather than a shared default.
-            return property == "object-position" ? CssLength.Percentage(50) : CssLength.Zero;
+            if (property == "object-position")
+            {
+                return CssLength.Percentage(50);
+            }
+
+            return CssLength.Zero;
         }
 
         var parts = value.Split(' ', StringSplitOptions.RemoveEmptyEntries);
@@ -1039,15 +1062,25 @@ static class StyleResolver
     /// where a table's declared width including its border comes from; it is not a rule of table
     /// layout, and an author who writes <c>content-box</c> on a table gets the other behaviour.
     /// </remarks>
-    static BoxSizingKind ParseBoxSizing(string value) =>
-        value.AsSpan().Trim().Equals("border-box", StringComparison.OrdinalIgnoreCase)
-            ? BoxSizingKind.BorderBox
-            : BoxSizingKind.ContentBox;
+    static BoxSizingKind ParseBoxSizing(string value)
+    {
+        if (value.AsSpan().Trim().Equals("border-box", StringComparison.OrdinalIgnoreCase))
+        {
+            return BoxSizingKind.BorderBox;
+        }
 
-    static TableLayoutKind ParseTableLayout(string value) =>
-        value.AsSpan().Trim().Equals("fixed", StringComparison.OrdinalIgnoreCase)
-            ? TableLayoutKind.Fixed
-            : TableLayoutKind.Auto;
+        return BoxSizingKind.ContentBox;
+    }
+
+    static TableLayoutKind ParseTableLayout(string value)
+    {
+        if (value.AsSpan().Trim().Equals("fixed", StringComparison.OrdinalIgnoreCase))
+        {
+            return TableLayoutKind.Fixed;
+        }
+
+        return TableLayoutKind.Auto;
+    }
 
     /// <summary>
     /// How a cell's content sits in a taller row.
@@ -1096,9 +1129,12 @@ static class StyleResolver
         // for real lengths.
         var offset = CssValues.ParseLength(text, fontSize, root, CssLength.None);
 
-        return offset.IsNone
-            ? VerticalAlignKind.Baseline
-            : VerticalAlignKind.Length;
+        if (offset.IsNone)
+        {
+            return VerticalAlignKind.Baseline;
+        }
+
+        return VerticalAlignKind.Length;
     }
 
     static int ParseWeight(string value, int inherited)
@@ -1219,7 +1255,12 @@ static class StyleResolver
             return declared;
         }
 
-        return Declares(declaration) ? color : parent.DecorationColor;
+        if (Declares(declaration))
+        {
+            return color;
+        }
+
+        return parent.DecorationColor;
     }
 
     /// <summary>
@@ -1256,15 +1297,20 @@ static class StyleResolver
     /// that constrains nothing, and taking the inherited 2 is closer to what the author of an
     /// invalid declaration meant than turning the property off.
     /// </remarks>
-    static int Count(ICssStyleDeclaration declaration, string property, int inherited) =>
-        int.TryParse(
-            declaration.GetPropertyValue(property).Trim(),
-            NumberStyles.Integer,
-            CultureInfo.InvariantCulture,
-            out var value) &&
-        value > 0
-            ? value
-            : inherited;
+    static int Count(ICssStyleDeclaration declaration, string property, int inherited)
+    {
+        if (int.TryParse(
+                declaration.GetPropertyValue(property).Trim(),
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out var value) &&
+            value > 0)
+        {
+            return value;
+        }
+
+        return inherited;
+    }
 
     /// <summary>
     /// The name/number pairs of a <c>counter-reset</c> or <c>counter-increment</c>.
@@ -1365,7 +1411,12 @@ static class StyleResolver
 
         // An odd count is a malformed declaration; the trailing mark has no closing partner and
         // would be read as one, so the whole value falls back.
-        return marks.Count >= 2 && marks.Count % 2 == 0 ? [.. marks] : inherited;
+        if (marks.Count >= 2 && marks.Count % 2 == 0)
+        {
+            return [.. marks];
+        }
+
+        return inherited;
     }
 
     /// <summary>
@@ -1448,9 +1499,12 @@ static class StyleResolver
         // Exactly two lengths: the offset, with no blur and no spread. A third length is a blur —
         // or a spread that AngleSharp has made indistinguishable from one — and either way this
         // cannot draw it.
-        return lengths.Count == 2 && color is {} painted
-            ? new(lengths[0], lengths[1], painted, opacity)
-            : null;
+        if (lengths.Count == 2 && color is {} painted)
+        {
+            return new(lengths[0], lengths[1], painted, opacity);
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -1484,9 +1538,12 @@ static class StyleResolver
             return width;
         }
 
-        return CssValues.TryParseNumber(parts[1], out var height) && height > 0
-            ? width / height
-            : 0;
+        if (CssValues.TryParseNumber(parts[1], out var height) && height > 0)
+        {
+            return width / height;
+        }
+
+        return 0;
     }
 
     /// <summary>
@@ -1512,7 +1569,12 @@ static class StyleResolver
 
         var length = CssValues.ParseLength(value, fontSize, root, CssLength.None);
 
-        return length.Kind == LengthKind.Absolute ? length.Value : null;
+        if (length.Kind == LengthKind.Absolute)
+        {
+            return length.Value;
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -1524,10 +1586,15 @@ static class StyleResolver
     /// the declaration. A length-valued <c>tab-size</c> falls through to the inherited number and
     /// is reported.
     /// </remarks>
-    static float ParseTabSize(string value, float inherited) =>
-        CssValues.TryParseNumber(value.Trim(), out var stops) && stops > 0
-            ? stops
-            : inherited;
+    static float ParseTabSize(string value, float inherited)
+    {
+        if (CssValues.TryParseNumber(value.Trim(), out var stops) && stops > 0)
+        {
+            return stops;
+        }
+
+        return inherited;
+    }
 
     /// <summary>
     /// The tab stop spacing when it was given as a LENGTH, or null when it was a count.
@@ -1625,7 +1692,12 @@ static class StyleResolver
 
         // An explicit `none` clears inherited rules; anything else — a colour or a style on its
         // own — leaves them alone.
-        return text.Contains("none", StringComparison.Ordinal) ? TextDecorations.None : inherited;
+        if (text.Contains("none", StringComparison.Ordinal))
+        {
+            return TextDecorations.None;
+        }
+
+        return inherited;
     }
 
     static TextAlignKind ParseTextAlign(string value, TextAlignKind inherited) =>

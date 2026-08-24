@@ -202,37 +202,48 @@ static class CssContent
         {
             var parts = Arguments(several);
 
-            return parts.Count >= 2
-                ? new(
+            if (parts.Count >= 2)
+            {
+                return new(
                     ContentKind.Counters,
                     parts[0],
                     Unquote(parts[1]),
-                    parts.Count >= 3 ? Counter(parts[2]) : ListStyleKind.Decimal)
-                : null;
+                    parts.Count >= 3 ? Counter(parts[2]) : ListStyleKind.Decimal);
+            }
+
+            return null;
         }
 
         if (Function(token, "counter") is {} single)
         {
             var parts = Arguments(single);
 
-            return parts.Count >= 1
-                ? new(
+            if (parts.Count >= 1)
+            {
+                return new(
                     ContentKind.Counter,
                     parts[0],
-                    Style: parts.Count >= 2 ? Counter(parts[1]) : ListStyleKind.Decimal)
-                : null;
+                    Style: parts.Count >= 2 ? Counter(parts[1]) : ListStyleKind.Decimal);
+            }
+
+            return null;
         }
 
         return null;
     }
 
     /// <summary>The inside of <c>name(...)</c>, or null when the token is not that function.</summary>
-    static string? Function(string token, string name) =>
-        token.Length > name.Length + 2 &&
-        token.StartsWith($"{name}(", StringComparison.OrdinalIgnoreCase) &&
-        token[^1] == ')'
-            ? token[(name.Length + 1)..^1]
-            : null;
+    static string? Function(string token, string name)
+    {
+        if (token.Length > name.Length + 2 &&
+            token.StartsWith($"{name}(", StringComparison.OrdinalIgnoreCase) &&
+            token[^1] == ')')
+        {
+            return token[(name.Length + 1)..^1];
+        }
+
+        return null;
+    }
 
     /// <summary>
     /// Splits a function's arguments, on either a comma or whitespace, keeping strings whole.

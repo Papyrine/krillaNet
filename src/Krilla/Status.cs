@@ -47,7 +47,12 @@ static class Status
     {
         var message = KrillaNative.LastErrorMessage();
 
-        return string.IsNullOrEmpty(message) ? "" : $" ({message})";
+        if (string.IsNullOrEmpty(message))
+        {
+            return "";
+        }
+
+        return $" ({message})";
     }
 
     static string Describe(int status) =>

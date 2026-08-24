@@ -188,8 +188,15 @@ public static class HtmlConverter
     /// an absent attribute, and an empty title in a PDF is worse than none: a reader shows the file
     /// name when the title is absent and a blank when it is present and empty.
     /// </remarks>
-    static string? Text(string? value) =>
-        string.IsNullOrWhiteSpace(value) ? null : value.Trim();
+    static string? Text(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return null;
+        }
+
+        return value.Trim();
+    }
 
     /// <summary>
     /// Folds a document's <c>@page</c> rules into the options, or returns them unchanged.

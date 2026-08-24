@@ -1,4 +1,4 @@
-﻿/// <summary>
+/// <summary>
 /// Numbers the items of one list.
 /// </summary>
 /// <remarks>
@@ -62,12 +62,17 @@ sealed class ListNumbering
     static bool IsItem(IElement element) =>
         element.LocalName.Equals("li", StringComparison.OrdinalIgnoreCase);
 
-    static int? Number(IElement element, string name) =>
-        int.TryParse(
-            element.GetAttribute(name),
-            NumberStyles.AllowLeadingSign,
-            CultureInfo.InvariantCulture,
-            out var value)
-            ? value
-            : null;
+    static int? Number(IElement element, string name)
+    {
+        if (int.TryParse(
+                element.GetAttribute(name),
+                NumberStyles.AllowLeadingSign,
+                CultureInfo.InvariantCulture,
+                out var value))
+        {
+            return value;
+        }
+
+        return null;
+    }
 }

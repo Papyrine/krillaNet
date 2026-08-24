@@ -133,9 +133,12 @@ static class GradientPaint
     {
         if (gradient.Kind != GradientKind.Linear)
         {
-            return gradient.Kind == GradientKind.Circle
-                ? MathF.Sqrt(box.Width * box.Width + box.Height * box.Height) / 2
-                : box.Width / 2 * MathF.Sqrt(2);
+            if (gradient.Kind == GradientKind.Circle)
+            {
+                return MathF.Sqrt(box.Width * box.Width + box.Height * box.Height) / 2;
+            }
+
+            return box.Width / 2 * MathF.Sqrt(2);
         }
 
         var radians = Resolve(gradient, box) * MathF.PI / 180f;

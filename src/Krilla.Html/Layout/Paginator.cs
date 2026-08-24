@@ -323,9 +323,12 @@ static class Paginator
                 continue;
             }
 
-            return constrainRuns
-                ? Constrained(units, unit, top)
-                : bounds.Y;
+            if (constrainRuns)
+            {
+                return Constrained(units, unit, top);
+            }
+
+            return bounds.Y;
         }
 
         return limit;
@@ -400,7 +403,12 @@ static class Paginator
 
         // Whole run overleaf. Guarded against a run that starts at or above the page top, where
         // moving to it would not advance and the loop in `PageTops` would never terminate.
-        return group.FirstTop > top ? group.FirstTop : unit.Bounds.Y;
+        if (group.FirstTop > top)
+        {
+            return group.FirstTop;
+        }
+
+        return unit.Bounds.Y;
     }
 
     /// <summary>

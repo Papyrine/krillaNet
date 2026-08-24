@@ -165,7 +165,12 @@ static class UserAgentStyles
             return DisplayKind.None;
         }
 
-        return inline.Contains(localName) ? DisplayKind.Inline : null;
+        if (inline.Contains(localName))
+        {
+            return DisplayKind.Inline;
+        }
+
+        return null;
     }
 
     /// <summary>Whether <paramref name="localName"/> forces a line break.</summary>
@@ -181,10 +186,15 @@ static class UserAgentStyles
     /// rather than as CSS because <c>inherit</c> as a declared keyword is not implemented, and
     /// seeding the root of the table has the same effect for the one property that needs it.
     /// </remarks>
-    public static VerticalAlignKind? DefaultVerticalAlign(string localName) =>
-        localName.Equals("table", StringComparison.OrdinalIgnoreCase)
-            ? VerticalAlignKind.Middle
-            : null;
+    public static VerticalAlignKind? DefaultVerticalAlign(string localName)
+    {
+        if (localName.Equals("table", StringComparison.OrdinalIgnoreCase))
+        {
+            return VerticalAlignKind.Middle;
+        }
+
+        return null;
+    }
 
     /// <summary>Whether <paramref name="localName"/> is bold by default.</summary>
     public static bool IsBold(string localName) =>

@@ -92,9 +92,15 @@ sealed class CssCounters
     }
 
     /// <summary>The innermost value of one counter, which is zero when it has none.</summary>
-    public int Value(string name) =>
-        scopes.TryGetValue(name, out var stack) &&
-        stack.Count > 0 ? stack[^1] : 0;
+    public int Value(string name)
+    {
+        if (scopes.TryGetValue(name, out var stack) && stack.Count > 0)
+        {
+            return stack[^1];
+        }
+
+        return 0;
+    }
 
     /// <summary>Every value of one counter, outermost first.</summary>
     /// <remarks>

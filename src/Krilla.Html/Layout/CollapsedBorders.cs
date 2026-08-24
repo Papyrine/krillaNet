@@ -64,12 +64,22 @@ sealed class CollapsedBorders
             // every test below would hand the edge to its neighbour.
             if (Style == BorderStyleKind.Hidden || other.Style == BorderStyleKind.Hidden)
             {
-                return Style == BorderStyleKind.Hidden ? this : other;
+                if (Style == BorderStyleKind.Hidden)
+                {
+                    return this;
+                }
+
+                return other;
             }
 
             if (Width != other.Width)
             {
-                return Width > other.Width ? this : other;
+                if (Width > other.Width)
+                {
+                    return this;
+                }
+
+                return other;
             }
 
             var mine = Rank(Style);
@@ -77,10 +87,20 @@ sealed class CollapsedBorders
 
             if (mine != theirs)
             {
-                return mine > theirs ? this : other;
+                if (mine > theirs)
+                {
+                    return this;
+                }
+
+                return other;
             }
 
-            return Origin >= other.Origin ? this : other;
+            if (Origin >= other.Origin)
+            {
+                return this;
+            }
+
+            return other;
         }
 
         /// <summary>
@@ -473,7 +493,12 @@ sealed class CollapsedBorders
             return right.Box.BorderBox.X;
         }
 
-        return line > 0 && occupancy[row, line - 1] is {} left ? left.Box.BorderBox.Right : null;
+        if (line > 0 && occupancy[row, line - 1] is {} left)
+        {
+            return left.Box.BorderBox.Right;
+        }
+
+        return null;
     }
 
     /// <summary>The y a horizontal line is centred on.</summary>
@@ -486,7 +511,12 @@ sealed class CollapsedBorders
             return below.Box.BorderBox.Y;
         }
 
-        return line > 0 && occupancy[line - 1, column] is {} above ? above.Box.BorderBox.Bottom : null;
+        if (line > 0 && occupancy[line - 1, column] is {} above)
+        {
+            return above.Box.BorderBox.Bottom;
+        }
+
+        return null;
     }
 
     /// <summary>The vertical extent of a row, from its cells.</summary>
