@@ -1614,10 +1614,18 @@ static class PdfPainter
     /// an overline geometry and that is where a browser puts it.
     /// </para>
     /// <para>
-    /// All three take the run's colour rather than a decoration colour of their own, which follows
-    /// from decorations being inherited here rather than propagated. `text/decorations` measures
-    /// what that costs: a nested span with its own colour draws the strike in the child's colour
-    /// where a browser keeps the declaring element's.
+    /// All three take <see cref="ComputedStyle.DecorationColor"/>, which inherits alongside the
+    /// decoration itself and falls back to the run's own colour when nobody named one. The
+    /// remaining difference from a browser is narrower than it was and still there:
+    /// <c>text/decorations</c> measures it — decorations are inherited here rather than propagated,
+    /// so a nested span that names its own COLOUR and no decoration keeps the ancestor's rule and
+    /// the ancestor's colour, which is right, while one that names its own <c>color</c> alone draws
+    /// the rule in the child's colour where a browser keeps the declaring element's.
+    /// </para>
+    /// <para>
+    /// The four rule styles are measured rather than derived, and none of the numbers is obvious.
+    /// See <c>text/decoration_style</c>'s notes: a double rule is two lines separated by twice their
+    /// thickness, and a patterned rule is drawn at TWICE the solid thickness, centred on it.
     /// </para>
     /// </remarks>
     static void PaintDecorations(Surface surface, TextRun run)

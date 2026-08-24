@@ -15,10 +15,11 @@
 /// offers a break in the middle of what looks like a single token.
 /// </para>
 /// <para>
-/// Opportunities are at spaces, at dashes, and either side of an atomic inline. No hyphenation
-/// dictionary, no soft hyphen, and no Unicode line breaking algorithm (UAX #14) beyond the dashes
-/// — so text without any of those does not break at all, and CJK in particular will overflow
-/// rather than wrap. The corpus stays out of that territory until UAX #14 is worth implementing.
+/// Opportunities are at spaces, at dashes, at soft hyphens, either side of an atomic inline, and —
+/// where <c>overflow-wrap</c> or <c>word-break</c> permits it — between any two characters of a
+/// word. What is missing is a hyphenation dictionary and the Unicode line breaking algorithm (UAX
+/// #14) beyond the dashes, so CJK in particular will overflow rather than wrap. The corpus stays
+/// out of that territory until UAX #14 is worth implementing.
 /// </para>
 /// </remarks>
 static class InlineLayout

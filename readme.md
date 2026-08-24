@@ -44,10 +44,19 @@ discovered from the host. That is what makes output reproducible across machines
 Implemented: block and inline layout, the box model including `box-sizing`, collapsing margins,
 line breaking, text alignment, pagination, tables, floats, relative and absolute positioning,
 `overflow` clipping, `visibility`, `text-transform`, letter and word spacing, the `font-size`
-keywords, text decorations, `vertical-align`, dashed, dotted and double borders, `border-radius`, `opacity`, `transform`, linear and
-radial gradients, `outline`, `object-fit`, both border models, images, and links —
-`<a href>` becomes a real PDF link annotation, and a `#fragment` becomes an internal jump to
-wherever that element paginated to. Flexbox and grid lay out as plain blocks.
+keywords, text decorations with their colour and style, `vertical-align` including lengths and
+percentages, dashed, dotted and double borders, `border-radius`, `opacity`, `transform`, linear and
+radial gradients, `outline`, `object-fit` and `object-position`, both border models, `empty-cells`,
+images, and links — `<a href>` becomes a real PDF link annotation, and a `#fragment` becomes an
+internal jump to wherever that element paginated to. Flexbox and grid lay out as plain blocks.
+
+Values resolve as CSS asks: `calc()`, the viewport units, and the whole length unit table. An inline
+element gets its own box model — background, padding, border and horizontal margins, one fragment
+per line — and a background may be a raster image, with `background-repeat`, `-position`, `-size`,
+`-clip` and `-origin`. Lines break at soft hyphens, at dashes, and inside a word where
+`overflow-wrap` or `word-break` permits it; tabs under `pre` advance to `tab-size` stops.
+A `list-style-image` marker is drawn from an image and falls back to the counter style when the
+source does not resolve.
 
 Pagination honours forced breaks: `page-break-before` and `page-break-after` with a forced value
 start a new page, and `page-break-inside: avoid` keeps a box whole by moving it to the next page

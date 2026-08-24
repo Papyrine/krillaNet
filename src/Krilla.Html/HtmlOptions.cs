@@ -47,10 +47,16 @@ public sealed class HtmlOptions
     public string? BaseUrl { get; set; }
 
     /// <summary>
-    /// Turns an <c>&lt;img&gt;</c> <c>src</c> into encoded image bytes, or null when it cannot be
-    /// resolved. An unresolved image generates no box, as in a browser.
+    /// Turns an image source into encoded bytes, or null when it cannot be resolved. An unresolved
+    /// <c>&lt;img&gt;</c> generates no box, as in a browser.
     /// </summary>
     /// <remarks>
+    /// <para>
+    /// Every image source in the document comes through here, not only the ones in the markup: a
+    /// <c>url()</c> in <c>background-image</c> or <c>list-style-image</c> is resolved by the same
+    /// route and bound by the same two policies. A stylesheet is the part of a document a reader is
+    /// least likely to have read, so it would be a poor place to leave a hole.
+    /// </para>
     /// <para>
     /// Unset resolves <c>data:</c> URIs and files relative to <see cref="BaseUrl"/>, and
     /// deliberately does NOT fetch over the network. Converting an untrusted document would

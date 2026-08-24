@@ -74,6 +74,29 @@ static class UnsupportedCss
     static readonly string[] transforms = ["none", "uppercase", "lowercase", "capitalize"];
 
     /// <summary>
+    /// The <c>list-style-type</c> values that have a counter style of their own. Everything else
+    /// falls through to a disc, which is what gets reported.
+    /// </summary>
+    /// <remarks>
+    /// The same shape as <see cref="displays"/>, and found by the same audit: an unimplemented
+    /// counter style still marks its items rather than losing them, on the reasoning that a wrong
+    /// marker is visible and a missing one is not — but the marker IS wrong, and nothing said so
+    /// until this list existed. <c>lower-greek</c>, <c>armenian</c>, <c>georgian</c> and the CJK
+    /// styles all came out as bullets in silence.
+    /// </remarks>
+    static readonly string[] counters =
+    [
+        "none", "disc", "circle", "square", "decimal", "decimal-leading-zero",
+        "lower-alpha", "lower-latin", "upper-alpha", "upper-latin", "lower-roman", "upper-roman"
+    ];
+
+    /// <summary>
+    /// The <c>white-space</c> values the engine distinguishes. Everything else inherits, silently,
+    /// which is what gets reported.
+    /// </summary>
+    static readonly string[] whiteSpaces = ["normal", "pre", "pre-wrap", "pre-line", "nowrap"];
+
+    /// <summary>
     /// The <c>display</c> values that reach a layout mode of their own. Everything else falls
     /// through to block, which is what gets reported.
     /// </summary>
@@ -110,6 +133,8 @@ static class UnsupportedCss
         Tabs(declaration, name, sink);
         Decoration(declaration, name, sink);
         Marker(declaration, name, style, sink);
+        Counters(declaration, name, sink);
+        Spaces(declaration, name, sink);
         Collapse(declaration, name, sink);
         Outline(declaration, name, sink);
         HiddenEdge(declaration, name, style, sink);
@@ -531,6 +556,38 @@ static class UnsupportedCss
         if (Set(declaration, "text-decoration-style") is "wavy")
         {
             Diagnostic.Property(sink, element, "text-decoration-style", "wavy", "painted as a solid rule");
+        }
+    }
+
+    /// <summary>
+    /// A counter style with no numbering of its own, which is drawn as a disc.
+    /// </summary>
+    static void Counters(ICssStyleDeclaration declaration, string element, Action<HtmlDiagnostic> sink)
+    {
+        if (Set(declaration, "list-style-type") is {} value &&
+            !counters.Contains(value) &&
+            !IsInitial(value))
+        {
+            Diagnostic.Property(sink, element, "list-style-type", value, "the items are marked with a disc");
+        }
+    }
+
+    /// <summary>
+    /// A <c>white-space</c> value the engine does not distinguish, which inherits instead.
+    /// </summary>
+    /// <remarks>
+    /// What is left is <c>break-spaces</c>, which preserves white space and wraps like
+    /// <c>pre-wrap</c> and differs from it in one place: a run of trailing spaces may itself be
+    /// broken, so a line can end in the middle of one. And the two-value syntax, which the cascade
+    /// hands back verbatim.
+    /// </remarks>
+    static void Spaces(ICssStyleDeclaration declaration, string element, Action<HtmlDiagnostic> sink)
+    {
+        if (Set(declaration, "white-space") is {} value &&
+            !whiteSpaces.Contains(value) &&
+            !IsInitial(value))
+        {
+            Diagnostic.Property(sink, element, "white-space", value, "the inherited handling is used");
         }
     }
 

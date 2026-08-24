@@ -25,7 +25,13 @@ Block and inline layout, inline-block, tables, floats, relative and absolute pos
 model including `box-sizing`, collapsing margins, line breaking, text alignment, pagination,
 images, links, list markers, and text shaping with kerning and ligatures.
 
-Images resolve from `data:` URIs and files relative to `BaseUrl`; nothing is fetched over the
+Also `calc()` and the viewport units, the inline box model, raster background images with the five
+properties that place them, soft hyphens, `overflow-wrap` and `word-break`, tabs under `pre`, text
+decorations with their colour and style, `opacity`, 2D transforms, gradients, `border-radius`, both
+table border models, and forced page breaks.
+
+Images resolve from `data:` URIs and files relative to `BaseUrl` — including a `url()` in a
+stylesheet, which goes through the same resolver and the same policies. Nothing is fetched over the
 network unless a caller supplies `HtmlOptions.ImageResolver`.
 
 Flexbox and grid lay out as plain blocks. `HtmlOptions.OnDiagnostic` reports every construct that
