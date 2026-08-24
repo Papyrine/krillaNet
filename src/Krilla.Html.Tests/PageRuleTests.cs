@@ -19,7 +19,7 @@ public class PageRuleTests
     [Test]
     public async Task ANamedSizeReplacesThePage()
     {
-        var page = Render("@page { size: A4 }");
+        var page = await Render("@page { size: A4 }");
 
         // A4 is 210 by 297 millimetres, which at 96 pixels per inch is 793.7 by 1122.5 — so the
         // rendered page is neither the caller's Letter nor a round number.
@@ -30,7 +30,7 @@ public class PageRuleTests
     [Test]
     public async Task AnOrientationAloneTurnsTheCallersPaper()
     {
-        var page = Render("@page { size: landscape }");
+        var page = await Render("@page { size: landscape }");
 
         // No size named, so the paper stays US Letter and only the axes swap.
         await Assert.That(page.Width).IsEqualTo(CorpusLayout.PageHeight);
@@ -40,7 +40,7 @@ public class PageRuleTests
     [Test]
     public async Task AnOrientationAppliesToTheSizeBesideIt()
     {
-        var page = Render("@page { size: A4 landscape }");
+        var page = await Render("@page { size: A4 landscape }");
 
         await Assert.That(page.Width).IsEqualTo(1123);
         await Assert.That(page.Height).IsEqualTo(794);
@@ -51,7 +51,7 @@ public class PageRuleTests
     {
         // The keyword names the orientation the page must END in, not a turn to apply — so asking
         // a portrait page to be portrait has to be a no-op rather than a transpose.
-        var page = Render("@page { size: portrait }");
+        var page = await Render("@page { size: portrait }");
 
         await Assert.That(page.Width).IsEqualTo(CorpusLayout.PageWidth);
         await Assert.That(page.Height).IsEqualTo(CorpusLayout.PageHeight);
@@ -60,7 +60,7 @@ public class PageRuleTests
     [Test]
     public async Task TwoLengthsAreAWidthAndAHeight()
     {
-        var page = Render("@page { size: 20cm 10cm }");
+        var page = await Render("@page { size: 20cm 10cm }");
 
         await Assert.That(page.Width).IsEqualTo(756);
         await Assert.That(page.Height).IsEqualTo(378);
@@ -72,7 +72,7 @@ public class PageRuleTests
         // The specification's rule, and not what an author writing a width expects. Worth pinning
         // precisely because it is surprising: a reading that treated the single length as a width
         // and kept the caller's height would look reasonable and be wrong.
-        var page = Render("@page { size: 10cm }");
+        var page = await Render("@page { size: 10cm }");
 
         await Assert.That(page.Width).IsEqualTo(378);
         await Assert.That(page.Height).IsEqualTo(378);
@@ -83,7 +83,7 @@ public class PageRuleTests
     {
         // Explicit dimensions are already in the order the author wanted, so `landscape` beside
         // them must not transpose a page they already transposed.
-        var page = Render("@page { size: 20cm 10cm landscape }");
+        var page = await Render("@page { size: 20cm 10cm landscape }");
 
         await Assert.That(page.Width).IsEqualTo(756);
         await Assert.That(page.Height).IsEqualTo(378);
@@ -96,7 +96,7 @@ public class PageRuleTests
         // lands on a pixel boundary and the assertion is about the margin rather than about how a
         // rasteriser splits a partly covered row. `TwoLengthsAreAWidthAndAHeight` covers the
         // centimetre conversion, where a fractional result is the whole point.
-        var page = Render("@page { margin: 1in }", "<div id=\"a\" style=\"height: 40px; background: #c81e1e\"></div>");
+        var page = await Render("@page { margin: 1in }", "<div id=\"a\" style=\"height: 40px; background: #c81e1e\"></div>");
 
         await Assert.That(FirstInkedRow(page)).IsEqualTo(96);
         await Assert.That(FirstInkedColumn(page)).IsEqualTo(96);
@@ -106,7 +106,7 @@ public class PageRuleTests
     [Test]
     public async Task PageMarginsAreReadPerEdge()
     {
-        var page = Render(
+        var page = await Render(
             "@page { margin: 30px 0 0 50px }",
             "<div id=\"a\" style=\"height: 40px; background: #c81e1e\"></div>");
 
@@ -119,7 +119,7 @@ public class PageRuleTests
     {
         // `@page` has no specificity to compare — every rule selects the same page box — so the
         // last declaration of a property is the one that applies.
-        var page = Render("@page { size: A4 } @page { size: 10cm 10cm }");
+        var page = await Render("@page { size: A4 } @page { size: 10cm 10cm }");
 
         await Assert.That(page.Width).IsEqualTo(378);
         await Assert.That(page.Height).IsEqualTo(378);
@@ -131,7 +131,7 @@ public class PageRuleTests
         var options = Options();
         options.HonourPageRules = false;
 
-        var page = Render("@page { size: A4 }", Body, options);
+        var page = await Render("@page { size: A4 }", Body, options);
 
         await Assert.That(page.Width).IsEqualTo(CorpusLayout.PageWidth);
         await Assert.That(page.Height).IsEqualTo(CorpusLayout.PageHeight);
@@ -145,7 +145,7 @@ public class PageRuleTests
         var options = Options();
         options.MarginTop = 17;
 
-        var page = Render("", "<div id=\"a\" style=\"height: 40px; background: #c81e1e\"></div>", options);
+        var page = await Render("", "<div id=\"a\" style=\"height: 40px; background: #c81e1e\"></div>", options);
 
         await Assert.That(page.Width).IsEqualTo(CorpusLayout.PageWidth);
         await Assert.That(FirstInkedRow(page)).IsEqualTo(17);
@@ -158,7 +158,7 @@ public class PageRuleTests
         // leaking into the next would be a memorable bug.
         var options = Options();
 
-        Render("@page { size: A4 }", Body, options);
+        await Render("@page { size: A4 }", Body, options);
 
         await Assert.That(options.PageWidth).IsEqualTo(CorpusLayout.PageWidth);
         await Assert.That(options.PageHeight).IsEqualTo(CorpusLayout.PageHeight);
@@ -171,7 +171,7 @@ public class PageRuleTests
         // this conversion was excluded while the one written for a screen was applied.
         // The plain rule first and the media block after, so the media block wins on order when
         // it applies at all — otherwise the test would pass on a document where neither did.
-        var page = Render(
+        var page = await Render(
             "div { height: 0 } @media print { div { height: 40px; background: #c81e1e } }",
             "<div id=\"a\"></div>");
 
@@ -181,7 +181,7 @@ public class PageRuleTests
     [Test]
     public async Task ScreenMediaDoesNot()
     {
-        var page = Render(
+        var page = await Render(
             "div { height: 0 } @media screen { div { height: 40px; background: #c81e1e } }",
             "<div id=\"a\"></div>");
 
@@ -205,9 +205,9 @@ public class PageRuleTests
             "</style></head><body><div id=\"a\"></div></body></html>";
 
         var options = Options();
-        using var document = HtmlConverter.Parse(html, options);
+        using var document = await HtmlConverter.ParseAsync(html, options);
 
-        var boxes = BoxDump.Measure(html, HtmlConverter.Paged(document, options));
+        var boxes = await BoxDump.MeasureAsync(html, HtmlConverter.Paged(document, options));
         var div = boxes.Single(_ => _.Selector.EndsWith("div:nth-child(1)"));
 
         await Assert.That(div.Width).IsEqualTo(396.85f).Within(0.01f);
@@ -216,13 +216,13 @@ public class PageRuleTests
         await Assert.That(div.Width).IsNotEqualTo(CorpusLayout.PageWidth / 2f);
     }
 
-    static PngImage Render(string css) =>
+    static Task<PngImage> Render(string css) =>
         Render(css, Body);
 
-    static PngImage Render(string css, string body) =>
+    static Task<PngImage> Render(string css, string body) =>
         Render(css, body, Options());
 
-    static PngImage Render(string css, string body, HtmlOptions options)
+    static async Task<PngImage> Render(string css, string body, HtmlOptions options)
     {
         var html =
             "<!doctype html><html><head><style>html, body { margin: 0; padding: 0; }" +
@@ -231,7 +231,7 @@ public class PageRuleTests
             body +
             "</body></html>";
 
-        using var document = PdfiumDocument.Load(HtmlConverter.Convert(html, options));
+        using var document = PdfiumDocument.Load(await HtmlConverter.ConvertAsync(html, options));
         var png = document.RenderPage(0, new RenderOptions {Dpi = CorpusLayout.Dpi});
 
         using var stream = new MemoryStream(png);

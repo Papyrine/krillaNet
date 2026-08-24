@@ -18,7 +18,7 @@ public class ImagePolicyTests
     {
         // Their bytes are already in the document, so loading one reaches nothing new. Denying
         // both policies must not stop them.
-        var boxes = Measure(
+        var boxes = await Measure(
             $"<img src=\"{pixel}\">",
             ImagePolicy.Deny(),
             ImagePolicy.Deny(),
@@ -32,7 +32,7 @@ public class ImagePolicyTests
     {
         var asked = new List<string>();
 
-        var reports = Convert(
+        var reports = await Convert(
             "<img src=\"https://example.com/a.png\">",
             ImagePolicy.AllowAll(),
             ImagePolicy.Deny(),
@@ -92,7 +92,7 @@ public class ImagePolicyTests
         // Both leave the same gap on the page, and the difference between them is the whole
         // question a reader has: one means the document asked for something it was not allowed,
         // the other means the file was not there.
-        var reports = Convert(
+        var reports = await Convert(
             "<img src=\"missing.png\"><img src=\"https://example.com/a.png\">",
             ImagePolicy.AllowAll(),
             ImagePolicy.Deny(),
@@ -116,17 +116,17 @@ public class ImagePolicyTests
     static bool Allows(ImagePolicy policy, string source) =>
         policy.IsAllowed(source);
 
-    static IReadOnlyList<BoxGeometry> Measure(
+    static Task<IReadOnlyList<BoxGeometry>> Measure(
         string body,
         ImagePolicy local,
         ImagePolicy web,
         Func<string, byte[]?>? resolver)
     {
         var options = Options(local, web, resolver);
-        return BoxDump.Measure(Page(body), options);
+        return BoxDump.MeasureAsync(Page(body), options);
     }
 
-    static List<HtmlDiagnostic> Convert(
+    static async Task<List<HtmlDiagnostic>> Convert(
         string body,
         ImagePolicy local,
         ImagePolicy web,
@@ -135,7 +135,7 @@ public class ImagePolicyTests
         var reports = new List<HtmlDiagnostic>();
         var options = Options(local, web, resolver);
         options.OnDiagnostic = reports.Add;
-        HtmlConverter.Convert(Page(body), options);
+        await HtmlConverter.ConvertAsync(Page(body), options);
         return reports;
     }
 

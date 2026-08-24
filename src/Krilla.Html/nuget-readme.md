@@ -8,7 +8,7 @@ writes the PDF.
 using var fonts = new FontSet()
     .AddDirectory("fonts");
 
-var pdf = HtmlConverter.Convert(
+var pdf = await HtmlConverter.ConvertAsync(
     "<h1>Hello</h1><p>World</p>",
     new()
     {

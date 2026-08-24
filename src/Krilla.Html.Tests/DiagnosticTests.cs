@@ -14,7 +14,7 @@ public class DiagnosticTests
         // Everything the corpus proves is rendered correctly. Deliberately includes an <hr>, whose
         // inset border arrives from the default stylesheet rather than from the document, and a
         // <small>, whose size the cascade resolves before it reaches the engine.
-        var reports = Collect(
+        var reports = await Collect(
             """
             <h1>Heading</h1>
             <p>A paragraph with <b>bold</b>, <i>italic</i> and <a href="#x">a link</a>.</p>
@@ -87,7 +87,7 @@ public class DiagnosticTests
                 }
             };
 
-            HtmlConverter.Convert(CorpusLayout.Html(directory), options);
+            await HtmlConverter.ConvertAsync(CorpusLayout.Html(directory), options);
         }
 
         await Assert.That(reports).IsEmpty();
@@ -103,7 +103,7 @@ public class DiagnosticTests
     {
         // Properties the engine has no opinion about. Reporting these would bury the ones it does,
         // which is the whole reason the table is a list rather than a sweep of the cascade.
-        var reports = Collect(
+        var reports = await Collect(
             "<p>Text</p>",
             "p { cursor: pointer; content: 'x'; scroll-behavior: smooth; caret-color: red; }");
 
@@ -114,7 +114,7 @@ public class DiagnosticTests
     public async Task DisplayNoneIsSilent()
     {
         // A browser draws nothing for it either, so nothing was lost.
-        var reports = Collect("<p style=\"display: none\">Hidden</p>");
+        var reports = await Collect("<p style=\"display: none\">Hidden</p>");
 
         await Assert.That(reports).IsEmpty();
     }
@@ -124,7 +124,7 @@ public class DiagnosticTests
     {
         // What a reset stylesheet writes. Each is the value that makes ignoring the property
         // correct, so each renders exactly as asked.
-        var reports = Collect(
+        var reports = await Collect(
             "<p>Text</p>",
             """
             p {
@@ -146,15 +146,15 @@ public class DiagnosticTests
 
         await Assert.That(options.OnDiagnostic).IsNull();
 
-        var pdf = HtmlConverter.Convert(Page("<div style=\"float: left\">Floated</div>", null), options);
+        var pdf = await HtmlConverter.ConvertAsync(Page("<div style=\"float: left\">Floated</div>", null), options);
 
         await Assert.That(pdf).IsNotEmpty();
     }
 
     [Test]
-    public Task UnsupportedLayoutIsReported() =>
-        Verify(
-            Collect(
+    public async Task UnsupportedLayoutIsReported() =>
+        await Verify(
+            await Collect(
                 """
                 <div style="display: flex"><span>a</span></div>
                 <div style="display: grid"><span>b</span></div>
@@ -165,9 +165,9 @@ public class DiagnosticTests
                 """));
 
     [Test]
-    public Task UnsupportedPaintingIsReported() =>
-        Verify(
-            Collect(
+    public async Task UnsupportedPaintingIsReported() =>
+        await Verify(
+            await Collect(
                 """
                 <div style="border: 2px groove red">a</div>
                 <div style="border-radius: 4px; border: 2px dashed red">b</div>
@@ -195,9 +195,9 @@ public class DiagnosticTests
     /// implement them.
     /// </remarks>
     [Test]
-    public Task PaginationPropertiesAreReported() =>
-        Verify(
-            Collect(
+    public async Task PaginationPropertiesAreReported() =>
+        await Verify(
+            await Collect(
                 """
                 <div style="break-before: page">a</div>
                 <div style="page-break-after: always">b</div>
@@ -208,9 +208,9 @@ public class DiagnosticTests
                 """));
 
     [Test]
-    public Task PresentationalAttributesAreReported() =>
-        Verify(
-            Collect(
+    public async Task PresentationalAttributesAreReported() =>
+        await Verify(
+            await Collect(
                 """
                 <table width="300" cellpadding="8" bgcolor="silver">
                   <tr height="40"><td align="right" valign="bottom" nowrap>a</td></tr>
@@ -221,9 +221,9 @@ public class DiagnosticTests
                 """));
 
     [Test]
-    public Task ColumnsAndUnresolvedImagesAreReported() =>
-        Verify(
-            Collect(
+    public async Task ColumnsAndUnresolvedImagesAreReported() =>
+        await Verify(
+            await Collect(
                 """
                 <table>
                   <colgroup><col width="200"><col></colgroup>
@@ -261,22 +261,24 @@ public class DiagnosticTests
     [Arguments("larger", "19.2px")]
     public async Task AFontSizeKeywordResolvesToItsSize(string keyword, string equivalent)
     {
-        await Assert.That(Collect($"<p style=\"font-size: {keyword}\">Text</p>")).IsEmpty();
+        await Assert.That(await Collect($"<p style=\"font-size: {keyword}\">Text</p>")).IsEmpty();
 
-        await Assert.That(Height(keyword)).IsGreaterThan(0);
-        await Assert.That(Height(keyword)).IsEqualTo(Height(equivalent));
+        await Assert.That(await Height(keyword)).IsGreaterThan(0);
+        await Assert.That(await Height(keyword)).IsEqualTo(await Height(equivalent));
 
-        static float Height(string size)
+        static async Task<float> Height(string size)
         {
             var markup = $"<p style=\"font-size: {size}\">Text</p>";
-            return BoxDump.Measure(Page(markup, null), CorpusRunner.Options())[^1].Height;
+            var boxes = await BoxDump.MeasureAsync(Page(markup, null), CorpusRunner.Options());
+
+            return boxes[^1].Height;
         }
     }
 
     [Test]
     public async Task InheritIsSilentBecauseTheFallbackIsWhatItAsksFor()
     {
-        var reports = Collect("<p style=\"font-size: inherit\">Text</p>");
+        var reports = await Collect("<p style=\"font-size: inherit\">Text</p>");
 
         await Assert.That(reports).IsEmpty();
     }
@@ -284,7 +286,7 @@ public class DiagnosticTests
     [Test]
     public async Task ADiagnosticReadsAsASentence()
     {
-        var reports = Collect("<div style=\"column-count: 3\">a</div>");
+        var reports = await Collect("<div style=\"column-count: 3\">a</div>");
 
         var report = reports.Single();
 
@@ -308,7 +310,7 @@ public class DiagnosticTests
     [Test]
     public async Task ImplementedPropertiesStopReporting()
     {
-        var reports = Collect(
+        var reports = await Collect(
             """
             <div style="float: left; width: 50px; height: 20px"></div>
             <p style="clear: left">text</p>
@@ -364,7 +366,7 @@ public class DiagnosticTests
     [Test]
     public async Task SilentlyIgnoredPropertiesReport()
     {
-        var reports = Collect(
+        var reports = await Collect(
             """
             <div style="box-shadow: 0 0 4px #000">a blurred shadow</div>
             <div style="border: 2px solid rgba(0, 0, 0, 0.4)">a translucent border</div>
@@ -378,7 +380,7 @@ public class DiagnosticTests
         await Assert.That(lines).Contains(_ => _.Contains("list-style-type"));
     }
 
-    static List<HtmlDiagnostic> Collect(string body, string? css = null)
+    static async Task<List<HtmlDiagnostic>> Collect(string body, string? css = null)
     {
         var reports = new List<HtmlDiagnostic>();
         var options = CorpusRunner.Options();
@@ -386,7 +388,7 @@ public class DiagnosticTests
 
         // Through the whole conversion rather than layout alone, so a report raised while painting
         // would be caught here too.
-        HtmlConverter.Convert(Page(body, css), options);
+        await HtmlConverter.ConvertAsync(Page(body, css), options);
         return reports;
     }
 

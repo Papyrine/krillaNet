@@ -20,7 +20,7 @@
 public class BoxFidelityTests
 {
     [Test]
-    public Task Corpus()
+    public async Task Corpus()
     {
         var report = new StringBuilder();
 
@@ -41,7 +41,7 @@ public class BoxFidelityTests
             }
 
             var reference = JsonSerializer.Deserialize(
-                                File.ReadAllText(path),
+                                await File.ReadAllTextAsync(path),
                                 CorpusJson.Default.ListBoxGeometry) ??
                             [];
 
@@ -50,7 +50,7 @@ public class BoxFidelityTests
             // silently dropped every image and reported the absence as a layout difference.
             var result = BoxComparison.Compare(
                 reference,
-                BoxDump.Measure(CorpusLayout.Html(directory), CorpusRunner.Options(directory)));
+                await BoxDump.MeasureAsync(CorpusLayout.Html(directory), CorpusRunner.Options(directory)));
 
             report.Append(
                 $"{name,-32} matched {result.Matched,2}  " +
@@ -60,6 +60,6 @@ public class BoxFidelityTests
                 $"unmatched {result.MissingFromRender.Count + result.NotInReference.Count}\n");
         }
 
-        return Verify(report);
+        await Verify(report);
     }
 }

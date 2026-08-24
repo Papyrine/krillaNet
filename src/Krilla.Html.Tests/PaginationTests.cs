@@ -20,14 +20,14 @@ public class PaginationTests
     public async Task ForcedBreakAddsAPageToContentThatFits()
     {
         // Three 48px boxes on a 1056px page. Nothing here would paginate on its own.
-        await Assert.That(PageCount(Three(""))).IsEqualTo(1);
-        await Assert.That(PageCount(Three("#two { page-break-before: always }"))).IsEqualTo(2);
-        await Assert.That(PageCount(Three("#one { page-break-after: always }"))).IsEqualTo(2);
+        await Assert.That(await PageCount(Three(""))).IsEqualTo(1);
+        await Assert.That(await PageCount(Three("#two { page-break-before: always }"))).IsEqualTo(2);
+        await Assert.That(await PageCount(Three("#one { page-break-after: always }"))).IsEqualTo(2);
     }
 
     [Test]
     public async Task ForcedBreaksAccumulate() =>
-        await Assert.That(PageCount(Three("#two, #three { page-break-before: always }")))
+        await Assert.That(await PageCount(Three("#two, #three { page-break-before: always }")))
             .IsEqualTo(3);
 
     /// <summary>
@@ -42,10 +42,10 @@ public class PaginationTests
     [Test]
     public async Task LegacyAndModernSpellingsAgree()
     {
-        await Assert.That(PageCount(Three("#two { break-before: page }"))).IsEqualTo(2);
-        await Assert.That(PageCount(Three("#two { page-break-before: always }"))).IsEqualTo(2);
-        await Assert.That(PageCount(Three("#one { break-after: page }"))).IsEqualTo(2);
-        await Assert.That(PageCount(Three("#one { page-break-after: always }"))).IsEqualTo(2);
+        await Assert.That(await PageCount(Three("#two { break-before: page }"))).IsEqualTo(2);
+        await Assert.That(await PageCount(Three("#two { page-break-before: always }"))).IsEqualTo(2);
+        await Assert.That(await PageCount(Three("#one { break-after: page }"))).IsEqualTo(2);
+        await Assert.That(await PageCount(Three("#one { page-break-after: always }"))).IsEqualTo(2);
     }
 
     /// <summary>
@@ -59,7 +59,7 @@ public class PaginationTests
     /// </remarks>
     [Test]
     public async Task BreakBeforeOnTheFirstBoxAddsNoBlankPage() =>
-        await Assert.That(PageCount(Three("#one { page-break-before: always }"))).IsEqualTo(1);
+        await Assert.That(await PageCount(Three("#one { page-break-before: always }"))).IsEqualTo(1);
 
     /// <summary>
     /// A break after the last box has nothing to move, and so takes no break.
@@ -72,7 +72,7 @@ public class PaginationTests
     /// </remarks>
     [Test]
     public async Task BreakAfterOnTheLastBoxAddsNoBlankPage() =>
-        await Assert.That(PageCount(Three("#three { page-break-after: always }"))).IsEqualTo(1);
+        await Assert.That(await PageCount(Three("#three { page-break-after: always }"))).IsEqualTo(1);
 
     /// <summary>
     /// A break inside a wrapper is a break at that box's own top, not at the wrapper's.
@@ -89,12 +89,12 @@ public class PaginationTests
             """,
             "#second { page-break-before: always }");
 
-        await Assert.That(PageCount(html)).IsEqualTo(2);
+        await Assert.That(await PageCount(html)).IsEqualTo(2);
 
         // #second is 48px down inside the wrapper, so a break taken at the WRAPPER's top would be
         // a break at zero and produce one page. Page two opening with content flush at its top
         // edge is what says the break landed on the inner box.
-        await Assert.That(FirstInkedRow(Render(html, 1))).IsEqualTo(0);
+        await Assert.That(FirstInkedRow(await Render(html, 1))).IsEqualTo(0);
     }
 
     /// <summary>
@@ -122,11 +122,11 @@ public class PaginationTests
             #inner { page-break-after: always }
             """);
 
-        await Assert.That(PageCount(html)).IsEqualTo(2);
+        await Assert.That(await PageCount(html)).IsEqualTo(2);
 
         // #inner ends at 48 and #after begins at 68. A break at #inner's bottom edge starts page
         // two twenty pixels above #after, and the box appears twenty rows down.
-        await Assert.That(FirstInkedRow(Render(html, 1))).IsEqualTo(0);
+        await Assert.That(FirstInkedRow(await Render(html, 1))).IsEqualTo(0);
     }
 
     /// <summary>
@@ -140,8 +140,8 @@ public class PaginationTests
     [Test]
     public async Task AvoidAtABoxEdgeForcesNothing()
     {
-        await Assert.That(PageCount(Three("#two { page-break-before: avoid }"))).IsEqualTo(1);
-        await Assert.That(PageCount(Three("#two { break-after: avoid }"))).IsEqualTo(1);
+        await Assert.That(await PageCount(Three("#two { page-break-before: avoid }"))).IsEqualTo(1);
+        await Assert.That(await PageCount(Three("#two { break-after: avoid }"))).IsEqualTo(1);
     }
 
     /// <summary>
@@ -164,7 +164,7 @@ public class PaginationTests
             """,
             "#floating { position: absolute; top: 200px; page-break-before: always }");
 
-        await Assert.That(PageCount(absolute)).IsEqualTo(1);
+        await Assert.That(await PageCount(absolute)).IsEqualTo(1);
 
         var floated = Document(
             """
@@ -173,7 +173,7 @@ public class PaginationTests
             """,
             "#floating { float: left; width: 100px; page-break-before: always }");
 
-        await Assert.That(PageCount(floated)).IsEqualTo(1);
+        await Assert.That(await PageCount(floated)).IsEqualTo(1);
     }
 
     /// <summary>
@@ -195,7 +195,7 @@ public class PaginationTests
 
         // 3000px over 1056px pages, broken at the page edge each time because nothing inside can
         // be moved: three pages, and a run that returns at all.
-        await Assert.That(PageCount(html)).IsEqualTo(3);
+        await Assert.That(await PageCount(html)).IsEqualTo(3);
     }
 
     /// <summary>
@@ -236,15 +236,15 @@ public class PaginationTests
             Fonts = CorpusRunner.Options().Fonts
         };
 
-    static int PageCount(string html)
+    static async Task<int> PageCount(string html)
     {
-        using var document = PdfiumDocument.Load(HtmlConverter.Convert(html, Options()));
+        using var document = PdfiumDocument.Load(await HtmlConverter.ConvertAsync(html, Options()));
         return document.PageCount;
     }
 
-    static PngImage Render(string html, int index)
+    static async Task<PngImage> Render(string html, int index)
     {
-        using var document = PdfiumDocument.Load(HtmlConverter.Convert(html, Options()));
+        using var document = PdfiumDocument.Load(await HtmlConverter.ConvertAsync(html, Options()));
         var png = document.RenderPage(index, new RenderOptions
         {
             Dpi = CorpusLayout.Dpi

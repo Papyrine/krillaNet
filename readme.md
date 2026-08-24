@@ -28,7 +28,7 @@ library. [AngleSharp](https://anglesharp.github.io/) parses the markup and runs 
 using var fonts = new FontSet()
     .AddDirectory(fontDirectory);
 
-var pdf = HtmlConverter.Convert(
+var pdf = await HtmlConverter.ConvertAsync(
     "<h1>Hello</h1><p>World</p>",
     new()
     {

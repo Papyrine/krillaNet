@@ -26,7 +26,7 @@ public class OutlineTests
     [Test]
     public async Task HeadingsNestByLevel()
     {
-        var outline = Bookmarks(Nested);
+        var outline = await Bookmarks(Nested);
 
         await Assert.That(outline.Select(_ => _.Title)).IsEquivalentTo(["One", "Two"]);
 
@@ -41,7 +41,7 @@ public class OutlineTests
         // h1 then h3 with no h2. Nesting by LEVEL rather than by depth is what makes this a
         // two-level tree; a reading that required consecutive levels would either flatten it or
         // invent an empty h2.
-        var outline = Bookmarks(
+        var outline = await Bookmarks(
             """
             <!doctype html>
             <html><body><h1>One</h1><h3>Deep</h3></body></html>
@@ -55,7 +55,7 @@ public class OutlineTests
     public async Task ADeeperHeadingBeforeAShallowerOneClosesIt()
     {
         // h2 then h1: the h1 has to become a root rather than a child of the h2 above it.
-        var outline = Bookmarks(
+        var outline = await Bookmarks(
             """
             <!doctype html>
             <html><body><h2>First</h2><h1>Second</h1></body></html>
@@ -70,7 +70,7 @@ public class OutlineTests
         var options = Options();
         options.OutlineDepth = 2;
 
-        var outline = Bookmarks(Nested, options);
+        var outline = await Bookmarks(Nested, options);
 
         await Assert.That(outline[0].Children.Select(_ => _.Title)).IsEquivalentTo(["One A", "One B"]);
 
@@ -85,19 +85,19 @@ public class OutlineTests
         var options = Options();
         options.OutlineDepth = 0;
 
-        await Assert.That(Bookmarks(Nested, options)).IsEmpty();
+        await Assert.That(await Bookmarks(Nested, options)).IsEmpty();
     }
 
     [Test]
     public async Task ADocumentWithNoHeadingsHasNoOutline() =>
-        await Assert.That(Bookmarks("<!doctype html><html><body><p>Text</p></body></html>")).IsEmpty();
+        await Assert.That(await Bookmarks("<!doctype html><html><body><p>Text</p></body></html>")).IsEmpty();
 
     [Test]
     public async Task AnEmptyHeadingIsSkipped()
     {
         // A bookmark with no title is an unclickable blank row in a reader, which is worse than
         // one heading missing from the tree.
-        var outline = Bookmarks(
+        var outline = await Bookmarks(
             """
             <!doctype html>
             <html><body><h1></h1><h1>Real</h1></body></html>
@@ -111,7 +111,7 @@ public class OutlineTests
     {
         // The source is indented markup, so the raw text content carries newlines and runs of
         // spaces. A bookmark is a single line in a reader's sidebar.
-        var outline = Bookmarks(
+        var outline = await Bookmarks(
             """
             <!doctype html>
             <html><body><h1>
@@ -137,7 +137,7 @@ public class OutlineTests
             <body><h1>First</h1><div></div><h1>Second</h1></body></html>
             """;
 
-        var pdf = HtmlConverter.Convert(html, Options());
+        var pdf = await HtmlConverter.ConvertAsync(html, Options());
         using var document = PdfiumDocument.Load(pdf);
 
         await Assert.That(document.PageCount).IsEqualTo(2);
@@ -150,7 +150,7 @@ public class OutlineTests
     [Test]
     public async Task TheDocumentTitleBecomesThePdfTitle()
     {
-        var pdf = HtmlConverter.Convert(Nested, Options());
+        var pdf = await HtmlConverter.ConvertAsync(Nested, Options());
 
         // Read out of the bytes rather than through a metadata API, which Morph.PDFium does not
         // expose. Enough to say the title reached the file, which is the thing that was missing.
@@ -163,7 +163,7 @@ public class OutlineTests
         var options = Options();
         options.Metadata = new() {Title = "Chosen"};
 
-        var pdf = Encoding.Latin1.GetString(HtmlConverter.Convert(Nested, options));
+        var pdf = Encoding.Latin1.GetString(await HtmlConverter.ConvertAsync(Nested, options));
 
         await Assert.That(pdf).Contains("Chosen");
         await Assert.That(pdf).DoesNotContain("A Title");
@@ -179,7 +179,7 @@ public class OutlineTests
         var options = Options();
         options.Metadata = metadata;
 
-        HtmlConverter.Convert(Nested, options);
+        await HtmlConverter.ConvertAsync(Nested, options);
 
         await Assert.That(metadata.Title).IsNull();
     }
@@ -187,7 +187,7 @@ public class OutlineTests
     [Test]
     public async Task TheDocumentLanguageIsCarriedThrough()
     {
-        var pdf = Encoding.Latin1.GetString(HtmlConverter.Convert(
+        var pdf = Encoding.Latin1.GetString(await HtmlConverter.ConvertAsync(
             """
             <!doctype html>
             <html lang="en-GB"><body><p>Text</p></body></html>
@@ -207,10 +207,10 @@ public class OutlineTests
             """;
 
         var options = Options();
-        var withNames = Encoding.Latin1.GetString(HtmlConverter.Convert(html, options));
+        var withNames = Encoding.Latin1.GetString(await HtmlConverter.ConvertAsync(html, options));
 
         options.NamedDestinations = false;
-        var without = Encoding.Latin1.GetString(HtmlConverter.Convert(html, options));
+        var without = Encoding.Latin1.GetString(await HtmlConverter.ConvertAsync(html, options));
 
         // A named destination is what lets `report.pdf#introduction` open at that heading, so the
         // id has to appear in the file as a name rather than only as layout.
@@ -218,12 +218,12 @@ public class OutlineTests
         await Assert.That(without).DoesNotContain("introduction");
     }
 
-    static IReadOnlyList<PdfBookmark> Bookmarks(string html) =>
+    static Task<IReadOnlyList<PdfBookmark>> Bookmarks(string html) =>
         Bookmarks(html, Options());
 
-    static IReadOnlyList<PdfBookmark> Bookmarks(string html, HtmlOptions options)
+    static async Task<IReadOnlyList<PdfBookmark>> Bookmarks(string html, HtmlOptions options)
     {
-        using var document = PdfiumDocument.Load(HtmlConverter.Convert(html, options));
+        using var document = PdfiumDocument.Load(await HtmlConverter.ConvertAsync(html, options));
         return document.GetBookmarks();
     }
 

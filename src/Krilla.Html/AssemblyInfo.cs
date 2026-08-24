@@ -1,4 +1,4 @@
-// The corpus harness reaches past the public surface on purpose. HtmlConverter.Parse and
+// The corpus harness reaches past the public surface on purpose. HtmlConverter.ParseAsync and
 // LayoutDocument expose the two stages before painting, which is where the box comparison against
 // a browser hooks in — measuring layout without producing a PDF at all. Keeping them internal
 // stops that seam from becoming public API that has to be supported forever.

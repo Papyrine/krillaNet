@@ -46,13 +46,13 @@ public class PageMarginTests
     [Test]
     public async Task BottomMarginShrinksTheContentArea()
     {
-        await Assert.That(PageCount(Options())).IsEqualTo(1);
+        await Assert.That(await PageCount(Options())).IsEqualTo(1);
 
         var shortened = Options();
         shortened.MarginBottom = 200;
 
         // 1056 - 200 leaves 856, so the ninth block no longer fits and moves overleaf.
-        await Assert.That(PageCount(shortened)).IsEqualTo(2);
+        await Assert.That(await PageCount(shortened)).IsEqualTo(2);
     }
 
     [Test]
@@ -71,10 +71,10 @@ public class PageMarginTests
         both.MarginTop = 150;
         both.MarginBottom = 150;
 
-        var expected = PageCount(top);
+        var expected = await PageCount(top);
         await Assert.That(expected).IsGreaterThan(1);
-        await Assert.That(PageCount(bottom)).IsEqualTo(expected);
-        await Assert.That(PageCount(both)).IsEqualTo(expected);
+        await Assert.That(await PageCount(bottom)).IsEqualTo(expected);
+        await Assert.That(await PageCount(both)).IsEqualTo(expected);
     }
 
     [Test]
@@ -83,7 +83,7 @@ public class PageMarginTests
         var options = Options();
         options.MarginBottom = 200;
 
-        var page = Render(options, 0);
+        var page = await Render(options, 0);
 
         // The band between the content edge and the paper edge is the margin, and it must be
         // blank. Content painted into it is what a bottom margin subtracted from the layout but
@@ -104,7 +104,7 @@ public class PageMarginTests
         options.MarginTop = 100;
         options.MarginLeft = 50;
 
-        var page = Render(options, 0);
+        var page = await Render(options, 0);
 
         await Assert.That(FirstInkedRow(page)).IsEqualTo(100);
         await Assert.That(FirstInkedColumn(page)).IsEqualTo(50);
@@ -116,7 +116,7 @@ public class PageMarginTests
         var options = Options();
         options.MarginRight = 200;
 
-        var page = Render(options, 0);
+        var page = await Render(options, 0);
 
         // The blocks are auto width, so they fill the content box exactly — the last inked column
         // is the content edge, and it has to sit inside the margin.
@@ -148,8 +148,8 @@ public class PageMarginTests
         both.MarginLeft = 150;
         both.MarginRight = 150;
 
-        await Assert.That(InkedWidth(Render(left, 0))).IsEqualTo(InkedWidth(Render(right, 0)));
-        await Assert.That(InkedWidth(Render(both, 0))).IsEqualTo(InkedWidth(Render(right, 0)));
+        await Assert.That(InkedWidth(await Render(left, 0))).IsEqualTo(InkedWidth(await Render(right, 0)));
+        await Assert.That(InkedWidth(await Render(both, 0))).IsEqualTo(InkedWidth(await Render(right, 0)));
     }
 
     [Test]
@@ -162,8 +162,8 @@ public class PageMarginTests
         var narrow = Options();
         narrow.MarginRight = 500;
 
-        await Assert.That(LastInkedRow(Render(narrow, 0, Paragraph)))
-            .IsGreaterThan(LastInkedRow(Render(wide, 0, Paragraph)));
+        await Assert.That(LastInkedRow(await Render(narrow, 0, Paragraph)))
+            .IsGreaterThan(LastInkedRow(await Render(wide, 0, Paragraph)));
     }
 
     [Test]
@@ -206,7 +206,7 @@ public class PageMarginTests
     [Test]
     public async Task WithMarginInsetsAllFourEdges()
     {
-        var page = Render(Options().WithMargin(100), 0);
+        var page = await Render(Options().WithMargin(100), 0);
 
         await Assert.That(FirstInkedRow(page)).IsEqualTo(100);
         await Assert.That(FirstInkedColumn(page)).IsEqualTo(100);
@@ -228,18 +228,18 @@ public class PageMarginTests
             Fonts = CorpusRunner.Options().Fonts
         };
 
-    static int PageCount(HtmlOptions options)
+    static async Task<int> PageCount(HtmlOptions options)
     {
-        using var document = PdfiumDocument.Load(HtmlConverter.Convert(Tall, options));
+        using var document = PdfiumDocument.Load(await HtmlConverter.ConvertAsync(Tall, options));
         return document.PageCount;
     }
 
-    static PngImage Render(HtmlOptions options, int index) =>
+    static Task<PngImage> Render(HtmlOptions options, int index) =>
         Render(options, index, Tall);
 
-    static PngImage Render(HtmlOptions options, int index, string html)
+    static async Task<PngImage> Render(HtmlOptions options, int index, string html)
     {
-        using var document = PdfiumDocument.Load(HtmlConverter.Convert(html, options));
+        using var document = PdfiumDocument.Load(await HtmlConverter.ConvertAsync(html, options));
         var png = document.RenderPage(index, new RenderOptions
         {
             Dpi = CorpusLayout.Dpi

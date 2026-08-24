@@ -1,16 +1,6 @@
 namespace Krilla.Html.Diagnostics;
 
 /// <summary>
-/// One element's geometry, in the shape a browser's <c>getBoundingClientRect()</c> reports it.
-/// </summary>
-/// <param name="Selector">The element's selector path.</param>
-/// <param name="X">Left edge of the border box, in CSS pixels, document-relative.</param>
-/// <param name="Y">Top edge of the border box.</param>
-/// <param name="Width">Border box width.</param>
-/// <param name="Height">Border box height.</param>
-public readonly record struct BoxGeometry(string Selector, float X, float Y, float Width, float Height);
-
-/// <summary>
 /// Extracts element geometry from a laid-out tree, for comparison against a browser.
 /// </summary>
 /// <remarks>
@@ -246,9 +236,13 @@ public static class BoxDump
     /// <summary>
     /// Lays out <paramref name="html"/> and returns its element geometry, without producing a PDF.
     /// </summary>
-    public static IReadOnlyList<BoxGeometry> Measure(string html, HtmlOptions options)
+    public static async Task<IReadOnlyList<BoxGeometry>> MeasureAsync(
+        string html,
+        HtmlOptions options,
+        Cancel cancel = default)
     {
-        using var document = HtmlConverter.Parse(html, options);
+        using var document = await HtmlConverter
+            .ParseAsync(html, options, cancel);
 
         // Through the same `@page` fold the conversion goes through, or a document declaring its own
         // paper would be measured against one rectangle and painted against another.

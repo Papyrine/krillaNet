@@ -25,7 +25,7 @@ static class CorpusRunner
         var html = CorpusLayout.Html(directory);
         var options = Options(directory);
 
-        var pdf = HtmlConverter.Convert(html, options);
+        var pdf = await HtmlConverter.ConvertAsync(html, options);
         var pages = RenderPages(pdf);
         var links = ReadLinks(pdf);
 
@@ -35,7 +35,7 @@ static class CorpusRunner
         {
             ReferencePageCount = referencePages.Length,
             ResultingPageCount = pages.Count,
-            Boxes = CompareBoxes(directory, html, options),
+            Boxes = await CompareBoxes(directory, html, options),
             Links = links.Count == 0 ? null : links,
             PageDiffs = ComparePages(referencePages, pages)
         };
@@ -152,7 +152,10 @@ static class CorpusRunner
     /// Compares our element geometry to the browser's, or null when no reference has been
     /// generated for this scenario yet.
     /// </summary>
-    static BoxComparisonResult? CompareBoxes(string directory, string html, HtmlOptions options)
+    static async Task<BoxComparisonResult?> CompareBoxes(
+        string directory,
+        string html,
+        HtmlOptions options)
     {
         var path = CorpusLayout.BoxesPath(directory);
         if (!File.Exists(path))
@@ -161,11 +164,11 @@ static class CorpusRunner
         }
 
         var reference = JsonSerializer.Deserialize(
-                            File.ReadAllText(path),
+                            await File.ReadAllTextAsync(path),
                             CorpusJson.Default.ListBoxGeometry) ??
                         [];
 
-        return BoxComparison.Compare(reference, BoxDump.Measure(html, options));
+        return BoxComparison.Compare(reference, await BoxDump.MeasureAsync(html, options));
     }
 
     /// <summary>

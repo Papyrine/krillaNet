@@ -29,25 +29,25 @@ public class SidedBreakTests
     public async Task AlwaysTakesTwoPages() =>
         // The control. Both boxes are 40px on a 1056px page, so nothing but the break makes a
         // second page at all.
-        await Assert.That(PageCount("always")).IsEqualTo(2);
+        await Assert.That(await PageCount("always")).IsEqualTo(2);
 
     [Test]
     public async Task LeftInsertsNothingWhenThePageIsAlreadyEven() =>
         // A LEFT-hand sheet is an even page. The break puts the box on page two, which is even
         // already, so nothing is inserted — and that is the case worth asserting, because a
         // reading that always inserted a page would look like it was working on `right` alone.
-        await Assert.That(PageCount("left")).IsEqualTo(2);
+        await Assert.That(await PageCount("left")).IsEqualTo(2);
 
     [Test]
     public async Task RightInsertsABlankPage() =>
         // A RIGHT-hand sheet is an odd page. The break lands on page two, so a blank page two is
         // inserted and the content goes to page three.
-        await Assert.That(PageCount("right")).IsEqualTo(3);
+        await Assert.That(await PageCount("right")).IsEqualTo(3);
 
     [Test]
     public async Task TheInsertedPageIsBlank()
     {
-        var pdf = HtmlConverter.Convert(Document("right"), Options());
+        var pdf = await HtmlConverter.ConvertAsync(Document("right"), Options());
         using var document = PdfiumDocument.Load(pdf);
 
         await Assert.That(document.PageCount).IsEqualTo(3);
@@ -76,14 +76,14 @@ public class SidedBreakTests
             <body><div></div></body></html>
             """;
 
-        using var document = PdfiumDocument.Load(HtmlConverter.Convert(html, Options()));
+        using var document = PdfiumDocument.Load(await HtmlConverter.ConvertAsync(html, Options()));
 
         await Assert.That(document.PageCount).IsEqualTo(1);
     }
 
-    static int PageCount(string value)
+    static async Task<int> PageCount(string value)
     {
-        using var document = PdfiumDocument.Load(HtmlConverter.Convert(Document(value), Options()));
+        using var document = PdfiumDocument.Load(await HtmlConverter.ConvertAsync(Document(value), Options()));
         return document.PageCount;
     }
 

@@ -17,7 +17,7 @@ public class LineHeightTests
     [Arguments("line-height: 150%", 24f)]
     [Arguments("font: 16px/1.5 \"Liberation Sans\"", 24f)]
     public async Task DeclaredOnTheElement(string css, float expected) =>
-        await Assert.That(Height($"#x{{{css}}}", "<p id=\"x\">one line</p>")).IsEqualTo(expected);
+        await Assert.That(await Height($"#x{{{css}}}", "<p id=\"x\">one line</p>")).IsEqualTo(expected);
 
     /// <summary>
     /// An ancestor's line-height reaches its descendants.
@@ -34,7 +34,7 @@ public class LineHeightTests
     [Arguments("line-height: 2", 32f)]
     [Arguments("line-height: 24px", 24f)]
     public async Task InheritedFromAnAncestor(string css, float expected) =>
-        await Assert.That(Height($"#outer{{{css}}}", "<div id=\"outer\"><p id=\"x\">one line</p></div>"))
+        await Assert.That(await Height($"#outer{{{css}}}", "<div id=\"outer\"><p id=\"x\">one line</p></div>"))
             .IsEqualTo(expected);
 
     /// <summary>
@@ -49,13 +49,13 @@ public class LineHeightTests
     [Test]
     public async Task AUnitlessValueIsReresolvedAgainstEachFontSize()
     {
-        var number = Height(
+        var number = await Height(
             "#outer{line-height: 1.5} #x{font-size: 32px}",
             "<div id=\"outer\"><p id=\"x\">one line</p></div>");
 
         await Assert.That(number).IsEqualTo(48);
 
-        var length = Height(
+        var length = await Height(
             "#outer{line-height: 24px} #x{font-size: 32px}",
             "<div id=\"outer\"><p id=\"x\">one line</p></div>");
 
@@ -68,11 +68,11 @@ public class LineHeightTests
     [Test]
     public async Task NormalReturnsToTheFontMetrics()
     {
-        var inherited = Height(
+        var inherited = await Height(
             "#outer{line-height: 2}",
             "<div id=\"outer\"><p id=\"x\">one line</p></div>");
 
-        var reset = Height(
+        var reset = await Height(
             "#outer{line-height: 2} #x{line-height: normal}",
             "<div id=\"outer\"><p id=\"x\">one line</p></div>");
 
@@ -82,7 +82,7 @@ public class LineHeightTests
         await Assert.That(reset).IsEqualTo(18);
     }
 
-    static float Height(string css, string body)
+    static async Task<float> Height(string css, string body)
     {
         var html =
             "<!doctype html><html><head><style>" +
@@ -92,7 +92,7 @@ public class LineHeightTests
             css +
             "</style></head><body>" + body + "</body></html>";
 
-        var boxes = BoxDump.Measure(html, CorpusRunner.Options());
+        var boxes = await BoxDump.MeasureAsync(html, CorpusRunner.Options());
         return boxes[^1].Height;
     }
 }

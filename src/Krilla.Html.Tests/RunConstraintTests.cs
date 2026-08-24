@@ -45,7 +45,7 @@ public class RunConstraintTests
     {
         // The control, and the behaviour the corpus reference agrees with: two lines stay, one
         // goes overleaf.
-        var first = Render(Straddling, Options(), 0);
+        var first = await Render(Straddling, Options(), 0);
 
         await Assert.That(LastInkedRow(first)).IsGreaterThan(1010);
     }
@@ -59,8 +59,8 @@ public class RunConstraintTests
         var options = Options();
         options.HonourOrphansAndWidows = true;
 
-        await Assert.That(LastInkedRow(Render(Straddling, options, 0)))
-            .IsEqualTo(LastInkedRow(Render(Straddling, Options(), 0)));
+        await Assert.That(LastInkedRow(await Render(Straddling, options, 0)))
+            .IsEqualTo(LastInkedRow(await Render(Straddling, Options(), 0)));
     }
 
     [Test]
@@ -77,7 +77,7 @@ public class RunConstraintTests
             "line-height: 32px;",
             "line-height: 32px; orphans: 3; widows: 3;");
 
-        await Assert.That(LastInkedRow(Render(html, options, 0))).IsEqualTo(-1);
+        await Assert.That(LastInkedRow(await Render(html, options, 0))).IsEqualTo(-1);
     }
 
     [Test]
@@ -102,7 +102,7 @@ public class RunConstraintTests
             string.Join(" ", Enumerable.Repeat("The quick brown fox jumps over the lazy dog.", 80)) +
             "</p></body></html>";
 
-        using var document = PdfiumDocument.Load(HtmlConverter.Convert(tall, options));
+        using var document = PdfiumDocument.Load(await HtmlConverter.ConvertAsync(tall, options));
 
         await Assert.That(document.PageCount).IsGreaterThan(1);
         await Assert.That(document.PageCount).IsLessThan(10);
@@ -131,7 +131,7 @@ public class RunConstraintTests
             string.Join(" ", Enumerable.Repeat("The quick brown fox jumps over the lazy dog.", 12)) +
             "</p></body></html>";
 
-        var first = Render(html, options, 0);
+        var first = await Render(html, options, 0);
 
         // Content still reaches the first page — the run was not moved whole — and it stops
         // earlier than the page edge, because four lines were carried over instead of two.
@@ -159,7 +159,7 @@ public class RunConstraintTests
             <body><div></div><p>One line.</p></body></html>
             """;
 
-        using var document = PdfiumDocument.Load(HtmlConverter.Convert(html, options));
+        using var document = PdfiumDocument.Load(await HtmlConverter.ConvertAsync(html, options));
 
         // The line does not fit under the 1040px block, so it moves to the second page as one
         // unbreakable unit — two pages, not three, and no attempt to constrain a run of one.
@@ -174,9 +174,9 @@ public class RunConstraintTests
             Fonts = CorpusRunner.Options().Fonts
         };
 
-    static PngImage Render(string html, HtmlOptions options, int index)
+    static async Task<PngImage> Render(string html, HtmlOptions options, int index)
     {
-        using var document = PdfiumDocument.Load(HtmlConverter.Convert(html, options));
+        using var document = PdfiumDocument.Load(await HtmlConverter.ConvertAsync(html, options));
         var png = document.RenderPage(index, new RenderOptions {Dpi = CorpusLayout.Dpi});
 
         using var stream = new MemoryStream(png);

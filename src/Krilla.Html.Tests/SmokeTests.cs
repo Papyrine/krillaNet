@@ -69,7 +69,7 @@ public class SmokeTests
     [Test]
     public async Task BoxGeometryFollowsTheBoxModel()
     {
-        var boxes = BoxDump.Measure(
+        var boxes = await BoxDump.MeasureAsync(
             """
             <!doctype html>
             <html><head><style>
@@ -93,7 +93,7 @@ public class SmokeTests
     [Test]
     public async Task AdjacentMarginsCollapse()
     {
-        var boxes = BoxDump.Measure(
+        var boxes = await BoxDump.MeasureAsync(
             """
             <!doctype html>
             <html><head><style>
@@ -117,7 +117,7 @@ public class SmokeTests
     public async Task TextWrapsAtTheContentEdge()
     {
         var options = CorpusRunner.Options();
-        var boxes = BoxDump.Measure(
+        var boxes = await BoxDump.MeasureAsync(
             """
             <!doctype html>
             <html><head><style>
@@ -139,7 +139,7 @@ public class SmokeTests
     [Test]
     public async Task ConversionProducesRenderablePages()
     {
-        var pdf = HtmlConverter.Convert(
+        var pdf = await HtmlConverter.ConvertAsync(
             """
             <!doctype html>
             <html><head><style>

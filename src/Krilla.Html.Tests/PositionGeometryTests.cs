@@ -85,7 +85,7 @@ public class PositionGeometryTests
                 "</style></head><body>" + body + "</body></html>";
 
             var options = CorpusRunner.Options();
-            using var document = HtmlConverter.Parse(html, options);
+            using var document = await HtmlConverter.ParseAsync(html, options);
             using var layout = HtmlConverter.LayoutDocument(document, options);
 
             var boxes = layout.Root

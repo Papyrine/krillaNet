@@ -27,12 +27,22 @@ public static class HtmlConverter
     /// <summary>
     /// Converts <paramref name="html"/> to PDF bytes.
     /// </summary>
+    /// <remarks>
+    /// Asynchronous because parsing is: AngleSharp's document loader is async throughout, and this
+    /// awaits it rather than blocking on it. Everything after the parse — layout and painting — is
+    /// CPU-bound and runs on the awaiting thread, so the returned task completes with the PDF
+    /// rather than yielding again.
+    /// </remarks>
     /// <exception cref="InvalidOperationException">
     /// <see cref="HtmlOptions.Fonts"/> was not set, or holds no faces.
     /// </exception>
-    public static byte[] Convert(string html, HtmlOptions options)
+    public static async Task<byte[]> ConvertAsync(
+        string html,
+        HtmlOptions options,
+        Cancel cancel = default)
     {
-        var document = Parse(html, options);
+        var document = await ParseAsync(html, options, cancel);
+
         return Convert(document, options);
     }
 
@@ -272,7 +282,10 @@ public static class HtmlConverter
     /// <summary>
     /// Parses <paramref name="html"/> with the CSS cascade enabled.
     /// </summary>
-    internal static IDocument Parse(string html, HtmlOptions options)
+    internal static Task<IDocument> ParseAsync(
+        string html,
+        HtmlOptions options,
+        Cancel cancel = default)
     {
         var configuration = Configuration.Default
             .WithCss()
@@ -299,15 +312,16 @@ public static class HtmlConverter
 
         var context = BrowsingContext.New(configuration);
 
-        // Synchronous by design. Parsing is CPU-bound here — no external resource is fetched,
-        // because fonts come from the FontSet rather than from the document — so an async public
-        // API would offer a caller nothing to await.
+        // Awaited rather than blocked on. Nothing is fetched over the network here — fonts come
+        // from the FontSet and images go through ImageStore's policy — so the task usually
+        // completes synchronously, and awaiting it is what keeps that an implementation detail
+        // rather than a deadlock waiting for a loader that does reach outside.
         return context
-            .OpenAsync(request => request
-                .Content(html)
-                .Address(options.BaseUrl ?? "http://localhost/"))
-            .GetAwaiter()
-            .GetResult();
+            .OpenAsync(
+                _ => _
+                    .Content(html)
+                    .Address(options.BaseUrl ?? "http://localhost/"),
+                cancel);
     }
 
     static FontSet RequireFonts(HtmlOptions options)

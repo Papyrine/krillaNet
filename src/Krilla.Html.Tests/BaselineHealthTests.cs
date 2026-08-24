@@ -150,7 +150,7 @@ public class BaselineHealthTests
 
             var result = BoxComparison.Compare(
                 reference,
-                BoxDump.Measure(CorpusLayout.Html(directory), CorpusRunner.Options(directory)));
+                await BoxDump.MeasureAsync(CorpusLayout.Html(directory), CorpusRunner.Options(directory)));
 
             foreach (var selector in result.MissingFromRender.Concat(result.NotInReference))
             {

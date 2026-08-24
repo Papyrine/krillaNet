@@ -21,7 +21,7 @@ public class Samples
         using var fonts = new FontSet()
             .AddDirectory(fontDirectory);
 
-        var pdf = HtmlConverter.Convert(
+        var pdf = await HtmlConverter.ConvertAsync(
             "<h1>Hello</h1><p>World</p>",
             new()
             {
@@ -54,7 +54,7 @@ public class Samples
 
         #endregion
 
-        HtmlConverter.Convert(
+        await HtmlConverter.ConvertAsync(
             """
             <img src="https://cdn.example.com/logo.png">
             <img src="https://elsewhere.example/logo.png">
@@ -89,7 +89,7 @@ public class Samples
         var reported = new List<string>();
         options.OnDiagnostic = diagnostic => reported.Add(diagnostic.ToString());
 
-        HtmlConverter.Convert(
+        await HtmlConverter.ConvertAsync(
             """
             <div style="display: flex">Flexed</div>
             <div style="column-count: 2">Columned</div>
