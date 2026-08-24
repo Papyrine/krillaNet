@@ -73,6 +73,10 @@ default, because Chromium does not implement them and this converter is measured
 Generated content works: `::before` and `::after` with strings, `attr()`, `counter()`, `counters()`,
 `url()` and the quote keywords, along with `counter-reset`, `counter-increment` and `quotes`.
 
+Also `aspect-ratio`, `rgba()` colours, text and box shadows as offsets, `text-decoration-thickness`
+and `text-underline-offset`, `<col>` and `<colgroup>` widths, and `border-style: hidden` in a
+collapsed table.
+
 The PDF gets structure the page cannot show. Headings become a bookmark tree, nested by level and
 bounded by `HtmlOptions.OutlineDepth`; every `id` becomes a named destination, so
 `report.pdf#introduction` opens at that heading; and the document's `<title>` and `lang` fill the

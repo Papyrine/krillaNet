@@ -12,3 +12,18 @@ span { background-color: #cfd8e8; }
 
 /* break-word with ordinary words before it: those still break at spaces. */
 #mixed { overflow-wrap: break-word; }
+
+/*
+  `break-all` narrows the MIN-CONTENT width as well as breaking lines, so a table column holding one
+  long word can be as narrow as one character. `break-word` deliberately does not — it breaks the
+  word without changing what the box asks for — and the two tables differ in nothing else, so the
+  column widths are the measurement.
+
+  Written `word-break: break-all` rather than `overflow-wrap: anywhere`, which means the same thing
+  here and never arrives: AngleSharp drops the value, so it joins `revert` and `recto` among the
+  declarations that cannot even be reported.
+*/
+table { width: 120px; margin-top: 6px; }
+td { background-color: #cfd8e8; font-size: 16px; line-height: 24px; }
+#cell { word-break: break-all; }
+#widecell { overflow-wrap: break-word; }

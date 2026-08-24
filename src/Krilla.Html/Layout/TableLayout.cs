@@ -134,6 +134,7 @@ static class TableLayout
         }
 
         PlaceCells(grid, natural, widths, columnX, contentX, contentY, spacingX, spacingY);
+        PlaceColumns(grid, widths, columnX, contentY);
         PlaceRowBoxes(grid, contentX, contentY, contentWidth, spacingX);
 
         var borderBoxWidth = contentWidth + surround;
@@ -193,8 +194,24 @@ static class TableLayout
         float?[] Percent,
         float[] PercentSurround)
     {
-        /// <summary>Narrowest the columns can be in total.</summary>
+        /// <summary>Narrowest the columns can be in total, declared widths included.</summary>
+        /// <remarks>
+        /// What a table SHRINK-WRAPS to, so a declared column width counts: a table with no width of
+        /// its own is at least as wide as its columns asked to be.
+        /// </remarks>
         public float MinTotal => Min.Zip(Fixed, (min, pinned) => Math.Max(min, pinned ?? 0)).Sum();
+
+        /// <summary>Narrowest the columns can be on their CONTENT alone.</summary>
+        /// <remarks>
+        /// The floor under a table that declares its own width, where a declared column width does
+        /// NOT raise it — measured: three columns declaring 220, 220 and 60 in a table declaring 480
+        /// come out 207.5, 207.5 and 57.0, so the table keeps the width it asked for and the columns
+        /// shrink to fit it. Using the pinned total here instead grew the table to 500 and left
+        /// nothing to distribute; using the content total for the shrink-wrap case instead let a
+        /// table collapse below the widths its columns declared, which is what
+        /// <c>table/spans</c> caught.
+        /// </remarks>
+        public float ContentMinTotal => Min.Sum();
 
         /// <summary>Widest the columns want to be in total.</summary>
         public float MaxTotal => Max.Zip(Fixed, (max, pinned) => Math.Max(max, pinned ?? 0)).Sum();
@@ -237,6 +254,11 @@ static class TableLayout
             return sizes;
         }
 
+        // A <col> width applies to the whole column before any cell is consulted, and a cell's own
+        // declared width then competes with it on the same terms — which is what makes a table with
+        // both behave as though the column definition were a cell in every row.
+        Declared(grid, sizes);
+
         foreach (var cell in grid.Cells.Where(_ => _.ColumnSpan == 1))
         {
             var (min, max) = IntrinsicWidths.Measure(cell.Box, fonts);
@@ -270,6 +292,40 @@ static class TableLayout
     }
 
     /// <summary>
+    /// Folds the table's <c>&lt;col&gt;</c> widths into the column sizes.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A column definition contributes a width and nothing else — no content, so no minimum and no
+    /// maximum of its own. An absolute width becomes the column's fixed width and a percentage its
+    /// percentage, exactly as a cell's declared width does; a column with more definitions than the
+    /// grid has columns ignores the extras, which is what a browser does with a <c>&lt;colgroup&gt;</c>
+    /// that over-counts.
+    /// </para>
+    /// <para>
+    /// Read for BOTH algorithms. Fixed layout is where <c>&lt;col&gt;</c> is most often used and
+    /// automatic layout is where it is most often written by accident, and the specification gives
+    /// the width to the column either way.
+    /// </para>
+    /// </remarks>
+    static void Declared(TableGrid grid, ColumnSizes sizes)
+    {
+        var columns = grid.Table.Columns;
+
+        for (var index = 0; index < columns.Count && index < sizes.Min.Length; index++)
+        {
+            if (columns[index].Kind == LengthKind.Absolute)
+            {
+                sizes.Fixed[index] = Math.Max(sizes.Fixed[index] ?? 0, columns[index].Value);
+            }
+            else if (columns[index].Kind == LengthKind.Percent)
+            {
+                sizes.Percent[index] = Math.Max(sizes.Percent[index] ?? 0, columns[index].Value / 100f);
+            }
+        }
+    }
+
+    /// <summary>
     /// Sizes the columns from the first row alone, for fixed layout.
     /// </summary>
     /// <remarks>
@@ -280,6 +336,8 @@ static class TableLayout
     /// </remarks>
     static void MeasureFirstRow(TableGrid grid, ColumnSizes sizes)
     {
+        Declared(grid, sizes);
+
         foreach (var cell in grid.Cells.Where(_ => _.Row == 0))
         {
             var width = cell.Box.Style.Width;
@@ -367,12 +425,14 @@ static class TableLayout
         float containingWidth,
         float surround)
     {
-        var minimum = Math.Max(columns.MinTotal + gaps, captionMinimum);
-
         if (style.Width.ResolveOrNull(containingWidth) is {} declared)
         {
-            return Math.Max(style.ContentSize(declared, surround), minimum);
+            return Math.Max(
+                style.ContentSize(declared, surround),
+                Math.Max(columns.ContentMinTotal + gaps, captionMinimum));
         }
+
+        var minimum = Math.Max(columns.MinTotal + gaps, captionMinimum);
 
         var available =
             containingWidth -
@@ -383,6 +443,77 @@ static class TableLayout
         // Shrink to fit: as wide as the content wants, but not wider than there is room for, and
         // never narrower than the content can survive.
         return Math.Clamp(available, minimum, Math.Max(minimum, columns.MaxTotal + gaps));
+    }
+
+    /// <summary>
+    /// Shares a surplus or a shortfall among columns that are all pinned.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// TWO RULES, which is the same shape the column algorithm already has and was measured the same
+    /// way. A SURPLUS is shared in proportion to the widths themselves: three columns wanting 220,
+    /// 60 and 60 with 132 left over come out 305.4, 83.3 and 83.3, each grown by its own share. A
+    /// SHORTFALL is shared in proportion to what each column can GIVE UP — its width less its
+    /// min-content width — so three wanting 220, 220 and 60 with 28 too many come out 207.5, 207.5
+    /// and 57.0 rather than the 207.7, 207.7 and 56.6 that shrinking by width gives.
+    /// </para>
+    /// <para>
+    /// The difference is four tenths of a pixel on this arrangement and it is the whole of what
+    /// separates the two readings, which is why it took a scenario to find: the wide columns give up
+    /// nearly all of the shortfall either way, and only the narrow one moves.
+    /// </para>
+    /// <para>
+    /// Unreachable until <c>&lt;col&gt;</c> arrived. A table whose columns are ALL pinned needs every
+    /// one of them declared, and a cell declaring a width in every column of every row is rare
+    /// enough that no scenario had it.
+    /// </para>
+    /// </remarks>
+    static void Reconcile(ColumnSizes columns, float[] widths, float remaining)
+    {
+        if (Math.Abs(remaining) <= 0.001f)
+        {
+            return;
+        }
+
+        var shares = new float[widths.Length];
+
+        for (var index = 0; index < widths.Length; index++)
+        {
+            shares[index] = remaining > 0
+                ? widths[index]
+                : Math.Max(0, widths[index] - columns.Min[index]);
+        }
+
+        var total = shares.Sum();
+
+        if (total <= 0)
+        {
+            return;
+        }
+
+        // Allocated on Chrome's 1/64 pixel grid, with the LAST column taking whatever is left over.
+        // Sharing the remainder evenly instead leaves two identical columns identical, and the
+        // browser does not: two columns both wanting 60 come out 83.28 and 83.31, three hundredths
+        // apart, because the second is handed the residue. That is small enough to look like noise
+        // and is the difference between a scenario that is exact and one that is nearly exact.
+        const float grid = 64;
+
+        var target = (long) MathF.Round((widths.Sum() + remaining) * grid);
+        var assigned = 0L;
+
+        for (var index = 0; index < widths.Length - 1; index++)
+        {
+            var wanted = Math.Max(
+                columns.Min[index],
+                widths[index] + remaining * shares[index] / total);
+
+            var units = (long) MathF.Floor(wanted * grid);
+
+            widths[index] = units / grid;
+            assigned += units;
+        }
+
+        widths[^1] = Math.Max(columns.Min[^1], (target - assigned) / grid);
     }
 
     /// <summary>
@@ -432,8 +563,19 @@ static class TableLayout
             free.Add(index);
         }
 
+        // Every column pinned, and the pinned widths do not add up to the table. The surplus or the
+        // shortfall is shared in PROPORTION to the widths themselves, which is measured rather than
+        // reasoned: three columns wanting 220, 60 and 60 in a 480px table come out 305.4, 83.3 and
+        // 83.3 — each grown by its own share of the 140 left over — and three wanting 220, 220 and
+        // 60 in the same table come out 207.5, 207.5 and 57.0, each shrunk by its share of the 20 too
+        // many.
+        //
+        // Unreachable until <col> arrived: a table whose columns are all pinned needs every one of
+        // them declared, and a cell declaring a width in every column of every row is rare enough
+        // that no scenario had it. `table/columns` has three.
         if (free.Count == 0)
         {
+            Reconcile(columns, widths, remaining);
             return widths;
         }
 
@@ -668,6 +810,43 @@ static class TableLayout
     /// be moved down inside it — which is what <c>vertical-align</c> decides, and why cells are
     /// laid out at the origin and translated rather than laid out in place.
     /// </remarks>
+    /// <summary>
+    /// Gives each <c>&lt;col&gt;</c> and <c>&lt;colgroup&gt;</c> the rectangle a browser reports for
+    /// it.
+    /// </summary>
+    /// <remarks>
+    /// Its columns' extent by the height of the ROW AREA — measured: a <c>&lt;col&gt;</c> comes back
+    /// with exactly its column's x and width, and the height and y of the section holding the rows.
+    /// A group covers its columns from the first one's left edge to the last one's right, which
+    /// includes the spacing between them.
+    /// </remarks>
+    static void PlaceColumns(TableGrid grid, float[] widths, float[] columnX, float contentY)
+    {
+        if (grid.Table.ColumnBoxes.Count == 0 || grid.Rows.Count == 0)
+        {
+            return;
+        }
+
+        var top = contentY + grid.Rows[0].Y;
+        var height = grid.Rows[^1].Y + grid.Rows[^1].Height - grid.Rows[0].Y;
+
+        foreach (var column in grid.Table.ColumnBoxes)
+        {
+            if (column.First >= widths.Length || column.Span <= 0)
+            {
+                // More definitions than the grid has columns. A browser reports nothing for the
+                // extras, and a zero rectangle would be reported as a difference.
+                column.Bounds = new(0, 0, 0, 0);
+                continue;
+            }
+
+            var last = Math.Min(column.First + column.Span, widths.Length) - 1;
+            var left = columnX[column.First];
+
+            column.Bounds = new(left, top, columnX[last] + widths[last] - left, height);
+        }
+    }
+
     static void PlaceCells(
         TableGrid grid,
         CellHeight[] natural,

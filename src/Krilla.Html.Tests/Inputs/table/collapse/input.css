@@ -24,3 +24,13 @@ td { padding: 6px; width: 80px; }
    rather than the look of either. */
 #separate { border-collapse: separate; border-spacing: 4px; }
 #separate td { border: 2px solid #c04040; }
+
+/*
+  `border-style: hidden` has ABSOLUTE priority at a shared edge — it beats even a wider border,
+  which is how a table suppresses one internal rule without touching the cells around it. The B cell
+  hides all four of its edges, so the lines it shares with A, with D and with the table's own
+  boundary all disappear, while A, C and D keep every edge they do not share with it.
+*/
+#hidden { border-collapse: collapse; }
+#hidden td { border: 4px solid #c04040; }
+#hidden .gone { border-style: hidden; }

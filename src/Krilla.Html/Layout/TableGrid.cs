@@ -32,6 +32,15 @@ sealed class TableGrid
     public required int ColumnCount { get; init; }
 
     /// <summary>
+    /// The table box itself, for the things that belong to the table rather than to the grid.
+    /// </summary>
+    /// <remarks>
+    /// Its <see cref="LayoutBox.Columns"/> in particular: a <c>&lt;col&gt;</c> generates no box, so
+    /// its declared width lives on the table and the column algorithm reads it from here.
+    /// </remarks>
+    public required LayoutBox Table { get; init; }
+
+    /// <summary>
     /// Resolves <paramref name="table"/>'s children into a grid.
     /// </summary>
     public static TableGrid Build(LayoutBox table)
@@ -65,9 +74,11 @@ sealed class TableGrid
                 case DisplayKind.TableRow:
                     loose.Add(child);
                     break;
-                // A column definition contributes no box and no content. Its `width` is not read
-                // yet, which is the documented gap; dropping it here is what stops an empty
-                // <colgroup> from laying out as a block in the middle of the table.
+                // A column definition contributes no box and no content, and never reaches here:
+                // the box builder records its width on the table and generates nothing. The case
+                // stays so that a `display: table-column` reached from a stylesheet on an element
+                // that DID generate a box is dropped rather than laid out in the middle of the
+                // table.
                 case DisplayKind.TableColumn:
                     break;
             }
@@ -106,7 +117,8 @@ sealed class TableGrid
             Rows = rows,
             Cells = cells,
             Groups = groups,
-            ColumnCount = columns
+            ColumnCount = columns,
+            Table = table
         };
     }
 

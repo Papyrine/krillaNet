@@ -55,7 +55,7 @@ table, since everywhere else `hidden` and `none` really are the same thing.
 What to look at: the corners of `#frame`, which is where the crossing rule shows, and the middle of
 any line in `#odd`, which is where a seam would.
 
-**Boxes**: 42 matched, worst offset 0.00px, worst size 0.00px.
+**Boxes**: 50 matched, worst offset 0.00px, worst size 0.00px.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |

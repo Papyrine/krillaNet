@@ -1,0 +1,13 @@
+table { width: 480px; margin-bottom: 10px; font-size: 16px; line-height: 24px; }
+td { border: 1px solid #204080; background-color: #cfd8e8; }
+
+/* Widths declared on the column rather than on any cell, which is what <col> is for. */
+.wide { width: 220px; }
+.narrow { width: 60px; }
+.half { width: 50%; }
+
+/* The same definitions under fixed layout, where <col> is most often used. */
+#fixed { table-layout: fixed; }
+
+/* A cell declaring a wider width than its column competes with it on the same terms and wins. */
+#cellwins .wide { width: 220px; }

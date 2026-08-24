@@ -567,7 +567,21 @@ enum BorderStyleKind
     Dotted,
 
     /// <summary>Two bands a third of the width each, with a third-width gap between them.</summary>
-    Double
+    Double,
+
+    /// <summary>
+    /// <c>hidden</c>: no ink and no space, and inside a COLLAPSED table it suppresses the
+    /// neighbouring border too.
+    /// </summary>
+    /// <remarks>
+    /// A style of its own rather than folded into a zero width, which it was until the collapsing
+    /// model needed to tell the two apart. CSS gives <c>hidden</c> absolute priority at a shared
+    /// edge — it beats even a wider border — and that is unexpressible if it arrives
+    /// indistinguishable from an absent one, which is how it was reported as unimplementable.
+    /// Everywhere but a collapsed table it behaves exactly as <c>none</c> does, which is why the
+    /// width is still folded to zero.
+    /// </remarks>
+    Hidden
 }
 
 /// <summary>
@@ -688,12 +702,22 @@ sealed record ComputedStyle
     /// How far apart the tab stops are, as a multiple of the space advance.
     /// </summary>
     /// <remarks>
-    /// A number rather than a length, which is what the property's initial value of 8 means and
-    /// what nearly every author writes. A length-valued <c>tab-size</c> is reported instead: it
-    /// would need a second field to say which of the two it is, for a value that has no use in a
-    /// proportional font and little in a monospaced one.
+    /// A count of space advances, which is what the property's initial value of 8 means and what
+    /// nearly every author writes. A LENGTH is carried by <see cref="TabStop"/> instead, which wins
+    /// when it is set.
     /// </remarks>
     public float TabSize { get; init; } = 8;
+
+    /// <summary>
+    /// The tab stop spacing as an absolute length in CSS pixels, or null when it is a count.
+    /// </summary>
+    /// <remarks>
+    /// A second field rather than a flag on <see cref="TabSize"/>, because the two forms mean
+    /// genuinely different things: one is a distance and the other is a multiple of something that
+    /// depends on the font. A length is the more useful of the two in a PROPORTIONAL font, where
+    /// "eight spaces" is a different width in every face on the page.
+    /// </remarks>
+    public float? TabStop { get; init; }
 
     /// <summary>When a line may break inside a word. Inherited, as both source properties are.</summary>
     public WordBreaking WordBreaking { get; init; }

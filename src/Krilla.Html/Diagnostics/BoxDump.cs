@@ -115,6 +115,15 @@ public static class BoxDump
                 }
             }
 
+            // A column definition generates no box, and a browser reports a rectangle for it all the
+            // same — its columns' extent by the height of the row area. Without these the geometry
+            // comparison counts every <col> in the document as an element this engine did not
+            // produce.
+            foreach (var column in box.ColumnBoxes)
+            {
+                boxes.Add(Geometry(column.Selector, Visual(column.Bounds, matrix)));
+            }
+
             foreach (var child in box.Children)
             {
                 Walk(child, matrix);

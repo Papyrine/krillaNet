@@ -31,7 +31,7 @@ a browser draws nothing there, which is what separates this from `text/soft_hyph
 What to look at: the second line of `#mixed`. If the long word is intact and hanging out of the box,
 the split is being bypassed by the ordinary break.
 
-**Boxes**: 10 matched, worst offset 0.00px, worst size 0.00px.
+**Boxes**: 20 matched, worst offset 0.00px, worst size 0.00px.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |

@@ -43,6 +43,22 @@ sealed class DocumentContext :
     public CssCounters Counters { get; } = new();
 
     /// <summary>
+    /// The column widths collected while one table's children are being walked, and the definitions
+    /// they came from.
+    /// </summary>
+    /// <remarks>
+    /// Here rather than on the box builder because the builder is STATIC and conversions run
+    /// concurrently — a static field for this raced between two scenarios in the same test run and
+    /// produced a table sized by another document's columns. It reads as per-table state and is
+    /// per-document state for the same reason the counters are: the walk is where it is filled, and
+    /// the walk saves and restores it around each table.
+    /// </remarks>
+    public List<CssLength> PendingColumns { get; set; } = [];
+
+    /// <inheritdoc cref="PendingColumns"/>
+    public List<ColumnBox> PendingColumnBoxes { get; set; } = [];
+
+    /// <summary>
     /// How deeply quotations are nested, for <c>open-quote</c> and <c>close-quote</c>.
     /// </summary>
     /// <remarks>

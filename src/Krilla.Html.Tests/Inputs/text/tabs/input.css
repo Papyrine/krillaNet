@@ -3,3 +3,7 @@ pre { font-size: 16px; line-height: 24px; background-color: #eef2f8; margin: 0 0
 /* The initial value is 8, which is what the first block measures. */
 #four { tab-size: 4; }
 #two { tab-size: 2; }
+
+/* A LENGTH rather than a count, which is the more useful of the two in a proportional font: "eight
+   spaces" is a different width in every face on the page and 40px is not. */
+#length { tab-size: 40px; }

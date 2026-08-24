@@ -56,6 +56,9 @@ static class UnsupportedCss
 
     static readonly string[] sides = ["top", "right", "bottom", "left"];
 
+    /// <summary>The two properties whose value is a position, read as two components.</summary>
+    static readonly string[] positions = ["background-position", "object-position"];
+
     /// <summary>
     /// The colour properties drawn fully opaque, whatever alpha they were given.
     /// </summary>
@@ -163,16 +166,16 @@ static class UnsupportedCss
         Breaks(declaration, name, sink);
         Hyphens(declaration, name, sink);
         Wrapping(declaration, name, sink);
-        Tabs(declaration, name, sink);
         Decoration(declaration, name, sink);
         Marker(declaration, name, style, sink);
         Shadows(declaration, name, style, sink);
+        Ratio(declaration, name, style, sink);
+        Positions(declaration, name, sink);
         Translucent(declaration, name, sink);
         Counters(declaration, name, sink);
         Spaces(declaration, name, sink);
         Collapse(declaration, name, sink);
         Outline(declaration, name, sink);
-        HiddenEdge(declaration, name, style, sink);
         Background(declaration, name, style, sink);
         Transform(declaration, name, style, sink);
         Casing(declaration, name, sink);
@@ -232,50 +235,6 @@ static class UnsupportedCss
             if (reason is not null)
             {
                 Diagnostic.Property(sink, element, property, value!, reason);
-            }
-        }
-    }
-
-    /// <summary>
-    /// <c>border-style: hidden</c> inside a collapsed table, which does not suppress its
-    /// neighbour's border.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// The one thing the collapsing model does that this engine cannot. CSS gives <c>hidden</c>
-    /// absolute priority over every other border at a shared edge — it wins even against a wider
-    /// one — which is how a table hides an internal rule without touching the cells around it.
-    /// </para>
-    /// <para>
-    /// It cannot be honoured because <see cref="StyleResolver"/> folds <c>none</c> and
-    /// <c>hidden</c> into a zero width before anything downstream sees them, so by the time the
-    /// edges are resolved a hidden border is indistinguishable from an absent one and simply loses
-    /// on width. Silent everywhere else, because outside a collapsed table the two really are the
-    /// same thing.
-    /// </para>
-    /// </remarks>
-    static void HiddenEdge(
-        ICssStyleDeclaration declaration,
-        string element,
-        ComputedStyle style,
-        Action<HtmlDiagnostic> sink)
-    {
-        if (style.BorderCollapse != BorderCollapseKind.Collapse)
-        {
-            return;
-        }
-
-        foreach (var side in sides)
-        {
-            if (Set(declaration, $"border-{side}-style") is "hidden")
-            {
-                Diagnostic.Property(
-                    sink,
-                    element,
-                    "border-style",
-                    "hidden",
-                    "the neighbouring border is drawn anyway");
-                return;
             }
         }
     }
@@ -488,13 +447,10 @@ static class UnsupportedCss
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <c>break-all</c> and <c>break-word</c> are implemented and silent. What is left is
-    /// <c>keep-all</c>, which suppresses breaks this engine does not make in the first place — but
-    /// only for the scripts it applies to, so it is reported rather than assumed to be a no-op —
-    /// and <c>anywhere</c>, which breaks the same way <c>break-word</c> does here and differs in
-    /// the one place this does not follow it: it is supposed to narrow the MINIMUM content width
-    /// too, so a shrink-to-fit box or a table column holding a long word comes out wider here than
-    /// it should.
+    /// <c>break-all</c>, <c>break-word</c> and <c>anywhere</c> are implemented and silent, the last
+    /// two including the effect on the MINIMUM content width. What is left is <c>keep-all</c>, which
+    /// suppresses breaks this engine does not make in the first place — but only for the scripts it
+    /// applies to, so it is reported rather than assumed to be a no-op.
     /// </para>
     /// <para>
     /// <c>word-break: break-word</c> is the deprecated spelling of <c>overflow-wrap: break-word</c>
@@ -516,33 +472,6 @@ static class UnsupportedCss
                     : "not read; the overflow-wrap spelling is");
         }
 
-        if (Set(declaration, "overflow-wrap") is "anywhere")
-        {
-            Diagnostic.Property(
-                sink,
-                element,
-                "overflow-wrap",
-                "anywhere",
-                "lines break inside words, but the minimum content width is not narrowed");
-        }
-    }
-
-    /// <summary>
-    /// A <c>tab-size</c> given as a length, where only a count of space advances is honoured.
-    /// </summary>
-    /// <remarks>
-    /// The two forms need different arithmetic and a field to say which is which, for a value that
-    /// has no use in a proportional font and little in a monospaced one. A number — including the
-    /// initial 8 — is honoured exactly.
-    /// </remarks>
-    static void Tabs(ICssStyleDeclaration declaration, string element, Action<HtmlDiagnostic> sink)
-    {
-        if (Set(declaration, "tab-size") is {} value &&
-            !IsInitial(value) &&
-            !CssValues.TryParseNumber(value, out _))
-        {
-            Diagnostic.Property(sink, element, "tab-size", value, "tab stops are a multiple of the space advance");
-        }
     }
 
     /// <summary>
@@ -587,6 +516,56 @@ static class UnsupportedCss
         if (Set(declaration, "text-decoration-style") is "wavy")
         {
             Diagnostic.Property(sink, element, "text-decoration-style", "wavy", "painted as a solid rule");
+        }
+    }
+
+    /// <summary>
+    /// An <c>aspect-ratio</c> that named something and resolved to nothing.
+    /// </summary>
+    /// <remarks>
+    /// The two-value <c>auto &lt;ratio&gt;</c> form is what this catches. It applies the ratio only
+    /// to a replaced element with no intrinsic dimensions, which is a rule about images that this
+    /// engine does not distinguish — so it reads as unparseable and would otherwise be dropped in
+    /// silence. A single number is dropped by AngleSharp before it arrives and cannot be reported
+    /// at all.
+    /// </remarks>
+    static void Ratio(
+        ICssStyleDeclaration declaration,
+        string element,
+        ComputedStyle style,
+        Action<HtmlDiagnostic> sink)
+    {
+        if (style.AspectRatio <= 0 &&
+            Set(declaration, "aspect-ratio") is {} value &&
+            value != "auto" &&
+            !IsInitial(value))
+        {
+            Diagnostic.Property(sink, element, "aspect-ratio", value, "the box is sized by its content");
+        }
+    }
+
+    /// <summary>
+    /// A position given as an edge and an offset, where only two components are read.
+    /// </summary>
+    /// <remarks>
+    /// <c>background-position: right 10px bottom 5px</c> measures each offset from the edge it names
+    /// rather than from the start edge, which is four components describing two axes. This engine
+    /// reads the first two positionally and would take <c>right</c> and <c>10px</c> as the two axes —
+    /// a plausible answer in the wrong place, which is the worst kind. Reported rather than guessed.
+    /// </remarks>
+    static void Positions(ICssStyleDeclaration declaration, string element, Action<HtmlDiagnostic> sink)
+    {
+        foreach (var property in positions)
+        {
+            if (Set(declaration, property) is not {} value || IsInitial(value))
+            {
+                continue;
+            }
+
+            if (value.Split(' ', StringSplitOptions.RemoveEmptyEntries).Length > 2)
+            {
+                Diagnostic.Property(sink, element, property, value, "only the first two components are read");
+            }
         }
     }
 
@@ -680,10 +659,17 @@ static class UnsupportedCss
     /// A <c>white-space</c> value the engine does not distinguish, which inherits instead.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// What is left is <c>break-spaces</c>, which preserves white space and wraps like
     /// <c>pre-wrap</c> and differs from it in one place: a run of trailing spaces may itself be
-    /// broken, so a line can end in the middle of one. And the two-value syntax, which the cascade
-    /// hands back verbatim.
+    /// broken, so a line can end in the middle of one. And the two-value syntax.
+    /// </para>
+    /// <para>
+    /// Which means this cannot currently fire: AngleSharp accepts only the five values the engine
+    /// honours and DROPS the rest, so the gap the audit found here is unreachable rather than
+    /// unreported. Kept anyway — it costs one lookup and stops the gap reopening if the parser
+    /// learns the value, which is the same reason the resolver still maps <c>recto</c>.
+    /// </para>
     /// </remarks>
     static void Spaces(ICssStyleDeclaration declaration, string element, Action<HtmlDiagnostic> sink)
     {

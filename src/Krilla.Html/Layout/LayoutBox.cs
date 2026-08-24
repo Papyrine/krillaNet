@@ -131,6 +131,30 @@ sealed class LayoutBox
     public List<FloatChild> Floats { get; } = [];
 
     /// <summary>
+    /// The widths a table's <c>&lt;col&gt;</c> and <c>&lt;colgroup&gt;</c> definitions declare, one
+    /// entry per column they cover, in order.
+    /// </summary>
+    /// <remarks>
+    /// A column definition generates no box, so its width has nowhere of its own to live. The list
+    /// is positional rather than keyed, which is what lets the grid read the nth column's declared
+    /// width without knowing anything about the elements that declared it. Empty for every box that
+    /// is not a table with column definitions, which is nearly all of them.
+    /// </remarks>
+    public List<CssLength> Columns { get; } = [];
+
+    /// <summary>
+    /// The <c>&lt;col&gt;</c> and <c>&lt;colgroup&gt;</c> elements a table has, with the columns each
+    /// covers and the rectangle it ends up occupying.
+    /// </summary>
+    /// <remarks>
+    /// Separate from <see cref="Columns"/>, which is one width per column for the sizing algorithm.
+    /// This is one entry per ELEMENT, for the box dump: a browser reports a rectangle for a
+    /// <c>&lt;col&gt;</c> — its column's extent by the row area's height — and without these the
+    /// geometry comparison counts every column definition as an element the engine did not produce.
+    /// </remarks>
+    public List<ColumnBox> ColumnBoxes { get; } = [];
+
+    /// <summary>
     /// The absolutely positioned boxes this box contains, out of flow.
     /// </summary>
     /// <remarks>
@@ -518,6 +542,22 @@ readonly record struct InlineEdgeBox(
 /// Zero-width, at the end of the line it ended, as tall as the font's ascent plus descent.
 /// </param>
 readonly record struct InlineBreak(string Selector, Rect Bounds);
+
+/// <summary>
+/// One <c>&lt;col&gt;</c> or <c>&lt;colgroup&gt;</c>, and where it ended up.
+/// </summary>
+/// <param name="Selector">The element's path.</param>
+/// <param name="First">The first column it covers.</param>
+/// <param name="Span">How many columns it covers.</param>
+/// <remarks>
+/// <see cref="Bounds"/> is filled by table layout, since a column definition has no geometry of its
+/// own until the columns are sized.
+/// </remarks>
+sealed record ColumnBox(string Selector, int First, int Span)
+{
+    /// <summary>The rectangle a browser reports for it: its columns' extent by the row area.</summary>
+    public Rect Bounds { get; set; }
+}
 
 /// <summary>An image positioned on a line.</summary>
 /// <param name="Image">The image to draw.</param>

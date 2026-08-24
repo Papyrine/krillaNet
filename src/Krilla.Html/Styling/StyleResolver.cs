@@ -242,6 +242,7 @@ static class StyleResolver
             LineHeight = lineHeight.Absolute,
             LineHeightScale = lineHeight.Scale,
             TabSize = ParseTabSize(declaration.GetPropertyValue("tab-size"), parent.TabSize),
+            TabStop = ParseTabStop(declaration.GetPropertyValue("tab-size"), fontSize, root, parent.TabStop),
             AspectRatio = ParseRatio(declaration.GetPropertyValue("aspect-ratio")),
             BoxShadows = Shadows(declaration, "box-shadow", fontSize, root),
             TextShadows = Shadows(declaration, "text-shadow", fontSize, root),
@@ -800,6 +801,10 @@ static class StyleResolver
             "dashed" => BorderStyleKind.Dashed,
             "dotted" => BorderStyleKind.Dotted,
             "double" => BorderStyleKind.Double,
+            // Kept rather than folded into the zero width beside it, because a collapsed table has
+            // to be able to tell `hidden` from absent: CSS gives it absolute priority at a shared
+            // edge, which cannot be expressed by a border that looks like no border at all.
+            "hidden" => BorderStyleKind.Hidden,
             _ => BorderStyleKind.Solid
         };
 
@@ -1506,6 +1511,33 @@ static class StyleResolver
         CssValues.TryParseNumber(value.Trim(), out var stops) && stops > 0
             ? stops
             : inherited;
+
+    /// <summary>
+    /// The tab stop spacing when it was given as a LENGTH, or null when it was a count.
+    /// </summary>
+    /// <remarks>
+    /// A bare number is not a length, so it has to be excluded before parsing: <c>tab-size: 4</c>
+    /// would otherwise read as four pixels, which is a tab stop narrower than a single space and
+    /// exactly the sort of silent wrongness the two-field split exists to avoid.
+    /// </remarks>
+    static float? ParseTabStop(string value, float fontSize, CssRoot root, float? inherited)
+    {
+        var text = value.Trim();
+
+        if (text.Length == 0 || text.Equals("initial", StringComparison.OrdinalIgnoreCase))
+        {
+            return inherited;
+        }
+
+        if (CssValues.TryParseNumber(text, out _))
+        {
+            return null;
+        }
+
+        var length = CssValues.ParseLength(text, fontSize, root, CssLength.None);
+
+        return length.Kind == LengthKind.Absolute && length.Value > 0 ? length.Value : inherited;
+    }
 
     /// <summary>
     /// Whether a line may break inside a word, from either of the two properties that say so.

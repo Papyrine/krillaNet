@@ -347,26 +347,35 @@ public class DiagnosticTests
     /// The properties that stayed unimplemented and now say so.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// The other half of <see cref="ImplementedPropertiesStopReporting"/>: a property the engine
-    /// reads and does not honour has to be in the table, or a document using it converts wrongly
-    /// in silence. These five were found by auditing what the resolver reads against what the
-    /// table lists — three were implemented instead, and these two report.
+    /// reads and does not honour has to be in the table, or a document using it converts wrongly in
+    /// silence. Each of these was found by auditing what the resolver reads against what the table
+    /// lists, rather than by anything failing.
+    /// </para>
+    /// <para>
+    /// <c>border-style: hidden</c> inside a collapsed table used to be here and is not. It was
+    /// documented as unimplementable because the width was folded to zero before anything could tell
+    /// it from an absent border, and became a two-line change once the style was kept as its own
+    /// value. A property that stops reporting has to be seen to stop, which is what
+    /// <see cref="ImplementedPropertiesStopReporting"/> is for.
+    /// </para>
     /// </remarks>
     [Test]
     public async Task SilentlyIgnoredPropertiesReport()
     {
         var reports = Collect(
             """
-            <div style="box-shadow: 0 0 4px #000">shadowed</div>
-            <table style="border-collapse: collapse">
-              <tr><td style="border-left-style: hidden">a</td></tr>
-            </table>
+            <div style="box-shadow: 0 0 4px #000">a blurred shadow</div>
+            <div style="border: 2px solid rgba(0, 0, 0, 0.4)">a translucent border</div>
+            <div style="list-style-type: lower-greek">an unimplemented counter style</div>
             """);
 
-        await Assert.That(reports.Select(_ => _.ToString()))
-            .Contains(_ => _.Contains("box-shadow"))
-            .And
-            .Contains(_ => _.Contains("hidden"));
+        var lines = reports.Select(_ => _.ToString()).ToList();
+
+        await Assert.That(lines).Contains(_ => _.Contains("box-shadow"));
+        await Assert.That(lines).Contains(_ => _.Contains("border-top-color"));
+        await Assert.That(lines).Contains(_ => _.Contains("list-style-type"));
     }
 
     static List<HtmlDiagnostic> Collect(string body, string? css = null)

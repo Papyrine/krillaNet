@@ -31,7 +31,7 @@ A `tab-size` given as a LENGTH is reported rather than honoured.
 
 What to look at: the x of every span. Each should be an exact multiple of the stop of its block.
 
-**Boxes**: 14 matched, worst offset 0.00px, worst size 0.00px.
+**Boxes**: 17 matched, worst offset 0.00px, worst size 0.00px.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |

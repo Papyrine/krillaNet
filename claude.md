@@ -99,12 +99,22 @@ Mirrors Morph.PDFium: `KrillaNative.*.cs` partials of one `static partial class`
 
 Three stages, each inspectable on its own: AngleSharp parses and runs the cascade, `Layout/` turns the styled tree into positioned boxes, and `Painting/PdfPainter` draws those boxes through `Krilla.Surface`. Implemented: block and inline layout, inline-block, tables, floats, relative and absolute positioning, the box model including `box-sizing`, collapsing margins, line breaking, alignment, pagination including forced page breaks, `overflow` clipping and the block formatting context that comes with it, `visibility`, `text-transform`, letter and word spacing, the `font-size` keywords, all three text decorations, `vertical-align` on inline boxes, dashed, dotted and double borders, `border-radius`, `opacity`, `transform`, linear and radial gradients, `outline`, `object-fit`, `caption-side`, `list-style-position`, both border models including `border-collapse`, images, links, and list markers. Flex and grid lay out as plain blocks — deliberately, so unimplemented CSS shows up in the corpus as a geometry difference rather than as missing content nothing measures.
 
+And, from the paged-media and structure work: a document's `@page` rules decide the paper unless
+`HtmlOptions.HonourPageRules` says otherwise, media queries resolve against PRINT, sided forced
+breaks insert the blank page they ask for, generated content works (`::before`, `::after`, `content`
+with `attr()`, `counter()`, `counters()`, `url()` and the quote keywords, plus `counter-reset`,
+`counter-increment` and `quotes`), and the PDF gets an outline from the document's headings, a named
+destination per `id`, and its title and language from the document. `orphans` and `widows` are
+implemented and OFF by default — see the trap list.
+
 Also implemented, and each measured against Chrome the same way: `calc()` and the viewport units,
 `vertical-align` given a length or a percentage, the inline box model (background, padding, border
 and horizontal margins, one fragment per line), raster background images with `background-repeat`,
 `-position`, `-size`, `-clip` and `-origin`, soft hyphens, `overflow-wrap`/`word-break`, tabs under
-`pre`, `text-decoration-color` and `-style`, `object-position`, `empty-cells`, and
-`list-style-image`.
+`pre`, `text-decoration-color` and `-style`, `object-position`, `empty-cells`,
+`list-style-image`, `aspect-ratio`, `text-shadow` and `box-shadow` (offsets only),
+`text-decoration-thickness` and `text-underline-offset`, `rgba()` on `color` and `background-color`,
+and `<col>`/`<colgroup>` widths.
 
 Three structural points worth knowing before changing anything:
 
@@ -128,7 +138,7 @@ It records two independent measurements, and **asserts neither**:
 - **`reference.boxes.json`** — the browser's `getBoundingClientRect()` per element, against our box tree. Integer-exact, localising ("this paragraph is 14px low" is a defect report), and — the practical reason it leads — computable without the native library, so it works on a machine with no Rust toolchain.
 - **`reference_0001.png`** — pixels, via AbsoluteError and SSIM.
 
-**Box geometry currently sits at zero across all 112 scenarios, with nothing unmatched**, and 79
+**Box geometry currently sits at zero across all 118 scenarios, with nothing unmatched**, and 87
 read SSIM 1.0000. Several got there by finding a defect first, which is the argument for adding a
 scenario for anything the engine implements rather than only for what it implements well:
 `block/anonymous` found trailing inline content hoisted above a block sibling, `position/fixed`
@@ -142,8 +152,8 @@ a mystery: `block/border_styles` (0.9906) and `ua/hr` (0.9911) are patterned and
 `text/decoration_style` (0.9999) is `text-decoration-skip-ink`, `image/inline_flow` (0.9998) is
 antialiasing on an image edge at a fractional position, and the rest are the same glyph positioning
 seen on fewer words. A scenario reading SSIM 1.0000 is not necessarily pixel-identical —
-twenty-four differ on a scattering of antialiased pixels, which is what `AE` is there to show.
-Fifty-five are identical outright.
+twenty-eight differ on a scattering of antialiased pixels, which is what `AE` is there to show.
+Fifty-nine are identical outright.
 
 **The unmatched count is an assertion, not a statistic.** `BaselineHealthTests.EveryElementIsMeasured`
 requires every element the browser laid out to have a box on this side. It closes the same hole
@@ -177,7 +187,7 @@ Found by measuring against a browser, not by reading. Each cost a whole category
 - **AngleSharp has no `display` for the inline elements.** It reports an empty string for `b`, `i`, `span` and the rest. Reading that as `block` puts every piece of emphasised text on a line of its own, which is a whole-paragraph error from a missing default. `Styling/UserAgentStyles.cs` supplies them.
 - **AngleSharp does not resolve the `font-size` keywords**, so `medium`, `large`, `smaller` and the rest arrive at `ResolveFontSize` as written rather than as lengths. The trap is in what an unparseable value falls back to: `CssLength.Zero` is an **absolute** length, so it took the `LengthKind.Absolute` branch and returned a font size of 0 — which is not a smaller size, it is an invisible one, and `font-size: large` therefore deleted the text of the element carrying it. The fallback is `CssLength.None` so the `_` branch can catch it. Any new parse whose fallback is meant to mean "unparseable" needs a kind the switch above it does not otherwise handle. `<small>` and `<big>` never hit this, because the cascade resolves the default stylesheet's sizes for those into real lengths first — which is what kept it hidden.
 - **AngleSharp rewrites a gradient's corner keyword as a flat `45deg`.** `to top right` names an angle that depends on the box's proportions — the gradient line is perpendicular to the diagonal joining the other two corners, so in a wide, short box it is nearly `to top`. The cascade collapses it to 45° before the engine sees it, which is right only for a square box. It cannot be reported either, being indistinguishable from an angle the author wrote. `GradientPaint.Resolve` keeps the correct resolution against the day the value survives, and `block/gradients` had the row that measured it removed for this reason.
-- **AngleSharp DROPS some declarations rather than passing the value through**, which is a different failure from mis-resolving one and a worse one to debug: the cascaded style comes back *empty*, indistinguishable from a property nobody declared. So the value can be neither honoured nor reported, and the gap is invisible from this side. Three found so far: the `revert` keyword, `text-overflow`, and the `min-content`/`max-content`/`fit-content` sizing keywords. `unset` survives, and `calc()` and the viewport units survive verbatim — so the rule is not "anything modern".
+- **AngleSharp DROPS some declarations rather than passing the value through**, which is a different failure from mis-resolving one and a worse one to debug: the cascaded style comes back *empty*, indistinguishable from a property nobody declared. So the value can be neither honoured nor reported, and the gap is invisible from this side. Found so far: the `revert` keyword, `text-overflow`, the `min-content`/`max-content`/`fit-content` sizing keywords, `recto` and `verso` on both break spellings, `aspect-ratio` given a single number rather than a ratio, `overflow-wrap: anywhere`, and `@page`'s `size` declaration. `unset` survives, and `calc()` and the viewport units survive verbatim — so the rule is not "anything modern". The one that was worth working around is `size`, recovered from the stylesheet's own text because a page size is a whole-document difference; the rest are recorded and left.
 - **AngleSharp does not apply presentational attributes.** HTML maps `<table width>`, `<td bgcolor>`, `<p align>` and the rest onto CSS as hints below every author rule; AngleSharp performs none of that mapping, so they reach the cascade as nothing at all. `<img width>`/`<img height>` are applied by hand in `BoxBuilder.WithAttributeSize`; everything else is reported by `UnsupportedAttributes` rather than silently dropped. Documents converted to PDF come disproportionately from reporting tools and mail merges, which emit exactly this markup.
 
 ## Traps found by importing an external test
@@ -620,11 +630,136 @@ and pixel-identical to Chrome.
   the image from. A browser puts the marker on the first line wherever it is, including inside a
   nested block, so this is a limitation rather than a rule.
 
+## Traps in paged media
+
+`PageRuleTests`, `RunConstraintTests` and `SidedBreakTests` cover these. The corpus cannot: its page
+size is fixed so the reference and the render rasterise to the same dimensions, and a scenario
+changing it would suppress SSIM rather than report a difference.
+
+- **A PDF is PRINT, and media queries have to resolve that way.** Against `Screen`, a document's
+  `@media print` block — the one written for this conversion — was excluded while its `@media screen`
+  block was applied. The corpus reference already came from Chromium's printer for its page renders;
+  its box harvest now emulates print media too, so the two halves of one reference agree about which
+  rules apply. Regenerating all references changed nothing, which is what says the fix was free.
+- **It was NOT free in the engine, because AngleSharp's print defaults are the HTML 4.01 sample
+  sheet.** `h1 { page-break-before: always }`, headings avoiding a break after, lists avoiding one
+  before — rules no browser implements. The corpus said so within a second: `ua/headings` grew a
+  second page against a reference that has one, and a readme sample went from one page to two. All
+  three are neutralised in `UserAgentStyles.Corrections`, which exists for exactly this.
+- **`@page` decides the paper by DEFAULT.** A document declaring A4 means it, and printing it onto
+  Letter is a whole-document difference with nothing to explain it. The geometry has to be settled
+  BEFORE the cascade is read, or a document declaring its own paper is laid out against the wrong
+  rectangle — a viewport unit is the cheapest way to see that.
+- **AngleSharp keeps `@page`'s margins and DROPS its `size`.** The rule's own `CssText` comes back
+  without it and `Style.GetPropertyValue("size")` is empty, so that one declaration is recovered from
+  the stylesheet's own text. A scan of CSS source is not something to reach for twice, and it is
+  bounded on purpose: only inside `@page` blocks, only a `size` declaration, stopping at the first
+  closing brace, and reporting anything it cannot read.
+- **One length in `size` is a SQUARE page**, which is the specification's rule and not what an author
+  writing a width expects. Two lengths are not turned by an orientation keyword — they are already in
+  the order the author wanted — while a keyword alone turns whatever paper the caller chose.
+- **`orphans` and `widows` are implemented and OFF by default, because CHROMIUM DOES NOT IMPLEMENT
+  THEM.** `page/break_between_lines` holds a reference in which a four-line paragraph is broken
+  leaving two lines either side, and raising the counts to three shows the browser ignoring the
+  constraint entirely. Honouring them by default would make this engine disagree with the reference on
+  every document long enough to paginate, so `HtmlOptions.HonourOrphansAndWidows` is a choice between
+  typographic quality and browser fidelity rather than a default. Where neither constraint can be met
+  the whole run moves overleaf, and the move has to ADVANCE the page top or the loop that produces
+  page tops never ends.
+- **A sided break inserts a blank page, which is a page COUNT difference.** `right` lands its content
+  on an odd page and `left` on an even one, counting page one as a right-hand sheet. The rule that
+  drops a break at the very start of the document applies to them too, or `right` on the first element
+  opens with a blank page and lands the content on an even one anyway.
+
+## Traps in generated content and counters
+
+`block/generated` is pixel-identical and `block/counters` geometry-exact. AngleSharp hands the whole
+`content` grammar back verbatim, which was the pleasant surprise — but two things about its
+serialisation had to be worked around, and both were found by measuring.
+
+- **The pseudo-element cascade INCLUDES the host's own declarations.** Ask a `::before` for its
+  `display` and the host's comes back. So a property counts as the pseudo's only when it differs from
+  what the host's own cascade says, which is sound because a `::before` selector does not match the
+  element. Without that test, `p { content: "x" }` — a declaration CSS itself ignores — generated a
+  pseudo-element on every paragraph in the document.
+- **`counters(section, ".")` comes back as `counters(section .)`**, comma gone, while
+  `counter(chapter, upper-roman)` keeps its. Splitting arguments on commas alone read the whole of the
+  first as one argument and silently dropped every nested counter.
+- **Generated content is INLINE CONTENT OF THE HOST**, which is what makes a `::before` share the
+  host's first line. It goes into the same list the host's own text goes into, so the run-closing that
+  turns mixed content into anonymous blocks applies to it for free.
+- **An INLINE host reaches none of that by the obvious route.** An inline element contributes runs to
+  the line being built rather than a box of its own, so it never passes through the method that
+  generates content — `<q>` had no quotation marks at all until that branch got its own call, and
+  `q::before` is where a browser's quotes come from.
+- **The painter needs a FLAG, not a test.** It filled a run's own background only when the run had a
+  selector, and generated content has no element to name one. Testing the style INSTANCE against the
+  block's — the reference identity `InlineAlign` uses — looks equivalent and is wrong inside an
+  anonymous block, whose style is a fresh instance while its text keeps the parent's, so every
+  anonymous run painted its parent's background twice.
+- **A counter's scope is its declaring element's SUBTREE**, nested inside any counter of the same name
+  outside it, which is what makes `counters()` produce `1.1` and `1.2`. Popping it when the subtree
+  ends is what stops a second list continuing the first's numbering. The reset applies before the
+  increment, CSS's order and observable: an element doing both to one counter gives 1 rather than 0.
+
+## Traps in shadows and rgba
+
+`block/shadows` measures these.
+
+- **Only an OFFSET is drawn — no blur and no spread — and the two limits have different causes.** A
+  blur needs a Gaussian, which a PDF content stream cannot express for an arbitrary shape, and a text
+  shadow's blur follows glyph outlines so no gradient stands in for it. A blurred shadow drawn sharp
+  is a hard dark copy where a soft halo belongs, so it is not drawn at all — the rule an unsupported
+  outline style already follows.
+- **A spread is UNREACHABLE rather than unimplementable.** AngleSharp elides a zero blur, so
+  `6px 6px 0 4px` — offset, no blur, spread four — comes back as `6px 6px 4px`, byte-for-byte what a
+  real four-pixel blur comes back as. A three-length value therefore has to be read as a blur:
+  reading it as a spread would draw a hard shadow wherever an author asked for a soft one, which is
+  much the worse of the two mistakes. The first version of the scenario had spread rows and they
+  measured wrong for exactly this reason.
+- **Layers paint FARTHEST FIRST**, so the one written first ends up on top. Invisible until two of
+  them overlap, which is the only time anyone writes two.
+- **A shadow is behind its own background**, which is how the scenario found that `rgba()` was not
+  honoured at all. `Krilla.Color` has no fourth channel — krilla models opacity as a fill property —
+  so the alpha travels alongside the colour. `color` and `background-color` carry it; every other
+  colour property is still drawn opaque and is reported.
+
+## Traps in column definitions
+
+`table/columns` measures these, exact on all sixty-three boxes.
+
+- **`<col>` and `<colgroup>` were reported as reaching nothing**, so a table sized entirely through its
+  column definitions — how reporting tools and mail merges write one — got automatic widths. The
+  widths ride on the table as a positional list, since a column definition generates no box.
+- **The defect was invisible in one of the two forms.** A `<colgroup span="2">` with no children
+  worked immediately and every `<col>` was ignored, because the branch recognising a column definition
+  returns before the ordinary child walk — so the `<col>` elements were never visited.
+- **Static mutable state raced.** The pending widths lived in a static field on the box builder, which
+  is static and reached by concurrent conversions: `BoxFidelityTests` walks the corpus in a loop while
+  `CorpusTests` runs it in parallel, and the two reported different geometry for the same scenario
+  from the same reference. They live on `DocumentContext` now, beside the counters.
+- **A surplus among all-pinned columns is shared in proportion to the WIDTHS; a shortfall in
+  proportion to what each column can GIVE UP** — its width less its min-content width. Four tenths of
+  a pixel apart on the measured arrangement, and the whole of what separates the two readings.
+- **A declared column width does not raise the floor under a table that declares its own width**, and
+  does raise it for a table that shrink-wraps. Giving both cases the same answer broke one or the
+  other: `table/columns` caught the first and `table/spans` the second.
+- **The division residue goes to the LAST column, on Chrome's 1/64 pixel grid.** Two identical columns
+  come out 83.28 and 83.31 — three hundredths apart, because the second is handed what the division
+  left over. Sharing it evenly leaves them identical.
+- **A `<col>` has a rectangle a browser reports** — its column's extent by the height of the row area
+  — so it has to be reported here too, or every column definition counts as an element this engine did
+  not produce.
+
 ## The diagnostic table is only as good as its audit
 
 `UnsupportedCss` reports what the engine reads and does not honour, and the invariant it carries — **a conversion that reports nothing laid out every construct in the document the way a browser would** — is false the moment a property is neither read nor listed. Five were found the first time, by diffing what `StyleResolver` reads against what the table lists rather than by anything failing: `min-height`, `max-height` and `text-indent` were implemented in response, and `box-shadow` and `caption-side` were added to the table. Re-run that audit when adding properties; nothing fails on its own if an entry is missed, which is exactly the problem.
 
-The audit is a two-line shell pipeline — every property name `StyleResolver` reads, against every string `UnsupportedCss` mentions — and the difference is the properties the engine claims to honour. Reading that list is the work: each entry has to be *honoured for every value it takes*, not merely read. The most recent pass found two that were not, and neither failed anything:
+The audit is a two-line shell pipeline — every property name `StyleResolver` reads, against every string `UnsupportedCss` mentions — and the difference is the properties the engine claims to honour. Reading that list is the work: each entry has to be *honoured for every value it takes*, not merely read. Two passes have each found two, and none of the four failed anything.
+
+The most recent found a value-by-value gap in two of the properties added alongside it: an `aspect-ratio` given the two-value `auto <ratio>` form resolves to nothing, and a `background-position` or `object-position` given the four-component `right 10px bottom 5px` form had its first two components read positionally — a plausible answer in the wrong place, which is the worst kind. Both are reported now.
+
+The pass before found:
 
 - An unrecognised **`list-style-type`** silently became a disc. `lower-greek`, `armenian`, `georgian` and the CJK styles all came out as bullets with no report — the same shape as the `display` fallback, which *is* reported, and the source comment even acknowledged the fallback without anyone noticing the missing entry.
 - **`white-space: break-spaces`** silently inherited. It preserves white space and wraps like `pre-wrap`, differing only in that a run of trailing spaces may itself be broken.
@@ -633,7 +768,9 @@ Both are now reported, and the lesson generalises: a value-by-value fallback wit
 
 The other thing the audit cannot see is a syntax the resolver does not PARSE. `calc()` was the case: it fell through to the unparseable fallback, the property took its default, and no diagnostic could fire because nothing recognised the value as one the engine was getting wrong. **A value nothing recognises is a value nothing can report.**
 
-Still reported rather than implemented: `orphans`/`widows`, `text-shadow`, `box-shadow`, `column-count`, `writing-mode`, `direction`, `font-variant`, `font-stretch`, a wavy text decoration, `word-break: keep-all`, `overflow-wrap: anywhere` (honoured for line breaking, and it should also narrow the minimum content width), a length-valued `tab-size`, `border-style: hidden` inside a collapsed table, `break-before`/`break-after: avoid` and their side keywords, automatic hyphenation, `position: fixed` repeating per page, padding and a border on an inline element's *rounded corners*, and a gradient as an inline element's background.
+Still reported rather than implemented: `column-count`, `writing-mode`, `direction`, `font-variant`, `font-stretch`, a wavy text decoration, `word-break: keep-all`, a blurred or spread shadow and an `inset` one, `rgba()` on a border, an outline or a decoration, `break-before`/`break-after: avoid`, automatic hyphenation, `position: fixed` repeating per page, `visibility: collapse` on a table row, an unrecognised `list-style-type`, `white-space: break-spaces`, an unresolved `list-style-image`, a `content` value that names something unreadable, a non-inline `display` on a pseudo-element, page margin boxes and page selectors, rounded corners on an inline element, and a gradient as an inline element's background.
+
+Two entries came OFF that list by being measured rather than implemented, which is its own kind of result. `border-style: hidden` inside a collapsed table was documented as unimplementable — the width was folded to zero before anything could tell it from an absent border — and became a two-line change once `hidden` was kept as a style of its own; `table/collapse` is pixel-identical with it. And `visibility: collapse` on a table row was written, measured, and reverted: Chrome disagrees with ITSELF, its screen layout zeroing the row's track while its printed page puts everything after it twenty pixels further down, so no engine behaviour can be exact on both of the corpus's measurements.
 
 One difference is deliberately NOT reported: Chrome interrupts an underline around a descender (`text-decoration-skip-ink`, default `auto`), which needs glyph outlines rather than advances. It is a default rather than a declaration, so a report would fire on every underlined document ever converted. `text/decoration_style` records it as a named residual instead — which is the right home for a difference that no author asked for.
 
@@ -651,6 +788,7 @@ One difference is deliberately NOT reported: Chrome interrupts an underline arou
 - **A corpus scenario needs `Krilla.Html.RefGen` run before it measures anything.** Without a reference it still runs and still snapshots, but both comparisons are null, so it looks like a passing test while measuring nothing. `BaselineHealthTests.ScenariosHaveReferences` is what stops one being added and forgotten.
 - **`mdsnippets.json` excludes `target`, and the exclusion is load-bearing.** Two projects now reference MarkdownSnippets, their scans run concurrently during a solution build, and both open `rust/target/.cargo-artifact-lock` — which fails the build with "another process has locked a portion of the file". It only reproduces once the native has been built, so a clean checkout will not show it and removing the exclusion looks harmless.
 - **The showcase specimen's page baseline is compared by SSIM, so it can drift without failing.** `VerifierSettings.UseSsimForPng()` applies to it as well as to the corpus, and a change confined to one inline element passed as "equal" while the committed PNG — the image the readme shows — no longer matched the render. The corpus is the real gate; when a change alters the specimen, delete `ShowcaseTests.Specimen#page_0001.verified.png` and let it be regenerated rather than trusting the comparison to notice.
+- **A block background fill is SNAPPED to whole pixels, and so are an inline fill and a background image.** All three because that is what the browser fills; the block one was found last, by `aspect-ratio` producing the corpus's first deliberately fractional box height. Applying it improved eight existing scenarios and regressed none. Snapping in LAYOUT units does not guarantee whole DEVICE pixels, though — coordinates round-trip through PDF points, so a fractional width can still leave a faint extra column, which is why `PageRuleTests` asserts a measured box rather than where the ink stops.
 - **`BaselineHealthTests`' degeneracy threshold is 1, not Morph's 16.** Morph reasons that a rendered page always carries anti-aliased text and so has hundreds of colours. This corpus deliberately contains flat-fill scenarios with three colours total, precisely so they carry no rasterisation noise — anything above two fails them. The guard is correspondingly narrower, which it can afford to be because every page here is also compared against a browser reference.
 
 ## Package Management

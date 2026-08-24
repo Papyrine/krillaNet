@@ -51,6 +51,14 @@ static class BoxBuilder
         // ::before content is generated, so `counter()` there reads the incremented value.
         var pushed = context.Counters.Enter(style);
 
+        // A table inside a cell has its own column definitions, so the outer table's are set aside
+        // for the duration rather than shared — the alternative is one table's <col> widths sizing
+        // another's columns.
+        var outerColumns = context.PendingColumns;
+        var outerColumnBoxes = context.PendingColumnBoxes;
+        context.PendingColumns = [];
+        context.PendingColumnBoxes = [];
+
         Generated(element, "before", style, context, blocks, inlines, floats, positioned, link);
 
         foreach (var node in element.ChildNodes)
@@ -63,6 +71,15 @@ static class BoxBuilder
         // The scopes this element created end with its subtree, which is what keeps a second list
         // from continuing the first one's numbering.
         context.Counters.Leave(pushed);
+
+        if (context.PendingColumns.Count > 0 && style.Display == DisplayKind.Table)
+        {
+            box.Columns.AddRange(context.PendingColumns);
+            box.ColumnBoxes.AddRange(context.PendingColumnBoxes);
+        }
+
+        context.PendingColumns = outerColumns;
+        context.PendingColumnBoxes = outerColumnBoxes;
 
         // A marker IMAGE is inline content rather than a marker drawn beside the item, which is
         // what makes it grow the item's first line: a 32px image takes a 24px item to 39px, exactly
@@ -349,15 +366,42 @@ static class BoxBuilder
         // content out as a block would put a stray box in the middle of the table.
         if (style.Display is DisplayKind.None or DisplayKind.TableColumn)
         {
-            // `display: none` stays silent: a browser draws nothing for it either, so nothing was
-            // lost. A column box is a loss — its width never reaches column sizing, so a table
-            // sized through <col> gets automatic widths instead.
+            // A <col> or <colgroup> describes columns rather than generating one, and its width DOES
+            // reach column sizing — through `LayoutBox.Columns` on the table, since there is no box
+            // of its own to hang it from. Recorded here rather than in the grid because this is
+            // where the cascade has already been run over the element.
             if (style.Display == DisplayKind.TableColumn)
             {
-                Diagnostic.Element(
-                    context.OnDiagnostic,
-                    element.LocalName,
-                    "generates no box, and its width does not reach column sizing");
+                // A <colgroup> holding <col> children describes its columns through them, so it
+                // contributes nothing of its own and the children are walked instead. Walked HERE
+                // rather than through the ordinary child loop, which this branch returns before
+                // reaching — missing that left every <col> in the document unread while a bare
+                // <colgroup span> worked, and the two look alike enough that the difference was
+                // only visible against a browser.
+                var children = element.Children
+                    .Where(_ => _.LocalName.Equals("col", StringComparison.OrdinalIgnoreCase))
+                    .ToList();
+
+                if (children.Count > 0)
+                {
+                    var before = context.PendingColumns.Count;
+
+                    foreach (var child in children)
+                    {
+                        Collect(child, style, context, blocks, inlines, floats, positioned, link, numbering);
+                    }
+
+                    // The group covers whatever its children added, which is what a browser reports
+                    // a rectangle for — one spanning all of them rather than nothing at all.
+                    context.PendingColumnBoxes.Add(new(
+                        SelectorPath.For(element),
+                        before,
+                        context.PendingColumns.Count - before));
+
+                    return;
+                }
+
+                Columns(element, style, context);
             }
 
             return;
@@ -840,6 +884,45 @@ static class BoxBuilder
         }
 
         return mark;
+    }
+
+    /// <summary>
+    /// Records the widths a <c>&lt;col&gt;</c> or <c>&lt;colgroup&gt;</c> declares.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A column definition generates no box, so its width has nowhere of its own to live and is
+    /// appended to a list on the table it belongs to. The list is positional: one entry per column
+    /// the definitions cover, in order, which is what lets the grid read the nth column's width
+    /// without knowing anything about the elements that declared it.
+    /// </para>
+    /// <para>
+    /// <c>span</c> repeats the width rather than sharing it out — <c>&lt;col span="3"&gt;</c> gives
+    /// each of three columns that width, which is what the HTML Standard says and what a table
+    /// author expects.
+    /// </para>
+    /// </remarks>
+    static void Columns(IElement element, ComputedStyle style, DocumentContext context)
+    {
+        var span = int.TryParse(
+            element.GetAttribute("span"),
+            NumberStyles.Integer,
+            CultureInfo.InvariantCulture,
+            out var declared) && declared > 0
+            ? declared
+            : 1;
+
+        // Appended to whatever this table has collected so far, and attached to the table box once
+        // every child has been walked.
+        context.PendingColumnBoxes.Add(new(
+            SelectorPath.For(element),
+            context.PendingColumns.Count,
+            span));
+
+        for (var index = 0; index < span; index++)
+        {
+            context.PendingColumns.Add(style.Width);
+        }
     }
 
     /// <summary>

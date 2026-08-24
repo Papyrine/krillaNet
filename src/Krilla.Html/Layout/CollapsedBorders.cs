@@ -65,6 +65,15 @@ sealed class CollapsedBorders
         /// </remarks>
         public Edge Against(Edge other)
         {
+            // `hidden` wins outright, ahead of width — CSS's own rule and the whole point of the
+            // value: it is how a table suppresses one internal rule without touching the cells
+            // around it. Checked first because a hidden border carries no width to compare, so
+            // every test below would hand the edge to its neighbour.
+            if (Style == BorderStyleKind.Hidden || other.Style == BorderStyleKind.Hidden)
+            {
+                return Style == BorderStyleKind.Hidden ? this : other;
+            }
+
             if (Width != other.Width)
             {
                 return Width > other.Width ? this : other;
@@ -94,6 +103,7 @@ sealed class CollapsedBorders
                 BorderStyleKind.Dashed => 2,
                 _ => 1
             };
+
     }
 
     readonly Edge[,] vertical;

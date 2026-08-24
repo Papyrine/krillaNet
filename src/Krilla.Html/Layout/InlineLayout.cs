@@ -364,6 +364,33 @@ static class InlineLayout
     }
 
     /// <summary>
+    /// The widest single character of a token, which is its min-content width when a line may break
+    /// anywhere inside it.
+    /// </summary>
+    /// <remarks>
+    /// Per CHARACTER rather than per glyph, and measured through the same shaped run the layout uses,
+    /// so a ligature reports the width of the characters it covers rather than of the glyph. Falls
+    /// back to the whole token for anything with no shaped text — an image or an inline-block, which
+    /// cannot be broken whatever the property says.
+    /// </remarks>
+    static float Narrowest(Token token)
+    {
+        if (token.Shaped is not {} shaped)
+        {
+            return token.Width;
+        }
+
+        var widest = 0f;
+
+        for (var index = token.TextStart; index < token.TextEnd; index++)
+        {
+            widest = Math.Max(widest, shaped.Width(index, index + 1));
+        }
+
+        return widest;
+    }
+
+    /// <summary>
     /// For each token, the width of the unbreakable run that starts there.
     /// </summary>
     /// <remarks>
@@ -523,8 +550,18 @@ static class InlineLayout
 
             // An inline-block contributes its max-content width to the maximum and its
             // min-content width to the minimum. Every other token is unbreakable, so the one
-            // number serves for both.
-            var floor = token.Kind == TokenKind.Box ? token.MinWidth : token.Width;
+            // number serves for both — unless the style lets a line break INSIDE a word, where the
+            // minimum is the widest single character rather than the widest word.
+            //
+            // Only `break-all` and `anywhere` narrow it. `break-word` deliberately does not: CSS
+            // has it break a word that would otherwise overflow WITHOUT changing what the box asks
+            // for, which is what keeps a table column from collapsing to one character wide the
+            // moment the property is set on it.
+            var floor = token.Kind == TokenKind.Box
+                ? token.MinWidth
+                : token.Style.WordBreaking == WordBreaking.Always
+                    ? Narrowest(token)
+                    : token.Width;
 
             segment += pendingSpace + token.Width;
             unbreakable += floor;
@@ -695,7 +732,7 @@ static class InlineLayout
                     tokens.Add(new(
                         item.Style,
                         face,
-                        item.Style.TabSize * face.Advance(' ', item.Style.FontSize),
+                        item.Style.TabStop ?? item.Style.TabSize * face.Advance(' ', item.Style.FontSize),
                         TokenKind.Tab,
                         Link: item.Link,
                         Selector: item.Selector,
