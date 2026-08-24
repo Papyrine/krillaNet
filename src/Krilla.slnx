@@ -20,4 +20,5 @@
   <Project Path="Krilla.Html/Krilla.Html.csproj" />
   <Project Path="Krilla.Html.Tests/Krilla.Html.Tests.csproj" />
   <Project Path="Krilla.Html.RefGen/Krilla.Html.RefGen.csproj" />
+  <Project Path="Krilla.Html.Benchmarks/Krilla.Html.Benchmarks.csproj" />
 </Solution>

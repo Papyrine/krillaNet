@@ -36,6 +36,10 @@ dotnet run --project src/Krilla.Html.RefGen -- --treenode-filter "/*/*/Reference
 # it back is most of a minute per probe. A name matching nothing is an error, not an empty run.
 KRILLA_REFGEN=block/calc,text/ dotnet run --project src/Krilla.Html.RefGen -- --treenode-filter "/*/*/ReferenceGenerator/*"
 
+# Benchmarks. Release only — BenchmarkDotNet refuses to run against a debug build — and a filter
+# is required, since with none it prompts for one interactively.
+dotnet run --project src/Krilla.Html.Benchmarks --configuration Release -- --filter "*"
+
 # Rust tests
 cargo test --manifest-path rust/Cargo.toml
 
