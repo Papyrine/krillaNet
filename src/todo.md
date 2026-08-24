@@ -14,240 +14,220 @@ it, that is stated, because an unmeasured gap is the more dangerous kind.
 
 ## Where the corpus stands
 
-74 scenarios across 10 categories. **Box geometry matches Chrome exactly on every one** — zero
-positional and zero size difference, and nothing unmatched — and 53 read SSIM 1.0000, of which 36
-are pixel-identical outright.
+119 scenarios across 10 categories, 1259 element boxes matched. **Box geometry matches Chrome
+exactly on every one** — worst offset 0.00px, worst size 0.00px, and nothing unmatched — and 88
+read SSIM 1.0000, of which 60 are pixel-identical outright. The other 28 differ on a scattering of
+antialiased pixels, which is what `AE` is there to show.
 
-The twenty-one that read below 1.0000, with the cause of each. None is a mystery, and none should
-be "fixed" by regenerating a baseline:
+Thirty-one read below 1.0000. None is a mystery, and none should be "fixed" by regenerating a
+baseline:
 
 | Scenario | AE | SSIM | Cause |
 | --- | --- | --- | --- |
-| `ua/hr` | 0.0023 | 0.9911 | Chrome's `inset` border painted solid |
+| `block/border_styles` | 0.0034 | 0.9906 | Dash phase restarts at each corner, below |
+| `ua/hr` | 0.0023 | 0.9911 | `inset` painted solid, below |
 | `text/kerning` | 0.0201 | 0.9945 | Sub-pixel glyph positioning, below |
 | `text/ligatures` | 0.0099 | 0.9982 | Same |
-| `page/break_between_lines` | 0.0017 | 0.9996 | Same |
-| `table/anonymous` | 0.0003 | 0.9996 | Box edge at a fractional position, below |
-| `page/float_break` | 0.0023 | 0.9997 | Sub-pixel glyph positioning |
-| `page/table_break` | 0.0003 | 0.9997 | Box edge at a fractional position |
+| `block/shadows` | 0.0057 | 0.9985 | Antialiasing on `#rounded`'s corner; no pixel differs by more than 2 of 255 |
+| `page/break_between_lines` | 0.0017 | 0.9996 | Sub-pixel glyph positioning |
+| `page/float_break` | 0.0023 | 0.9997 | Same |
+| `table/columns` | 0.0005 | 0.9997 | Unsnapped border at a fractional column edge, below |
+| `text/underline_offset` | 0.0002 | 0.9997 | Glyph edges |
 | `block/min_width` | 0.0009 | 0.9998 | Sub-pixel glyph positioning |
-| `image/inline_flow` | 0.0007 | 0.9998 | Box edge at a fractional position |
+| `image/inline_flow` | 0.0007 | 0.9998 | Unsnapped image edge at a fractional position |
+| `page/break_inside` | 0.0012 | 0.9998 | Sub-pixel glyph positioning on page two; page one is identical |
 | `page/multi_page_flow` | 0.0016 | 0.9998 | Sub-pixel glyph positioning |
+| `text/word_spacing` | 0.0009 | 0.9998 | Same, across the widened spaces |
 | `block/box_sizing` | 0.0004 | 0.9999 | Same, on the one line beside a float |
-| `float/shrink_to_fit` | 0.0000 | 0.9999 | Box edge at a fractional position |
-| `inline/inline_block` | 0.0002 | 0.9999 | Sub-pixel glyph positioning |
-| `inline/inline_block_sizing` | 0.0002 | 0.9999 | Same |
+| `block/counters` | 0.0005 | 0.9999 | Same |
+| `block/gradients` | 0.0500 | 0.9999 | Quantisation along the ramp; no pixel differs by more than 2 of 255, and the `AE` means nothing here |
+| `block/list_image` | 0.0006 | 0.9999 | Sub-pixel glyph positioning |
+| `block/outline` | 0.0006 | 0.9999 | Same |
+| `float/overflow_bfc` | 0.0005 | 0.9999 | Same |
 | `inline/text_indent` | 0.0005 | 0.9999 | Same |
-| `link/fragment`, `link/wrapped` | 0.0001 | 0.9999 | Same |
+| `link/fragment` | 0.0001 | 0.9999 | Same |
+| `link/wrapped` | 0.0000 | 0.9999 | Same |
 | `page/tall_block` | 0.0004 | 0.9999 | Same |
-| `position/absolute` | 0.0005 | 0.9999 | Box edge at a fractional position |
+| `position/absolute` | 0.0005 | 0.9999 | Unsnapped border at a fractional position |
 | `table/spacing_borders` | 0.0003 | 0.9999 | Same |
-| `ua/blockquote_pre` | 0.0005 | 0.9999 | Sub-pixel glyph positioning |
+| `text/decoration_style` | 0.0002 | 0.9999 | `text-decoration-skip-ink`, deliberate, below |
+| `text/font_size_keywords` | 0.0006 | 0.9999 | Sub-pixel glyph positioning |
+| `text/letter_spacing` | 0.0005 | 0.9999 | Same |
+| `text/text_transform` | 0.0002 | 0.9999 | Same |
+| `ua/blockquote_pre` | 0.0005 | 0.9999 | Same |
 
-Seventeen more read SSIM 1.0000 while still differing on a scattering of antialiased pixels. Each
-is one of the two causes above, and none exceeds 40 levels of grey out of 255.
+Six causes cover all thirty-one. Four are property gaps with a fix behind them — the dash phase,
+the `inset` family, `text-decoration-skip-ink` and the gradient quantisation — and each is written
+up in the sections below. The other two are general: **sub-pixel glyph positioning**, and **a box
+edge landing on a fractional position**.
 
-## Unimplemented layout
+## Unimplemented layout modes
 
-Each of these currently lays out as a plain block. That is deliberate — a wrong box keeps the
-content on the page and shows up as a geometry difference, where dropping the element would leave
-nothing for the corpus to measure — but no scenario covers them, so the corpus still does not
-measure how wrong.
+Each of these lays out as a plain block. That is deliberate — a wrong box keeps the content on the
+page and shows up as a geometry difference, where dropping the element would leave nothing for the
+corpus to measure — and every one reports through `HtmlOptions.OnDiagnostic`, so a document using
+one says so at conversion time rather than only looking wrong afterwards.
 
-They are no longer silent, which is the part that changed: every item below reports through
-`HtmlOptions.OnDiagnostic`, so a document using one says so at conversion time rather than only
-looking wrong afterwards. A report is not a substitute for a scenario — it says the construct was
-not rendered properly, not by how much — but it does mean the dangerous case, an unmeasured gap
-nothing announces, no longer applies to anything in this section.
+A report is not a substitute for a scenario: it says the construct was not rendered properly, not
+by how much. **No scenario in the corpus contains `display: flex` or `display: grid`**, so how
+wrong is still unmeasured.
 
-- **Flexbox**, then **grid**. The most valuable next piece now that positioning is in, and the
-  block substrate they wanted — tables, floats and positioned boxes — is underneath them.
+- **Flexbox**, then **grid**. The most valuable remaining piece by a wide margin, and the block
+  substrate they want — tables, floats, positioned boxes, stacking contexts and `overflow`
+  formatting contexts — is all underneath them now.
+- **Multi-column.** `column-count` is reported and lays out as one column.
 
 ## Text
 
-- **Box edges at fractional positions are not snapped.** A border or background edge that lands on
-  a fractional pixel is painted antialiased, where Chrome snaps a box decoration to whole device
-  pixels first. Measured by `table/spacing_borders` and `image/inline_flow`, and it shows up in
-  tables more than anywhere else because column widths are fractional by nature. Fixing it means
-  snapping at paint time, which touches every background and border in the corpus — worth doing
-  deliberately rather than alongside something else.
-- **Sub-pixel glyph positioning.** The largest residual left: `text/kerning` differs on 1.6% of
+- **Sub-pixel glyph positioning.** The largest residual left: `text/kerning` differs on 2% of
   pixels, and no whole-pixel shift improves it, so it is not an offset. The suspicion is
-  accumulated float error against Chrome's `LayoutUnit`, which is a fixed-point 1/64px. Worth
-  measuring before changing anything — if that is the cause, positioning each glyph from a
-  rounded-to-1/64 running origin should close it.
-- **No UAX #14 line breaking.** Break opportunities are at spaces only, so CJK does not wrap at
-  all and overflows instead. Also no hyphenation. Nothing measures this; a scenario would fail
-  immediately, which is the point of adding one.
-- **No bidirectional resolution.** A run is shaped in one direction, so mixed Arabic or Hebrew
-  with Latin comes out in the wrong order. `krilla_font_shape` takes a direction already, so the
-  missing piece is the UAX #9 paragraph algorithm above it.
-- **No font fallback.** A run resolves to one face; a character that face lacks renders as
-  `.notdef`. This interacts with shaping — fallback means splitting a run at coverage boundaries
-  and shaping each piece separately.
-- **`text-decoration`** covers underline only. Overline and line-through are parsed as "not
-  underline" and drawn as nothing.
-- **Every `font-size` keyword falls through to the inherited size.** `medium`, `large`, `smaller`
-  and the rest are not lengths AngleSharp resolves, so none arrives as one. `<small>` and `<big>`
-  are unaffected — the cascade turns the default stylesheet's sizes for those into real lengths
-  before layout sees them — so this is only reachable by writing a keyword directly, which is
-  ordinary enough CSS to be worth closing. Reported through `OnDiagnostic`. Fixing it means the
-  CSS absolute-size table, measured against Chrome rather than assumed, plus a ratio for
-  `smaller`/`larger`.
-- **`ex` and `ch` units are approximated** at half an em. Exact values need the face's x-height
-  and the advance of `0`, which means threading a face into length resolution.
+  accumulated float error against Chrome's `LayoutUnit`, a fixed-point 1/64px — and that suspicion
+  now has evidence behind it rather than being a guess, because quantising lengths to 1/64 is what
+  took `inline/vertical_align` from 0.9969 to pixel-identical. Positioning each glyph from a
+  rounded-to-1/64 running origin is the thing to try, and it should be measured before anything is
+  changed: it touches every scenario carrying text, which is most of them.
+- **No UAX #14 line breaking.** Break opportunities are spaces, hyphens and dashes, either side of
+  an atomic inline, and the cuts `word-break`/`overflow-wrap` ask for. CJK has none of those, so it
+  does not wrap at all and overflows instead. Only one scenario in the corpus contains any
+  non-ASCII text at all (`inline/hyphen_breaks`, for its dashes), so nothing measures this; a
+  scenario would fail immediately, which is the point of adding one.
+- **No automatic hyphenation.** `hyphens` is reported. Soft hyphens are implemented and measured by
+  `text/soft_hyphen`; what is missing is a dictionary deciding where a break may fall.
+- **No bidirectional resolution.** A run is shaped in one direction, so mixed Arabic or Hebrew with
+  Latin comes out in the wrong order. `krilla_font_shape` takes a direction already, so the missing
+  piece is the UAX #9 paragraph algorithm above it. Nothing measures it.
+- **No font fallback per character.** `FontSet.Fallback` is a whole-face fallback — the face used
+  when family resolution finds nothing — not a coverage-driven one, and neither `FontSet` nor
+  `CharacterMap` tests whether a face covers a given character. A character the resolved face lacks
+  renders as `.notdef`. This interacts with shaping: fallback means splitting a run at coverage
+  boundaries and shaping each piece separately.
+- **`ex` and `ch` are both approximated at half an em** (`CssValues`). `ex` wants the face's
+  x-height, which `OpenTypeMetrics` already reads for `vertical-align: middle`, and `ch` wants the
+  advance of `0`; both mean threading a face into length resolution, which is why neither is done.
+  Not reported, and no scenario uses either unit.
 
 ## Boxes and painting
 
-- **Inline elements generate no box.** `<b>`, `<i>`, `<a>` and `<br>` contribute runs to a line
-  rather than a `LayoutBox`, so the corpus records them as unmatched — 2 in
-  `inline/line_height_normal`, 4 in `inline/nested_inline`, 1 to 2 across `link/`. Inline images
-  already report geometry this way, so the mechanism exists. Doing it properly means an inline box
-  can carry a background, border and padding, which none currently can.
-- **`border-style` is solid or nothing.** Dashed, dotted, double, groove and the rest all paint
-  solid.
-- **`list-style-position: inside` renders as `outside`.** The marker is drawn in the margin instead
-  of in the text flow, because doing it properly means shortening the item's first line, which is a
-  change to inline layout rather than to painting. No scenario measures it, though it does report
-  through `OnDiagnostic`. Drawing the marker at the content edge without shortening the line would
-  overlap the text, which is why it renders as `outside` rather than approximately right.
-- **`list-style-image` and the `type` content attribute are ignored.** `<ol type="a">` numbers in
-  decimal, because HTML's presentational-hint mapping for it is not applied — the same gap
-  `<img width>` used to have, and fixable the same way. Both report through `OnDiagnostic`.
-- **An empty `<li>` is zero high**, where a browser gives it a line box for its marker to sit on.
-  The marker is still drawn, at the baseline that line would have had, so it lands on top of
-  whatever follows. Nothing measures it.
-- **No `overflow` handling.** Content larger than a box with an explicit height paints outside it
-  and is never clipped, because only the page box clips.
+- **`groove`, `ridge`, `inset` and `outset` paint solid.** They need two derived shades of the
+  declared colour, which is the whole of why they were left. This is the entirety of `ua/hr`'s
+  0.9911 — the rule is a zero-height box drawn by its border, so the border is the whole box. It is
+  reported everywhere except on `hr` itself, which `UnsupportedCss.BorderStyles` exempts by name
+  because AngleSharp's default sheet makes every plain `<hr>` `inset` and a page carrying no CSS at
+  all would otherwise report four times.
+- **A dashed border's phase restarts at each corner.** A side whose length is not a whole number of
+  periods therefore ends on a partial dash, where a browser redistributes the remainder along the
+  side so it ends flush. Measured by `block/border_styles`, and it is the largest residual in the
+  corpus: visible at the end of each side and nowhere else, since the dashes along most of every
+  edge line up exactly.
+- **Borders and replaced content are not snapped to whole pixels.** Backgrounds are — the block
+  fill, the inline fill, the inline edge boxes and the background-image origin are all snapped,
+  because that is what the browser fills — but the border path has no snap at all, and neither does
+  an image draw. That is the second general residual: `table/spacing_borders`, `table/columns` and
+  `position/absolute` are borders at fractional positions, and `image/inline_flow` is an image
+  edge. It shows up in tables more than anywhere else because column widths are fractional by
+  nature. Worth doing deliberately rather than alongside something else, and worth knowing that
+  snapping in LAYOUT units does not guarantee whole DEVICE pixels — coordinates round-trip through
+  PDF points, so a fractional width can still leave a faint extra column.
+- **`text-decoration-skip-ink` is not implemented**, and deliberately not reported. Chrome
+  interrupts an underline around a descender at the property's default of `auto`; doing the same
+  needs glyph outlines rather than advances. A report would fire on every underlined document ever
+  converted, so `text/decoration_style` records it as a named residual instead — sixteen pixels, at
+  two `p` descenders and a comma.
+- **A gradient's ramp is quantised differently from Chrome's.** No pixel in `block/gradients`
+  differs by more than two of 255 and `#stops` and `#hard` are exactly identical, so this is a
+  rounding difference along the ramp rather than a geometry one. Probably not worth chasing; it is
+  listed so that the high `AE` is recognisable as expected rather than as a regression.
 - **Percentage heights resolve as `auto`.** Correct whenever the containing height is indefinite,
-  which it usually is in paged media, but wrong for a box inside one with a definite height.
-- **No background images or gradients**, no `opacity`, no `transform`, no `border-radius`.
+  which it is throughout a paginated document, and wrong for a box inside one with a definite
+  height. Deliberately not reported — see Diagnostics.
 
 ## Tables
 
-Implemented: the automatic and fixed column algorithms, row and column spanning, row groups in
-render order, captions, the separated border model with `border-spacing`, and vertical alignment.
-Box geometry matches Chrome exactly across the five `table/` scenarios. What is missing:
-
-- **`border-collapse: collapse` lays out as separated.** A different model rather than a variation
-  on this one: collapsed borders are shared between neighbours, half of each sits outside the cell,
-  and conflicts between a cell's border and its table's resolve by a precedence rule. It is what
-  most real stylesheets set, so this is the largest remaining table gap. No scenario measures it,
-  though it does report through `OnDiagnostic`.
-- **`<col>` and `<colgroup>` are ignored.** They generate no box and their `width` does not reach
-  column sizing, so a document that sizes its columns that way gets automatic widths instead. They
-  are also boxes the browser reports and this does not, so a scenario using them would show
-  unmatched boxes rather than a geometry difference. Reported through `OnDiagnostic`.
+- **A `thead` does not repeat on the second page.** A table taller than the page breaks between
+  rows correctly — `Paginator.Unbreakable` yields a row's border box, and `page/table_break`
+  measures it — so the missing piece is narrow: repeating the header group at each page top and
+  accounting for the space it takes. This is the feature people expect from HTML-to-PDF conversion
+  of a long table. Nothing measures it: `page/table_break` has no `thead`, and `table/sections` has
+  one but fits on a single page.
 - **`vertical-align: baseline` on a cell renders as `top`.** Aligning a row's cells against each
   other's first baselines needs a pass that does not exist. It is not the default — the user-agent
-  stylesheet makes cells `middle` — so this is only reachable by asking for it.
-- **A table is paginated like any other box.** A table taller than the page breaks between lines
-  wherever the scan lands, so a row can be cut in half and a `thead` does not repeat on the second
-  page. Repeating headers is the feature people expect from HTML-to-PDF conversion of a long table,
-  and it needs pagination to know what a table is.
-- **Presentational attributes are not applied.** `<table width>`, `<td bgcolor>`, `<tr height>`,
-  `<p align>`, `<font color>` and `<ol type>` all reach the cascade as nothing, because AngleSharp
-  performs none of HTML's presentational-hint mapping. The same gap `<img width>` used to have, and
-  fixable the same way — `BoxBuilder.WithAttributeSize` is the shape of the fix. `UnsupportedAttributes`
-  holds the list, so every one of them reports through `OnDiagnostic` until then. Worth closing
-  rather than dismissing as legacy markup: reporting tools and mail merges emit exactly this.
+  stylesheet makes cells `middle` — so this is only reachable by asking for it, and it is reported.
 
 ## Floats
 
-Implemented: placement on both sides, stacking and descent, shrink-to-fit width, `clear` on blocks
-and on floats, line boxes shortened by the floats they overlap, lines descending past a float that
-leaves them no room, and containment by the box establishing the formatting context. Box geometry
-matches Chrome exactly across the four `float/` scenarios. What is missing:
-
-- **A float declared part-way through inline content is placed at the top of its block**, where a
-  browser puts it on the line being built when it was reached. The common arrangements are exact —
-  a float before the text, or as a child of a block whose other children are blocks — and this is
-  the one that is not. It shows as the float sitting higher up the page than it should, taking a
-  line or two of text with it. Nothing measures it.
-- **Nothing establishes a formatting context except the root, a float and a table cell.** CSS also
-  gives one to `overflow` other than `visible`, to `inline-block`, and to a table — and the
-  clearfix idiom that every real stylesheet uses to contain floats is `overflow: hidden` on the
-  parent. Until that works, a document written to that idiom has floats hanging out of the box that
-  was supposed to hold them.
-- **A block beside a float is never pushed aside**, which is right for an ordinary block and wrong
-  for one that establishes a formatting context: CSS 2.1 §9.5 says a table, a block-level REPLACED
-  element or an `overflow: hidden` block must not overlap a float, and narrows or moves it instead.
-  Measured while writing `block/box_sizing`, whose `<img>` Chrome pushes to the right of a float
-  that is still hanging and this engine leaves under it — which is why that scenario puts its float
-  last. Mostly blocked on the point above, though the replaced case needs no formatting context of
-  its own and could be closed on its own.
 - **Clearance is applied after the collapsed margin rather than as a quantity of its own.** CSS 2.1
   §9.5.2 introduces clearance separately and stops the margin collapsing through it. The difference
-  appears only when a cleared box carries a margin large enough to clear the float unaided, which is
-  why `float/clear` stays away from it.
-- **The band a line is given is sampled over the strut height**, not the line height it turns out to
-  have. A line made taller by an image or a larger inline font could overlap a float that begins
-  a little below its top edge. Sampling correctly means laying the line out twice.
+  appears only when a cleared box carries a margin large enough to clear the float unaided, which
+  is why `float/clear` stays away from it.
+- **The band a line is given is sampled over the strut height**, not the line height it turns out
+  to have. A line made taller by an image or a larger inline font could overlap a float that begins
+  a little below its top edge. Sampling correctly means laying the line out twice, which is why it
+  was left; the strut is the block's own line-height and is right whenever the line has no taller
+  content in it.
+
 ## Positioning
 
-Implemented: `relative` with all four offsets, `absolute` against the nearest positioned ancestor
-or the page, the static position for auto offsets, shrink-to-fit and left-plus-right widths,
-per-axis percentage offsets, and CSS 2.1 Appendix E paint order. Box geometry matches Chrome
-exactly across the three `position/` scenarios. What is missing:
-
 - **`position: fixed` is placed once rather than repeated on every page.** Its geometry against the
-  page is right, so the difference is entirely about paged media: CSS repeats a fixed box on each
-  page, which is what would make it usable for a running header. Reported through `OnDiagnostic`.
-  This is the one gap in this section with a real use behind it.
-- **No `z-index`, and nothing establishes a stacking context.** Two positioned boxes that overlap
-  are ordered by their position in the tree, so a document that layers deliberately gets the
-  ordering it wrote rather than the one it asked for. Nothing measures it.
+  page is right — `position/fixed` measures that — so the difference is entirely about paged media:
+  CSS repeats a fixed box on each page, which is what would make it usable for a running header.
+  Reported, and unmeasured, because `position/fixed` is a single-page scenario.
 - **Auto margins on an absolute box resolve to zero rather than centring it.** CSS centres a box
   whose width and both offsets are given and whose margins are both auto, which is one of the two
   standard centring idioms. Nothing measures it.
-- **An absolute box does not paginate.** It is placed once at a document position, so one taller
-  than the remaining space on its page is cut at the page edge rather than continued. The same is
-  true of a float, and both are the same missing piece.
-- **`min-height` and `max-height` are not read**, on positioned boxes or on anything else, so an
-  absolute box sized between two offsets ignores them.
 
-## Pagination
+## Pagination and paged media
 
-- **No `break-before` / `break-after` / `break-inside`**, and no orphans or widows. A break falls
-  wherever the line-based scan puts it, so a heading can end a page with its paragraph overleaf.
-- **No `@page` margin boxes**, so no running headers or footers and no page numbers. This is one
-  of the commonest reasons to convert HTML to PDF at all, and it needs a decision about how to
-  express content that repeats per page.
+- **No `@page` margin boxes and no page selectors.** So no running headers or footers and no page
+  numbers, and `:first`/`:left`/`:right` select nothing. This is one of the commonest reasons to
+  convert HTML to PDF at all, and it needs a decision about how to express content that repeats per
+  page — which makes it the natural companion to repeating table headers and to `position: fixed`
+  above, since all three are the same missing capability seen from three directions. Reported.
+- **`break-before: avoid` and `break-after: avoid` are reported rather than implemented.**
+  `break-inside: avoid` is done, because it names a rectangle to keep together and the slice
+  already moves rectangles whole. Avoiding a break at a box EDGE asks for a break to be moved
+  somewhere earlier, and the slice has no notion of rejecting a candidate in favour of one further
+  back.
 
 ## Structure and metadata
 
-- **No tagged PDF.** Krilla has full tagging support — `SetTagTree`, `Tagging.cs`, and
-  `AddTaggedLink` is already used by nothing here — and HTML carries exactly the semantics a tag
-  tree wants: headings, lists, tables, figures, alt text. This is a genuine differentiator against
-  other HTML-to-PDF libraries and nothing about it is blocked.
+- **No tagged PDF.** `Krilla` exposes `DocumentOptions.EnableTagging`, a tag tree and
+  `Surface.AddTaggedLink`, and `Krilla.Html` calls none of them. HTML carries exactly the semantics
+  a tag tree wants: headings, lists, tables, figures, alt text. The neighbouring structure work has
+  landed — the outline from headings, a named destination per `id`, the document title and language
+  — so this is the remaining half of it, and it is a genuine differentiator against other
+  HTML-to-PDF libraries with nothing blocking it.
 - **`alt` text is discarded.** An image that fails to resolve generates no box, matching a browser
-  with no alt text, but an image that has alt text should carry it into the tag tree.
-- **No document outline** from headings, though `SetOutline` exists and a heading tree maps onto it
-  directly.
+  with no alt text, but an image that has alt text should carry it into the tag tree. Nothing in
+  the converter reads the attribute, and no corpus scenario sets one.
 
 ## Diagnostics
 
 `HtmlOptions.OnDiagnostic` reports constructs the engine recognised and did not render the way a
 browser would, and the invariant it carries is that a conversion reporting nothing rendered
-everything correctly. That invariant is only as good as the table behind it, so what the table does
-NOT cover belongs here:
+everything the way a browser would. That invariant is only as good as the table behind it, so what
+the table does NOT cover belongs here:
 
 - **Nothing below the declaration level reports.** Missing UAX #14 line breaking, bidirectional
   resolution and font fallback are properties of the text, not of a declaration anyone wrote, so no
   amount of scanning the cascade finds them. A document in Arabic converts silently and wrongly.
   The same is true of the `ex` and `ch` approximation and of sub-pixel glyph positioning.
-- **Structural gaps do not report.** An inline element generating no box, an empty `<li>` being
-  zero high, a table paginating between lines rather than between rows, `@page` being ignored
-  outright: each is a shape the engine does not produce rather than a value it declined to honour,
-  and there is no site in the cascade scan to hang them on.
+- **Structural gaps do not report.** A table not repeating its header group, an absolute box's auto
+  margins not centring it, a fixed box not repeating: each is a shape the engine does not produce
+  rather than a value it declined to honour, and there is no site in the cascade scan to hang them
+  on. `position: fixed` reports only because the declaration itself is a site.
 - **A percentage height resolving as `auto`** is correct whenever the containing height is
   indefinite and wrong otherwise, and which of those applies is a layout result rather than a
-  declaration. Reporting it from `StyleResolver` would fire on documents that are perfectly correct,
-  which is the one thing the table must not do.
+  declaration. Reporting it from `StyleResolver` would fire on documents that are perfectly
+  correct, which is the one thing the table must not do.
 - **Origin is not testable.** `ComputeCascadedStyle` does not say whether a declaration came from
   the document or from the default stylesheet, so a UA rule the author never wrote can only be kept
   quiet by naming the element. `hr` is the single case that needs it today; a second one would be a
   reason to look for a real fix rather than to add another exemption.
+- **A value nothing PARSES is a value nothing can report.** The audit that diffs what
+  `StyleResolver` reads against what `UnsupportedCss` lists cannot see a syntax the resolver does
+  not recognise — `calc()` was that case, falling through to the unparseable fallback with no
+  diagnostic possible. Re-run the audit when adding properties, and remember it has this blind
+  spot.
 
 ## Known limitations that are workarounds, not bugs
 
@@ -258,23 +238,34 @@ work rather than as tidying.
   origin first. A consumer reset relying on `* { margin: 0 }` will not clear the UA margins on
   `body` and `p`. `Inputs/flatten.css` names elements explicitly to work around it. Fixing it
   properly means filtering declarations by origin, which `ComputeCascadedStyle` does not expose.
+- **AngleSharp drops some declarations rather than passing the value through**, so they can be
+  neither honoured nor reported: `revert`, `text-overflow`, the `min-content`/`max-content`/
+  `fit-content` sizing keywords, `aspect-ratio` given a single number, `overflow-wrap: anywhere`,
+  and `recto`/`verso` on both break spellings. `@page`'s `size` is dropped too and is the one
+  recovered by hand, from the stylesheet's own text, because a page size is a whole-document
+  difference.
 - **A generic font family cannot be pinned in the corpus**, because a generic name is not legal as
   an `@font-face` family, so "does `<pre>` default to monospace" is not measurable here.
 - **`line-height: normal` imitates Chrome's rounding** rather than following a specification,
   because CSS explicitly leaves the value to the user agent. If the reference browser ever changes,
-  this is the first thing that will move.
+  this is the first thing that will move. The same is true of every number in `ListMarkers`.
 
 ## Infrastructure
 
-- **The corpus references are generated on one platform.** Regenerating all 41 on the machine that
-  produced them is now known to be byte-identical, so the generator is at least deterministic — but
-  that is the lesser half. The claim that matters is still untested: generating on a second machine,
-  with a different Chromium build, and diffing the PNGs. Until then a platform-specific difference
-  would look like a layout regression.
-- **`cargo deny` and `cargo about` have not been run against the rustybuzz dependency locally.**
-  Both should be no-ops — the lock diff adds no package — but only CI has confirmed it.
-- **`Krilla.Html` is not in the release pack job** and has no `IntegrationTests` coverage, so
-  nothing yet tests that it resolves from a packed nupkg the way `Krilla` does.
+- **The corpus references are generated on one platform.** Regenerating on the machine that
+  produced them is known to be byte-identical, so the generator is at least deterministic — but
+  that is the lesser half. The claim that matters is still untested: generating all 119 on a second
+  machine, with a different Chromium build, and diffing the PNGs. Until then a platform-specific
+  difference would look like a layout regression.
+- **`Krilla.Html` is never packed or published by CI.** It packs perfectly well locally — the
+  release job simply builds `src/Krilla/Krilla.csproj` alone, so only `Krilla` reaches `./nugets`
+  and only `Krilla` is pushed. `IntegrationTests` references `Krilla` too, so nothing tests that
+  `Krilla.Html` resolves from a packed nupkg the way `Krilla` does.
 - **Shaping allocates per inline item.** `ShapedText` shapes once and slices, which is the right
   shape, but nothing caches across items — a document repeating the same short string in many
-  elements reshapes it every time. Measure before optimising.
+  elements reshapes it every time. Measure before optimising, and note that nothing currently
+  measures it: the benchmark project covers list marker text alone, and no benchmark converts a
+  whole document.
+- **`inline/vertical_align`'s notes claim a residual it no longer has.** They record SSIM 0.9989;
+  the scenario is pixel-identical now. It is the only scenario whose stated residual disagrees with
+  what the corpus records, and correcting the prose is the whole of the work.
