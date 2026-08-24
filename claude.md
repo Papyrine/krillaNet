@@ -97,7 +97,8 @@ Mirrors Morph.PDFium: `KrillaNative.*.cs` partials of one `static partial class`
 
 ### The HTML converter (`src/Krilla.Html`)
 
-Three stages, each inspectable on its own: AngleSharp parses and runs the cascade, `Layout/` turns the styled tree into positioned boxes, and `Painting/PdfPainter` draws those boxes through `Krilla.Surface`. Implemented: block and inline layout, inline-block, tables, floats, relative and absolute positioning, the box model including `box-sizing`, collapsing margins, line breaking, alignment, pagination including forced page breaks, `overflow` clipping and the block formatting context that comes with it, `visibility`, `text-transform`, letter and word spacing, the `font-size` keywords, all three text decorations, `vertical-align` on inline boxes, dashed, dotted and double borders, `border-radius`, `opacity`, `transform`, linear and radial gradients, `outline`, `object-fit`, `caption-side`, `list-style-position`, both border models including `border-collapse`, images, links, and list markers. Flex and grid lay out as plain blocks — deliberately, so unimplemented CSS shows up in the corpus as a geometry difference rather than as missing content nothing measures.
+Three stages, each inspectable on its own: AngleSharp parses and runs the cascade, `Layout/` turns the styled tree into positioned boxes, and `Painting/PdfPainter` draws those boxes through `Krilla.Surface`. Implemented: block and inline layout, inline-block, tables, floats, relative and absolute positioning, the box model including `box-sizing`, collapsing margins, line breaking, alignment, pagination including forced page breaks, `overflow` clipping and the block formatting context that comes with it, `visibility`, `text-transform`, letter and word spacing, the `font-size` keywords, all three text decorations, `vertical-align` on inline boxes, dashed, dotted and double borders, `border-radius`, `opacity`, `transform`, `z-index` and the stacking contexts that come with it, linear and
+radial gradients, `outline`, `object-fit`, `caption-side`, `list-style-position`, both border models including `border-collapse`, images, links, and list markers. Flex and grid lay out as plain blocks — deliberately, so unimplemented CSS shows up in the corpus as a geometry difference rather than as missing content nothing measures.
 
 And, from the paged-media and structure work: a document's `@page` rules decide the paper unless
 `HtmlOptions.HonourPageRules` says otherwise, media queries resolve against PRINT, sided forced
@@ -138,22 +139,23 @@ It records two independent measurements, and **asserts neither**:
 - **`reference.boxes.json`** — the browser's `getBoundingClientRect()` per element, against our box tree. Integer-exact, localising ("this paragraph is 14px low" is a defect report), and — the practical reason it leads — computable without the native library, so it works on a machine with no Rust toolchain.
 - **`reference_0001.png`** — pixels, via AbsoluteError and SSIM.
 
-**Box geometry currently sits at zero across all 118 scenarios, with nothing unmatched**, and 87
+**Box geometry currently sits at zero across all 119 scenarios, with nothing unmatched**, and 88
 read SSIM 1.0000. Several got there by finding a defect first, which is the argument for adding a
 scenario for anything the engine implements rather than only for what it implements well:
 `block/anonymous` found trailing inline content hoisted above a block sibling, `position/fixed`
 found a fixed box resolved against the nearest positioned ancestor, `table/empty` found edge spacing
 on a section with no columns, `page/table_break` found a break taken at the line inside a table row,
 `inline/vertical_align_length` found that the corpus could not see an inline element at all, and
-`text/word_break` found a word moved to a fresh line and then never offered for splitting. Each is
-written up in its own `notes.md`. The remaining pixel residuals each have a named cause rather than
+`text/word_break` found a word moved to a fresh line and then never offered for splitting, and
+`position/z_index` found an absolute box inside a stacking context painted twice — once where it
+belonged and once flattened onto the page. Each is written up in its own `notes.md`. The remaining pixel residuals each have a named cause rather than
 a mystery: `block/border_styles` (0.9906) and `ua/hr` (0.9911) are patterned and `inset` rules,
 `text/kerning` (0.9945) and `text/ligatures` (0.9982) are sub-pixel glyph positioning,
 `text/decoration_style` (0.9999) is `text-decoration-skip-ink`, `image/inline_flow` (0.9998) is
 antialiasing on an image edge at a fractional position, and the rest are the same glyph positioning
 seen on fewer words. A scenario reading SSIM 1.0000 is not necessarily pixel-identical —
 twenty-eight differ on a scattering of antialiased pixels, which is what `AE` is there to show.
-Fifty-nine are identical outright.
+Sixty are identical outright.
 
 **The unmatched count is an assertion, not a statistic.** `BaselineHealthTests.EveryElementIsMeasured`
 requires every element the browser laid out to have a box on this side. It closes the same hole
@@ -228,6 +230,45 @@ Measured out of Chrome before being written, the same as the float rules. `Posit
 - **Paint order is CSS 2.1 Appendix E, not document order**: in-flow blocks, then floats, then inline content, then everything positioned. It only becomes visible once boxes overlap, which is exactly what positioning is for — `position/relative` went from SSIM 0.9969 to 1.0000 on this change alone, with its geometry already exact.
 - **And Appendix E is a set of PHASES over the whole page, not an order within each box.** Every background and border in a layer goes down in tree order, then every float, then every line — so an earlier sibling's overflowing text sits on top of a later sibling's background rather than under it. Applying the same sequence box by box is indistinguishable while nothing overlaps, which is why it survived so long: making the phases global left all 69 existing scenarios pixel-identical and changed only the order of the operators in their PDFs. `block/overflow_paint` is the case that tells them apart, with a box overflowed by `max-height` and a float taller than the box that declared it.
 - **A block-level replaced element's content paints with the inline content, not with the backgrounds.** Appendix E step 7 rather than step 3: an image hanging out of a short box sits over a later sibling for the same reason that box's text does.
+
+## Traps in stacking order
+
+`position/z_index` measures these, and is both pixel-identical and geometry-exact against Chrome.
+Nothing here moves a box, so the geometry staying at zero is what says the property changed painting
+alone.
+
+- **`z-index` was READ NOWHERE and was absent from the diagnostic table**, so a document stacking its
+  boxes deliberately came out in tree order in silence. Found by diffing what `StyleResolver` reads
+  against what `UnsupportedCss` lists — the same audit that found `min-height` and `list-style-type`,
+  and the same shape: a considered-looking comment (`// z-index is not implemented.`) beside the
+  fallback, which is exactly where an unreported gap hides.
+- **`z-index: 0` is not the no-op it reads as.** Any integer on a positioned box — zero included —
+  establishes a stacking context and confines the positioned boxes inside it; only `auto` does not.
+  So `ZIndex` is `int?` rather than `int`, and null is a different thing from zero at both of the
+  places it is read. `position/z_index`'s `#zero` row is the only place the corpus can see it.
+- **A level is measured against SIBLINGS, not against the page.** A descendant at `z-index: 100`
+  inside a context at 1 stays under a sibling context at 2. Comparing levels globally is the
+  plausible reading and puts the descendant on top.
+- **A negative context paints between a box's own background and its content**, which is what makes
+  `z-index: -1` disappear behind the background of the very box that declares it. Those two were one
+  walk — `Backgrounds` painted a box's decoration and then descended — so honouring it meant lifting
+  Appendix E step 1 out of the layer walk into `PaintStack`. That lift is the whole structural change
+  the property cost; the sort was the easy half.
+- **The sort has to be STABLE.** `auto` and `0` share step 6 and fall back to tree order, which is
+  the order `Hoisted` already yields. An unstable sort is correct on every arrangement where no two
+  boxes share a level, which is nearly all of them — hence the `#tie` row, which renders identically
+  with or without the property implemented and exists only to pin this.
+- **`Hoisted` guarded its CHILD walk against descending into a context and not its `Positioned`
+  one** — and an absolute box hangs off the box that declared it, so `Positioned` is the branch
+  nearly every one of them arrives through. Everything positioned inside a context was collected
+  twice: once inside it, and once flattened onto the page where its level was compared against the
+  page's. Invisible before this, because the only contexts were `opacity` and `transform` boxes and
+  no scenario nested an absolute inside one. `position/z_index`'s last two rows found it on their
+  first render.
+- **An unpositioned box that takes a context through `opacity` or `transform` sorts where `auto`
+  sorts.** CSS Color says exactly that: paint it where a positioned box at `z-index: 0` would go.
+  Which is why `StackingOrder` gates on `IsPositioned` rather than reading `ZIndex` directly — an
+  integer on a static box is ignored by CSS itself, so it is silent rather than reported.
 
 ## Traps in text layout
 

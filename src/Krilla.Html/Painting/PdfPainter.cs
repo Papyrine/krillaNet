@@ -86,36 +86,100 @@ static class PdfPainter
 
         var slice = new PageSlice(pageTop, pageTop + content.Height, pageEnd, links, toPage);
 
-        PaintLayer(surface, root, slice);
-
-        // Positioned boxes are painted here rather than where they were declared, because they
-        // belong to the stacking layer of the page and not to the flow position of whichever box
-        // happened to contain them. Painting one inside its declaring parent buries it under any
-        // later sibling — and the box it is anchored to is frequently an ancestor of that sibling,
+        // The page is the initial stacking context, so everything on it goes down in the order
+        // Appendix E gives that one — which is not the order it was declared in. A positioned box
+        // belongs to the stacking layer of the page rather than to the flow position of whichever
+        // box happened to contain it, and painting one inside its declaring parent buries it under
+        // any later sibling; the box it is anchored to is frequently an ancestor of that sibling,
         // so the burial is the normal case rather than a corner one.
-        //
-        // Flattened to one list rather than nested, which is Appendix E's own rule: a positioned
-        // descendant of a float, or of another positioned box, belongs to the PARENT stacking
-        // context and not to the one it sits inside.
-        //
-        // Tree order settles two of them, since nothing here establishes a stacking context and
-        // z-index is not implemented.
-        foreach (var context in Hoisted(root))
+        PaintStack(surface, root, slice, collects: true);
+    }
+
+    /// <summary>
+    /// Paints one stacking context: <paramref name="box"/>'s own decoration, the contexts inside
+    /// it that sit under its content, its in-flow layer, and then the contexts above.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// CSS 2.1 Appendix E's steps as far as the feature set reaches them. Step 1 is the box's own
+    /// background and border, step 2 the negative <c>z-index</c> contexts, steps 3 to 5 the layer
+    /// (see <see cref="PaintLayer"/>), and steps 6 and 7 everything left, ordered by
+    /// <see cref="Ordered"/>.
+    /// </para>
+    /// <para>
+    /// Step 1 is lifted out of the layer walk here rather than left where every other box's
+    /// background is painted, and that lifting is the whole reason this method exists: a negative
+    /// context paints UNDER its parent's content and OVER its parent's background, and those two
+    /// are one walk until the background is taken out of it. Fusing them is what would make
+    /// <c>z-index: -1</c> paint over the background of the very box that declares it, where a
+    /// browser hides it behind — the property's most quoted surprise, and the row
+    /// <c>position/z_index</c> keeps for it.
+    /// </para>
+    /// <para>
+    /// <paramref name="collects"/> is false for a positioned box that establishes no context of
+    /// its own. Its positioned descendants were flattened onto the page by the walk that found it,
+    /// so gathering them again here would paint every one of them a second time.
+    /// </para>
+    /// </remarks>
+    static void PaintStack(Surface surface, LayoutBox box, PageSlice page, bool collects)
+    {
+        var contexts = Ordered(box, collects);
+
+        // Sorted, so the negative ones are a prefix and one scan finds where they end.
+        var above = 0;
+
+        while (above < contexts.Count &&
+               contexts[above].Style.StackingOrder < 0)
         {
-            PaintContext(surface, context, slice);
+            above++;
+        }
+
+        Decorate(surface, box, page);
+
+        for (var i = 0; i < above; i++)
+        {
+            PaintContext(surface, contexts[i], page);
+        }
+
+        PaintLayer(surface, box, page, decorated: true);
+
+        for (var i = above; i < contexts.Count; i++)
+        {
+            PaintContext(surface, contexts[i], page);
         }
     }
+
+    /// <summary>
+    /// The contexts <paramref name="box"/> paints, in the order Appendix E paints them.
+    /// </summary>
+    /// <remarks>
+    /// A STABLE sort on <see cref="ComputedStyle.StackingOrder"/>, which is what settles steps 6
+    /// and 7 between them: <c>auto</c> and <c>0</c> share step 6 and fall back to tree order,
+    /// which is the order <see cref="Hoisted"/> already yields. An unstable sort would reorder
+    /// them arbitrarily and be right on every arrangement where no two share a level.
+    ///
+    /// Empty when <paramref name="collects"/> is false, which is the case for a positioned box
+    /// that establishes no context: what is inside it belongs to the walk that found it.
+    /// </remarks>
+    static List<LayoutBox> Ordered(LayoutBox box, bool collects) =>
+        collects
+            ? Hoisted(box)
+                .OrderBy(_ => _.Style.StackingOrder)
+                .ToList()
+            : [];
 
     /// <summary>
     /// Paints one hoisted box, and anything that establishes a context inside it.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// The recursion is what keeps a stacking context's contents INSIDE it. A positioned box is
-    /// flattened to the page, which is Appendix E's rule and what <see cref="Hoisted"/> does; a
-    /// box establishing a context is not, because everything under it has to be composited as one
-    /// group before that group is faded. Flattening a positioned descendant out of a half-opaque
-    /// parent would paint it at full strength beside its faded siblings.
+    /// The recursion through <see cref="PaintStack"/> is what keeps a stacking context's contents
+    /// INSIDE it. A positioned box is flattened to the page, which is Appendix E's rule and what
+    /// <see cref="Hoisted"/> does; a box establishing a context is not, because everything under it
+    /// has to be composited as one group before that group is faded, and because a
+    /// <c>z-index</c> inside it is measured against its siblings rather than against the page —
+    /// which is what stops a descendant at <c>z-index: 100</c> climbing over a context its parent
+    /// sits below.
     /// </para>
     /// <para>
     /// The fade wraps both, so a positioned descendant of a faded box is inside the group.
@@ -125,20 +189,7 @@ static class PdfPainter
     {
         using var _ = Fade(surface, box);
 
-        PaintLayer(surface, box, page);
-
-        // Only a stacking context has anything left to collect. A positioned box's own positioned
-        // descendants were flattened to the page by the walk that found this one, so recursing
-        // here would paint every one of them a second time.
-        if (!box.Style.CreatesStackingContext)
-        {
-            return;
-        }
-
-        foreach (var inner in Hoisted(box))
-        {
-            PaintContext(surface, inner, page);
-        }
+        PaintStack(surface, box, page, collects: box.Style.CreatesStackingContext);
     }
 
     /// <summary>
@@ -173,10 +224,19 @@ static class PdfPainter
     /// Every positioned box under <paramref name="box"/>, in document order.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Relatively positioned boxes as well as absolute and fixed ones: <c>position: relative</c>
     /// leaves a box in flow, and out of Appendix E's steps 3 and 7 all the same. Includes those
     /// nested inside floats and inside other positioned boxes, which land after their ancestor by
-    /// virtue of the walk order and so paint on top of it.
+    /// virtue of the walk order.
+    /// </para>
+    /// <para>
+    /// One FLAT list rather than a nested one, which is Appendix E's own rule: a positioned
+    /// descendant of a float, or of a positioned box that took no context of its own, belongs to
+    /// the PARENT stacking context and is ordered against that context's other children rather
+    /// than against its own ancestor. The one thing that stops the walk is a box that DOES
+    /// establish a context, whose contents are that context's to order and to composite.
+    /// </para>
     /// </remarks>
     static IEnumerable<LayoutBox> Hoisted(LayoutBox box)
     {
@@ -221,9 +281,20 @@ static class PdfPainter
             }
         }
 
+        // An absolute box hangs off the box that DECLARED it rather than off its children, so this
+        // is the branch nearly every one of them arrives through — and it needs the same guard the
+        // child walk has. Without it a context reached this way is collected AND descended into,
+        // which paints everything positioned inside it twice: once inside the context where it
+        // belongs, and once flattened onto the page where its own level is compared against the
+        // page's rather than against its siblings'. `position/z_index`'s last two rows found it.
         foreach (var entry in box.Positioned)
         {
             yield return entry.Box;
+
+            if (entry.Box.Style.CreatesStackingContext)
+            {
+                continue;
+            }
 
             foreach (var positioned in Hoisted(entry.Box))
             {
@@ -298,9 +369,9 @@ static class PdfPainter
     /// into one list rather than nesting.
     /// </para>
     /// </remarks>
-    static void PaintLayer(Surface surface, LayoutBox root, PageSlice page)
+    static void PaintLayer(Surface surface, LayoutBox root, PageSlice page, bool decorated = false)
     {
-        Backgrounds(surface, root, page);
+        Backgrounds(surface, root, page, decorate: !decorated);
 
         foreach (var floated in Floats(root))
         {
@@ -314,29 +385,21 @@ static class PdfPainter
     /// <summary>
     /// Appendix E steps 3 and 4: the backgrounds and borders of a layer's boxes, in tree order.
     /// </summary>
-    static void Backgrounds(Surface surface, LayoutBox box, PageSlice page)
+    /// <remarks>
+    /// <paramref name="decorate"/> is false when the caller has already painted the top box's own
+    /// decoration as step 1, which <see cref="PaintStack"/> does so that a negative <c>z-index</c>
+    /// context can be painted between the two.
+    /// </remarks>
+    static void Backgrounds(Surface surface, LayoutBox box, PageSlice page, bool decorate = true)
     {
         if (page.Skip(box))
         {
             return;
         }
 
-        // A box beginning at or after the break was moved WHOLE to the next page and does not
-        // appear on this one at all — which is a different thing from a box the break falls
-        // inside, whose fragment here fills the rest of the page. Hence a test on the top edge
-        // rather than a clip at the break: the clip would truncate the straddling case too, and a
-        // browser paints that one down to the paper.
-        //
-        // Bounding only the lines is what left a table row moved overleaf with a sliver of its
-        // cell backgrounds stranded at the foot of the page before. `page/table_break` measures it.
-        if (box.BorderBox.Y < page.End &&
-            box.Style.Visibility == VisibilityKind.Visible &&
-            !Suppressed(box))
+        if (decorate)
         {
-            PaintBackground(surface, box);
-            PaintBorders(surface, box);
-            PaintCollapsedLines(surface, box);
-            PaintOutline(surface, box);
+            Decorate(surface, box, page);
         }
 
         // The clip covers the DESCENDANTS and not the box itself: `overflow` clips what overflows
@@ -348,6 +411,35 @@ static class PdfPainter
         {
             Backgrounds(surface, child, page);
         }
+    }
+
+    /// <summary>
+    /// One box's own background, borders, collapsed grid lines and outline.
+    /// </summary>
+    /// <remarks>
+    /// A box beginning at or after the break was moved WHOLE to the next page and does not appear
+    /// on this one at all — which is a different thing from a box the break falls inside, whose
+    /// fragment here fills the rest of the page. Hence a test on the top edge rather than a clip
+    /// at the break: the clip would truncate the straddling case too, and a browser paints that
+    /// one down to the paper.
+    ///
+    /// Bounding only the lines is what left a table row moved overleaf with a sliver of its cell
+    /// backgrounds stranded at the foot of the page before. `page/table_break` measures it.
+    /// </remarks>
+    static void Decorate(Surface surface, LayoutBox box, PageSlice page)
+    {
+        if (page.Skip(box) ||
+            box.BorderBox.Y >= page.End ||
+            box.Style.Visibility != VisibilityKind.Visible ||
+            Suppressed(box))
+        {
+            return;
+        }
+
+        PaintBackground(surface, box);
+        PaintBorders(surface, box);
+        PaintCollapsedLines(surface, box);
+        PaintOutline(surface, box);
     }
 
     /// <summary>

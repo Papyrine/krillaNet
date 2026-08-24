@@ -603,16 +603,6 @@ static class BlockLayout
         return width;
     }
 
-    /// <summary>Applies <c>min-height</c> and <c>max-height</c>, in that precedence.</summary>
-    /// <remarks>
-    /// Percentages are skipped rather than resolved, for the reason a percentage <c>height</c> is:
-    /// the containing height is indefinite throughout a paginated document, and CSS says a
-    /// percentage against an indefinite containing height behaves as though it were not there.
-    ///
-    /// Nothing is clipped by a maximum — <c>overflow</c> is not implemented and is reported — so a
-    /// box shortened here keeps drawing its content past its own bottom edge, which is what
-    /// <c>overflow: visible</c> asks for anyway.
-    /// </remarks>
     /// <summary>
     /// The content height an <c>aspect-ratio</c> asks for, or null when there is none.
     /// </summary>
@@ -639,6 +629,16 @@ static class BlockLayout
         return style.ContentSize(borderBoxWidth / style.AspectRatio, surroundY);
     }
 
+    /// <summary>Applies <c>min-height</c> and <c>max-height</c>, in that precedence.</summary>
+    /// <remarks>
+    /// Percentages are skipped rather than resolved, for the reason a percentage <c>height</c> is:
+    /// the containing height is indefinite throughout a paginated document, and CSS says a
+    /// percentage against an indefinite containing height behaves as though it were not there.
+    ///
+    /// Shortening a box here does not by itself hide what it holds: content keeps drawing past the
+    /// bottom edge, which is what <c>overflow: visible</c> asks for. A box that clips is the one
+    /// declaring <c>overflow</c>, and it clips in the painter rather than here.
+    /// </remarks>
     static float ClampHeight(float height, ComputedStyle style, float surround)
     {
         if (style.MaxHeight.Kind == LengthKind.Absolute)

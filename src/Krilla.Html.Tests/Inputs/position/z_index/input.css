@@ -1,0 +1,84 @@
+#order, #tie, #behind, #confined, #zero {
+  position: relative;
+  width: 400px;
+  height: 70px;
+  margin-bottom: 20px;
+}
+
+/* The whole property in one row. Document order would put #below on top, because it is written
+   second; z-index puts #above there instead. */
+#above {
+  position: absolute; z-index: 2;
+  top: 0; left: 0; width: 200px; height: 50px;
+  background-color: #c04040;
+}
+#below {
+  position: absolute; z-index: 1;
+  top: 20px; left: 100px; width: 200px; height: 50px;
+  background-color: #40a060;
+}
+
+/* Equal levels fall back to tree order, so the one written second wins. Nothing about this row
+   needs z-index to render correctly — it is here to hold the SORT stable, since an unstable one
+   is right on every arrangement where no two boxes share a level. */
+#first {
+  position: absolute; z-index: 1;
+  top: 0; left: 0; width: 200px; height: 50px;
+  background-color: #c04040;
+}
+#second {
+  position: absolute; z-index: 1;
+  top: 20px; left: 100px; width: 200px; height: 50px;
+  background-color: #40a060;
+}
+
+/* A negative box paints under the in-flow content and over the background behind it, so #under
+   shows everywhere #cover does not. Wider than #cover on purpose: a box that were dropped
+   altogether would leave the same green rectangle, and only the red surround tells the two apart. */
+#under {
+  position: absolute; z-index: -1;
+  top: 0; left: 0; width: 260px; height: 60px;
+  background-color: #c04040;
+}
+#cover {
+  width: 160px; height: 40px; margin-left: 50px;
+  background-color: #40a060;
+}
+
+/* A level is measured against SIBLINGS, not against the page. #child asks for 100 and stays below
+   #sibling's 2, because #parent established a context at 1 and its descendants cannot climb out
+   of it. Reading the levels globally puts #child on top and looks entirely reasonable. */
+#parent {
+  position: absolute; z-index: 1;
+  top: 0; left: 0; width: 220px; height: 60px;
+  background-color: #c8c8e0;
+}
+#child {
+  position: absolute; z-index: 100;
+  top: 10px; left: 10px; width: 180px; height: 40px;
+  background-color: #c04040;
+}
+#sibling {
+  position: absolute; z-index: 2;
+  top: 25px; left: 120px; width: 200px; height: 35px;
+  background-color: #40a060;
+}
+
+/* z-index: 0 is not the no-op it reads as. It establishes a context where auto does not, so
+   #raised is confined to #context and #over covers it — where auto would flatten #raised onto the
+   page at 5 and put it over everything in this row. */
+#context {
+  position: absolute; z-index: 0;
+  top: 0; left: 0; width: 220px; height: 60px;
+  background-color: #c8c8e0;
+}
+#raised {
+  position: absolute; z-index: 5;
+  top: 10px; left: 10px; width: 180px; height: 40px;
+  background-color: #c04040;
+}
+#over {
+  position: absolute; z-index: 1;
+  top: 25px; left: 120px; width: 200px; height: 35px;
+  background-color: #40a060;
+}

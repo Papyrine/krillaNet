@@ -1182,17 +1182,41 @@ sealed record ComputedStyle
     /// </remarks>
     public float Opacity { get; init; } = 1f;
 
+    /// <summary>The <c>z-index</c> this box declared, or null for <c>auto</c>.</summary>
+    /// <remarks>
+    /// Null is not the same as zero, and the difference is not only where the box paints: a
+    /// positioned box given any integer — <c>0</c> included — establishes a stacking context and
+    /// confines its positioned descendants to it, where one left at <c>auto</c> does not and lets
+    /// them flatten onto the page. Which is what makes <c>z-index: 0</c> a real declaration rather
+    /// than the no-op it reads as, and what <c>position/z_index</c>'s last row measures.
+    /// </remarks>
+    public int? ZIndex { get; init; }
+
+    /// <summary>Where this box sorts among the contexts its parent paints.</summary>
+    /// <remarks>
+    /// <c>z-index</c> applies to positioned boxes only, so an integer on a static one is ignored by
+    /// CSS itself rather than by omission here — and sorts where <c>auto</c> sorts, which is also
+    /// where a box establishing a context through <c>opacity</c> or <c>transform</c> alone belongs.
+    /// CSS Color's rule for an unpositioned faded box says exactly that: paint it where a
+    /// positioned box with <c>z-index: 0</c> would go.
+    /// </remarks>
+    public int StackingOrder => IsPositioned ? ZIndex ?? 0 : 0;
+
     /// <summary>
     /// Whether this box establishes a stacking context of its own.
     /// </summary>
     /// <remarks>
-    /// <c>opacity</c> and <c>transform</c>, the two properties this engine reads that do it.
-    /// The consequence that matters is paint ORDER: such a box leaves its parent's phases and
-    /// paints with the positioned content, after every in-flow background and line on the page —
-    /// so a faded box written first covers an opaque sibling written after it, which is measurable
-    /// and is what <c>block/opacity</c>'s last row measures.
+    /// <c>opacity</c>, <c>transform</c>, and a <c>z-index</c> that is not <c>auto</c> on a
+    /// positioned box — the three this engine reads that do it. The consequence that matters is
+    /// paint ORDER: such a box leaves its parent's phases and paints with the positioned content,
+    /// after every in-flow background and line on the page — so a faded box written first covers an
+    /// opaque sibling written after it, which is measurable and is what <c>block/opacity</c>'s last
+    /// row measures.
     /// </remarks>
-    public bool CreatesStackingContext => Opacity < 1 || Transform is not null;
+    public bool CreatesStackingContext =>
+        Opacity < 1 ||
+        Transform is not null ||
+        (IsPositioned && ZIndex is not null);
 
     /// <summary>How this box's text is cased before shaping.</summary>
     public TextTransformKind TextTransform { get; init; } = TextTransformKind.None;
