@@ -120,7 +120,11 @@ static class StyleResolver
                 UserAgentStyles.IsItalic(element.LocalName) || parent.Italic),
             LineHeight = lineHeight.Absolute,
             LineHeightScale = lineHeight.Scale,
+            TabSize = ParseTabSize(declaration.GetPropertyValue("tab-size"), parent.TabSize),
+            WordBreaking = ParseWordBreaking(declaration, parent.WordBreaking),
             Decorations = ParseDecorations(declaration, parent.Decorations),
+            DecorationColor = DecorationColour(declaration, parent, color),
+            DecorationStyle = DecorationRule(declaration, parent),
             ListStyle = ParseListStyle(declaration.GetPropertyValue("list-style-type"), parent.ListStyle),
             BorderSpacingX = Spacing(declaration, "border-spacing", fontSize, root, first: true)
                              ?? parent.BorderSpacingX,
@@ -899,6 +903,90 @@ static class StyleResolver
     /// is scanned for each line name rather than split, for the same reason: the shorthand
     /// interleaves them with words this does not care about.
     /// </remarks>
+    /// <summary>
+    /// The colour a decoration is drawn in: declared, else this element's own where it declared the
+    /// decoration, else whatever was inherited.
+    /// </summary>
+    /// <remarks>
+    /// The middle case is what stops a decoration declared here from picking up an ancestor's
+    /// colour. An element that starts its own underline starts its own colour with it, and only an
+    /// element merely INHERITING an ancestor's rule keeps the ancestor's colour.
+    /// </remarks>
+    static Color? DecorationColour(ICssStyleDeclaration declaration, ComputedStyle parent, Color color)
+    {
+        if (CssValues.ParseColor(declaration.GetPropertyValue("text-decoration-color")) is {} declared)
+        {
+            return declared;
+        }
+
+        return Declares(declaration) ? color : parent.DecorationColor;
+    }
+
+    /// <summary>
+    /// How the rule is drawn, inheriting for the same reason the colour does.
+    /// </summary>
+    /// <remarks>
+    /// <c>wavy</c> maps to <see cref="BorderStyleKind.Solid"/> and is reported: a wave needs a path
+    /// this engine has no shape for, and a solid rule is the closer of the two answers available.
+    /// </remarks>
+    static BorderStyleKind DecorationRule(ICssStyleDeclaration declaration, ComputedStyle parent)
+    {
+        var value = declaration.GetPropertyValue("text-decoration-style").Trim().ToLowerInvariant();
+
+        return value switch
+        {
+            "dashed" => BorderStyleKind.Dashed,
+            "dotted" => BorderStyleKind.Dotted,
+            "double" => BorderStyleKind.Double,
+            "solid" or "wavy" => BorderStyleKind.Solid,
+            _ => Declares(declaration) ? BorderStyleKind.Solid : parent.DecorationStyle
+        };
+    }
+
+    /// <summary>Whether this element started a decoration of its own.</summary>
+    static bool Declares(ICssStyleDeclaration declaration) =>
+        !string.IsNullOrWhiteSpace(declaration.GetPropertyValue("text-decoration-line")) ||
+        !string.IsNullOrWhiteSpace(declaration.GetPropertyValue("text-decoration"));
+
+    /// <summary>
+    /// The tab stop spacing, in space advances. Inherited, as the property is.
+    /// </summary>
+    /// <remarks>
+    /// Negative and zero values are rejected rather than clamped: a zero would make every tab
+    /// advance nothing and put the text on top of what precedes it, which is worse than ignoring
+    /// the declaration. A length-valued <c>tab-size</c> falls through to the inherited number and
+    /// is reported.
+    /// </remarks>
+    static float ParseTabSize(string value, float inherited) =>
+        CssValues.TryParseNumber(value.Trim(), out var stops) && stops > 0
+            ? stops
+            : inherited;
+
+    /// <summary>
+    /// Whether a line may break inside a word, from either of the two properties that say so.
+    /// </summary>
+    /// <remarks>
+    /// <c>word-break</c> is read first because <c>break-all</c> is the stronger permission: it
+    /// breaks whether or not the word would overflow, where <c>overflow-wrap: break-word</c> breaks
+    /// only a word that fits on no line at all. The values not listed — <c>keep-all</c> and
+    /// <c>break-word</c> as a <c>word-break</c> value — are reported rather than approximated.
+    /// </remarks>
+    static WordBreaking ParseWordBreaking(ICssStyleDeclaration declaration, WordBreaking inherited)
+    {
+        if (declaration.GetPropertyValue("word-break").Trim().ToLowerInvariant() is "break-all")
+        {
+            return WordBreaking.Always;
+        }
+
+        return declaration.GetPropertyValue("overflow-wrap").Trim().ToLowerInvariant() switch
+        {
+            "anywhere" => WordBreaking.Always,
+            "break-word" => WordBreaking.OnOverflow,
+            "normal" => WordBreaking.Normal,
+            _ => inherited
+        };
+    }
+
     static TextDecorations ParseDecorations(ICssStyleDeclaration declaration, TextDecorations inherited)
     {
         var value = declaration.GetPropertyValue("text-decoration-line");

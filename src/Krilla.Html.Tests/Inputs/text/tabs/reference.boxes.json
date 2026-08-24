@@ -1,0 +1,100 @@
+[
+  {
+    "selector": "html",
+    "x": 0,
+    "y": 0,
+    "width": 816,
+    "height": 168
+  },
+  {
+    "selector": "html > body:nth-child(2)",
+    "x": 0,
+    "y": 0,
+    "width": 816,
+    "height": 160
+  },
+  {
+    "selector": "html > body:nth-child(2) > pre:nth-child(1)",
+    "x": 0,
+    "y": 0,
+    "width": 816,
+    "height": 72
+  },
+  {
+    "selector": "html > body:nth-child(2) > pre:nth-child(1) > span:nth-child(1)",
+    "x": 76.81,
+    "y": 3,
+    "width": 9.61,
+    "height": 18
+  },
+  {
+    "selector": "html > body:nth-child(2) > pre:nth-child(1) > span:nth-child(2)",
+    "x": 153.63,
+    "y": 3,
+    "width": 9.61,
+    "height": 18
+  },
+  {
+    "selector": "html > body:nth-child(2) > pre:nth-child(1) > span:nth-child(3)",
+    "x": 153.63,
+    "y": 27,
+    "width": 9.61,
+    "height": 18
+  },
+  {
+    "selector": "html > body:nth-child(2) > pre:nth-child(1) > span:nth-child(4)",
+    "x": 76.81,
+    "y": 51,
+    "width": 76.81,
+    "height": 18
+  },
+  {
+    "selector": "html > body:nth-child(2) > pre:nth-child(2)",
+    "x": 0,
+    "y": 80,
+    "width": 816,
+    "height": 48
+  },
+  {
+    "selector": "html > body:nth-child(2) > pre:nth-child(2) > span:nth-child(1)",
+    "x": 38.41,
+    "y": 83,
+    "width": 9.61,
+    "height": 18
+  },
+  {
+    "selector": "html > body:nth-child(2) > pre:nth-child(2) > span:nth-child(2)",
+    "x": 76.81,
+    "y": 83,
+    "width": 9.61,
+    "height": 18
+  },
+  {
+    "selector": "html > body:nth-child(2) > pre:nth-child(2) > span:nth-child(3)",
+    "x": 115.22,
+    "y": 107,
+    "width": 9.61,
+    "height": 18
+  },
+  {
+    "selector": "html > body:nth-child(2) > pre:nth-child(3)",
+    "x": 0,
+    "y": 136,
+    "width": 816,
+    "height": 24
+  },
+  {
+    "selector": "html > body:nth-child(2) > pre:nth-child(3) > span:nth-child(1)",
+    "x": 19.2,
+    "y": 139,
+    "width": 9.61,
+    "height": 18
+  },
+  {
+    "selector": "html > body:nth-child(2) > pre:nth-child(3) > span:nth-child(2)",
+    "x": 38.41,
+    "y": 139,
+    "width": 9.61,
+    "height": 18
+  }
+]

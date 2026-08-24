@@ -240,6 +240,25 @@ enum TextAlignKind
     Justify
 }
 
+/// <summary>When a line may break INSIDE a word rather than only between words.</summary>
+/// <remarks>
+/// Two CSS properties collapse into this, because the engine treats their values by what they
+/// permit rather than by which property asked. <c>word-break: break-all</c> and
+/// <c>overflow-wrap: anywhere</c> both mean <see cref="Always"/>; <c>overflow-wrap: break-word</c>
+/// means <see cref="OnOverflow"/>.
+/// </remarks>
+enum WordBreaking
+{
+    /// <summary>Only at the ordinary opportunities: spaces, dashes, atomic inlines.</summary>
+    Normal,
+
+    /// <summary>Anywhere, but only for a word too wide to fit on a line of its own.</summary>
+    OnOverflow,
+
+    /// <summary>Anywhere, whether or not the word would overflow.</summary>
+    Always
+}
+
 /// <summary>How white space and line breaking are handled.</summary>
 enum WhiteSpaceKind
 {
@@ -540,6 +559,39 @@ sealed record ComputedStyle
     /// settled where the font is known.
     /// </remarks>
     public CssLength VerticalAlignOffset { get; init; }
+
+    /// <summary>
+    /// The colour every text decoration is drawn in, or null to take the text's own.
+    /// </summary>
+    /// <remarks>
+    /// Inherited alongside <see cref="Decorations"/>, since a decoration declared on an ancestor
+    /// is drawn through its descendants and carries the ancestor's colour with it. Null rather than
+    /// the resolved colour so that "nobody said" stays distinguishable from "said black" — the
+    /// first takes each run's own colour and the second does not.
+    /// </remarks>
+    public Color? DecorationColor { get; init; }
+
+    /// <summary>How a text decoration's rule is drawn.</summary>
+    /// <remarks>
+    /// Reuses the border enumeration because the four values that matter here are four of its own,
+    /// and every one of them means the same thing. <c>wavy</c> has no border counterpart and is
+    /// reported rather than approximated.
+    /// </remarks>
+    public BorderStyleKind DecorationStyle { get; init; }
+
+    /// <summary>
+    /// How far apart the tab stops are, as a multiple of the space advance.
+    /// </summary>
+    /// <remarks>
+    /// A number rather than a length, which is what the property's initial value of 8 means and
+    /// what nearly every author writes. A length-valued <c>tab-size</c> is reported instead: it
+    /// would need a second field to say which of the two it is, for a value that has no use in a
+    /// proportional font and little in a monospaced one.
+    /// </remarks>
+    public float TabSize { get; init; } = 8;
+
+    /// <summary>When a line may break inside a word. Inherited, as both source properties are.</summary>
+    public WordBreaking WordBreaking { get; init; }
 
     /// <summary>Which side of the table the caption sits on.</summary>
     public CaptionSideKind CaptionSide { get; init; }

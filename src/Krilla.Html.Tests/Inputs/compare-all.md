@@ -1,4 +1,4 @@
-# All scenarios (104)
+# All scenarios (108)
 
 The browser reference (left) beside the page Krilla.Html produced (right). `AE` is the fraction of pixels that differ and `SSIM` is structural similarity; neither is asserted. The worst offset is the largest positional disagreement in CSS pixels between the rendered element geometry and the browser's, and is the number to watch — it reaches zero exactly when the layout is right.
 
@@ -96,11 +96,15 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [table/spacing_borders](#table-spacing_borders)
 - [table/spans](#table-spans)
 - [text/decorations](#text-decorations)
+- [text/decoration_style](#text-decoration_style)
 - [text/font_size_keywords](#text-font_size_keywords)
 - [text/kerning](#text-kerning)
 - [text/letter_spacing](#text-letter_spacing)
 - [text/ligatures](#text-ligatures)
+- [text/soft_hyphen](#text-soft_hyphen)
+- [text/tabs](#text-tabs)
 - [text/text_transform](#text-text_transform)
+- [text/word_break](#text-word_break)
 - [text/word_spacing](#text-word_spacing)
 - [ua/acid1](#ua-acid1)
 - [ua/blockquote_pre](#ua-blockquote_pre)
@@ -2732,6 +2736,51 @@ rule with no font metric behind it.
 | <img src="text/decorations/reference_0001.png" width="480"> | <img src="text/decorations/result%23page_0001.verified.png" width="480"> |
 
 
+## text/decoration_style
+
+# text/decoration_style
+
+The colour and the rule style of a text decoration, both of which were read and neither honoured: a
+coloured underline came out in the colour of the text and a dashed one came out solid.
+
+`text-decoration-color` is the simpler half and is exact. `#coloured` draws its rule in `#c02020`
+and the row is one solid span of it. The colour inherits alongside the decoration itself, since a
+rule declared on an ancestor is drawn through its descendants and carries the colour of that
+ancestor with it. An element that starts a decoration of its OWN starts its own colour with it,
+which is what keeps a nested element from picking up a colour it never asked for.
+
+The three styles were measured out of the reference rather than derived, and none of the numbers is
+obvious:
+
+- **`double`** is two rules of the drawn thickness with twice it between them, so a 1px underline at
+  baseline+1 puts its second line at baseline+4. Two lines 2px apart is the arithmetic a reading of
+  the specification suggests, and it is not what Chrome draws.
+- **`dashed`** is six pixels on and four off, and **`dotted`** is two on and two off, under an
+  underline that is one pixel thick when solid. Both are multiples of two rather than of one, which
+  is what says the patterned rule is drawn at TWICE the solid thickness. The Blink pattern is three
+  widths on and two off for a dash and one width each way for a dot, and both of those land exactly
+  on the measured numbers at a width of two.
+- The patterned rule is CENTRED on the position of the solid rule rather than hanging below it.
+  Getting that wrong put it a row low and was the whole of the difference between 0.9989 and 0.9999.
+
+`wavy` is reported and drawn solid.
+
+**Residual**: SSIM 0.9999, and the remaining pixels are one thing. Chrome interrupts an underline
+around a descender, which is `text-decoration-skip-ink` at its default of `auto`. Sixteen pixels in
+`#plain`, at the `p` of "plain", the comma, and the `p` of "comparison". Implementing it needs the
+glyph outlines rather than the advances, and it is not reported: it is a default rather than a
+declaration, so a report would fire on every underlined document ever converted.
+
+What to look at: the gaps in the Chrome underline under each descender, and their absence in ours.
+
+**Boxes**: 14 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0002 · SSIM 0.9999** |
+| <img src="text/decoration_style/reference_0001.png" width="480"> | <img src="text/decoration_style/result%23page_0001.verified.png" width="480"> |
+
+
 ## text/font_size_keywords
 
 # text/font_size_keywords
@@ -2852,6 +2901,91 @@ the wrong characters for the run even though the page looks right.
 | <img src="text/ligatures/reference_0001.png" width="480"> | <img src="text/ligatures/result%23page_0001.verified.png" width="480"> |
 
 
+## text/soft_hyphen
+
+# text/soft_hyphen
+
+Pixel-identical to Chrome, and geometry-exact.
+
+A soft hyphen is a break opportunity that draws a hyphen only where the break falls on it, which
+makes it the one character in the corpus whose rendering depends on a decision taken after it was
+measured. Four rows separate the parts:
+
+- `#narrow` at 40px takes both opportunities and draws a hyphen at each, over three lines.
+- `#wide` at 300px takes neither, and measures **87.19px, exactly what `#none` measures without any
+  soft hyphen in it at all**. That equality is the whole property and it is what forced the
+  implementation: the soft hyphens are stripped BEFORE shaping, because this face maps U+00AD onto
+  a real hyphen glyph with a real advance. Left in the string, the word would measure wider than
+  the same word without and would draw hyphens no break called for.
+- `#late` at 70px passes over the first opportunity and takes the second, which is what a greedy
+  line breaker does and what distinguishes a real implementation from one that always breaks at the
+  first.
+- `#none` is the same word with nothing in it, overflowing a box it cannot break in.
+
+The drawn hyphen belongs to the ELEMENT that broke, which was measured rather than assumed: Chrome
+reports the span 5.33px wider than the text inside it, exactly the hyphen advance. So the hyphen run
+carries the token selector and inline ancestry, and an inline background reaches under it.
+
+Stripping happens at tokenisation over one shaped run, the same arrangement dash breaking uses, so
+the segments sum to exactly what the whole word measured and the kerning across the join survives.
+
+**Known limitation.** The hyphen width is not part of the fit test, only of the line it ends. A line
+whose last segment leaves less than a hyphen of slack therefore overruns its box by up to that much,
+where a browser would move the segment down. None of the four rows here is in that condition, and
+correcting it needs the line breaker to back up over a decision it has already taken.
+
+What to look at: the hyphens at the ends of the first two lines of `#narrow`, and the absence of one
+anywhere in `#wide`.
+
+**Boxes**: 10 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| <img src="text/soft_hyphen/reference_0001.png" width="480"> | <img src="text/soft_hyphen/result%23page_0001.verified.png" width="480"> |
+
+
+## text/tabs
+
+# text/tabs
+
+Pixel-identical to Chrome, and geometry-exact.
+
+A tab under `pre` advances to the next tab stop rather than to a width of its own, so it is the one
+token in the engine whose width is not known when it is measured: where the stop falls depends on
+how far along the line the tab already sits. The token carries the STOP SPACING instead, and the
+advance is settled while the line is being filled.
+
+Measured out of Chrome across three values of `tab-size`, with Liberation Mono at 16px giving a
+9.6026px advance:
+
+- The stops sit at multiples of `tab-size` SPACE ADVANCES from the start edge of the line. At the
+  default 8 that is 76.82px, at 4 it is 38.41, at 2 it is 19.20, and every span in the scenario
+  lands on one.
+- A tab already sitting exactly on a stop advances to the NEXT one rather than to nothing. `a` is
+  one character wide and its tab reaches 8, not 1; a leading tab on an empty line reaches 8, not 0.
+- Nine characters followed by a tab reach 16 rather than 12, which is what makes the second line of
+  each block a different arithmetic from the first.
+
+Two things had to be kept away from the shaper. A tab is a real character in the text of its item,
+so it carries a shaped range like any other token, and a run merges with its neighbours on exactly
+that contiguity. Left to merge, the tab CHARACTER was drawn as a glyph, at the advance of that glyph
+rather than at the distance to the stop, which moved every glyph after it inside the same run. It is
+also excluded from the unbreakable-run widths, where its width field means a stop spacing rather
+than an advance and summing it measures nothing.
+
+A `tab-size` given as a LENGTH is reported rather than honoured.
+
+What to look at: the x of every span. Each should be an exact multiple of the stop of its block.
+
+**Boxes**: 14 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| <img src="text/tabs/reference_0001.png" width="480"> | <img src="text/tabs/result%23page_0001.verified.png" width="480"> |
+
+
 ## text/text_transform
 
 # text/text_transform
@@ -2899,6 +3033,47 @@ What to look at: `#boundaries`. `O'Clock` or `3Rd` is the naive boundary rule re
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0003 · SSIM 0.9999** |
 | <img src="text/text_transform/reference_0001.png" width="480"> | <img src="text/text_transform/result%23page_0001.verified.png" width="480"> |
+
+
+## text/word_break
+
+# text/word_break
+
+Pixel-identical to Chrome, and geometry-exact.
+
+Two properties that let a line break inside a word, which every other rule in the line breaker
+forbids. They collapse into one value here, because the engine cares what a value PERMITS rather
+than which property asked for it. The two permissions differ, and the scenario separates them:
+
+- `#overflow` is the control, with neither property: a word with no opportunity in it overflows its
+  box by 95px and nothing breaks.
+- `#wrap` has `overflow-wrap: break-word`, which breaks a word only when it fits on no line of that
+  width at all.
+- `#all` has `word-break: break-all`, which breaks anywhere whether or not the word would overflow.
+  On a single long word the two are indistinguishable, which is why the fourth row exists.
+- `#mixed` is the row that told them apart, and it found a real defect. With ordinary words before
+  the long one, the long word is first MOVED to a line of its own by the ordinary break rule, and
+  the code that did so added it to the new line directly, so nothing afterwards ever asked whether
+  it could be cut. The paragraph came out one line short and 96px wide. A word moved to a fresh
+  line now falls through to the splitting loop instead of being placed.
+
+Splitting walks outward from the token start rather than binary-searching, because `ShapedText`
+answers a sub-range by summing advances it already holds: the walk costs what one width query costs
+and hands back every candidate on the way. A cut takes at least one character on an empty line
+whatever the width, since a character wider than the box would otherwise loop forever.
+
+No hyphen is drawn at the cut. The break was forced by the box rather than offered by the text, and
+a browser draws nothing there, which is what separates this from `text/soft_hyphen`.
+
+What to look at: the second line of `#mixed`. If the long word is intact and hanging out of the box,
+the split is being bypassed by the ordinary break.
+
+**Boxes**: 10 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| <img src="text/word_break/reference_0001.png" width="480"> | <img src="text/word_break/result%23page_0001.verified.png" width="480"> |
 
 
 ## text/word_spacing

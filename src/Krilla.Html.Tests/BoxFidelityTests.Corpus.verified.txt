@@ -93,11 +93,15 @@ table/sections                   matched 33  offset    0.00  size    0.00  diffe
 table/spacing_borders            matched 31  offset    0.00  size    0.00  differing  0  unmatched 0
 table/spans                      matched 35  offset    0.00  size    0.00  differing  0  unmatched 0
 text/decorations                 matched  9  offset    0.00  size    0.00  differing  0  unmatched 0
+text/decoration_style            matched 14  offset    0.00  size    0.00  differing  0  unmatched 0
 text/font_size_keywords          matched 13  offset    0.00  size    0.00  differing  0  unmatched 0
 text/kerning                     matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
 text/letter_spacing              matched  8  offset    0.00  size    0.00  differing  0  unmatched 0
 text/ligatures                   matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
+text/soft_hyphen                 matched 10  offset    0.00  size    0.00  differing  0  unmatched 0
+text/tabs                        matched 14  offset    0.00  size    0.00  differing  0  unmatched 0
 text/text_transform              matched  7  offset    0.00  size    0.00  differing  0  unmatched 0
+text/word_break                  matched 10  offset    0.00  size    0.00  differing  0  unmatched 0
 text/word_spacing                matched  7  offset    0.00  size    0.00  differing  0  unmatched 0
 ua/acid1                         matched 14  offset    0.00  size    0.00  differing  0  unmatched 0
 ua/blockquote_pre                matched  6  offset    0.00  size    0.00  differing  0  unmatched 0

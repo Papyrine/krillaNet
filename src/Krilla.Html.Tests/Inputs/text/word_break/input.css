@@ -1,0 +1,14 @@
+div { width: 110px; font-size: 16px; line-height: 24px; background-color: #eef2f8; margin-bottom: 6px; }
+span { background-color: #cfd8e8; }
+
+/* The control: a word with no break opportunity overflows its box. */
+#overflow { }
+
+/* break-word breaks the word only because it would otherwise overflow. */
+#wrap { overflow-wrap: break-word; }
+
+/* break-all breaks anywhere, whether or not the line would overflow. */
+#all { word-break: break-all; }
+
+/* break-word with ordinary words before it: those still break at spaces. */
+#mixed { overflow-wrap: break-word; }

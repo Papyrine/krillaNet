@@ -114,6 +114,26 @@ static class InlineLayout
                 continue;
             }
 
+            if (token.Kind == TokenKind.Tab)
+            {
+                // The distance to the next stop, from where the line has reached. `Width` on the
+                // token is the STOP SPACING rather than an advance, which is the one place a
+                // token's width means something other than how wide it is.
+                var stop = token.Width;
+                var advance = stop * MathF.Floor(currentWidth / stop + 1) - currentWidth;
+
+                if (pendingSpace is {} beforeTab)
+                {
+                    current.Add(beforeTab);
+                    currentWidth += beforeTab.Width;
+                    pendingSpace = null;
+                }
+
+                current.Add(token with {Width = advance});
+                currentWidth += advance;
+                continue;
+            }
+
             var spaceWidth = pendingSpace?.Width ?? 0;
 
             // A pending space is an opportunity whatever follows it; otherwise the token has to
@@ -142,10 +162,14 @@ static class InlineLayout
                 // the same ones. Asked again rather than reused, which is what lets text close up
                 // underneath a float that has ended.
                 band = OpenLine(floats, contentX, contentY, contentWidth, strut, ref y);
-                current = [token];
-                currentWidth = token.Width;
+                current = [];
+                currentWidth = 0;
                 pendingSpace = null;
-                continue;
+
+                // Deliberately no `continue`: the token falls through to the splitting loop below,
+                // because a word moved to a fresh line may STILL not fit on it. Adding it here
+                // instead is what let a break-word paragraph overflow — the ordinary break had
+                // already placed the word before anything asked whether it could be cut.
             }
 
             if (pendingSpace is {} space)
@@ -153,6 +177,22 @@ static class InlineLayout
                 current.Add(space);
                 currentWidth += space.Width;
                 pendingSpace = null;
+            }
+
+            // `word-break` and `overflow-wrap` let a line break INSIDE a word, which every rule
+            // above forbids. The loop runs because one cut is rarely enough: a word wider than
+            // several lines is cut once per line it crosses.
+            while (wraps &&
+                   Splittable(token, band.Width) &&
+                   currentWidth + token.Width > band.Width &&
+                   Split(token, band.Width - currentWidth, current.Count > 0) is var (head, tail))
+            {
+                current.Add(head);
+                Flush(box, current, currentWidth + head.Width, band, fonts, ref y, forced: false);
+                band = OpenLine(floats, contentX, contentY, contentWidth, strut, ref y);
+                current = [];
+                currentWidth = 0;
+                token = tail;
             }
 
             current.Add(token);
@@ -165,6 +205,161 @@ static class InlineLayout
         }
 
         return y;
+    }
+
+    /// <summary>
+    /// Whether a line may be broken inside <paramref name="token"/>.
+    /// </summary>
+    /// <remarks>
+    /// <c>break-all</c> permits it always; <c>break-word</c> only for a word that fits on no line
+    /// of this width at all, which is the distinction between the two values and the reason they
+    /// are not folded together. Only a shaped word can be cut — an image or an inline-block is
+    /// atomic whatever the property says.
+    /// </remarks>
+    static bool Splittable(Token token, float bandWidth) =>
+        token is {Kind: TokenKind.Word, Shaped: not null} &&
+        token.Style.WordBreaking switch
+        {
+            WordBreaking.Always => true,
+            WordBreaking.OnOverflow => token.Width > bandWidth,
+            _ => false
+        };
+
+    /// <summary>
+    /// Cuts <paramref name="token"/> at the widest prefix fitting <paramref name="room"/>.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Returns null when nothing can be cut off: when the first character alone does not fit and
+    /// the line already holds something, the whole token goes down to the next line instead, where
+    /// it will have the full band to be cut against. On an EMPTY line one character is taken
+    /// regardless — otherwise a character wider than the band loops forever.
+    /// </para>
+    /// <para>
+    /// Linear rather than a binary search, because the answer is a running sum: <c>ShapedText</c>
+    /// answers a sub-range by summing known advances, so walking outward from the start costs the
+    /// same as one width query and gives every candidate on the way.
+    /// </para>
+    /// </remarks>
+    static (Token Head, Token Tail)? Split(Token token, float room, bool lineHasContent)
+    {
+        var shaped = token.Shaped!;
+        var cut = token.TextStart;
+
+        for (var end = token.TextStart + 1; end < token.TextEnd; end++)
+        {
+            if (shaped.Width(token.TextStart, end) > room)
+            {
+                break;
+            }
+
+            cut = end;
+        }
+
+        if (cut == token.TextStart)
+        {
+            if (lineHasContent || token.TextEnd - token.TextStart < 2)
+            {
+                return null;
+            }
+
+            cut = token.TextStart + 1;
+        }
+
+        return (
+            token with
+            {
+                TextEnd = cut,
+                Width = shaped.Width(token.TextStart, cut),
+                // A word cut mid-way takes no hyphen: the break was forced by the box, not offered
+                // by the text, and a browser draws nothing there.
+                HyphenAfter = false
+            },
+            token with
+            {
+                TextStart = cut,
+                Width = shaped.Width(cut, token.TextEnd),
+                BreaksBefore = false
+            });
+    }
+
+    /// <summary>
+    /// The run that draws a hyphen after <paramref name="token"/>, at its own style and face.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Shaped here rather than carried on the token, because it is needed on at most one line per
+    /// break and building it for every hyphenated segment would shape a string per opportunity for
+    /// the sake of the one that is taken.
+    /// </para>
+    /// <para>
+    /// It carries the token's selector and inline ancestry, which is measured rather than assumed:
+    /// a browser's rectangle for a hyphenated element is 5.33px wider than the text inside it, so
+    /// the hyphen belongs to the element that broke. An inline background reaches under it for the
+    /// same reason.
+    /// </para>
+    /// </remarks>
+    static TextRun Hyphen(Token token)
+    {
+        var shaped = ShapedText.Create(
+            token.Face,
+            "-",
+            token.Style.FontSize,
+            token.Style.LetterSpacing,
+            token.Style.WordSpacing);
+
+        var (glyphs, text) = shaped.Slice(0, 1);
+
+        return new(
+            text,
+            token.Style,
+            token.Face,
+            0,
+            0,
+            shaped.Width(0, 1),
+            token.Link,
+            glyphs,
+            token.Selector,
+            token.Backdrops);
+    }
+
+    /// <summary>
+    /// Removes the soft hyphens from <paramref name="text"/>, returning the offsets they stood at.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The offsets are into the RETURNED string, and each names the position a break may fall at —
+    /// so a soft hyphen between "hy" and "phen" comes back as the offset of the "p".
+    /// </para>
+    /// <para>
+    /// Null when there were none, which is the overwhelmingly common case and worth not allocating
+    /// a set for.
+    /// </para>
+    /// </remarks>
+    static string SoftHyphens(string text, out HashSet<int>? offsets)
+    {
+        offsets = null;
+
+        if (!text.Contains('­'))
+        {
+            return text;
+        }
+
+        var builder = new StringBuilder(text.Length);
+        offsets = [];
+
+        foreach (var character in text)
+        {
+            if (character == '­')
+            {
+                offsets.Add(builder.Length);
+                continue;
+            }
+
+            builder.Append(character);
+        }
+
+        return builder.ToString();
     }
 
     /// <summary>
@@ -188,8 +383,10 @@ static class InlineLayout
 
         for (var index = tokens.Count - 1; index >= 0; index--)
         {
-            // A space or a forced break is not content and ends the run rather than joining it.
-            if (tokens[index].Kind is TokenKind.Space or TokenKind.Break)
+            // A space, a tab or a forced break is not content and ends the run rather than
+            // joining it. A tab in particular must not be summed: its width field holds the stop
+            // spacing rather than an advance, and adding that to a fit test measures nothing.
+            if (tokens[index].Kind is TokenKind.Space or TokenKind.Break or TokenKind.Tab)
             {
                 continue;
             }
@@ -197,7 +394,7 @@ static class InlineLayout
             widths[index] = tokens[index].Width;
 
             if (index + 1 < tokens.Count &&
-                tokens[index + 1].Kind is not (TokenKind.Space or TokenKind.Break) &&
+                tokens[index + 1].Kind is not (TokenKind.Space or TokenKind.Break or TokenKind.Tab) &&
                 !tokens[index + 1].BreaksBefore)
             {
                 widths[index] += widths[index + 1];
@@ -436,19 +633,27 @@ static class InlineLayout
                 continue;
             }
 
+            // Soft hyphens are removed BEFORE shaping and their positions kept as break
+            // opportunities. They cannot survive into the shaper: this face maps U+00AD onto a real
+            // hyphen glyph with a real advance, so a word carrying two of them would measure wider
+            // than the same word without and would draw hyphens that no break called for. What
+            // makes the property work is that an unbroken word measures exactly as it would with
+            // nothing in it.
+            var text = SoftHyphens(item.Text, out var conditional);
+
             // Shaped once for the whole item, then sliced. Shaping each word separately would
             // also lose the kerning between a word and the punctuation attached to it.
             var shaped = ShapedText.Create(
                 face,
-                item.Text,
+                text,
                 item.Style.FontSize,
                 item.Style.LetterSpacing,
                 item.Style.WordSpacing);
             var index = 0;
 
-            while (index < item.Text.Length)
+            while (index < text.Length)
             {
-                var character = item.Text[index];
+                var character = text[index];
 
                 if (character == '\n')
                 {
@@ -462,9 +667,39 @@ static class InlineLayout
 
                 var start = index;
 
+                // A tab advances to the next tab stop rather than to a width of its own, and where
+                // that stop falls depends on how far along the line the tab sits — which is not
+                // known here. So the token carries the STOP SPACING and its width is settled when
+                // the line is being filled.
+                //
+                // Measured out of Chrome: the stops sit at multiples of `tab-size` space advances
+                // from the line's start edge, and a tab already exactly on one advances to the
+                // next rather than to nothing.
+                if (character == '\t')
+                {
+                    index++;
+
+                    tokens.Add(new(
+                        item.Style,
+                        face,
+                        item.Style.TabSize * face.Advance(' ', item.Style.FontSize),
+                        TokenKind.Tab,
+                        Link: item.Link,
+                        Selector: item.Selector,
+                        Backdrops: backdrops,
+                        Shaped: shaped,
+                        TextStart: start,
+                        TextEnd: index));
+
+                    // A break opportunity, exactly as a space is, which is what lets `pre-wrap`
+                    // wrap a tabulated line.
+                    breakable = true;
+                    continue;
+                }
+
                 if (character == ' ')
                 {
-                    while (index < item.Text.Length && item.Text[index] == ' ')
+                    while (index < text.Length && text[index] == ' ')
                     {
                         index++;
                     }
@@ -489,7 +724,7 @@ static class InlineLayout
                     continue;
                 }
 
-                while (index < item.Text.Length && item.Text[index] is not (' ' or '\n'))
+                while (index < text.Length && text[index] is not (' ' or '\n' or '\t'))
                 {
                     index++;
                 }
@@ -506,18 +741,22 @@ static class InlineLayout
                     // — though it still leaves `breakable` true, and the next item's first word
                     // can start a line. That is what makes `<span>page-</span><span>break</span>`
                     // break where `<span>page</span><span>break</span>` does not.
-                    if (!BreaksAfter(item.Text[scan]) || scan + 1 >= index)
+                    // A soft hyphen offers a break AFTER the character it followed, exactly as
+                    // a real dash does — the difference being only whether the hyphen is drawn.
+                    var soft = conditional?.Contains(scan + 1) == true;
+
+                    if ((!BreaksAfter(text[scan]) && !soft) || scan + 1 >= index)
                     {
                         continue;
                     }
 
-                    Word(segment, scan + 1);
+                    Word(segment, scan + 1, soft);
                     segment = scan + 1;
                 }
 
-                Word(segment, index);
+                Word(segment, index, conditional?.Contains(index) == true);
 
-                void Word(int from, int to)
+                void Word(int from, int to, bool hyphenates)
                 {
                     tokens.Add(new(
                         item.Style,
@@ -530,12 +769,13 @@ static class InlineLayout
                         TextStart: from,
                         TextEnd: to,
                         BreaksBefore: breakable,
-                        Backdrops: backdrops));
+                        Backdrops: backdrops,
+                        HyphenAfter: hyphenates));
 
                     // A run of dashes therefore offers a break after each one, and greedy line
                     // breaking takes the last that fits — which is how `a--b` keeps both dashes on
                     // the line above rather than carrying the second one down.
-                    breakable = BreaksAfter(item.Text[to - 1]);
+                    breakable = hyphenates || BreaksAfter(text[to - 1]);
                 }
             }
         }
@@ -688,7 +928,7 @@ static class InlineLayout
         // or shift a centred one. Preserved white space is exempt, being content rather than
         // separation.
         var lastContent = tokens.FindLastIndex(
-            _ => _.Kind is TokenKind.Word or TokenKind.Edge || IsAtomic(_.Kind));
+            _ => _.Kind is TokenKind.Word or TokenKind.Edge or TokenKind.Tab || IsAtomic(_.Kind));
         if (lastContent >= 0 && !box.Style.PreservesSpaces)
         {
             for (var index = tokens.Count - 1; index > lastContent; index--)
@@ -696,6 +936,18 @@ static class InlineLayout
                 width -= tokens[index].Width;
                 tokens.RemoveAt(index);
             }
+        }
+
+        // A soft hyphen renders only where the break actually falls on it, which is the whole of
+        // what distinguishes it from a dash already in the text. The line it ends grows by the
+        // hyphen's advance, so alignment measures the line as it will be drawn.
+        TextRun? hyphen = !forced && lastContent >= 0 && tokens[lastContent].HyphenAfter
+            ? Hyphen(tokens[lastContent])
+            : null;
+
+        if (hyphen is {} drawn)
+        {
+            width += drawn.Width;
         }
 
         var line = new LineBox();
@@ -797,6 +1049,17 @@ static class InlineLayout
                 continue;
             }
 
+            // A tab is pure advance. It carries a Shaped range like any other token, so without
+            // this it would join the run beside it and the tab character would be drawn as a glyph
+            // — with the run's summed width and the glyph's own advance disagreeing, which shifts
+            // every glyph after it inside the same run.
+            if (tokens[runStart].Kind == TokenKind.Tab)
+            {
+                x += tokens[runStart].Width;
+                runStart++;
+                continue;
+            }
+
             if (tokens[runStart] is {Kind: TokenKind.Edge} edge)
             {
                 var baseline = y + above + shifts[runStart];
@@ -841,6 +1104,11 @@ static class InlineLayout
             var runEnd = runStart;
             while (runEnd + 1 < tokens.Count &&
                    !IsAtomic(tokens[runEnd + 1].Kind) &&
+                   // A tab's text range is contiguous with the words either side of it, so without
+                   // this it joins their run and the tab CHARACTER is drawn — at the glyph's own
+                   // advance rather than at the distance to the tab stop, which moves every glyph
+                   // after it inside the same run.
+                   tokens[runEnd + 1].Kind != TokenKind.Tab &&
                    tokens[runEnd + 1].Link == tokens[runStart].Link &&
                    ReferenceEquals(tokens[runEnd + 1].Style, tokens[runStart].Style) &&
                    ReferenceEquals(tokens[runEnd + 1].Face, tokens[runStart].Face) &&
@@ -888,6 +1156,11 @@ static class InlineLayout
 
             x += runWidth;
             runStart = runEnd + 1;
+        }
+
+        if (hyphen is {} trailing)
+        {
+            line.Runs.Add(trailing with {X = x, Y = y + above + shifts[lastContent]});
         }
 
         // The <br> that ended the line, where the line stopped and as tall as the block's own
@@ -1084,7 +1357,13 @@ static class InlineLayout
         /// One end of an inline element carrying padding or a border: no glyphs, and the advance
         /// that surround asks for.
         /// </summary>
-        Edge
+        Edge,
+
+        /// <summary>
+        /// A preserved tab, whose width is the distance to the next tab stop and so is not known
+        /// until the line it sits on is being filled.
+        /// </summary>
+        Tab
     }
 
     /// <summary>
@@ -1156,6 +1435,7 @@ static class InlineLayout
         float Baseline = 0,
         float MinWidth = 0,
         bool BreaksBefore = false,
+        bool HyphenAfter = false,
         IReadOnlyList<InlineBackdrop>? Backdrops = null,
         InlineEdgeKind Edge = InlineEdgeKind.None);
 }

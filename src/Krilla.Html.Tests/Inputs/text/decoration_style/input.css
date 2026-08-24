@@ -1,0 +1,10 @@
+p { font-size: 16px; line-height: 28px; margin: 0 0 4px 0; }
+.u { text-decoration-line: underline; }
+.s { text-decoration-line: line-through; }
+
+/* The colour is independent of the text's own, which is the whole property. */
+.red { text-decoration-color: #c02020; }
+
+.dash { text-decoration-style: dashed; }
+.dot { text-decoration-style: dotted; }
+.twin { text-decoration-style: double; }

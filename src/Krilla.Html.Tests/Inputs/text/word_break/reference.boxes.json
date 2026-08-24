@@ -1,0 +1,72 @@
+[
+  {
+    "selector": "html",
+    "x": 0,
+    "y": 0,
+    "width": 816,
+    "height": 264
+  },
+  {
+    "selector": "html > body:nth-child(2)",
+    "x": 0,
+    "y": 0,
+    "width": 816,
+    "height": 258
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(1)",
+    "x": 0,
+    "y": 0,
+    "width": 110,
+    "height": 24
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(1) > span:nth-child(1)",
+    "x": 0,
+    "y": 3,
+    "width": 205.44,
+    "height": 17
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(2)",
+    "x": 0,
+    "y": 30,
+    "width": 110,
+    "height": 48
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(2) > span:nth-child(1)",
+    "x": 0,
+    "y": 33,
+    "width": 109.41,
+    "height": 41
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(3)",
+    "x": 0,
+    "y": 84,
+    "width": 110,
+    "height": 48
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(3) > span:nth-child(1)",
+    "x": 0,
+    "y": 87,
+    "width": 109.41,
+    "height": 41
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(4)",
+    "x": 0,
+    "y": 138,
+    "width": 110,
+    "height": 120
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(4) > span:nth-child(1)",
+    "x": 0,
+    "y": 141,
+    "width": 109.41,
+    "height": 113
+  }
+]

@@ -1458,9 +1458,56 @@ static class PdfPainter
             Rule(run.Y - face.StrikeoutOffset(size) - thickness, thickness);
         }
 
-        void Rule(float top, float thickness) =>
-            surface.FillRectangle(
-                Rectangle.FromSize(run.X, top, run.Width, thickness),
-                run.Style.Color);
+        void Rule(float top, float thickness)
+        {
+            var color = run.Style.DecorationColor ?? run.Style.Color;
+
+            switch (run.Style.DecorationStyle)
+            {
+                case BorderStyleKind.Double:
+                    // Two rules of the drawn thickness, separated by twice it — so a 1px underline
+                    // at baseline+1 puts its second line at baseline+4. Measured; the arithmetic
+                    // that puts them 2px apart is a rule thinner than the gap, which is not what
+                    // Chrome draws.
+                    surface.FillRectangle(Rectangle.FromSize(run.X, top, run.Width, thickness), color);
+                    surface.FillRectangle(
+                        Rectangle.FromSize(run.X, top + 3 * thickness, run.Width, thickness),
+                        color);
+                    return;
+
+                case BorderStyleKind.Dashed:
+                case BorderStyleKind.Dotted:
+                    Patterned(top, thickness, color, run.Style.DecorationStyle);
+                    return;
+
+                default:
+                    surface.FillRectangle(Rectangle.FromSize(run.X, top, run.Width, thickness), color);
+                    return;
+            }
+        }
+
+        // A patterned rule is drawn at TWICE the thickness a solid one gets, which is measured
+        // rather than derived: Chrome's dashes are six pixels long with four-pixel gaps under a
+        // 1px underline, and both numbers are multiples of two rather than of one. Blink's own
+        // pattern is three widths on and two off for a dash, and one width on and one off for a
+        // dot, which those numbers satisfy exactly at a width of two.
+        void Patterned(float top, float thickness, Color color, BorderStyleKind kind)
+        {
+            var width = thickness * 2;
+            var dash = kind == BorderStyleKind.Dashed ? width * 3 : width;
+            var gap = kind == BorderStyleKind.Dashed ? width * 2 : width;
+
+            // Centred on the solid rule's position rather than hanging below it, so the extra
+            // thickness is taken half from each side. Floored onto a whole row, because the browser
+            // is drawing on the pixel grid and a rule half a row down is two rows of grey where it
+            // should be one of black.
+            var band = MathF.Floor(top - (width - thickness) / 2);
+
+            for (var x = run.X; x < run.X + run.Width; x += dash + gap)
+            {
+                var length = MathF.Min(dash, run.X + run.Width - x);
+                surface.FillRectangle(Rectangle.FromSize(x, band, length, width), color);
+            }
+        }
     }
 }

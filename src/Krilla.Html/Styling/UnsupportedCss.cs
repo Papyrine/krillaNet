@@ -107,6 +107,9 @@ static class UnsupportedCss
 
         Breaks(declaration, name, sink);
         Hyphens(declaration, name, sink);
+        Wrapping(declaration, name, sink);
+        Tabs(declaration, name, sink);
+        Decoration(declaration, name, sink);
         Collapse(declaration, name, sink);
         Outline(declaration, name, sink);
         HiddenEdge(declaration, name, style, sink);
@@ -396,18 +399,15 @@ static class UnsupportedCss
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Only <c>auto</c> and <c>all</c> report. <c>manual</c> is what an author writes to DISABLE
-    /// automatic hyphenation, and a document asking for what this engine already does converts
-    /// exactly as written — reporting it would be a false positive of precisely the kind the table
-    /// exists to avoid, and it is also the property's initial value, so it arrives more often than
-    /// anyone types it.
+    /// Only <c>auto</c> and <c>all</c> report. <c>manual</c> promises breaks at soft hyphens and
+    /// nowhere else, which is exactly what this engine does, so it converts as written and stays
+    /// silent — and it is the property's initial value, so it arrives far more often than anyone
+    /// types it.
     /// </para>
     /// <para>
-    /// The gap being reported is a dictionary, not a break rule. Lines DO break at a hyphen that
-    /// is present in the text; what is missing is inserting one where the text has none.
-    /// <c>manual</c> promises breaks at soft hyphens, which are not implemented either — so it is
-    /// silent here despite a difference that a document containing <c>&amp;shy;</c> would show.
-    /// That is a deliberate trade of one rare false negative against a common false positive.
+    /// The gap being reported is a dictionary, not a break rule. Lines break at a hyphen present
+    /// in the text and at a soft hyphen the author placed; what is missing is inserting one where
+    /// the text offers none.
     /// </para>
     /// </remarks>
     static void Hyphens(ICssStyleDeclaration declaration, string element, Action<HtmlDiagnostic> sink)
@@ -416,6 +416,84 @@ static class UnsupportedCss
             value is "auto" or "all")
         {
             Diagnostic.Property(sink, element, "hyphens", value, "words are not hyphenated");
+        }
+    }
+
+    /// <summary>
+    /// A word-breaking value that is recognised and not honoured as asked.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>break-all</c> and <c>break-word</c> are implemented and silent. What is left is
+    /// <c>keep-all</c>, which suppresses breaks this engine does not make in the first place — but
+    /// only for the scripts it applies to, so it is reported rather than assumed to be a no-op —
+    /// and <c>anywhere</c>, which breaks the same way <c>break-word</c> does here and differs in
+    /// the one place this does not follow it: it is supposed to narrow the MINIMUM content width
+    /// too, so a shrink-to-fit box or a table column holding a long word comes out wider here than
+    /// it should.
+    /// </para>
+    /// <para>
+    /// <c>word-break: break-word</c> is the deprecated spelling of <c>overflow-wrap: break-word</c>
+    /// and is not read, so it reports.
+    /// </para>
+    /// </remarks>
+    static void Wrapping(ICssStyleDeclaration declaration, string element, Action<HtmlDiagnostic> sink)
+    {
+        if (Set(declaration, "word-break") is {} word &&
+            word is "keep-all" or "break-word")
+        {
+            Diagnostic.Property(
+                sink,
+                element,
+                "word-break",
+                word,
+                word == "keep-all"
+                    ? "lines break between words as usual"
+                    : "not read; the overflow-wrap spelling is");
+        }
+
+        if (Set(declaration, "overflow-wrap") is "anywhere")
+        {
+            Diagnostic.Property(
+                sink,
+                element,
+                "overflow-wrap",
+                "anywhere",
+                "lines break inside words, but the minimum content width is not narrowed");
+        }
+    }
+
+    /// <summary>
+    /// A <c>tab-size</c> given as a length, where only a count of space advances is honoured.
+    /// </summary>
+    /// <remarks>
+    /// The two forms need different arithmetic and a field to say which is which, for a value that
+    /// has no use in a proportional font and little in a monospaced one. A number — including the
+    /// initial 8 — is honoured exactly.
+    /// </remarks>
+    static void Tabs(ICssStyleDeclaration declaration, string element, Action<HtmlDiagnostic> sink)
+    {
+        if (Set(declaration, "tab-size") is {} value &&
+            !IsInitial(value) &&
+            !CssValues.TryParseNumber(value, out _))
+        {
+            Diagnostic.Property(sink, element, "tab-size", value, "tab stops are a multiple of the space advance");
+        }
+    }
+
+    /// <summary>
+    /// A decoration style with no rule this engine can draw.
+    /// </summary>
+    /// <remarks>
+    /// Only <c>wavy</c> is left: solid, double, dashed and dotted are drawn, each measured against
+    /// Chrome. A wave needs a path the painter has no shape for, and a solid rule in its place is
+    /// the closer of the two answers available — so it is drawn and said to be drawn.
+    /// </remarks>
+    static void Decoration(ICssStyleDeclaration declaration, string element, Action<HtmlDiagnostic> sink)
+    {
+        if (Set(declaration, "text-decoration-style") is "wavy")
+        {
+            Diagnostic.Property(sink, element, "text-decoration-style", "wavy", "painted as a solid rule");
         }
     }
 
