@@ -306,8 +306,16 @@ static class ListMarkers
         }
 
         ReadOnlySpan<int> values = [1000, 900, 500, 400, 100, 90, 50, 40, 10, 9, 5, 4, 1];
-        ReadOnlySpan<string> numerals =
-            ["M", "CM", "D", "CD", "C", "XC", "L", "XL", "X", "IX", "V", "IV", "I"];
+
+        // Two characters per value, in step with `values` above: a subtractive numeral carries
+        // both and a plain one leaves the first empty. A table of one and two character STRINGS
+        // reads better and is slower, because copying one out is a call into Buffer.Memmove for
+        // the sake of a character or two — which is most of what a short numeral costs.
+        ReadOnlySpan<char> letters =
+        [
+            '\0', 'M', 'C', 'M', '\0', 'D', 'C', 'D', '\0', 'C', 'X', 'C', '\0', 'L',
+            'X', 'L', '\0', 'X', 'I', 'X', '\0', 'V', 'I', 'V', '\0', 'I'
+        ];
 
         // Fifteen characters is the longest numeral in range: 3888 is MMMDCCCLXXXVIII, and the
         // bound above is what makes the buffer a fixed one.
@@ -317,10 +325,17 @@ static class ListMarkers
 
         for (var index = 0; index < values.Length; index++)
         {
+            var prefix = letters[index * 2];
+            var letter = letters[index * 2 + 1];
+
             while (remaining >= values[index])
             {
-                numerals[index].CopyTo(numeral[length..]);
-                length += numerals[index].Length;
+                if (prefix != '\0')
+                {
+                    numeral[length++] = prefix;
+                }
+
+                numeral[length++] = letter;
                 remaining -= values[index];
             }
         }
