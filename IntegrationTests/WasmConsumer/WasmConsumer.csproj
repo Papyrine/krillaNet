@@ -2,28 +2,20 @@
 
   <!--
     Proves the one part of browser-wasm support that lives in the package rather than in the
-    binary: that buildTransitive/Krilla.targets puts the static archive in front of a
-    consumer's Emscripten link step.
+    binary: that buildTransitive/Krilla.targets puts the static archive in front of a consumer's
+    Emscripten link step. That hop fails SILENTLY when it is wrong — the app restores, builds and
+    publishes, then dies on the first P/Invoke with a missing symbol naming neither Krilla nor
+    the call — so it earns an assertion of its own.
 
-    That hop is worth a test of its own because it fails SILENTLY. A NativeFileReference
-    declared by a referenced project or package does not reach the consuming WebAssembly app
-    (dotnet/runtime#114724), so a package that declared it in the wrong place would restore,
-    build and publish perfectly, and then fail on the first P/Invoke with a missing symbol
-    naming neither Krilla nor the call.
+    The assertion is on the ITEM GROUP and nothing here links anything, so this proves the
+    packaging rather than the archive; whether the archive is any good is native.yml's job. It
+    still needs the wasm-tools workload, because a browser-wasm project cannot even RESTORE
+    without one — NETSDK1147 comes from the SDK's own workload import.
 
-    OutputType is Library and nothing here links anything, which is the point: the assertion is
-    on the item group, so this needs no wasm-tools workload and adds seconds rather than the
-    couple of gigabytes an Emscripten relink would cost. What it therefore does NOT prove is
-    that the archive itself is good — native.yml's browser-wasm leg does that, by linking it
-    and running the result under node.
-  -->
-
-  <!--
-    DELIBERATELY NOT IN IntegrationTests.slnx, and that is load-bearing rather than an
-    oversight. The smoke jobs run `dotnet build IntegrationTests`, which builds the solution;
-    a browser-wasm project in it fails with NETSDK1147 on every runner that has no wasm-tools
-    workload, which is all of them. So this project is invoked by path, by the one CI step that
-    installs the workload first.
+    Which is why the project is DELIBERATELY absent from IntegrationTests.slnx: the smoke jobs
+    run `dotnet build IntegrationTests`, and a browser-wasm project in that solution would demand
+    the workload on every runner that has no use for it. It is invoked by path instead, by the
+    one CI step that installs it first.
   -->
 
   <PropertyGroup>
