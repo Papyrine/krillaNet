@@ -28,6 +28,12 @@
 /// ancestor — invisible whenever there is none, which is most documents.
 /// <c>position/fixed</c> measures it.
 /// </para>
+/// <para>
+/// An AUTO margin means something here that it means nowhere else on an absolute box. With an
+/// offset at each end and a definite size between them the box is over-constrained, and CSS 2.1
+/// §10.3.7 makes the auto margins absorb the slack — which is what centres a box given
+/// <c>left: 0; right: 0; margin: 0 auto</c>. Everywhere else an auto margin on such a box is zero.
+/// </para>
 /// </remarks>
 static class AbsoluteLayout
 {
@@ -101,15 +107,45 @@ static class AbsoluteLayout
         var top = style.Top.ResolveOrNull(height);
         var bottom = style.Bottom.ResolveOrNull(height);
 
-        // An auto margin on an absolute box resolves to zero here rather than centring it. Centring
-        // is only defined when both offsets and the width are given, which is not a case this
-        // distinguishes yet.
+        // An auto margin resolves to zero everywhere but the over-constrained case below, so the
+        // width the box is given is computed from zeros — which is right, because the case below
+        // only arises when the width is NOT auto and so does not depend on them.
         var marginLeft = style.MarginLeft.Resolve(width);
         var marginRight = style.MarginRight.Resolve(width);
         var marginTop = style.MarginTop.Resolve(width);
 
         var assigned = Width(box, containing, left, right, marginLeft, marginRight, fonts);
         var used = BlockLayout.Layout(box, 0, 0, width, fonts, assigned);
+
+        // CSS 2.1 §10.3.7 and §10.6.4. With an offset at each end AND a definite size between them
+        // the equation is over-constrained, and it is the auto margins that absorb the slack: both
+        // auto centres the box, one auto takes the whole of it. This is the only place an auto
+        // margin on an absolute box means anything other than zero, and it is one of the two
+        // standard ways to centre something — `left: 0; right: 0; margin: 0 auto` on a box with a
+        // width.
+        //
+        // A definite size is the condition that matters. With `width: auto` the box already
+        // stretches to span the offsets and there is no slack to share; vertically, an auto height
+        // does NOT stretch here, so centring it would be sharing out the gap it should have filled.
+        if (left is not null && right is not null && Definite(box, style.Width))
+        {
+            (marginLeft, marginRight) = Share(
+                width - left.Value - right.Value - box.BorderBox.Width,
+                style.MarginLeft.IsAuto,
+                style.MarginRight.IsAuto,
+                marginLeft,
+                marginRight);
+        }
+
+        if (top is not null && bottom is not null && Definite(box, style.Height))
+        {
+            (marginTop, _) = Share(
+                height - top.Value - bottom.Value - used,
+                style.MarginTop.IsAuto,
+                style.MarginBottom.IsAuto,
+                marginTop,
+                style.MarginBottom.Resolve(width));
+        }
 
         var x = left is {} fromLeft
             ? containing.X + fromLeft + marginLeft
@@ -124,6 +160,60 @@ static class AbsoluteLayout
                 : box.StaticPosition?.Y ?? containing.Y;
 
         box.Translate(x - box.BorderBox.X, y - box.BorderBox.Y);
+    }
+
+    /// <summary>
+    /// Whether the box has a size of its own on this axis, rather than one the offsets decide.
+    /// </summary>
+    /// <remarks>
+    /// A replaced box always does — its intrinsic size or its aspect ratio supplies one even where
+    /// nothing is declared — which is why the image is tested rather than the declaration alone.
+    /// </remarks>
+    static bool Definite(LayoutBox box, CssLength size) =>
+        box.Image is not null || !size.IsAuto;
+
+    /// <summary>
+    /// Shares <paramref name="slack"/> between the two margins on one axis.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Both auto splits it, which is the centring. One auto takes whatever the other leaves — so
+    /// <c>margin-left: 20px; margin-right: auto</c> pins the box 20px from the start edge and lets
+    /// the far margin grow, rather than the two fighting.
+    /// </para>
+    /// <para>
+    /// NEGATIVE slack — a box wider than the gap its offsets leave — is not split. CSS gives the
+    /// whole of the overflow to the end margin in a left-to-right box, so the box stays against the
+    /// start edge and hangs out of the far one. Splitting it instead pulls the box half its
+    /// overflow off the start edge, which looks like a centring bug in exactly the case where
+    /// centring was impossible.
+    /// </para>
+    /// </remarks>
+    static (float Start, float End) Share(
+        float slack,
+        bool autoStart,
+        bool autoEnd,
+        float start,
+        float end)
+    {
+        if (autoStart && autoEnd)
+        {
+            return slack < 0 ? (0, slack) : (slack / 2, slack / 2);
+        }
+
+        if (autoStart)
+        {
+            return (slack - end, end);
+        }
+
+        if (autoEnd)
+        {
+            return (start, slack - start);
+        }
+
+        // Over-constrained with nothing auto to absorb it. The end offset is ignored, which is
+        // what preferring `left` and `top` below already does.
+        return (start, end);
     }
 
     /// <summary>

@@ -1,0 +1,38 @@
+/* CSS 2.1 §10.3.7 and §10.6.4: with an offset at each end AND a definite size between them, an
+   absolutely positioned box is over-constrained and its AUTO margins absorb the slack. Every row
+   here is a case where an auto margin means something other than zero, plus the rows that pin the
+   cases where it still means zero. */
+.frame {
+  position: relative;
+  width: 400px;
+  height: 70px;
+  margin-bottom: 10px;
+  background-color: #f0f0f0;
+}
+
+.box {
+  position: absolute;
+  background-color: #cfd8e8;
+  line-height: 24px;
+}
+
+/* Both auto: the box is centred between the offsets, not against the containing block — the
+   offsets differ, so the two answers are 40px apart. */
+#centred { left: 20px; right: 100px; width: 120px; margin-left: auto; margin-right: auto; }
+
+/* One auto: the fixed margin holds and the auto one takes the whole remainder, so the box sits
+   20 + 30 from the start edge rather than half-way. */
+#pushed { left: 20px; right: 100px; width: 120px; margin-left: 30px; margin-right: auto; }
+
+/* The vertical mirror, which needs a declared HEIGHT for the same reason. */
+#middled { top: 0; bottom: 0; height: 24px; width: 100px; margin-top: auto; margin-bottom: auto; }
+
+/* Negative slack is NOT split. The whole overflow goes to the end margin, so the box stays against
+   the start edge; splitting it would pull it 60px left of where the offset put it. */
+#wider { left: 20px; right: 100px; width: 400px; margin-left: auto; margin-right: auto; }
+
+/* An AUTO width already spans the offsets, so there is no slack and the auto margins stay zero. */
+#filled { left: 20px; right: 100px; margin-left: auto; margin-right: auto; }
+
+/* Only one offset given, so the box is not over-constrained and the auto margins are zero. */
+#left { left: 40px; width: 120px; margin-left: auto; margin-right: auto; }
