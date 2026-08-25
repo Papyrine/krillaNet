@@ -207,7 +207,7 @@ public class PageRuleTests
         var options = Options();
         using var document = await HtmlConverter.ParseAsync(html, options);
 
-        var boxes = await BoxDump.MeasureAsync(html, HtmlConverter.Paged(document, options));
+        var boxes = await BoxDump.MeasureAsync(html, HtmlConverter.Paged(document, options, out _));
         var div = boxes.Single(_ => _.Selector.EndsWith("div:nth-child(1)"));
 
         await Assert.That(div.Width).IsEqualTo(396.85f).Within(0.01f);

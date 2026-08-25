@@ -121,6 +121,11 @@ public sealed class HtmlOptions
     /// Set it false to keep the paper a caller has already chosen, which is the right answer when
     /// the size comes from a printer or an envelope rather than from the document.
     /// </para>
+    /// <para>
+    /// The GEOMETRY, and only that. A document's <c>@page</c> margin boxes — its running headers,
+    /// footers and page numbers — are drawn either way, because a running header is content rather
+    /// than paper and a caller who has fixed the page size has said nothing about it.
+    /// </para>
     /// </remarks>
     public bool HonourPageRules { get; set; } = true;
 

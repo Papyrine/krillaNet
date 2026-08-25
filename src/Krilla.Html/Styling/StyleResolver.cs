@@ -35,6 +35,29 @@ static class StyleResolver
         Resolve(element, context.Cascade(element), parent, context, pseudo: false);
 
     /// <summary>
+    /// Resolves a page margin box's own declarations against the page context.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The declaration is an inline one carried by an element that is never in the document, so
+    /// nothing in the cascade reaches it — which is CSS's rule for a margin box: its parent is the
+    /// page, not the body, and a `body { color: grey }` leaves the footer black.
+    /// </para>
+    /// <para>
+    /// Resolved as a pseudo-element is, which suppresses the diagnostics keyed to an element name.
+    /// Reporting `div` for a declaration inside `@top-center` would point at nothing an author
+    /// wrote; what such a box cannot honour is reported by <see cref="PageMargins"/> against
+    /// `@page` instead.
+    /// </para>
+    /// </remarks>
+    public static ComputedStyle ForMarginBox(
+        IElement element,
+        ICssStyleDeclaration declaration,
+        ComputedStyle parent,
+        DocumentContext context) =>
+        Resolve(element, declaration, parent, context, pseudo: true);
+
+    /// <summary>
     /// Resolves one of <paramref name="element"/>'s pseudo-elements, or null when it generates
     /// nothing.
     /// </summary>

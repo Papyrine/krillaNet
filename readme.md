@@ -85,7 +85,24 @@ and reported.
 
 A document's `@page` rules decide the paper — size, orientation and margins — unless
 `HtmlOptions.HonourPageRules` says otherwise, and media queries resolve against **print**, so a
-`@media print` block is the one that applies. `orphans` and `widows` are implemented and off by
+`@media print` block is the one that applies.
+
+`@page`'s sixteen **margin boxes** carry running headers, footers and page numbers:
+
+```css
+@page {
+  margin: 25mm;
+  @top-center { content: "Quarterly report" }
+  @bottom-right { content: counter(page) " of " counter(pages) }
+}
+@page :first { @top-center { content: none } }
+```
+
+`counter(page)` and `counter(pages)` are resolved per sheet, the page selectors `:first`, `:left`,
+`:right` and `:blank` all select, and a margin box takes its own declarations rather than
+inheriting from the document. No browser implements any of this, so it is one of the few places
+this converter does more than the reference it is measured against. `string()` and `string-set`
+are the part still missing, and a named page — `@page cover` — selects nothing and is reported. `orphans` and `widows` are implemented and off by
 default, because Chromium does not implement them and this converter is measured against Chromium;
 `HtmlOptions.HonourOrphansAndWidows` is the choice between typographic quality and browser fidelity.
 

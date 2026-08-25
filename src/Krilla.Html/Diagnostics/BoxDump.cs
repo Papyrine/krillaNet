@@ -255,7 +255,7 @@ public static class BoxDump
         // paper would be measured against one rectangle and painted against another.
         using var layout = HtmlConverter.LayoutDocument(
             document,
-            HtmlConverter.Paged(document, options));
+            HtmlConverter.Paged(document, options, out _));
 
         return Collect(layout.Root);
     }

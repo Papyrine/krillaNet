@@ -57,12 +57,14 @@ public static class HtmlConverter
         // Before anything measures a page: the geometry decides the containing block every
         // percentage resolves against and every viewport unit, so a document declaring its own
         // paper has to be read first or the whole tree is laid out against the wrong rectangle.
-        options = Paged(document, options);
+        options = Paged(document, options, out var rules);
 
         // The layout holds the decoded images, so it has to outlive painting — they are decoded
-        // on first draw, not during layout.
+        // on first draw, not during layout. The context comes with it, because a margin box's
+        // `content: url()` resolves through the same store the document's images do.
         using var layout = LayoutDocument(document, options);
         var root = layout.Root;
+        var fonts = RequireFonts(options);
 
         using var pdf = new KrillaDocument();
 
@@ -109,6 +111,12 @@ public static class HtmlConverter
             // the end of the document.
             var end = index + 1 < pages.Count ? pages[index + 1].Top : float.PositiveInfinity;
 
+            // A page a forced break left empty, which `@page :blank` selects. Its slice runs
+            // from its own top to the same place, so it holds nothing but the canvas — and a
+            // stylesheet that suppresses the running header on such a page is the reason the
+            // selector exists.
+            var blank = end <= pages[index].Top;
+
             PdfPainter.Paint(
                 page.Surface,
                 root,
@@ -117,7 +125,17 @@ public static class HtmlConverter
                 content,
                 new(options.PageWidth * scale, options.PageHeight * scale),
                 scale,
-                links);
+                links,
+                PageMargins.Build(
+                    rules,
+                    options,
+                    document,
+                    layout.Context,
+                    fonts,
+                    root.Style.FontFamilies,
+                    index + 1,
+                    pages.Count,
+                    blank));
         }
 
         return pdf.Finish();
@@ -202,25 +220,28 @@ public static class HtmlConverter
     /// Folds a document's <c>@page</c> rules into the options, or returns them unchanged.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// An orientation keyword is applied to whatever size resulted rather than to the one the rule
     /// named, so <c>@page { size: landscape }</c> turns the caller's paper and
     /// <c>size: A4 landscape</c> turns A4 — which is the same rule stated once.
+    /// </para>
+    /// <para>
+    /// The rules are read whatever <see cref="HtmlOptions.HonourPageRules"/> says, and only the
+    /// GEOMETRY is withheld when it is false. That flag is about the paper — a caller whose page
+    /// size comes from a printer or an envelope — and a running header is content rather than
+    /// paper.
+    /// </para>
     /// </remarks>
-    internal static HtmlOptions Paged(IDocument document, HtmlOptions options)
+    internal static HtmlOptions Paged(IDocument document, HtmlOptions options, out PageRules rules)
     {
-        if (!options.HonourPageRules)
-        {
-            return options;
-        }
-
-        var rules = PageRules.For(document, options.RootFontSize);
+        rules = PageRules.For(document, options.RootFontSize);
 
         foreach (var (property, value, reason) in rules.Unsupported)
         {
             Diagnostic.Rule(options.OnDiagnostic, "@page", property, value, reason);
         }
 
-        if (!rules.Any)
+        if (!options.HonourPageRules || !rules.Any)
         {
             return options;
         }

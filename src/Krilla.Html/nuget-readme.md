@@ -31,9 +31,10 @@ decorations with their colour and style, `opacity`, 2D transforms, gradients, `b
 table border models, forced page breaks, `@page` rules, print media queries, generated content with
 CSS counters, `aspect-ratio`, `rgba()` colours, shadows as offsets, and `<col>` widths.
 
-A table's `<thead>` is re-drawn at the top of every page its table continues onto, and a
-`position: fixed` box is drawn on every page — which is how a running header or footer is written
-today.
+`@page`'s sixteen margin boxes carry running headers, footers and page numbers, with
+`counter(page)`, `counter(pages)` and the `:first`/`:left`/`:right`/`:blank` page selectors. A
+table's `<thead>` is re-drawn at the top of every page its table continues onto, and a
+`position: fixed` box is drawn on every page.
 
 The PDF gets a bookmark tree from the document's headings, a named destination for every `id`, and
 its title and language from the document when the caller has not set them.

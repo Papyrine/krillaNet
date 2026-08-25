@@ -181,13 +181,20 @@ wrong is still unmeasured.
 
 ## Pagination and paged media
 
-- **No `@page` margin boxes and no page selectors.** So no page numbers, and
-  `:first`/`:left`/`:right` select nothing. A running header or footer can be written today as a
-  `position: fixed` box, which repeats on every page — what is still missing is the `@page` route
-  to one, and with it `counter(page)`, which is the part no other construct substitutes for.
-  Reported. Chromium implements none of it either, so the corpus cannot measure this the way it
-  measures everything else: a reference would show no header at all, and an engine that drew one
-  would read as the one in the wrong.
+- **`string()` and `string-set` are not implemented**, which is CSS's own way of putting a
+  section's heading into a running header. Not reported either, and that is the harder half: the
+  cascade DROPS a `content` declaration carrying `string()`, so it comes back empty and is
+  indistinguishable from a margin box that declared none. `PageMarginBoxTests` pins the limitation
+  so it is not rediscovered as a defect.
+- **A named `@page` selector selects nothing.** `@page cover` matches the elements carrying
+  `page: cover`, and that property is not read. Reported, and dropped rather than applied to every
+  page — a cover sheet's header on every page is worse than none.
+- **The three margin boxes in a strip are not divided between.** CSS Paged Media §5.3 sizes them
+  from their content and shares out the remainder; each is given the whole strip here and placed by
+  its own alignment. The two agree wherever one box in a strip has content, and differ only when
+  two long ones share a strip, where this lets them overlap. Unmeasurable — Chromium implements no
+  margin boxes at all, so there is no reference — and not reported, since nothing an author could
+  act on distinguishes the readings.
 - **An INLINE image taller than a page is sliced at the page edge**, where Chrome moves it whole to
   a fresh page and lets it overflow from there. The block-level case is fixed —
   `Paginator.Unbreakable` lists a replaced element alongside a table row — but an inline image is
@@ -253,9 +260,10 @@ work rather than as tidying.
 - **AngleSharp drops some declarations rather than passing the value through**, so they can be
   neither honoured nor reported: `revert`, `text-overflow`, the `min-content`/`max-content`/
   `fit-content` sizing keywords, `aspect-ratio` given a single number, `overflow-wrap: anywhere`,
-  and `recto`/`verso` on both break spellings. `@page`'s `size` is dropped too and is the one
-  recovered by hand, from the stylesheet's own text, because a page size is a whole-document
-  difference.
+  `content` given a `string()`, and `recto`/`verso` on both break spellings. The whole of `@page`
+  except its margins is dropped too — its `size`, its selector, and its margin box at-rules — and
+  is recovered by hand from the stylesheet's own text, because a page size is a whole-document
+  difference and a running header is the reason most documents have the rule.
 - **A generic font family cannot be pinned in the corpus**, because a generic name is not legal as
   an `@font-face` family, so "does `<pre>` default to monospace" is not measurable here.
 - **`line-height: normal` imitates Chrome's rounding** rather than following a specification,

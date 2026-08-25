@@ -12,10 +12,15 @@ namespace Krilla.Html.Styling;
 /// keeps it.
 /// </para>
 /// <para>
-/// Only the geometry is read. The margin BOXES — <c>@top-center</c> and the fifteen others that
-/// carry running headers — are a layout mode of their own and are reported rather than
-/// approximated, as is the page selector: <c>@page :first</c> and <c>:left</c>/<c>:right</c> would
-/// need a per-page cascade, where everything here is settled once for the document.
+/// The geometry is settled once for the document: the size, the orientation and the four margins.
+/// The margin BOXES are not, because one may name <c>counter(page)</c> and so has a different
+/// answer on every sheet — they are collected here as declared and resolved per page by
+/// <see cref="Krilla.Html.Layout.PageMargins"/>, against the pages their selector names.
+/// </para>
+/// <para>
+/// A selector cannot vary the geometry. <c>@page :first { margin-top: 3in }</c> is read for its
+/// margin and applied to every page, because a page whose content area differs from the rest is a
+/// different layout rather than a different painting, and the document is laid out once.
 /// </para>
 /// </remarks>
 sealed class PageRules
@@ -66,6 +71,15 @@ sealed class PageRules
     public float? MarginLeft { get; private set; }
 
     /// <summary>
+    /// The margin boxes the document declares, in the order they were written.
+    /// </summary>
+    /// <remarks>
+    /// Every one of them, whatever its selector: which apply to a given page is a question only
+    /// that page can answer, and there is no page yet when this is read.
+    /// </remarks>
+    public List<PageMarginRule> MarginBoxes { get; } = [];
+
+    /// <summary>
     /// The parts of the <c>@page</c> rules that were recognised and not honoured.
     /// </summary>
     /// <remarks>
@@ -104,20 +118,30 @@ sealed class PageRules
                 rules.Read(rule, root, rootFontSize);
             }
 
-            // The declaration AngleSharp will not give back, recovered from the stylesheet's own
-            // source. See `Sizes`.
-            foreach (var declared in rules.Sizes(sheet))
+            // The two things AngleSharp will not give back, recovered from the stylesheet's own
+            // source. See `Blocks`.
+            foreach (var block in Blocks(sheet))
             {
-                var (paper, landscape) = Dimensions(declared, root, rootFontSize);
+                var selector = rules.Selector(block.Selector);
 
-                if (paper is null && landscape is null)
+                foreach (var declared in Sizes(block.Body))
                 {
-                    rules.Unsupported.Add(("size", declared, "the page size named here is not read"));
-                    continue;
+                    var (paper, landscape) = Dimensions(declared, root, rootFontSize);
+
+                    if (paper is null && landscape is null)
+                    {
+                        rules.Unsupported.Add(("size", declared, "the page size named here is not read"));
+                        continue;
+                    }
+
+                    rules.Size = paper ?? rules.Size;
+                    rules.Landscape = landscape ?? rules.Landscape;
                 }
 
-                rules.Size = paper ?? rules.Size;
-                rules.Landscape = landscape ?? rules.Landscape;
+                foreach (var (slot, declarations) in rules.Margins(block.Body))
+                {
+                    rules.MarginBoxes.Add(new(selector, rules.MarginBoxes.Count, slot, declarations));
+                }
             }
         }
 
@@ -125,23 +149,30 @@ sealed class PageRules
     }
 
     /// <summary>
-    /// The <c>size</c> declarations in a stylesheet's source, in order.
+    /// Every <c>@page</c> rule in a stylesheet's source, as its selector and its body.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// AngleSharp.Css parses an <c>@page</c> rule and keeps its margins, and DROPS <c>size</c>
-    /// entirely — the rule's own <c>CssText</c> comes back without it and
-    /// <c>Style.GetPropertyValue("size")</c> is empty. There is nothing to read through the object
-    /// model, so this reads the text the author wrote.
+    /// AngleSharp.Css parses an <c>@page</c> rule and keeps its margins, and DROPS three things
+    /// beside them: the <c>size</c> declaration, the selector, and the margin box at-rules
+    /// entirely. <c>Style.GetPropertyValue("size")</c> is empty, the rule's own <c>CssText</c>
+    /// comes back without any of it, and there is no object at all for <c>@top-center</c>. There
+    /// is nothing to read through the object model, so this reads the text the author wrote.
     /// </para>
     /// <para>
-    /// A scan of CSS source is not something to reach for twice, and it is bounded here on purpose:
-    /// it looks only inside <c>@page</c> blocks, takes only a <c>size</c> declaration, and stops at
-    /// the first closing brace — so a nested block or a comment carrying the word makes it find
-    /// nothing rather than find something wrong. Anything it cannot read is reported.
+    /// A scan of CSS source is not something to reach for twice, which is why it is one scan
+    /// yielding blocks rather than one per thing recovered from them. It is bounded on purpose:
+    /// it looks only for <c>@page</c>, matches its braces rather than stopping at the first close,
+    /// and hands back the text between them. Anything it cannot read is reported.
+    /// </para>
+    /// <para>
+    /// The one thing it cannot see is the rule tree above it, so an <c>@page</c> nested inside an
+    /// <c>@media</c> block is read whatever the query says. A PDF resolves media queries against
+    /// PRINT, so the block that matters — <c>@media print</c> — is the one this gets right by
+    /// accident; the rest is a known limitation rather than an oversight.
     /// </para>
     /// </remarks>
-    IEnumerable<string> Sizes(ICssStyleSheet sheet)
+    static IEnumerable<(string Selector, string Body)> Blocks(ICssStyleSheet sheet)
     {
         if (sheet.OwnerNode is not {} owner)
         {
@@ -160,53 +191,202 @@ sealed class PageRules
             }
 
             var open = text.IndexOf('{', index);
-            var close = open < 0 ? -1 : text.IndexOf('}', open);
-            index += 5;
-
-            if (open < 0 || close < 0)
+            if (open < 0)
             {
                 yield break;
             }
 
-            // Whatever stood between `@page` and its brace is a page selector, which would need a
-            // per-page cascade: everything here is settled once for the document.
-            var selector = text[(index)..open].Trim();
-
-            if (selector.Length > 0)
+            var close = Matching(text, open);
+            if (close < 0)
             {
-                Unsupported.Add((
-                    "@page",
-                    selector,
-                    "the rule applies to every page rather than to the ones the selector names"));
+                yield break;
             }
 
-            var block = text[(open + 1)..close];
+            yield return (text[(index + 5)..open].Trim(), text[(open + 1)..close]);
 
-            // A margin box is a nested at-rule, and the scan stopped at the first closing brace —
-            // so its declarations are not in `block` and the `size` inside one is not read either.
-            // Reported rather than skipped silently, since a running header is the reason most
-            // documents have an `@page` rule at all.
-            if (block.Contains('@'))
+            index = close;
+        }
+    }
+
+    /// <summary>The index of the brace closing the one at <paramref name="open"/>, or -1.</summary>
+    /// <remarks>
+    /// Depth counting rather than a search for the next close, which is the whole of what lets a
+    /// margin box be found: a nested at-rule has braces of its own, and the first close belongs to
+    /// it rather than to the page.
+    /// </remarks>
+    static int Matching(string text, int open)
+    {
+        var depth = 0;
+
+        for (var index = open; index < text.Length; index++)
+        {
+            if (text[index] == '{')
             {
-                Unsupported.Add((
-                    "@page",
-                    block[block.IndexOf('@')..].Split(' ', '{')[0],
-                    "page margin boxes are not laid out, so running headers and footers are absent"));
+                depth++;
             }
-
-            foreach (var declaration in block.Split(';', StringSplitOptions.TrimEntries))
+            else if (text[index] == '}')
             {
-                var colon = declaration.IndexOf(':');
+                depth--;
 
-                if (colon > 0 &&
-                    declaration[..colon].Trim().Equals("size", StringComparison.OrdinalIgnoreCase))
+                if (depth == 0)
                 {
-                    yield return declaration[(colon + 1)..].Trim();
+                    return index;
                 }
+            }
+        }
+
+        return -1;
+    }
+
+    /// <summary>
+    /// The <c>size</c> declarations in one <c>@page</c> body, in order.
+    /// </summary>
+    /// <remarks>
+    /// Only the body's OWN declarations. Anything inside a nested at-rule belongs to a margin box
+    /// and is skipped, which is what stops a <c>size</c> written in one being read as the page's.
+    /// </remarks>
+    static IEnumerable<string> Sizes(string body)
+    {
+        foreach (var declaration in Own(body).Split(';', StringSplitOptions.TrimEntries))
+        {
+            var colon = declaration.IndexOf(':');
+
+            if (colon > 0 &&
+                declaration[..colon].Trim().Equals("size", StringComparison.OrdinalIgnoreCase))
+            {
+                yield return declaration[(colon + 1)..].Trim();
+            }
+        }
+    }
+
+    /// <summary>
+    /// The margin box at-rules in one <c>@page</c> body, each with the declarations inside it.
+    /// </summary>
+    /// <remarks>
+    /// A name that is not one of the sixteen is reported rather than skipped. The realistic case
+    /// is a spelling mistake, and a running header that silently does not appear is exactly the
+    /// kind of absence nobody notices until the document is printed.
+    /// </remarks>
+    IEnumerable<(PageMarginSlot Slot, string Declarations)> Margins(string body)
+    {
+        var index = 0;
+
+        while (true)
+        {
+            index = body.IndexOf('@', index);
+            if (index < 0)
+            {
+                yield break;
+            }
+
+            var open = body.IndexOf('{', index);
+            if (open < 0)
+            {
+                yield break;
+            }
+
+            var close = Matching(body, open);
+            if (close < 0)
+            {
+                yield break;
+            }
+
+            var name = body[(index + 1)..open].Trim();
+
+            if (PageMarginSlots.Parse(name) is {} slot)
+            {
+                yield return (slot, body[(open + 1)..close]);
+            }
+            else
+            {
+                Unsupported.Add((
+                    "@page",
+                    $"@{name}",
+                    "the name is not one of the sixteen page margin boxes, so nothing is drawn for it"));
             }
 
             index = close;
         }
+    }
+
+    /// <summary>
+    /// A block's text with every nested at-rule removed, leaving its own declarations.
+    /// </summary>
+    static string Own(string body)
+    {
+        if (!body.Contains('@'))
+        {
+            return body;
+        }
+
+        var kept = new StringBuilder();
+        var index = 0;
+
+        while (index < body.Length)
+        {
+            var at = body.IndexOf('@', index);
+
+            if (at < 0)
+            {
+                kept.Append(body, index, body.Length - index);
+                break;
+            }
+
+            kept.Append(body, index, at - index);
+
+            var open = body.IndexOf('{', at);
+            var close = open < 0 ? -1 : Matching(body, open);
+
+            if (close < 0)
+            {
+                break;
+            }
+
+            index = close + 1;
+        }
+
+        return kept.ToString();
+    }
+
+    /// <summary>
+    /// The pages a selector names, and a report for anything in it that is not read.
+    /// </summary>
+    /// <remarks>
+    /// The four pseudo-classes CSS Paged Media defines. A NAMED page — <c>@page cover</c> — is not
+    /// read: it selects the elements that carry <c>page: cover</c>, which is a property this engine
+    /// does not honour, so a rule naming one would apply to every page and put a cover's header on
+    /// all of them.
+    /// </remarks>
+    PageSelector Selector(string text)
+    {
+        var selector = PageSelector.All;
+
+        foreach (var part in text.Split(':', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            switch (part.ToLowerInvariant())
+            {
+                case "first":
+                    selector |= PageSelector.First;
+                    break;
+                case "left":
+                    selector |= PageSelector.Left;
+                    break;
+                case "right":
+                    selector |= PageSelector.Right;
+                    break;
+                case "blank":
+                    selector |= PageSelector.Blank;
+                    break;
+                default:
+                    Unsupported.Add((
+                        "@page",
+                        text,
+                        "a named page selects the elements carrying `page`, which is not read, so this rule would apply to every page"));
+                    return PageSelector.Never;
+            }
+        }
+
+        return selector;
     }
 
     void Read(ICssPageRule rule, CssRoot root, float rootFontSize)

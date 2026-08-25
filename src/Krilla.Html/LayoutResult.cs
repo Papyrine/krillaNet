@@ -12,7 +12,17 @@ sealed class LayoutResult(LayoutBox root, DocumentContext context) :
     /// <summary>The root box.</summary>
     public LayoutBox Root { get; } = root;
 
+    /// <summary>
+    /// The document-wide state the tree was built against.
+    /// </summary>
+    /// <remarks>
+    /// Reached after layout by the page margin boxes, whose `content: url()` resolves through the
+    /// same image store the document's own images do — and which are built per page, long after
+    /// the walk that made this.
+    /// </remarks>
+    public DocumentContext Context { get; } = context;
+
     /// <inheritdoc />
     public void Dispose() =>
-        context.Dispose();
+        Context.Dispose();
 }

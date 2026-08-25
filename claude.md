@@ -109,10 +109,11 @@ And, from the paged-media and structure work: a document's `@page` rules decide 
 breaks insert the blank page they ask for, generated content works (`::before`, `::after`, `content`
 with `attr()`, `counter()`, `counters()`, `url()` and the quote keywords, plus `counter-reset`,
 `counter-increment` and `quotes`), and the PDF gets an outline from the document's headings, a named
-destination per `id`, and its title and language from the document. Content repeats per page: a
-`position: fixed` box is drawn on every one, and a table's `<thead>` is re-drawn at the top of every
-page the table continues onto. `orphans` and `widows` are implemented and OFF by default — see the
-trap list.
+destination per `id`, and its title and language from the document. Content repeats per page:
+`@page`'s sixteen margin boxes carry running headers, footers and page numbers, a `position: fixed`
+box is drawn on every page, and a table's `<thead>` is re-drawn at the top of every page the table
+continues onto. `@page` page selectors work — `:first`, `:left`, `:right` and `:blank`. `orphans`
+and `widows` are implemented and OFF by default — see the trap list.
 
 Also implemented, and each measured against Chrome the same way: `calc()` and the viewport units,
 `vertical-align` given a length or a percentage, the inline box model (background, padding, border
@@ -195,7 +196,7 @@ Found by measuring against a browser, not by reading. Each cost a whole category
 - **AngleSharp has no `display` for the inline elements.** It reports an empty string for `b`, `i`, `span` and the rest. Reading that as `block` puts every piece of emphasised text on a line of its own, which is a whole-paragraph error from a missing default. `Styling/UserAgentStyles.cs` supplies them.
 - **AngleSharp does not resolve the `font-size` keywords**, so `medium`, `large`, `smaller` and the rest arrive at `ResolveFontSize` as written rather than as lengths. The trap is in what an unparseable value falls back to: `CssLength.Zero` is an **absolute** length, so it took the `LengthKind.Absolute` branch and returned a font size of 0 — which is not a smaller size, it is an invisible one, and `font-size: large` therefore deleted the text of the element carrying it. The fallback is `CssLength.None` so the `_` branch can catch it. Any new parse whose fallback is meant to mean "unparseable" needs a kind the switch above it does not otherwise handle. `<small>` and `<big>` never hit this, because the cascade resolves the default stylesheet's sizes for those into real lengths first — which is what kept it hidden.
 - **AngleSharp rewrites a gradient's corner keyword as a flat `45deg`.** `to top right` names an angle that depends on the box's proportions — the gradient line is perpendicular to the diagonal joining the other two corners, so in a wide, short box it is nearly `to top`. The cascade collapses it to 45° before the engine sees it, which is right only for a square box. It cannot be reported either, being indistinguishable from an angle the author wrote. `GradientPaint.Resolve` keeps the correct resolution against the day the value survives, and `block/gradients` had the row that measured it removed for this reason.
-- **AngleSharp DROPS some declarations rather than passing the value through**, which is a different failure from mis-resolving one and a worse one to debug: the cascaded style comes back *empty*, indistinguishable from a property nobody declared. So the value can be neither honoured nor reported, and the gap is invisible from this side. Found so far: the `revert` keyword, `text-overflow`, the `min-content`/`max-content`/`fit-content` sizing keywords, `recto` and `verso` on both break spellings, `aspect-ratio` given a single number rather than a ratio, `overflow-wrap: anywhere`, and `@page`'s `size` declaration. `unset` survives, and `calc()` and the viewport units survive verbatim — so the rule is not "anything modern". The one that was worth working around is `size`, recovered from the stylesheet's own text because a page size is a whole-document difference; the rest are recorded and left.
+- **AngleSharp DROPS some declarations rather than passing the value through**, which is a different failure from mis-resolving one and a worse one to debug: the cascaded style comes back *empty*, indistinguishable from a property nobody declared. So the value can be neither honoured nor reported, and the gap is invisible from this side. Found so far: the `revert` keyword, `text-overflow`, the `min-content`/`max-content`/`fit-content` sizing keywords, `recto` and `verso` on both break spellings, `aspect-ratio` given a single number rather than a ratio, `overflow-wrap: anywhere`, `content` given a `string()`, and the whole of `@page` except its margins — its `size`, its selector, and its margin box at-rules, which have no object at all. `unset` survives, and `calc()` and the viewport units survive verbatim — so the rule is not "anything modern". The ones worth working around were `@page`'s, recovered from the stylesheet's own text because a page size is a whole-document difference and a running header is the reason most documents have the rule; the rest are recorded and left.
 - **AngleSharp does not apply presentational attributes.** HTML maps `<table width>`, `<td bgcolor>`, `<p align>` and the rest onto CSS as hints below every author rule; AngleSharp performs none of that mapping, so they reach the cascade as nothing at all. `<img width>`/`<img height>` are applied by hand in `BoxBuilder.WithAttributeSize`; everything else is reported by `UnsupportedAttributes` rather than silently dropped. Documents converted to PDF come disproportionately from reporting tools and mail merges, which emit exactly this markup.
 
 ## Traps found by importing an external test
@@ -766,6 +767,67 @@ changing it would suppress SSIM rather than report a difference.
   drops a break at the very start of the document applies to them too, or `right` on the first element
   opens with a blank page and lands the content on an even one anyway.
 
+## Traps in page margin boxes
+
+`PageMarginBoxTests` covers these. The corpus cannot: **Chromium implements none of `@page`'s
+margin boxes**, so a reference generated from a document declaring an `@top-center` comes back with
+an empty margin — a scenario would record the browser's absence as the target and fail the moment
+the feature worked. The same shape as `orphans` and `widows`, and resolved the other way, because
+a running header is not a fidelity question: no browser produces one, so there is nothing to
+disagree with.
+
+- **AngleSharp drops the whole of this.** Not just `size`, which was already known: the SELECTOR
+  comes back empty and a margin box at-rule has no object at all. So the `@page` scan is now a
+  brace-matching one over the stylesheet's own source, yielding each block's selector and body, and
+  everything is recovered from that — which is also why it is ONE scan rather than one per thing
+  recovered. Depth counting rather than a search for the next `}` is what lets a margin box be
+  found at all: a nested at-rule has braces of its own and the first close belongs to it.
+- **The scan cannot see the rule tree above it**, so an `@page` inside an `@media` block is read
+  whatever the query says. A PDF resolves media queries against PRINT, so the block that matters —
+  `@media print` — is the one this gets right by accident.
+- **A margin box is built PER PAGE**, which `counter(page)` forces: it has a different answer on
+  every sheet, so its content, its layout and its width are all settled while that sheet is painted.
+  `counter(page)` and `counter(pages)` are special-cased there and nowhere else; a DOCUMENT counter
+  has no value on a page, the page not being a position in the tree, and is reported.
+- **It is laid out in the PAGE's coordinates, not the document's**, and painted outside the clip
+  everything else goes through. That clip is the content box, which is the whole point of a margin
+  box — it sits where nothing in the document can reach.
+- **Its declarations are carried by an element that is never in the document.** That is what keeps
+  it out of the cascade, as CSS asks: its parent is the page context rather than the body, so
+  `body { color: grey }` leaves the footer black. `element.GetStyle()` gives the inline declaration
+  with shorthands expanded, which is exactly the margin box's own declarations and nothing else.
+- **The FONT FAMILY is the one concession, and it is not inheritance.** The page context has no
+  font, and the only other answer is `FontSet.Fallback` — which in a set of Liberation faces is the
+  MONOSPACE one, so a running header came out in a typewriter font. The root element's family is
+  used instead: a document has exactly one obvious answer to what its text looks like.
+- **Two rules for one slot are CONCATENATED, not merged property by property.** A declaration block
+  resolves later declarations over earlier ones, so joining the blocks in cascade order and parsing
+  the result once IS the cascade — and is the cascade for shorthands too, which merging by property
+  name would have to reimplement.
+- **`:first` and `:blank` outrank `:left` and `:right`, which outrank no selector at all.** CSS
+  Paged Media's own order, and what every "no header on the title page" stylesheet depends on: the
+  bare `@page` rule is written first and must not win back the page `:first` named.
+- **A NAMED page selects nothing.** `@page cover` matches the elements carrying `page: cover`, a
+  property this engine does not read — so applying it to every page instead would put a cover
+  sheet's header on all of them, which is worse than the header being absent and much harder to
+  attribute. Dropped, and reported.
+- **`content` decides whether the box exists**, which is CSS's rule and a useful one: `content: none`
+  on a selector is how a stylesheet takes the header off a page, and it takes the box's border and
+  background with it.
+- **A selector cannot vary the GEOMETRY.** `@page :first { margin-top: 3in }` is read for its margin
+  and applied to every page: a page whose content area differs from the rest is a different layout
+  rather than a different painting, and the document is laid out once.
+- **The three boxes in a strip are not divided between.** CSS Paged Media §5.3 computes each one's
+  max-content and min-content widths and distributes the remainder; each is given the whole strip
+  here and placed by its own alignment instead. The two agree wherever one box in a strip has
+  content, which is nearly always, and differ only when two long ones share a strip — where this
+  lets them overlap rather than wrapping them early. Not reported, because there is no browser to
+  measure the difference against and nothing an author could act on.
+- **`string()` cannot be reported.** It is CSS's own running-header mechanism, paired with
+  `string-set`, and it is not implemented — but the reason it is silent is that AngleSharp DROPS the
+  declaration carrying it, so `content` comes back empty and is indistinguishable from a margin box
+  that declared none. The same shape as `revert` and `text-overflow`.
+
 ## Traps in generated content and counters
 
 `block/generated` is pixel-identical and `block/counters` geometry-exact. AngleSharp hands the whole
@@ -916,7 +978,7 @@ Both are now reported, and the lesson generalises: a value-by-value fallback wit
 
 The other thing the audit cannot see is a syntax the resolver does not PARSE. `calc()` was the case: it fell through to the unparseable fallback, the property took its default, and no diagnostic could fire because nothing recognised the value as one the engine was getting wrong. **A value nothing recognises is a value nothing can report.**
 
-Still reported rather than implemented: `column-count`, `writing-mode`, `direction`, `font-variant`, `font-stretch`, a wavy text decoration, `word-break: keep-all`, a blurred or spread shadow and an `inset` one, `rgba()` on a border, an outline or a decoration, `break-before`/`break-after: avoid`, automatic hyphenation, a `position: fixed` box with neither `top` nor `bottom` given, `visibility: collapse` on a table row, an unrecognised `list-style-type`, `white-space: break-spaces`, an unresolved `list-style-image`, a `content` value that names something unreadable, a non-inline `display` on a pseudo-element, page margin boxes and page selectors, rounded corners on an inline element, and a gradient as an inline element's background.
+Still reported rather than implemented: `column-count`, `writing-mode`, `direction`, `font-variant`, `font-stretch`, a wavy text decoration, `word-break: keep-all`, a blurred or spread shadow and an `inset` one, `rgba()` on a border, an outline or a decoration, `break-before`/`break-after: avoid`, automatic hyphenation, a `position: fixed` box with neither `top` nor `bottom` given, `visibility: collapse` on a table row, an unrecognised `list-style-type`, `white-space: break-spaces`, an unresolved `list-style-image`, a `content` value that names something unreadable, a non-inline `display` on a pseudo-element, a named `@page` selector, rounded corners on an inline element, and a gradient as an inline element's background.
 
 Two entries came OFF that list by being measured rather than implemented, which is its own kind of result. `border-style: hidden` inside a collapsed table was documented as unimplementable — the width was folded to zero before anything could tell it from an absent border — and became a two-line change once `hidden` was kept as a style of its own; `table/collapse` is pixel-identical with it. And `visibility: collapse` on a table row was written, measured, and reverted: Chrome disagrees with ITSELF, its screen layout zeroing the row's track while its printed page puts everything after it twenty pixels further down, so no engine behaviour can be exact on both of the corpus's measurements.
 

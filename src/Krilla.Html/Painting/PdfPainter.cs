@@ -35,6 +35,10 @@ static class PdfPainter
     /// <param name="paper">The whole page, in points. What the canvas background covers.</param>
     /// <param name="scale">Points per layout unit.</param>
     /// <param name="links">Where each fragment identifier resolves to, or null.</param>
+    /// <param name="margins">
+    /// The page's <c>@page</c> margin boxes, already laid out in the page's own coordinates, or null
+    /// when the document declares none.
+    /// </param>
     /// <remarks>
     /// <paramref name="pageEnd"/> is not the same as the bottom of the page box, and the
     /// difference is the whole reason it is a parameter. A line that straddles the page boundary
@@ -50,15 +54,40 @@ static class PdfPainter
         Rect content,
         Size paper,
         float scale,
-        LinkTargets? links = null)
+        LinkTargets? links = null,
+        List<LayoutBox>? margins = null)
     {
-        var pageTop = start.Top;
-        var reserved = start.Reserved;
-
         // The canvas, before anything else and outside the transform stack below, because it is
         // measured in page points rather than layout units and covers the margins as well as the
         // content.
         PaintCanvas(surface, root, paper);
+
+        using var _ = surface.PushTransform(Matrix.Scale(scale, scale));
+
+        PaintContent(surface, root, start, pageEnd, content, scale, links);
+
+        // OUTSIDE the clip the content is painted through, which is the whole point of a margin
+        // box: it sits in the page margin, where nothing in the document can reach. After the
+        // content rather than before it, so a running header is never buried by a box that
+        // overflows its way — it cannot, being clipped, but the ordering costs nothing and the
+        // alternative would have to be reasoned about.
+        PaintMargins(surface, margins, scale);
+    }
+
+    /// <summary>
+    /// Paints the document's own slice of this page, clipped to the content box.
+    /// </summary>
+    static void PaintContent(
+        Surface surface,
+        LayoutBox root,
+        PageStart start,
+        float pageEnd,
+        Rect content,
+        float scale,
+        LinkTargets? links)
+    {
+        var pageTop = start.Top;
+        var reserved = start.Reserved;
 
         // Link annotations are queued and applied when the page closes, so they never see the
         // transform stack below and have to be given page coordinates directly. Everything else on
@@ -69,8 +98,6 @@ static class PdfPainter
             (content.Y + reserved + rect.Y - pageTop) * scale,
             rect.Width * scale,
             rect.Height * scale);
-
-        using var _ = surface.PushTransform(Matrix.Scale(scale, scale));
 
         // Content is clipped to the page box so a box straddling a break stops at the edge rather
         // than painting over the margin, and so the next page's slice starts clean.
@@ -83,12 +110,12 @@ static class PdfPainter
         // their top edge.
         using var clipPath = PdfPath.Rectangle(
             Rectangle.FromSize(content.X, content.Y, content.Width, content.Height));
-        using var __ = surface.PushClip(clipPath);
+        using var _ = surface.PushClip(clipPath);
 
         // Shift the document so this page's slice lands at the page's content origin, below
         // whatever band the repeated headers take. One transform for the whole page beats
         // offsetting every coordinate at every call site.
-        using var ___ = surface.PushTransform(Matrix.Translate(content.X, content.Y + reserved - pageTop));
+        using var __ = surface.PushTransform(Matrix.Translate(content.X, content.Y + reserved - pageTop));
 
         var slice = new PageSlice(
             pageTop,
@@ -105,6 +132,42 @@ static class PdfPainter
         // any later sibling; the box it is anchored to is frequently an ancestor of that sibling,
         // so the burial is the normal case rather than a corner one.
         PaintStack(surface, root, slice, collects: true, headers: start.Headers);
+    }
+
+    /// <summary>
+    /// Paints the page's <c>@page</c> margin boxes — its running headers, footers and page number.
+    /// </summary>
+    /// <remarks>
+    /// They are laid out in the page's OWN coordinates rather than the document's, so there is no
+    /// translate here and nothing to undo: a box built by <see cref="PageMargins"/> already knows
+    /// which strip of the margin it sits in. Its slice is its own extent, which culls nothing and
+    /// is what lets the ordinary painting machinery draw it.
+    /// </remarks>
+    static void PaintMargins(Surface surface, List<LayoutBox>? margins, float scale)
+    {
+        if (margins is not {Count: > 0} boxes)
+        {
+            return;
+        }
+
+        var toPage = (Rect rect) => new Rect(
+            rect.X * scale,
+            rect.Y * scale,
+            rect.Width * scale,
+            rect.Height * scale);
+
+        foreach (var box in boxes)
+        {
+            var slice = new PageSlice(
+                box.BorderBox.Y,
+                box.BorderBox.Bottom,
+                float.PositiveInfinity,
+                0,
+                null,
+                toPage);
+
+            PaintStack(surface, box, slice, collects: true);
+        }
     }
 
     /// <summary>
