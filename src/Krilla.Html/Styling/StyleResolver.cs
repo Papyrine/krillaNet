@@ -278,6 +278,7 @@ static class StyleResolver
             RadiusBottomRight = Radius(declaration, "bottom-right", font, root),
             RadiusBottomLeft = Radius(declaration, "bottom-left", font, root),
             OutlineWidth = OutlineWidth(declaration, font, root),
+            PageName = pseudo ? null : context.Declared(element, "page"),
             OutlineColor = CssValues.ParseColor(declaration.GetPropertyValue("outline-color")) ?? color,
             OutlineAlpha = ColorAlpha(declaration, "outline-color", alpha),
             OutlineOffset = Length(declaration, "outline-offset", font, root).Resolve(0),

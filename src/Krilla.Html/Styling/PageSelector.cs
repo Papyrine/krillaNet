@@ -30,10 +30,10 @@ enum PageSelector
     /// No page at all, for a selector that was read and cannot be honoured.
     /// </summary>
     /// <remarks>
-    /// A named page — <c>@page cover</c> — selects the elements carrying <c>page: cover</c>, which
-    /// this engine does not read. Dropping the rule is the conservative answer: applied to every
-    /// page instead, a cover sheet's header would appear on all of them, which is worse than the
-    /// header being absent and much harder to attribute.
+    /// Nothing reaches this today. It was what a NAMED page took before <c>page</c> was read, and
+    /// it is kept because the reasoning behind it is the rule for any future selector this engine
+    /// cannot resolve: applying such a rule to every page is worse than dropping it, since a cover
+    /// sheet's header on all of them is both wrong and hard to attribute.
     /// </remarks>
     Never = 16
 }
@@ -42,6 +42,11 @@ enum PageSelector
 /// One page margin box, as declared.
 /// </summary>
 /// <param name="Selector">The pages it applies to.</param>
+/// <param name="Name">
+/// The named page it belongs to, or null for a rule that names none. A page takes its name from the
+/// <c>page</c> property of whatever box the page begins inside, so a rule with a name applies to
+/// the sheets that box covers and to no others.
+/// </param>
 /// <param name="Order">
 /// Its position in the document's stylesheets, which settles a tie between two rules of equal
 /// specificity the way a later rule winning does everywhere else in CSS.
@@ -55,17 +60,21 @@ readonly record struct PageMarginRule(
     PageSelector Selector,
     int Order,
     PageMarginSlot Slot,
-    string Declarations)
+    string Declarations,
+    string? Name = null)
 {
     /// <summary>
     /// How specific the selector is, in CSS Paged Media's own order.
     /// </summary>
     /// <remarks>
-    /// <c>:first</c> and <c>:blank</c> outrank <c>:left</c> and <c>:right</c>, which outrank no
-    /// selector at all — so <c>@page :first</c> beats <c>@page :right</c> on the one page that is
-    /// both, which is the ordering every "no header on the title page" stylesheet depends on.
+    /// A NAME outranks every pseudo-class, and <c>:first</c> and <c>:blank</c> outrank <c>:left</c>
+    /// and <c>:right</c>, which outrank no selector at all — so <c>@page :first</c> beats
+    /// <c>@page :right</c> on the one page that is both, which is the ordering every "no header on
+    /// the title page" stylesheet depends on, and <c>@page cover</c> beats either on a page that
+    /// belongs to it.
     /// </remarks>
     public int Specificity =>
+        (Name is null ? 0 : 4) +
         (Selector.HasFlag(PageSelector.First) ? 2 : 0) +
         (Selector.HasFlag(PageSelector.Blank) ? 2 : 0) +
         (Selector.HasFlag(PageSelector.Left) ? 1 : 0) +
@@ -76,9 +85,16 @@ readonly record struct PageMarginRule(
     /// </summary>
     /// <param name="number">The page's number, from one.</param>
     /// <param name="blank">Whether a forced break left it empty.</param>
-    public bool Matches(int number, bool blank)
+    /// <param name="name">The page's own name, or null when it belongs to no named page.</param>
+    public bool Matches(int number, bool blank, string? name)
     {
         if (Selector.HasFlag(PageSelector.Never))
+        {
+            return false;
+        }
+
+        if (Name is not null &&
+            !Name.Equals(name, StringComparison.OrdinalIgnoreCase))
         {
             return false;
         }

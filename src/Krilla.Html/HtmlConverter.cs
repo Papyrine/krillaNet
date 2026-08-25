@@ -91,6 +91,10 @@ public static class HtmlConverter
         // asking decides the answer.
         var strings = RunningStrings.Build(root);
 
+        // And which named page each sheet belongs to, for the same reason: `page: cover` names an
+        // element, and which sheets that element occupies is a pagination result.
+        var names = PageNames.Build(root);
+
         // Both of these are addressed by page and point, so both wait for pagination too.
         if (DocumentOutline.Build(root, pages, content, scale, options.OutlineDepth) is {Count: > 0} outline)
         {
@@ -141,7 +145,8 @@ public static class HtmlConverter
                     index + 1,
                     pages.Count,
                     blank,
-                    new(strings, pages[index].Top, end)));
+                    new(strings, pages[index].Top, end),
+                    names.Value(pages[index].Top)));
         }
 
         return pdf.Finish();

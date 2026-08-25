@@ -691,6 +691,18 @@ sealed record ComputedStyle
     public float OutlineWidth { get; init; }
 
     /// <summary>Colour of the outline, or null when it is not painted.</summary>
+    /// <summary>
+    /// The named page this box belongs to, from <c>page</c>, or null.
+    /// </summary>
+    /// <remarks>
+    /// Recovered from the stylesheet's own source, because AngleSharp drops the declaration — the
+    /// same route <c>string-set</c> takes, and for the same reason. Not inherited here: a page's
+    /// name is matched against a box's EXTENT rather than against the box that declared it, so a
+    /// descendant is on named pages for as long as its named ancestor lasts without carrying the
+    /// property itself.
+    /// </remarks>
+    public string? PageName { get; init; }
+
     public Color? OutlineColor { get; init; }
 
     /// <summary>How opaque the outline is, from <c>rgba()</c>.</summary>

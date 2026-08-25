@@ -253,29 +253,55 @@ public class PageMarginBoxTests
     }
 
     /// <summary>
-    /// A named page is reported and applies to nothing.
+    /// A NAMED page selects the sheets its elements occupy.
     /// </summary>
     /// <remarks>
-    /// It selects the elements carrying <c>page: cover</c>, which this engine does not read.
-    /// Applying it to every page instead would put a cover sheet's header on all of them, which is
-    /// worse than the header being absent and much harder to attribute.
+    /// <para>
+    /// <c>page: cover</c> on an element and <c>@page cover</c> in the stylesheet, which is how a
+    /// document gives its cover a different header from its body. Both halves are recovered from
+    /// the stylesheet's own source — AngleSharp drops the property, and the selector was never in
+    /// the object model to begin with.
+    /// </para>
+    /// <para>
+    /// Matched by EXTENT rather than by assignment, which is what gives it CSS's inheritance
+    /// without any of its own: the middle sheet belongs to the named page because the named box is
+    /// what it begins inside, and the sheets either side of it do not.
+    /// </para>
     /// </remarks>
     [Test]
-    public async Task ANamedPageIsReportedAndSelectsNothing()
+    public async Task ANamedPageSelectsTheSheetsItsElementsOccupy()
     {
-        var html = Document(
-            """@page cover { @top-center { content: "header"; color: #00c000 } }""",
-            pages: 1);
+        var html = Sections("""
+                            .whole { page: cover }
+                            @page { @top-center { content: "body" } }
+                            @page cover { @top-center { content: "cover" } }
+                            """);
 
-        var reports = new List<HtmlDiagnostic>();
+        await Assert.That(await Text(html, 0)).Contains("body");
+        await Assert.That(await Text(html, 1)).Contains("cover");
+        await Assert.That(await Text(html, 2)).Contains("body");
+    }
 
-        var options = Options(Margin);
-        options.OnDiagnostic = reports.Add;
+    /// <summary>
+    /// A name outranks every pseudo-class, and an unnamed rule still applies underneath it.
+    /// </summary>
+    /// <remarks>
+    /// CSS Paged Media's own order. The two rules fill DIFFERENT slots here, which is the case that
+    /// separates "the named rule wins the slot" from "the named rule replaces the page" — a bare
+    /// <c>@page</c> rule still reaches a named sheet, and only a rule for the same slot is beaten.
+    /// </remarks>
+    [Test]
+    public async Task ANamedPageDoesNotDisplaceTheRulesBesideIt()
+    {
+        var html = Sections("""
+                            h2 { page: cover }
+                            @page { @top-center { content: "header" } @bottom-center { content: "footer" } }
+                            @page cover { @top-center { content: "titled" } }
+                            """);
 
-        await HtmlConverter.ConvertAsync(html, options);
-
-        await Assert.That(reports.Select(_ => _.Value)).Contains("cover");
-        await Assert.That(await Marked(html, 0)).IsNull();
+        await Assert.That(await Text(html, 0)).Contains("titled");
+        await Assert.That(await Text(html, 0)).Contains("footer");
+        await Assert.That(await Text(html, 0)).DoesNotContain("header");
     }
 
     /// <summary>

@@ -38,6 +38,10 @@ static class PageMargins
     /// <param name="number">This page's number, from one.</param>
     /// <param name="count">How many pages the document has, for <c>counter(pages)</c>.</param>
     /// <param name="blank">Whether a forced break left this page empty, for <c>:blank</c>.</param>
+    /// <param name="name">
+    /// The named page this sheet belongs to, from <c>page</c>, or null. What <c>@page cover</c>
+    /// matches against.
+    /// </param>
     /// <param name="strings">
     /// The named strings as they stand on THIS page, for <c>string()</c>. Empty by default, which
     /// is what a document declaring no <c>string-set</c> gets.
@@ -59,7 +63,8 @@ static class PageMargins
         int number,
         int count,
         bool blank,
-        PageStrings strings = default)
+        PageStrings strings = default,
+        string? name = null)
     {
         var boxes = new List<LayoutBox>();
 
@@ -70,7 +75,7 @@ static class PageMargins
 
         foreach (var slot in Enum.GetValues<PageMarginSlot>())
         {
-            if (Declarations(rules, slot, number, blank) is not {} declarations)
+            if (Declarations(rules, slot, number, blank, name) is not {} declarations)
             {
                 continue;
             }
@@ -93,10 +98,15 @@ static class PageMargins
     /// earlier ones, so joining the blocks and parsing the result once gives exactly the cascade,
     /// and gives it for shorthands too — which merging by property name would have to reimplement.
     /// </remarks>
-    static string? Declarations(PageRules rules, PageMarginSlot slot, int number, bool blank)
+    static string? Declarations(
+        PageRules rules,
+        PageMarginSlot slot,
+        int number,
+        bool blank,
+        string? name)
     {
         var matching = rules.MarginBoxes
-            .Where(_ => _.Slot == slot && _.Matches(number, blank))
+            .Where(_ => _.Slot == slot && _.Matches(number, blank, name))
             .OrderBy(_ => _.Specificity)
             .ThenBy(_ => _.Order)
             .ToList();
