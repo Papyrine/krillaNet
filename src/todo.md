@@ -14,32 +14,34 @@ it, that is stated, because an unmeasured gap is the more dangerous kind.
 
 ## Where the corpus stands
 
-126 scenarios across 10 categories, 1428 element boxes matched. **Box geometry matches Chrome
-exactly on every one** — worst offset 0.00px, worst size 0.00px, and nothing unmatched — and 93
-read SSIM 1.0000, of which 67 are pixel-identical outright. The other 26 differ on a scattering of
+133 scenarios across 10 categories, 1631 element boxes matched. **Box geometry matches Chrome
+exactly on every one** — worst offset 0.00px, worst size 0.00px, and nothing unmatched — and 97
+read SSIM 1.0000, of which 69 are pixel-identical outright. The other 28 differ on a scattering of
 antialiased pixels, which is what `AE` is there to show.
 
-Thirty-three read below 1.0000. None is a mystery, and none should be "fixed" by regenerating a
+Thirty-six read below 1.0000. None is a mystery, and none should be "fixed" by regenerating a
 baseline:
 
 | Scenario | AE | SSIM | Cause |
 | --- | --- | --- | --- |
 | `page/table_header` | 0.0119 | 0.9900 | Sub-pixel glyph positioning at 24 and 30px; page three is identical |
-| `block/border_styles` | 0.0019 | 0.9938 | A 3px dot drawn round where Chromium draws it square, below |
+| `table/cell_baseline` | 0.0031 | 0.9926 | Chromium's PRINTER does not apply cell baseline alignment, below |
 | `text/kerning` | 0.0201 | 0.9945 | Sub-pixel glyph positioning, below |
 | `text/ligatures` | 0.0099 | 0.9982 | Same |
+| `page/table_footer` | 0.0114 | 0.9984 | Same, at 24 and 30px; page three is identical |
 | `block/shadows` | 0.0057 | 0.9985 | Antialiasing on `#rounded`'s corner; no pixel differs by more than 2 of 255 |
 | `image/svg` | 0.0028 | 0.9988 | Sub-pixel glyph positioning in the `<text>` inside the picture |
 | `block/bevelled_borders` | 0.0009 | 0.9990 | Antialiasing where two colours meet on a mitre, below |
+| `page/break_avoid` | 0.0045 | 0.9991 | Sub-pixel glyph positioning; pages one and three are identical |
 | `page/fixed_repeat` | 0.0039 | 0.9992 | Sub-pixel glyph positioning |
+| `block/border_styles` | 0.0002 | 0.9995 | A vertical dotted edge, below |
 | `page/break_between_lines` | 0.0017 | 0.9996 | Sub-pixel glyph positioning |
-| `page/orphans_widows` | 0.0019 | 0.9998 | Same; pages one and three are identical |
 | `page/float_break` | 0.0023 | 0.9997 | Same |
 | `text/underline_offset` | 0.0002 | 0.9997 | Glyph edges |
 | `block/min_width` | 0.0009 | 0.9998 | Sub-pixel glyph positioning |
-| `image/inline_flow` | 0.0006 | 0.9999 | One antialiased pixel column at an image edge |
-| `page/break_inside` | 0.0012 | 0.9998 | Sub-pixel glyph positioning on page two; page one is identical |
-| `page/multi_page_flow` | 0.0016 | 0.9998 | Sub-pixel glyph positioning |
+| `page/break_inside` | 0.0012 | 0.9998 | Same, on page two; page one is identical |
+| `page/multi_page_flow` | 0.0016 | 0.9998 | Same |
+| `page/orphans_widows` | 0.0019 | 0.9998 | Same; pages one and three are identical |
 | `text/word_spacing` | 0.0009 | 0.9998 | Same, across the widened spaces |
 | `block/box_sizing` | 0.0004 | 0.9999 | Same, on the one line beside a float |
 | `block/counters` | 0.0005 | 0.9999 | Same |
@@ -47,7 +49,8 @@ baseline:
 | `block/list_image` | 0.0006 | 0.9999 | Sub-pixel glyph positioning |
 | `block/outline` | 0.0006 | 0.9999 | Same |
 | `float/overflow_bfc` | 0.0005 | 0.9999 | Same |
-| `inline/text_indent` | 0.0005 | 0.9999 | Same |
+| `image/inline_flow` | 0.0006 | 0.9999 | One antialiased pixel column at an image edge |
+| `inline/text_indent` | 0.0005 | 0.9999 | Sub-pixel glyph positioning |
 | `link/fragment` | 0.0001 | 0.9999 | Same |
 | `link/wrapped` | 0.0000 | 0.9999 | Same |
 | `page/tall_block` | 0.0004 | 0.9999 | Same |
@@ -58,8 +61,14 @@ baseline:
 | `text/text_transform` | 0.0002 | 0.9999 | Same |
 | `ua/blockquote_pre` | 0.0005 | 0.9999 | Same |
 
-Six causes cover all thirty-three. Three are property gaps with a fix behind them — a small dot's
-shape, `text-decoration-skip-ink` and the gradient quantisation — and each is written up in the
+Two of these are the BROWSER's rather than this engine's, and both are recorded in their scenario's
+notes: `table/cell_baseline`, where Chromium's printer reserves the taller row that baseline
+alignment demands and then leaves the content against the top of it — disagreeing with the same
+browser's `getBoundingClientRect()` by exactly the offset — and `block/translucent`'s high `AE`,
+which is a one-unit rounding difference in alpha compositing over large flat areas.
+
+Six causes cover the rest. Three are property gaps with a fix behind them — a vertical dotted
+edge, `text-decoration-skip-ink` and the gradient quantisation — and each is written up in the
 sections below. The other three are general: **sub-pixel glyph positioning**, **a box edge landing
 on a fractional position**, and **two antialiased edges meeting on a mitre**, which is the same
 shortfall `PaintUniformBorder` avoids for a uniform border by painting one ring.
@@ -92,8 +101,11 @@ wrong is still unmeasured.
 - **No UAX #14 line breaking.** Break opportunities are spaces, hyphens and dashes, either side of
   an atomic inline, and the cuts `word-break`/`overflow-wrap` ask for. CJK has none of those, so it
   does not wrap at all and overflows instead. Only one scenario in the corpus contains any
-  non-ASCII text at all (`inline/hyphen_breaks`, for its dashes), so nothing measures this; a
-  scenario would fail immediately, which is the point of adding one.
+  non-ASCII text at all (`inline/hyphen_breaks`, for its dashes), so nothing measures this — and a
+  scenario cannot be added without a change to the fixtures. The corpus pins its faces so that both
+  sides load the same files, and the Liberation set has no CJK coverage: a scenario would render as
+  `.notdef` here and in a fallback face in the browser, so the comparison would measure the fonts
+  rather than the line breaking.
 - **No automatic hyphenation.** `hyphens` is reported. Soft hyphens are implemented and measured by
   `text/soft_hyphen`; what is missing is a dictionary deciding where a break may fall.
 - **No bidirectional resolution.** A run is shaped in one direction, so mixed Arabic or Hebrew with
@@ -107,11 +119,6 @@ wrong is still unmeasured.
 
 ## Boxes and painting
 
-- **A small dot is drawn round where Chromium draws it square.** Measured at three widths: a 3px
-  dot in Chromium is three solid pixels with no antialiasing anywhere in it, a 12px one is a genuine
-  antialiased circle, and this draws a circle at both. The positions agree exactly — the flush
-  distribution puts them where Chromium's are — so what is left is the shape alone, and it is the
-  whole of `block/border_styles`' residual. Where the threshold sits was not measured.
 - **A box edge landing on a fractional position still leaves a pixel column.** Every rectangle fill
   is snapped now — the block background, the inline fill, the inline edge boxes, the background
   image, the border box and an image draw — and what is left is where two SNAPPED boxes disagree
@@ -124,24 +131,38 @@ wrong is still unmeasured.
   needs glyph outlines rather than advances. A report would fire on every underlined document ever
   converted, so `text/decoration_style` records it as a named residual instead — sixteen pixels, at
   two `p` descenders and a comma.
+- **Two overlapping strokes double their own alpha.** A patterned border edge is stroked corner to
+  corner rather than mitred, and a collapsed table's grid lines run half a crossing line past each
+  end so that no junction is left unpainted — both are deliberate, and both composite to more than
+  the colour asked for once the colour is translucent. `block/translucent` keeps its dashed row to
+  one side and names the table's junctions for this reason. The same is true of two antialiased
+  trapezia meeting on a mitre, which is the residual `block/bevelled_borders` records.
+- **An inline element's background is still a colour only.** A gradient on one, and rounded corners
+  on one, are both reported. Chrome runs the gradient across the CONCATENATED fragments — measured:
+  a span wrapping onto a second line continues the ramp where the first line left off, so the
+  gradient's box is the fragments laid end to end — and rounds only the outer corners of the first
+  and last fragment. Both need the fills grouped per LINE rather than per run, which is how they are
+  painted now.
 - **A gradient's ramp is quantised differently from Chrome's.** No pixel in `block/gradients`
   differs by more than two of 255 and `#stops` and `#hard` are exactly identical, so this is a
   rounding difference along the ramp rather than a geometry one. Probably not worth chasing; it is
   listed so that the high `AE` is recognisable as expected rather than as a regression.
-- **Percentage heights resolve as `auto`.** Correct whenever the containing height is indefinite,
-  which it is throughout a paginated document, and wrong for a box inside one with a definite
-  height. Deliberately not reported — see Diagnostics.
+- **A vertical dotted border edge follows a construction this does not reproduce.** A horizontal
+  one fits its pattern into the whole side, corner to corner, and the flush rule reproduces it
+  exactly; a vertical one does not. On a 30px box Chromium's left edge carries five dots at a pitch
+  of 6.25 starting a pixel below the top corner, where the same rule applied to the full side gives
+  six at 5.4. Probed at four heights, with and without adjacent horizontal borders, and no inset of
+  the side reproduces it — the end of such an edge carries a solid square no dot in the sequence
+  accounts for, which is the shape of Blink filling a rect at each endpoint of a dashed line and
+  dashing between them. `block/border_styles` records it and is otherwise exact.
 
 ## Tables
 
-- **A `tfoot` does not repeat at the foot of every page.** The header does, and the footer is the
-  same idea reflected: it needs a band reserved at the BOTTOM of a continuation page and a second
-  offset threaded through the painter, where the header needed one at the top. Unmeasured, and not
-  reported either — a `tfoot` on a table that fits on one page is perfectly correct, so a report
-  keyed on the element would fire on documents with nothing wrong with them.
-- **`vertical-align: baseline` on a cell renders as `top`.** Aligning a row's cells against each
-  other's first baselines needs a pass that does not exist. It is not the default — the user-agent
-  stylesheet makes cells `middle` — so this is only reachable by asking for it, and it is reported.
+- **A rowspan cell takes part in the row it STARTS in and nothing else.** CSS 2.1 §17.5.4 aligns it
+  there, which is what this does, but its own height then goes through the ordinary spanning
+  shortfall — so a spanning baseline cell whose content reaches below the last row it covers is not
+  measured against that row's baseline. Nothing measures it, and `table/cell_baseline` deliberately
+  stays away from it.
 
 ## Floats
 
@@ -163,11 +184,6 @@ wrong is still unmeasured.
   put a box whose flow position is on page three off the bottom of every page. Chromium draws such
   a box twice — once where flow put it, and again at that page-relative offset on every later page
   — which is measured in `page/fixed_repeat`'s notes and deliberately not matched. Reported.
-- **An absolute box with `top` and `bottom` given and an auto HEIGHT does not stretch between
-  them**, where an auto width already stretches between `left` and `right`. `BlockLayout.Layout`
-  takes an assigned width and no assigned height, so there is nothing to hand a forced height to.
-  `position/auto_margins` records it, and `AbsoluteLayout.Definite` keeps the vertical auto-margin
-  case gated on a declared height because of it.
 
 ## Pagination and paged media
 
@@ -197,11 +213,11 @@ wrong is still unmeasured.
   not a `LayoutBox`, it hangs off the line, so it goes through the line breaker instead and never
   reaches that list. Unmeasured: `image/svg`'s `#tall` row is block-level, and an inline row for it
   was removed for exactly this reason rather than committed failing.
-- **`break-before: avoid` and `break-after: avoid` are reported rather than implemented.**
-  `break-inside: avoid` is done, because it names a rectangle to keep together and the slice
-  already moves rectangles whole. Avoiding a break at a box EDGE asks for a break to be moved
-  somewhere earlier, and the slice has no notion of rejecting a candidate in favour of one further
-  back.
+- **An `avoid` at a box edge moves the break to the DECLARING box's own edge**, rather than to the
+  nearest earlier break opportunity. Those are not the same point — the nearest opportunity is a
+  line inside the box, and breaking there splits the very box the property was written to keep
+  whole — so the destination is recorded rather than searched for. A browser searches, and the two
+  answers differ when the box has more than one line in it.
 
 ## Structure and metadata
 
@@ -226,13 +242,13 @@ the table does NOT cover belongs here:
   resolution and font fallback are properties of the text, not of a declaration anyone wrote, so no
   amount of scanning the cascade finds them. A document in Arabic converts silently and wrongly.
   The same is true of the `ex` and `ch` approximation and of sub-pixel glyph positioning.
-- **Structural gaps do not report.** A table not repeating its footer group, and an absolute box's
-  auto margins not centring it: each is a shape the engine does not produce rather than a value it
-  declined to honour, and there is no site in the cascade scan to hang them on. An unanchored
-  `position: fixed` box reports only because the declaration itself is a site.
-- **A percentage height resolving as `auto`** is correct whenever the containing height is
-  indefinite and wrong otherwise, and which of those applies is a layout result rather than a
-  declaration. Reporting it from `StyleResolver` would fire on documents that are perfectly
+- **Structural gaps do not report.** A percentage height inside an inline-block, and a rowspan cell
+  aligned on the wrong row's baseline: each is a shape the engine does not produce rather than a
+  value it declined to honour, and there is no site in the cascade scan to hang one on. An
+  unanchored `position: fixed` box reports only because the declaration itself is a site.
+- **A percentage height inside an inline-block or a table cell still resolves as `auto`.** Both are
+  laid out through paths that thread no containing height, and which of those applies is a layout
+  result rather than a declaration — so reporting it would fire on documents that are perfectly
   correct, which is the one thing the table must not do.
 - **Origin is not testable.** `ComputeCascadedStyle` does not say whether a declaration came from
   the document or from the default stylesheet, so a UA rule the author never wrote could only be
@@ -240,6 +256,12 @@ the table does NOT cover belongs here:
   border-style reporting, and implementing the four bevelled styles removed the entry that would
   have fired. Worth remembering that an exemption by element name is a sign the property is
   unimplemented rather than a sign the report is wrong.
+- **A pseudo-element's own declarations are separated by VALUE, not by origin**, which is the same
+  limitation seen from the other side. Its cascade carries the host's declarations too, so a
+  property is treated as the pseudo's when it differs from what the host's cascade says — and a
+  pseudo declaring exactly what its host declares therefore loses the declaration. `display` is
+  recovered from the rules instead, that being the property the two agree on for every block host;
+  everything else takes the heuristic.
 - **A value nothing PARSES is a value nothing can report.** The audit that diffs what
   `StyleResolver` reads against what `UnsupportedCss` lists cannot see a syntax the resolver does
   not recognise — `calc()` was that case, falling through to the unparseable fallback with no
@@ -264,6 +286,12 @@ work rather than as tidying.
   difference and a running header is the reason most documents have the rule.
 - **A generic font family cannot be pinned in the corpus**, because a generic name is not legal as
   an `@font-face` family, so "does `<pre>` default to monospace" is not measurable here.
+- **A `::before` or `::after` rule's `display` is read from the stylesheet's own rules**, because
+  the cascade cannot report it: AngleSharp hands a pseudo-element the HOST's declarations too, and
+  measured, a `<div>` whose `::before` declares nothing but `content` comes back with
+  `display: block`. The scan is bounded the way the `@page` one is — only style rules, only a
+  selector naming the pseudo, only the `display` declaration — and shares its two limitations:
+  specificity is not compared, and media queries are not evaluated.
 - **`line-height: normal` imitates Chrome's rounding** rather than following a specification,
   because CSS explicitly leaves the value to the user agent. If the reference browser ever changes,
   this is the first thing that will move. The same is true of every number in `ListMarkers`.
@@ -272,7 +300,7 @@ work rather than as tidying.
 
 - **The corpus references are generated on one platform.** Regenerating on the machine that
   produced them is known to be byte-identical, so the generator is at least deterministic — but
-  that is the lesser half. The claim that matters is still untested: generating all 120 on a second
+  that is the lesser half. The claim that matters is still untested: generating all 133 on a second
   machine, with a different Chromium build, and diffing the PNGs. Until then a platform-specific
   difference would look like a layout regression.
 - **`Krilla.Html` is never packed or published by CI.** It packs perfectly well locally — the
@@ -284,6 +312,3 @@ work rather than as tidying.
   elements reshapes it every time. Measure before optimising, and note that nothing currently
   measures it: the benchmark project covers list marker text alone, and no benchmark converts a
   whole document.
-- **`inline/vertical_align`'s notes claim a residual it no longer has.** They record SSIM 0.9989;
-  the scenario is pixel-identical now. It is the only scenario whose stated residual disagrees with
-  what the corpus records, and correcting the prose is the whole of the work.

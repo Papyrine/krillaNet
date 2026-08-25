@@ -67,15 +67,16 @@ is shaped against the same fonts the document uses. An `<image>` inside an SVG i
 its `href` is a `data:` URI: one naming a file resolves to nothing, on the same reasoning that keeps
 images from being fetched over the network.
 
-Pagination honours forced breaks: `page-break-before` and `page-break-after` with a forced value
-start a new page, and `page-break-inside: avoid` keeps a box whole by moving it to the next page
-rather than splitting it. The modern `break-*` spellings are read as well. What is not honoured is
-`avoid` at a box edge, `orphans` and `widows`, and the side a `left`/`right` value asks its page to
-land on — all three are reported through `OnDiagnostic`.
+Pagination honours every value the break properties take. `page-break-before` and
+`page-break-after` with a forced value start a new page, `page-break-inside: avoid` keeps a box
+whole by moving it to the next page rather than splitting it, a `left` or `right` value inserts the
+blank page it asks for, and `avoid` at a box edge moves the break to the declaring box's own edge —
+so a heading stays with the section under it rather than being stranded at the foot of a page. The
+modern `break-*` spellings are read as well.
 
-A table's `<thead>` is re-drawn at the top of every page its table continues onto, and the rest of
-the table moves down to make room — so page two of a long report is a labelled grid rather than an
-unlabelled one. `<tfoot>` is not repeated.
+A table's `<thead>` is re-drawn at the top of every page its table continues onto and its `<tfoot>`
+at the foot, and the rest of the table moves to make room — so page two of a long report is a
+labelled grid with its carried-forward line rather than an unlabelled one.
 
 A `position: fixed` box is drawn at the same place on every page, which is how a running header or
 footer is written today — CSS 2.1 asks for exactly that in paged media, and it is what a browser's
@@ -113,9 +114,15 @@ keeps its break and splits, which is also what the browser does.
 Generated content works: `::before` and `::after` with strings, `attr()`, `counter()`, `counters()`,
 `url()` and the quote keywords, along with `counter-reset`, `counter-increment` and `quotes`.
 
-Also `aspect-ratio`, `rgba()` colours, text and box shadows as offsets, `text-decoration-thickness`
-and `text-underline-offset`, `<col>` and `<colgroup>` widths, and `border-style: hidden` in a
-collapsed table.
+`::before` and `::after` take a `display` of their own: a block pseudo-element gets a box rather
+than joining its host's line, so `content: ""; display: block; clear: both` makes a container
+enclose its floats the way it always has.
+
+Also `aspect-ratio`, `rgba()` on every colour property — text, backgrounds, borders, outlines,
+decorations and a collapsed table's rules — text and box shadows as offsets including `inset`,
+`text-decoration-thickness` and `text-underline-offset`, a percentage `height`, `min-height` or
+`max-height` against a containing block that has one, `vertical-align: baseline` on a table cell,
+`<col>` and `<colgroup>` widths, and `border-style: hidden` in a collapsed table.
 
 Every value `border-style` takes is drawn the way a browser draws it, `groove`, `ridge`, `inset` and
 `outset` included — each in the two derived shades of the declared colour that CSS asks for and

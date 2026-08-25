@@ -29,7 +29,7 @@ Also `calc()` and the viewport units, the inline box model, raster background im
 properties that place them, soft hyphens, `overflow-wrap` and `word-break`, tabs under `pre`, text
 decorations with their colour and style, `opacity`, 2D transforms, gradients, `border-radius`, both
 table border models, forced page breaks, `@page` rules, print media queries, generated content with
-CSS counters, `aspect-ratio`, `rgba()` colours, shadows as offsets, `<col>` widths, every value
+CSS counters, `aspect-ratio`, `rgba()` colours, shadows as offsets including `inset`, `<col>` widths, every value
 `border-style` takes including the four bevelled ones, and the `ex` and `ch` units.
 
 `@page`'s sixteen margin boxes carry running headers, footers and page numbers, with

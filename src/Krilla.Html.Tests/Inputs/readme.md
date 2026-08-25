@@ -29,8 +29,8 @@ toolchain. Zero means the box tree agrees with Chrome exactly.
 
 **Pixels** are AbsoluteError and SSIM against the printed reference.
 
-Boxes sit at zero across the whole corpus: all 119 scenarios match Chrome's geometry exactly. Pixels
-are close behind — 88 read SSIM 1.0000 and 60 are identical outright.
+Boxes sit at zero across the whole corpus: all 133 scenarios match Chrome's geometry exactly. Pixels
+are close behind — 97 read SSIM 1.0000 and 69 are identical outright.
 
 Several defects reached that state rather than starting there, each found by the scenario named for
 it: `block/anonymous` hoisted trailing inline content above a block sibling, `position/fixed`
@@ -42,12 +42,15 @@ long word to a fresh line and then never offered it for splitting, and `position
 absolute box inside a stacking context twice. Each scenario's `notes.md` records what it found and
 what changed.
 
-The thirty-one below 1.0000 come down to named causes: `block/border_styles` (0.9906) and `ua/hr`
-(0.9911) are patterned and `inset` rules, and the rest are sub-pixel glyph positioning, which
-`text/kerning` exists to measure, and box edges landing on fractional pixels, which
-`table/spacing_borders` and `image/inline_flow` measure. SSIM 1.0000 is not quite the same as
-pixel-identical, which is what the `AE` column is there to show. Each scenario's `notes.md` names
-its own residual.
+The thirty-six below 1.0000 come down to named causes. Two of them are the BROWSER's:
+`table/cell_baseline` (0.9926), where Chromium's printer reserves the taller row that cell baseline
+alignment demands and then leaves the content against the top of it — disagreeing with the same
+browser's own `getBoundingClientRect()` — and `block/translucent`'s high `AE`, which is a one-unit
+rounding difference in alpha compositing. The rest are sub-pixel glyph positioning, which
+`text/kerning` exists to measure, box edges landing on fractional pixels, which `position/absolute`
+and `image/inline_flow` measure, and a vertical dotted border edge in `block/border_styles`. SSIM
+1.0000 is not quite the same as pixel-identical, which is what the `AE` column is there to show.
+Each scenario's `notes.md` names its own residual.
 
 The pixels reach *exactly* identical because the reference is printed rather than screenshotted, so
 both sides are rasterised by PDFium. A screenshot would put Skia on one side and PDFium on the

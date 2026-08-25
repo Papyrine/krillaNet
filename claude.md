@@ -126,6 +126,12 @@ and horizontal margins, one fragment per line), raster background images with `b
 `text-decoration-thickness` and `text-underline-offset`, `rgba()` on `color` and `background-color`,
 and `<col>`/`<colgroup>` widths.
 
+And, from the tenth round: a table cell aligned on its row's baseline, an absolute box stretched
+between `top` and `bottom`, a percentage `height`/`min-height`/`max-height` against a definite
+containing block, `break-before`/`break-after: avoid`, a `tfoot` repeated at the foot of every page
+its table continues onto, `rgba()` on a border, an outline, a decoration and a collapsed table's
+grid lines, an `inset` box shadow, and `display: block` on a `::before` or `::after`.
+
 Three structural points worth knowing before changing anything:
 
 - **Layout needs the native, for shaping only.** `FontFace` reads its metrics out of the font bytes in managed code and `ImageData` reads image sizes from file headers, but `FontFace.Shape` calls through to krilla's rustybuzz. That crossing is unavoidable — measuring text correctly means shaping it — and it ended the earlier property that layout ran without a Rust toolchain.
@@ -148,7 +154,7 @@ It records two independent measurements, and **asserts neither**:
 - **`reference.boxes.json`** — the browser's `getBoundingClientRect()` per element, against our box tree. Integer-exact, localising ("this paragraph is 14px low" is a defect report), and — the practical reason it leads — computable without the native library, so it works on a machine with no Rust toolchain.
 - **`reference_0001.png`** — pixels, via AbsoluteError and SSIM.
 
-**Box geometry currently sits at zero across all 126 scenarios, with nothing unmatched**, and 93
+**Box geometry currently sits at zero across all 133 scenarios, with nothing unmatched**, and 97
 read SSIM 1.0000. Several got there by finding a defect first, which is the argument for adding a
 scenario for anything the engine implements rather than only for what it implements well:
 `block/anonymous` found trailing inline content hoisted above a block sibling, `position/fixed`
@@ -158,14 +164,16 @@ on a section with no columns, `page/table_break` found a break taken at the line
 `text/word_break` found a word moved to a fresh line and then never offered for splitting, and
 `position/z_index` found an absolute box inside a stacking context painted twice — once where it
 belonged and once flattened onto the page. Each is written up in its own `notes.md`. The remaining pixel residuals each have a named cause rather than
-a mystery: `block/border_styles` (0.9938) is a small dot drawn round where Chromium draws it square,
+a mystery: `block/border_styles` (0.9995) is a vertical dotted edge Chromium constructs differently,
 `text/kerning` (0.9945) and `text/ligatures` (0.9982) are sub-pixel glyph positioning,
 `block/bevelled_borders` (0.9990) is antialiasing where two colours meet on a mitre,
-`text/decoration_style` (0.9999) is `text-decoration-skip-ink`, `image/inline_flow` (0.9998) is
+`text/decoration_style` (0.9999) is `text-decoration-skip-ink`, `image/inline_flow` (0.9999) is
 antialiasing on an image edge at a fractional position, and the rest are the same glyph positioning
-seen on fewer words. A scenario reading SSIM 1.0000 is not necessarily pixel-identical —
-twenty-six differ on a scattering of antialiased pixels, which is what `AE` is there to show.
-Sixty-seven are identical outright.
+seen on fewer words. TWO are the browser's rather than this engine's: `table/cell_baseline` (0.9926),
+where Chromium's printer disagrees with its own layout, and `block/translucent`'s `AE`, which is a
+one-unit rounding difference in alpha compositing. A scenario reading SSIM 1.0000 is not necessarily
+pixel-identical — twenty-eight differ on a scattering of antialiased pixels, which is what `AE` is
+there to show. Sixty-nine are identical outright.
 
 **The unmatched count is an assertion, not a statistic.** `BaselineHealthTests.EveryElementIsMeasured`
 requires every element the browser laid out to have a box on this side. It closes the same hole
@@ -239,7 +247,8 @@ Measured out of Chrome before being written, the same as the float rules. `Posit
 - **`position: fixed` establishes a stacking context**, which CSS Position 3 says outright and which is also what holds the subtree together here: anything flattened out of it onto the page would be painted without the per-page translate, at its page-one position, on every page.
 - **An AUTO margin means something on an absolute box that it means nowhere else on one.** With an offset at each end and a definite size between them the box is over-constrained, and CSS 2.1 §10.3.7 makes the auto margins absorb the slack — both auto centres it, one auto takes the whole remainder. That is one of the two standard centring idioms and it resolved to zero for a long time, under a comment saying centring "is not a case this distinguishes yet". `position/auto_margins` measures all six arrangements.
 - **Negative slack is NOT split.** A box wider than the gap its offsets leave keeps the whole overflow on the end margin and stays against the start edge. Splitting it pulls the box half its overflow off the start edge, which reads as a centring bug in exactly the case where centring was impossible.
-- **The vertical half is gated on a DECLARED height rather than mirroring the horizontal one.** An auto width stretches between `left` and `right`; an auto height does not stretch between `top` and `bottom`, because `BlockLayout.Layout` takes an assigned width and no assigned height. Centring such a box would share out the gap it should have filled, so `Definite` keeps it out until the stretch exists.
+- **BOTH axes stretch, which is what makes the auto-margin rule symmetric.** An auto width spans `left` to `right` and an auto height spans `top` to `bottom` — CSS 2.1 §10.6.4 solves the equation for the height rather than for a margin — so in either case the box already fills the gap and there is no slack for a margin to absorb. `Definite` gates the auto-margin branch on a declared size for exactly that reason, and it is the same test on both axes.
+- **The gap the offsets leave is a MARGIN-box extent.** The box's own padding and border sit inside it, so the surround comes OUT of the stretched height rather than being added to it — true whatever `box-sizing` says, the number never having been a declared one for that property to reinterpret.
 - **`bottom` and `right` name the edge the box moves AWAY from.** In relative positioning `bottom: 5px` lifts a box; in absolute positioning it measures the gap from the containing block's bottom edge, so the box has to be sized before it can be placed.
 - **Relative positioning is applied to the whole subtree at the end of `BlockLayout.Layout`**, after the height has been returned. It changes no measurement: siblings sit where they would have, the parent keeps its height, and the float context keeps the pre-offset entry for any float inside — which is also correct, since content outside flows as though the offset never happened.
 - **Positioned boxes are painted from the root, not where they were declared.** They belong to the page's stacking layer rather than to their parent's flow position, and painting one inside its declaring parent buries it under any later sibling. That burial is the normal case rather than a corner one, because the box an absolute is anchored to is frequently an ancestor of the sibling that covers it. `PdfPainter.Hoisted` collects them in tree order — RELATIVE boxes too, which stay in flow and are still out of Appendix E's steps 3 and 7. It flattens the whole page into one list rather than nesting, which is Appendix E's own rule: a positioned descendant of a float, or of another positioned box, belongs to the parent stacking context.
@@ -376,12 +385,16 @@ Like list markers, almost none of this is specified in usable detail. CSS 2.1 §
 - **A declared width on a table is a BORDER-box width, and that is a user-agent RULE rather than a rule of table layout.** `UserAgentStyles.Corrections` gives tables `box-sizing: border-box`, so `width: 300px` with a 10px border leaves 280 for content — and an author who writes `box-sizing: content-box` on a table gets 320, which is what Chrome does and what proves the rule is where it is. `TableLayout.ResolveWidth` therefore goes through `box-sizing` like every other declared width instead of subtracting the border unconditionally. It is also a minimum rather than an instruction — a table never renders narrower than its columns' min-content widths, whatever the declaration says.
 - **A percentage column width means different things to the two algorithms.** Automatic layout treats it as the whole column, border and padding included, because it competes with content widths that are measured that way. Fixed layout adds the padding on top, because there is no content to compete with and the percentage is the cell's own `width`. The difference is exactly the cell's padding, which is small enough to look like a rounding error.
 - **A table is never narrower than its caption's longest word** — the caption's min-content width, not its maximum. Two captions sharing a longest word produce tables of exactly the same width however different their lengths.
+- **A row's BASELINE and a row's HEIGHT come from different cells.** The baseline is the furthest any `vertical-align: baseline` cell carries its own first baseline below its border-box top; the height is that plus the furthest any of them reaches BELOW it. A one-line cell, a two-line cell and a 32px cell make a row 60px tall where the same three top-aligned need 44, and no single cell accounts for the number.
+- **A cell with no line at all hangs entirely above the row's baseline.** CSS puts its baseline on its bottom margin edge, which is what `CellHeight.Above`'s fallback says: an empty cell cannot pull the row's baseline down, having nothing below one.
+- **Baseline is the property's initial value and NOT the usual case.** The user-agent sheet gives a table `middle` and its cells `inherit`, so a cell only reaches `baseline` by asking — which is why implementing it moved no other scenario in the corpus.
+- **Chromium's PRINTER does not apply it.** It reserves the taller row the alignment demands and then leaves the content against the top of it, disagreeing with the same browser's `getBoundingClientRect()` by exactly the offset. `table/cell_baseline` is geometry-exact and pixel-different for that reason, and the disagreement is one-sided: the box geometry agrees with CSS 2.1 §17.5.4 and the print render agrees with nothing, including its own row height.
 - **A cell's content is centred, and it is the CONTENT that is centred rather than the cell's height.** The user-agent sheet puts `vertical-align: middle` on the table and `inherit` on the cells, so the default is middle rather than the `baseline` the property's initial value suggests. And a cell with `height: 100px` holding one line is a hundred pixels tall with eighteen pixels of content: centring the used height leaves the text against the top edge, looking exactly as though vertical alignment were not implemented.
 - **A shrink-to-fit table lands on the proportional branch with nothing to spare**, so the multiply-then-divide round trip loses a hundredth of a pixel — enough for the last word in the widest cell to stop fitting, which wraps it and makes the table a whole line taller. `Distribute` clamps each column to its own maximum, which the arithmetic guarantees and floating point does not.
 - **An empty table occupies nothing**, not two pixels square. With no columns there is nothing for the edge spacing to be outside of.
 - **A table lays out its children by ROLE rather than in order**, so a child with no table role is not merely misplaced — it is never positioned or painted at all. Unreachable from HTML, whose parser moves stray content out of tables, and reachable from `display: table` in a stylesheet. `BoxBuilder.TableFixup` wraps such children in anonymous rows and cells; its geometry is not measured against a browser, and content being on the page at all is the point.
 
-## Traps in repeating a table header
+## Traps in repeating a table header and footer
 
 `page/table_header` measures these against Chromium over three sheets, exact on all 99 boxes;
 `RunningContentTests` keeps the cases a browser reference cannot express, each of which is about
@@ -421,10 +434,46 @@ something NOT being repeated.
 - **Reserving is bounded at half the page.** A header taller than that turns a continuation page
   into mostly header, and one taller than the page leaves the slice nothing to advance through, so
   the page count would follow the length of the document rather than its height.
-- **`tfoot` is not repeated.** The footer is the header reflected — a band reserved at the BOTTOM
-  and a second offset through the painter — and it is not reported either, because a `tfoot` on a
-  table that fits on one page is perfectly correct and a report keyed on the element would fire on
-  documents with nothing wrong with them.
+- **A repeated FOOTER is drawn where the page's content ENDED, not flush with the paper.** Measured:
+  Chromium puts it immediately below the last row that fitted, so a page whose last row ends 941px
+  down carries the footer at 941 and leaves the remaining 55px blank BELOW it. The band is reserved
+  out of the page's height — which is what moves the break earlier — and then drawn at the position
+  the break landed on. `PageSlice.End` is exactly that position, so the footer needs no bookkeeping
+  of its own.
+- **The footer's reservation looks circular and is not.** Whether a footer repeats depends on where
+  the page ends, and where the page ends depends on what is reserved. Reserving can only move the
+  end EARLIER, though, and a table that continued past the later end continues past the earlier one
+  too — so one refinement settles it.
+- **`RepeatedRows` carries both, and the differences are two lines.** The band runs from the table's
+  top edge to the group's bottom for a header and from the group's top to the table's bottom for a
+  footer, and the translate goes to the page's origin rather than to its end. The caption exclusion,
+  the half-page bound, the collapsed grid lines and the place in the paint order are all shared,
+  which is what says the two really are one feature reflected.
+
+## Traps in percentage heights
+
+`block/percent_height` measures these, exact on all 19 boxes and pixel-identical on both pages.
+
+- **A percentage height resolving as `auto` is CORRECT whenever the containing height is
+  indefinite**, which it is throughout a paginated document — and that is why the property could be
+  left unimplemented for so long without a scenario noticing. `#loose` is the row that keeps it
+  honest: an auto frame, where the percentage still behaves as auto and an implementation resolving
+  against the page or the viewport gives a different answer.
+- **The answer has to exist BEFORE the subtree is laid out**, which is the whole shape of the
+  change. A definite height is one the box was TOLD — declared, resolved against its own containing
+  block, or handed down by an absolute box's offsets — rather than one its content came to, so it
+  can be settled early and passed down. A height that came from a percentage is definite in turn,
+  which is what chains.
+- **It resolves against the containing block's CONTENT height.** A frame with `height: 200px` and
+  20px of padding is a 240px border box, and its child at `50%` is 100px in both — a percentage of
+  the border box would give 120.
+- **`min-height` and `max-height` take one the same way**, and are resolved in the same place. A
+  percentage that has nothing to resolve against behaves as though the property were not there,
+  which is CSS 2.1 §10.7's own rule rather than an omission.
+- **An absolutely positioned box always has a basis.** Its containing block is a rectangle that has
+  already been laid out, so a percentage height on one resolves even when nothing declared a height
+  anywhere.
+
 
 ## Traps in box-sizing
 
@@ -612,6 +661,8 @@ against Chrome on geometry and the first two pixel-identical.
 - **`break-inside: avoid` is a table row reached from the other direction.** A row is an unbreakable unit by rule and an `avoid` box is one by request, and they are the same thing to the slice — a rectangle that moves whole. Which means the too-tall case was already answered: `NextTop`'s height guard lets it overflow rather than descending forever looking for room, the same guard a too-tall row uses.
 - **`avoid` at a box EDGE is a different request from `avoid` INSIDE a box, and only the second is implementable here.** `break-inside` names a rectangle to keep together; `break-before: avoid` asks for a break to be moved somewhere earlier, and the slice has no notion of rejecting a candidate in favour of one further back. It stays in the diagnostic table.
 - **Breaks on out-of-flow boxes are ignored, structurally.** `ForcedBreaks` walks `Children` alone, so a float or an absolute box contributes nothing — which is also CSS's rule, since neither is at a flow position a page could start at. It is worth knowing that this is a property of the walk rather than an explicit test, because a walk extended to `Floats` or `Positioned` for some other reason would silently change it.
+- **An `avoid` at a box edge moves the break to a RECORDED destination, not to a searched one.** The nearest earlier break opportunity is a LINE inside the box, and breaking there splits the very box the property was written to keep whole — background above the break and text below. So `break-after: avoid` points at the declaring box's own top edge and `break-before: avoid` at whatever precedes it in document order, and the two chain, so a run of headings each kept with what follows walks back to the first of them.
+- **`avoid` is a preference, and a move that would empty the page is refused.** A break has to happen somewhere; the alternative to taking it here is not taking it at all. A forced break at the same position wins outright, which is CSS's own precedence.
 - **Both spellings have to be read.** The cascade does not alias them: a `page-break-after` declaration comes back under that name and nothing comes back under `break-after`. Reading one and not the other halves the documents the feature works on, while every test written in the spelling that was read still passes. The legacy spelling is the one that matters more in practice, being what reporting tools and mail merges emit.
 
 ## Traps in the inline box model
@@ -920,6 +971,10 @@ serialisation had to be worked around, and both were found by measuring.
   what the host's own cascade says, which is sound because a `::before` selector does not match the
   element. Without that test, `p { content: "x" }` — a declaration CSS itself ignores — generated a
   pseudo-element on every paragraph in the document.
+- **The leak is not confined to `content`, and it moved boxes.** A host with `width: 400px` handed that width to its `::before`, which then ignored its own margins because it had been told how wide to be; an inline pseudo was silently taking its host's horizontal padding and border. So the pseudo's OWN declarations are separated out by the same value test and re-parsed through an element that is never added to the document — the route `PageMargins` already takes for a margin box, and the only way to get a declaration block from a string of CSS with its shorthands expanded.
+- **`display` cannot go through that test at all**, and it is the property the whole feature turns on. A `<div>` whose `::before` declares nothing but `content` comes back with `display: block`, leaked from the user-agent rule for `div` — which is exactly the value a block pseudo would declare, so the two are indistinguishable for every host anyone writes one for. It is recovered from the stylesheet's own RULES instead, bounded the way the `@page` scan is and carrying the same two limitations: specificity is not compared and media queries are not evaluated.
+- **A BLOCK pseudo's run must not carry the generated flag.** The flag tells the painter that a run has a background to fill despite having no element to name one — and a block pseudo's box has already filled it, so the flag fills it twice and draws the box's border a second time inside its own padding. Its runs are the block's own text, which is what they are.
+- **An INLINE host has nowhere block to put one.** It contributes runs to a line rather than a list of boxes, so a block pseudo inside one would have to blockify the host — reported instead, which is what narrowed that entry rather than removing it.
 - **`counters(section, ".")` comes back as `counters(section .)`**, comma gone, while
   `counter(chapter, upper-roman)` keeps its. Splitting arguments on commas alone read the whole of the
   first as one argument and silently dropped every nested counter.
@@ -957,10 +1012,12 @@ serialisation had to be worked around, and both were found by measuring.
   measured wrong for exactly this reason.
 - **Layers paint FARTHEST FIRST**, so the one written first ends up on top. Invisible until two of
   them overlap, which is the only time anyone writes two.
-- **A shadow is behind its own background**, which is how the scenario found that `rgba()` was not
-  honoured at all. `Krilla.Color` has no fourth channel — krilla models opacity as a fill property —
-  so the alpha travels alongside the colour. `color` and `background-color` carry it; every other
-  colour property is still drawn opaque and is reported.
+- **A shadow is behind its own background**, which is how the scenario found that `rgba()` was not honoured at all. `Krilla.Color` has no fourth channel — krilla models opacity as a fill property — so the alpha travels alongside the colour, and every property carrying one needs somewhere to put it: the four border sides, the outline, the decoration and a collapsed table's grid lines all do now.
+- **The one-ring shortcut has to agree about the OPACITY as well as the colour.** Four mitred trapezia at one alpha are not the same picture as one ring at that alpha — the diagonals antialias against each other and composite to more than either — so `UniformColor` compares the four alphas before taking it.
+- **A decoration's opacity follows the DECORATION, not the text**, the same rule its colour already followed. An element declaring a translucent underline and then a different `color` for its words draws the rule at the opacity the rule was given.
+- **A translucent colour has to be measured over something SATURATED.** Over white it is merely a lighter version of itself and a property that lost its alpha reads as a slightly wrong shade; over a saturated backdrop it is a different colour entirely. `block/translucent` uses one for that reason, and its `AE` is high and means nothing — this engine and the browser round the composite differently by one of 255 across large flat areas, the same situation `block/gradients` records.
+- **An INSET shadow is a subtraction rather than a halo**, which is why it can be drawn where a blurred one cannot: the padding box, less the same rectangle moved by the offset. It starts at the inside of the box's BORDER — measured — and paints over the background and under the border.
+- **Its clip is load-bearing.** The offset copy hangs OUT of the padding box on the far side, and under the non-zero winding rule the region outside the outer contour but inside the inner one comes out FILLED — so without the clip the shadow leaks past the box's own edge in exactly the direction it was offset.
 
 ## Traps in column definitions
 
@@ -1059,9 +1116,9 @@ Both are now reported, and the lesson generalises: a value-by-value fallback wit
 
 The other thing the audit cannot see is a syntax the resolver does not PARSE. `calc()` was the case: it fell through to the unparseable fallback, the property took its default, and no diagnostic could fire because nothing recognised the value as one the engine was getting wrong. **A value nothing recognises is a value nothing can report.**
 
-Still reported rather than implemented: `column-count`, `writing-mode`, `direction`, `font-variant`, `font-stretch`, a wavy text decoration, `word-break: keep-all`, a blurred or spread shadow and an `inset` one, `rgba()` on a border, an outline or a decoration, `break-before`/`break-after: avoid`, automatic hyphenation, a `position: fixed` box with neither `top` nor `bottom` given, `visibility: collapse` on a table row, an unrecognised `list-style-type`, `white-space: break-spaces`, an unresolved `list-style-image`, a `content` value that names something unreadable, a non-inline `display` on a pseudo-element, a named `@page` selector, rounded corners on an inline element, and a gradient as an inline element's background.
+Still reported rather than implemented: `column-count`, `writing-mode`, `direction`, `font-variant`, `font-stretch`, a wavy text decoration, `word-break: keep-all`, a blurred or spread shadow, automatic hyphenation, a `position: fixed` box with neither `top` nor `bottom` given, `visibility: collapse` on a table row, an unrecognised `list-style-type`, `white-space: break-spaces`, an unresolved `list-style-image`, a `content` value that names something unreadable, a non-inline `display` on a pseudo-element of an INLINE host, a named `@page` selector, rounded corners on an inline element, and a gradient as an inline element's background.
 
-`border-style` came off it entirely, which is the first property to leave the table by having every value it takes honoured rather than by having one value reasoned about — the four bevelled styles were the last four, and `hr`'s by-name exemption went with them.
+`border-style` came off it entirely, which is the first property to leave the table by having every value it takes honoured rather than by having one value reasoned about — the four bevelled styles were the last four, and `hr`'s by-name exemption went with them. `break-before` and `break-after` followed, and their test is now an assertion of ABSENCE: every value either takes is honoured, so the case that used to prove the report fires proves it does not.
 
 Two entries came OFF that list by being measured rather than implemented, which is its own kind of result. `border-style: hidden` inside a collapsed table was documented as unimplementable — the width was folded to zero before anything could tell it from an absent border — and became a two-line change once `hidden` was kept as a style of its own; `table/collapse` is pixel-identical with it. And `visibility: collapse` on a table row was written, measured, and reverted: Chrome disagrees with ITSELF, its screen layout zeroing the row's track while its printed page puts everything after it twenty pixels further down, so no engine behaviour can be exact on both of the corpus's measurements.
 
@@ -1081,6 +1138,7 @@ One difference is deliberately NOT reported: Chrome interrupts an underline arou
 - **A corpus scenario needs `Krilla.Html.RefGen` run before it measures anything.** Without a reference it still runs and still snapshots, but both comparisons are null, so it looks like a passing test while measuring nothing. `BaselineHealthTests.ScenariosHaveReferences` is what stops one being added and forgotten.
 - **`mdsnippets.json` excludes `target`, and the exclusion is load-bearing.** Two projects now reference MarkdownSnippets, their scans run concurrently during a solution build, and both open `rust/target/.cargo-artifact-lock` — which fails the build with "another process has locked a portion of the file". It only reproduces once the native has been built, so a clean checkout will not show it and removing the exclusion looks harmless.
 - **The showcase specimen's page baseline is compared by SSIM, so it can drift without failing.** `VerifierSettings.UseSsimForPng()` applies to it as well as to the corpus, and a change confined to one inline element passed as "equal" while the committed PNG — the image the readme shows — no longer matched the render. The corpus is the real gate; when a change alters the specimen, delete `ShowcaseTests.Specimen#page_0001.verified.png` and let it be regenerated rather than trusting the comparison to notice.
+- **The PAGE's own shift is snapped too, and that is what makes every other snap work.** Every rectangle is snapped in LAYOUT units, which lands on a device pixel only if the page's own offset is a whole number of them — and a page begins at an unbreakable unit's top edge, which under `border-collapse` is half a rule below a whole pixel. Such a page came out antialiased down both sides of every edge: SSIM 0.9286 with the geometry exact, which is the signature of a rasterisation problem rather than a layout one. Invisible until `page/table_footer`, because a repeated HEADER's band carries the same half pixel and cancels it.
 - **Everything that fills a rectangle is SNAPPED to whole pixels**: a block background, an inline fill, a background image, a border, and an image draw. All of them because that is what the browser fills. They were found in that order, each by a different scenario, and the last two took four scenarios to pixel-identical at once — `table/columns`, `table/spacing_borders`, `inline/inline_block` and `ua/acid1`. Snapping in LAYOUT units does not guarantee whole DEVICE pixels, though — coordinates round-trip through PDF points, so a fractional width can still leave a faint extra column, which is why `PageRuleTests` asserts a measured box rather than where the ink stops.
 - **A border is snapped at each EDGE, never by rounding its width.** A 3px border at x=10.5 stays 3px wide; rounding the width instead makes it 2 or 4 depending on where it fell. Table columns make that case common, being fractional by nature.
 - **The OUTER rectangle has to be snapped along with the inner one.** Snapping only the padding box leaves a uniform border a fraction wider on one side than the other, which is worse than leaving both fractional: it turns a soft edge into an asymmetric one. Doing both is what took `table/columns` and `table/spacing_borders` from 0.9999 to identical, where snapping the inner edge alone had moved them only from 0.9997.
