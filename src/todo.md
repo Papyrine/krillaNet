@@ -14,16 +14,17 @@ it, that is stated, because an unmeasured gap is the more dangerous kind.
 
 ## Where the corpus stands
 
-121 scenarios across 10 categories, 1288 element boxes matched. **Box geometry matches Chrome
+122 scenarios across 10 categories, 1387 element boxes matched. **Box geometry matches Chrome
 exactly on every one** — worst offset 0.00px, worst size 0.00px, and nothing unmatched — and 88
 read SSIM 1.0000, of which 60 are pixel-identical outright. The other 28 differ on a scattering of
 antialiased pixels, which is what `AE` is there to show.
 
-Thirty-three read below 1.0000. None is a mystery, and none should be "fixed" by regenerating a
+Thirty-four read below 1.0000. None is a mystery, and none should be "fixed" by regenerating a
 baseline:
 
 | Scenario | AE | SSIM | Cause |
 | --- | --- | --- | --- |
+| `page/table_header` | 0.0119 | 0.9900 | Sub-pixel glyph positioning at 24 and 30px; page three is identical |
 | `block/border_styles` | 0.0034 | 0.9906 | Dash phase restarts at each corner, below |
 | `ua/hr` | 0.0023 | 0.9911 | `inset` painted solid, below |
 | `text/kerning` | 0.0201 | 0.9945 | Sub-pixel glyph positioning, below |
@@ -58,7 +59,7 @@ baseline:
 | `text/text_transform` | 0.0002 | 0.9999 | Same |
 | `ua/blockquote_pre` | 0.0005 | 0.9999 | Same |
 
-Six causes cover all thirty-three. Four are property gaps with a fix behind them — the dash phase,
+Six causes cover all thirty-four. Four are property gaps with a fix behind them — the dash phase,
 the `inset` family, `text-decoration-skip-ink` and the gradient quantisation — and each is written
 up in the sections below. The other two are general: **sub-pixel glyph positioning**, and **a box
 edge landing on a fractional position**.
@@ -145,12 +146,11 @@ wrong is still unmeasured.
 
 ## Tables
 
-- **A `thead` does not repeat on the second page.** A table taller than the page breaks between
-  rows correctly — `Paginator.Unbreakable` yields a row's border box, and `page/table_break`
-  measures it — so the missing piece is narrow: repeating the header group at each page top and
-  accounting for the space it takes. This is the feature people expect from HTML-to-PDF conversion
-  of a long table. Nothing measures it: `page/table_break` has no `thead`, and `table/sections` has
-  one but fits on a single page.
+- **A `tfoot` does not repeat at the foot of every page.** The header does, and the footer is the
+  same idea reflected: it needs a band reserved at the BOTTOM of a continuation page and a second
+  offset threaded through the painter, where the header needed one at the top. Unmeasured, and not
+  reported either — a `tfoot` on a table that fits on one page is perfectly correct, so a report
+  keyed on the element would fire on documents with nothing wrong with them.
 - **`vertical-align: baseline` on a cell renders as `top`.** Aligning a row's cells against each
   other's first baselines needs a pass that does not exist. It is not the default — the user-agent
   stylesheet makes cells `middle` — so this is only reachable by asking for it, and it is reported.
@@ -223,7 +223,7 @@ the table does NOT cover belongs here:
   resolution and font fallback are properties of the text, not of a declaration anyone wrote, so no
   amount of scanning the cascade finds them. A document in Arabic converts silently and wrongly.
   The same is true of the `ex` and `ch` approximation and of sub-pixel glyph positioning.
-- **Structural gaps do not report.** A table not repeating its header group, and an absolute box's
+- **Structural gaps do not report.** A table not repeating its footer group, and an absolute box's
   auto margins not centring it: each is a shape the engine does not produce rather than a value it
   declined to honour, and there is no site in the cascade scan to hang them on. An unanchored
   `position: fixed` box reports only because the declaration itself is a site.

@@ -25,13 +25,13 @@ static class DocumentOutline
     /// from.
     /// </summary>
     /// <param name="root">The laid-out tree.</param>
-    /// <param name="pageTops">Where each page's content starts, in layout units.</param>
+    /// <param name="pages">Where each page's content starts, in layout units.</param>
     /// <param name="content">The page content box, in layout units.</param>
     /// <param name="scale">Points per layout unit.</param>
     /// <param name="depth">The deepest heading level to include, 1 to 6. Zero produces nothing.</param>
     public static List<OutlineItem> Build(
         LayoutBox root,
-        List<float> pageTops,
+        List<PageStart> pages,
         Rect content,
         float scale,
         int depth)
@@ -58,7 +58,7 @@ static class DocumentOutline
                 continue;
             }
 
-            var (page, target) = Position(box, pageTops, content, scale);
+            var (page, target) = Position(box, pages, content, scale);
             var item = new OutlineItem(title, page, target);
 
             // Pop back to the nearest open heading of a smaller level. A run of equal or deeper
@@ -138,22 +138,16 @@ static class DocumentOutline
     /// </remarks>
     public static (int Page, Point Target) Position(
         LayoutBox box,
-        List<float> pageTops,
+        List<PageStart> pages,
         Rect content,
         float scale)
     {
-        // The page a position falls on is the last one starting at or before it. Pages are produced
-        // in order, so a reverse scan finds it without a search structure.
-        var page = pageTops.Count - 1;
-        while (page > 0 && pageTops[page] > box.BorderBox.Y)
-        {
-            page--;
-        }
+        var (page, offset) = PageStart.Locate(pages, box.BorderBox.Y);
 
         return (
             page,
             new(
                 (content.X + box.BorderBox.X) * scale,
-                (content.Y + box.BorderBox.Y - pageTops[page]) * scale));
+                (content.Y + offset) * scale));
     }
 }

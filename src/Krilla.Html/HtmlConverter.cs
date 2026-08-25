@@ -78,14 +78,14 @@ public static class HtmlConverter
             options.ContentWidth,
             options.ContentHeight);
 
-        var tops = Paginator.PageTops(root, options.ContentHeight, options.HonourOrphansAndWidows);
+        var pages = Paginator.Paginate(root, options.ContentHeight, options.HonourOrphansAndWidows);
 
         // After pagination, because a fragment names an element while a PDF internal link names a
         // page and a point on it — and which page an element landed on is what pagination decides.
-        var links = LinkTargets.Build(root, tops, content, scale);
+        var links = LinkTargets.Build(root, pages, content, scale);
 
         // Both of these are addressed by page and point, so both wait for pagination too.
-        if (DocumentOutline.Build(root, tops, content, scale, options.OutlineDepth) is {Count: > 0} outline)
+        if (DocumentOutline.Build(root, pages, content, scale, options.OutlineDepth) is {Count: > 0} outline)
         {
             pdf.SetOutline(outline);
         }
@@ -98,7 +98,7 @@ public static class HtmlConverter
             }
         }
 
-        for (var index = 0; index < tops.Count; index++)
+        for (var index = 0; index < pages.Count; index++)
         {
             using var page = pdf.StartPage(
                 options.PageWidth * scale,
@@ -107,12 +107,12 @@ public static class HtmlConverter
             // Each page runs to where the next one begins, which is a line boundary rather than
             // the bottom of the paper. The last page runs to infinity so nothing is trimmed off
             // the end of the document.
-            var end = index + 1 < tops.Count ? tops[index + 1] : float.PositiveInfinity;
+            var end = index + 1 < pages.Count ? pages[index + 1].Top : float.PositiveInfinity;
 
             PdfPainter.Paint(
                 page.Surface,
                 root,
-                tops[index],
+                pages[index],
                 end,
                 content,
                 new(options.PageWidth * scale, options.PageHeight * scale),

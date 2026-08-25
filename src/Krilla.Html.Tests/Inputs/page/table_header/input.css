@@ -1,0 +1,39 @@
+/* Indented, so a header re-drawn at the top of a continuation page has to keep the TABLE's left
+   edge rather than the page's — the two coincide at zero and nowhere else. */
+#ledger {
+  margin: 32px 0 32px 96px;
+  border-collapse: collapse;
+}
+
+#ledger th,
+#ledger td {
+  border: 1px solid #909090;
+  padding: 14px 18px;
+  font-size: 24px;
+  line-height: 32px;
+}
+
+#ledger th {
+  background-color: #dfe6f2;
+  text-align: left;
+}
+
+#ledger td:last-child { text-align: right; }
+
+/* Enough to push the table's start well down the first page, so the first repeat is at a
+   different place on the sheet from the original. */
+#intro {
+  margin: 0 0 24px;
+  padding: 40px 24px;
+  font-size: 30px;
+  line-height: 48px;
+  background-color: #f4f4f4;
+}
+
+#closing {
+  margin: 0;
+  padding: 12px 24px;
+  font-size: 24px;
+  line-height: 40px;
+  background-color: #f0f0f0;
+}

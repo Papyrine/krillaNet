@@ -24,12 +24,12 @@ sealed class LinkTargets
     /// Maps every element carrying an <c>id</c> to the page it landed on.
     /// </summary>
     /// <param name="root">The laid-out tree.</param>
-    /// <param name="pageTops">Where each page's content starts, in layout units.</param>
+    /// <param name="pages">Where each page's content starts, in layout units.</param>
     /// <param name="content">The page content box, in layout units.</param>
     /// <param name="scale">Points per layout unit.</param>
     public static LinkTargets Build(
         LayoutBox root,
-        List<float> pageTops,
+        List<PageStart> pages,
         Rect content,
         float scale)
     {
@@ -42,19 +42,13 @@ sealed class LinkTargets
                 continue;
             }
 
-            // The page a position falls on is the last one starting at or before it. Pages are
-            // produced in order, so a reverse scan finds it without a search structure.
-            var page = pageTops.Count - 1;
-            while (page > 0 && pageTops[page] > box.BorderBox.Y)
-            {
-                page--;
-            }
+            var (page, offset) = PageStart.Locate(pages, box.BorderBox.Y);
 
             targets.targets[id] = (
                 page,
                 new(
                     (content.X + box.BorderBox.X) * scale,
-                    (content.Y + box.BorderBox.Y - pageTops[page]) * scale));
+                    (content.Y + offset) * scale));
         }
 
         return targets;

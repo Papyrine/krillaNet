@@ -19,18 +19,20 @@
 static class PdfPainter
 {
     /// <summary>
-    /// Paints the slice of <paramref name="root"/> between <paramref name="pageTop"/> and
+    /// Paints the slice of <paramref name="root"/> that <paramref name="start"/> begins, up to
     /// <paramref name="pageEnd"/>.
     /// </summary>
     /// <param name="surface">The page being drawn.</param>
     /// <param name="root">The laid-out tree.</param>
-    /// <param name="pageTop">Where this page's content starts, in layout units.</param>
+    /// <param name="start">
+    /// Where this page's content starts, and the table headers re-drawn above it.
+    /// </param>
     /// <param name="pageEnd">
     /// Where the next page's content starts, or <see cref="float.PositiveInfinity"/> on the last
     /// page.
     /// </param>
     /// <param name="content">The page's content box, in layout units.</param>
-    /// <param name="page">The whole page, in points. What the canvas background covers.</param>
+    /// <param name="paper">The whole page, in points. What the canvas background covers.</param>
     /// <param name="scale">Points per layout unit.</param>
     /// <param name="links">Where each fragment identifier resolves to, or null.</param>
     /// <remarks>
@@ -43,17 +45,20 @@ static class PdfPainter
     public static void Paint(
         Surface surface,
         LayoutBox root,
-        float pageTop,
+        PageStart start,
         float pageEnd,
         Rect content,
-        Size page,
+        Size paper,
         float scale,
         LinkTargets? links = null)
     {
+        var pageTop = start.Top;
+        var reserved = start.Reserved;
+
         // The canvas, before anything else and outside the transform stack below, because it is
         // measured in page points rather than layout units and covers the margins as well as the
         // content.
-        PaintCanvas(surface, root, page);
+        PaintCanvas(surface, root, paper);
 
         // Link annotations are queued and applied when the page closes, so they never see the
         // transform stack below and have to be given page coordinates directly. Everything else on
@@ -61,7 +66,7 @@ static class PdfPainter
         // coexist and only annotations use this one.
         var toPage = (Rect rect) => new Rect(
             (content.X + rect.X) * scale,
-            (content.Y + rect.Y - pageTop) * scale,
+            (content.Y + reserved + rect.Y - pageTop) * scale,
             rect.Width * scale,
             rect.Height * scale);
 
@@ -80,11 +85,18 @@ static class PdfPainter
             Rectangle.FromSize(content.X, content.Y, content.Width, content.Height));
         using var __ = surface.PushClip(clipPath);
 
-        // Shift the document so this page's slice lands at the page's content origin. One
-        // transform for the whole page beats offsetting every coordinate at every call site.
-        using var ___ = surface.PushTransform(Matrix.Translate(content.X, content.Y - pageTop));
+        // Shift the document so this page's slice lands at the page's content origin, below
+        // whatever band the repeated headers take. One transform for the whole page beats
+        // offsetting every coordinate at every call site.
+        using var ___ = surface.PushTransform(Matrix.Translate(content.X, content.Y + reserved - pageTop));
 
-        var slice = new PageSlice(pageTop, pageTop + content.Height, pageEnd, links, toPage);
+        var slice = new PageSlice(
+            pageTop,
+            pageTop + content.Height - reserved,
+            pageEnd,
+            reserved,
+            links,
+            toPage);
 
         // The page is the initial stacking context, so everything on it goes down in the order
         // Appendix E gives that one — which is not the order it was declared in. A positioned box
@@ -92,7 +104,40 @@ static class PdfPainter
         // box happened to contain it, and painting one inside its declaring parent buries it under
         // any later sibling; the box it is anchored to is frequently an ancestor of that sibling,
         // so the burial is the normal case rather than a corner one.
-        PaintStack(surface, root, slice, collects: true);
+        PaintStack(surface, root, slice, collects: true, headers: start.Headers);
+    }
+
+    /// <summary>
+    /// Re-draws a continuation page's table headers in the band reserved at its top.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Each header keeps the x it was laid out at — a browser puts a repeated header at the
+    /// table's own left edge rather than at the page's — and is stacked below the one before it,
+    /// which is what an outer table's header and a nested one's need.
+    /// </para>
+    /// <para>
+    /// The original box, drawn a second time through a translate. Copying the subtree instead
+    /// would be a second thing to keep in step with layout, and the geometry the corpus compares
+    /// would then have two answers for one element.
+    /// </para>
+    /// </remarks>
+    static void PaintHeaders(Surface surface, List<RepeatingHeader> headers, PageSlice page)
+    {
+        var stacked = 0f;
+
+        foreach (var header in headers)
+        {
+            var band = header.Band;
+            var dy = page.ToPageOrigin + stacked - band.Y;
+
+            using var moved = surface.PushTransform(Matrix.Translate(0, dy));
+
+            PaintStack(surface, header.Group, page.Repeated(dy, band.Y, band.Bottom), collects: true);
+            PaintHeaderLines(surface, header.Table, band);
+
+            stacked += band.Height;
+        }
     }
 
     /// <summary>
@@ -120,8 +165,21 @@ static class PdfPainter
     /// its own. Its positioned descendants were flattened onto the page by the walk that found it,
     /// so gathering them again here would paint every one of them a second time.
     /// </para>
+    /// <para>
+    /// <paramref name="headers"/> is passed by the page and by nothing else. A repeated table
+    /// header is a copy of table CONTENT, so it belongs between steps 3–5 and step 7 — after every
+    /// in-flow background and line on the page, and under everything positioned, which is where a
+    /// fixed running header has to stay. Drawing it before the page instead puts it under the root
+    /// element's own background, which every stylesheet that colours the page paints over the whole
+    /// sheet; drawing it after puts it over a fixed box it should sit below.
+    /// </para>
     /// </remarks>
-    static void PaintStack(Surface surface, LayoutBox box, PageSlice page, bool collects)
+    static void PaintStack(
+        Surface surface,
+        LayoutBox box,
+        PageSlice page,
+        bool collects,
+        List<RepeatingHeader>? headers = null)
     {
         var contexts = Ordered(box, collects);
 
@@ -142,6 +200,11 @@ static class PdfPainter
         }
 
         PaintLayer(surface, box, page, decorated: true);
+
+        if (headers is {Count: > 0} repeated)
+        {
+            PaintHeaders(surface, repeated, page);
+        }
 
         for (var i = above; i < contexts.Count; i++)
         {
@@ -198,10 +261,15 @@ static class PdfPainter
         // makes the whole of the repetition one transform rather than a second walk.
         if (box.Style.RepeatsOnEveryPage)
         {
-            using var repeated = surface.PushTransform(Matrix.Translate(0, page.Top));
+            var dy = page.ToPageOrigin;
+
+            using var repeated = surface.PushTransform(Matrix.Translate(0, dy));
             using var faded = Fade(surface, box);
 
-            PaintStack(surface, box, page.Repeated(), collects: true);
+            // The window is the whole page's content box rather than what the slice has left of
+            // it: a fixed box is laid out against the page, so one anchored to the bottom edge
+            // sits below anything a reserved band leaves room for.
+            PaintStack(surface, box, page.Repeated(dy, 0, page.PageHeight), collects: true);
             return;
         }
 
@@ -429,10 +497,21 @@ static class PdfPainter
         {
             Backgrounds(surface, child, page);
         }
+
+        // AFTER the subtree, which is where CSS 2.1 Appendix E puts a collapsed table's rules:
+        // below every background of the table's own elements comes the whole grid, in one pass.
+        // Painting them with the table's own decoration instead puts them under every cell
+        // background, and a cell's background reaches the middle of the line — so a header row
+        // with a fill of its own erased the rule under it entirely, which is what
+        // `page/table_header` found.
+        if (box.Style.Visibility == VisibilityKind.Visible)
+        {
+            PaintCollapsedLines(surface, box, page);
+        }
     }
 
     /// <summary>
-    /// One box's own background, borders, collapsed grid lines and outline.
+    /// One box's own background, borders and outline.
     /// </summary>
     /// <remarks>
     /// A box beginning at or after the break was moved WHOLE to the next page and does not appear
@@ -456,7 +535,6 @@ static class PdfPainter
 
         PaintBackground(surface, box);
         PaintBorders(surface, box);
-        PaintCollapsedLines(surface, box);
         PaintOutline(surface, box);
     }
 
@@ -473,7 +551,7 @@ static class PdfPainter
     /// own decoration, and a cell whose text overflows should sit over it the way it sits over any
     /// other background.
     /// </remarks>
-    static void PaintCollapsedLines(Surface surface, LayoutBox box)
+    static void PaintCollapsedLines(Surface surface, LayoutBox box, PageSlice page)
     {
         if (box.CollapsedLines is not {Count: > 0} lines)
         {
@@ -482,6 +560,62 @@ static class PdfPainter
 
         foreach (var line in lines)
         {
+            // Bounded by the page the way every other piece of decoration is. A grid line belongs
+            // to the table rather than to a row, so the list spans the whole table and a line
+            // outside this page's slice used to be drawn and then clipped away by the page box.
+            // That stopped being the same thing once a continuation page could push its content
+            // down: a line from the page BEFORE then lands inside the band a repeated header
+            // fills, which is where it does not belong.
+            if (line.Bounds.Bottom <= page.Top ||
+                line.Bounds.Y >= page.End)
+            {
+                continue;
+            }
+
+            surface.FillRectangle(
+                Rectangle.FromSize(
+                    line.Bounds.X,
+                    line.Bounds.Y,
+                    line.Bounds.Width,
+                    line.Bounds.Height),
+                line.Color);
+        }
+    }
+
+    /// <summary>
+    /// The grid lines that belong to a repeated table header, drawn with it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A collapsed table's rules belong to the TABLE, not to the boxes either side of them, so
+    /// they are not in the header's own subtree and re-drawing the header alone leaves it as three
+    /// unruled cells.
+    /// </para>
+    /// <para>
+    /// Only the lines lying WITHIN the header's band. A vertical rule spans the table's whole
+    /// height, so it fails that and is left to the table's own paint, which draws it at the right
+    /// length — copied here it would run from the top of the page down past wherever the table
+    /// ends on it. The tolerance is the line's own thickness, since a rule is centred ON the
+    /// boundary and so hangs half its width above the header's top edge.
+    /// </para>
+    /// </remarks>
+    static void PaintHeaderLines(Surface surface, LayoutBox table, Rect band)
+    {
+        if (table.CollapsedLines is not {Count: > 0} lines)
+        {
+            return;
+        }
+
+        foreach (var line in lines)
+        {
+            var thickness = Math.Min(line.Bounds.Width, line.Bounds.Height);
+
+            if (line.Bounds.Y < band.Y - thickness ||
+                line.Bounds.Bottom > band.Bottom + thickness)
+            {
+                continue;
+            }
+
             surface.FillRectangle(
                 Rectangle.FromSize(
                     line.Bounds.X,
@@ -929,15 +1063,35 @@ static class PdfPainter
     /// a unit straddling the boundary moves whole to the next page, so the last thing on this one
     /// can end well short of the sheet.
     /// </param>
+    /// <param name="Reserved">
+    /// The band at the top of the page that repeated table headers fill, and that the document
+    /// slice is pushed below. Zero for nearly every page.
+    /// </param>
     /// <param name="Links">Where each fragment identifier resolves to, or null.</param>
     /// <param name="ToPage">Layout units to page points, for annotations.</param>
     readonly record struct PageSlice(
         float Top,
         float Bottom,
         float End,
+        float Reserved,
         LinkTargets? Links,
         Func<Rect, Rect> ToPage)
     {
+        /// <summary>
+        /// How far a box has to move to go from its position in the document to the same position
+        /// on this page.
+        /// </summary>
+        /// <remarks>
+        /// The page's transform stack has already subtracted <see cref="Top"/> and added
+        /// <see cref="Reserved"/>, so undoing both is what puts a box at the page's own origin.
+        /// Everything drawn per page rather than per document — a fixed box, a repeated header —
+        /// starts from this.
+        /// </remarks>
+        public float ToPageOrigin => Top - Reserved;
+
+        /// <summary>The height of the page's content box, the reserved band included.</summary>
+        public float PageHeight => Bottom - Top + Reserved;
+
         /// <summary>
         /// Whether <paramref name="box"/>'s subtree can be skipped entirely for this page.
         /// </summary>
@@ -954,36 +1108,41 @@ static class PdfPainter
             (box.BorderBox.Bottom < Top || box.BorderBox.Y > Bottom);
 
         /// <summary>
-        /// This slice as seen by content that repeats at the same place on every page.
+        /// This slice as seen by content drawn at a page-relative position rather than a
+        /// document-relative one.
         /// </summary>
+        /// <param name="dy">
+        /// The translate the caller pushed, which link annotations have to be offset by too —
+        /// they never see the transform stack.
+        /// </param>
+        /// <param name="top">The top of the window such content is culled against.</param>
+        /// <param name="bottom">Its bottom.</param>
         /// <remarks>
         /// <para>
         /// A repeated box — a fixed one, or a table header re-drawn at a continuation page's top —
-        /// keeps the geometry layout gave it, which is a position on the FIRST page it appears on.
-        /// The caller paints it through a translate that puts it where this page wants it, and
-        /// this moves the window to match: without it every such box is culled on every page but
-        /// the one it was laid out for, which is the page nobody notices because it looks right.
+        /// keeps the geometry layout gave it, which is a position on the one page it was laid out
+        /// for. The caller paints it through a translate that puts it where this page wants it,
+        /// and this moves the window to match: without it every such box is culled on every page
+        /// but that one, which is the page nobody notices because it looks right.
         /// </para>
         /// <para>
         /// <see cref="End"/> goes to infinity for the same reason it exists at all — it culls a
-        /// box that was moved WHOLE to a later page, and a box drawn on every page was moved
-        /// nowhere.
+        /// box that was moved WHOLE to a later page, and a box drawn again here was moved nowhere.
         /// </para>
         /// </remarks>
-        public PageSlice Repeated()
+        public PageSlice Repeated(float dy, float top, float bottom)
         {
             // Copied out before the `with`, because a lambda inside a struct cannot capture
-            // `this` — and because the closure must hold the ORIGINAL offset rather than the
-            // zeroed one this produces.
-            var top = Top;
+            // `this`.
             var toPage = ToPage;
 
             return this with
             {
-                Top = 0,
-                Bottom = Bottom - top,
+                Top = top,
+                Bottom = bottom,
                 End = float.PositiveInfinity,
-                ToPage = rect => toPage(rect.Offset(0, top))
+                Reserved = 0,
+                ToPage = rect => toPage(rect.Offset(0, dy))
             };
         }
     }

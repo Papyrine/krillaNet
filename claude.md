@@ -109,9 +109,10 @@ And, from the paged-media and structure work: a document's `@page` rules decide 
 breaks insert the blank page they ask for, generated content works (`::before`, `::after`, `content`
 with `attr()`, `counter()`, `counters()`, `url()` and the quote keywords, plus `counter-reset`,
 `counter-increment` and `quotes`), and the PDF gets an outline from the document's headings, a named
-destination per `id`, and its title and language from the document. A `position: fixed` box is
-repeated on every page, which is what makes one usable as a running header. `orphans` and `widows`
-are implemented and OFF by default — see the trap list.
+destination per `id`, and its title and language from the document. Content repeats per page: a
+`position: fixed` box is drawn on every one, and a table's `<thead>` is re-drawn at the top of every
+page the table continues onto. `orphans` and `widows` are implemented and OFF by default — see the
+trap list.
 
 Also implemented, and each measured against Chrome the same way: `calc()` and the viewport units,
 `vertical-align` given a length or a percentage, the inline box model (background, padding, border
@@ -144,7 +145,7 @@ It records two independent measurements, and **asserts neither**:
 - **`reference.boxes.json`** — the browser's `getBoundingClientRect()` per element, against our box tree. Integer-exact, localising ("this paragraph is 14px low" is a defect report), and — the practical reason it leads — computable without the native library, so it works on a machine with no Rust toolchain.
 - **`reference_0001.png`** — pixels, via AbsoluteError and SSIM.
 
-**Box geometry currently sits at zero across all 121 scenarios, with nothing unmatched**, and 88
+**Box geometry currently sits at zero across all 122 scenarios, with nothing unmatched**, and 88
 read SSIM 1.0000. Several got there by finding a defect first, which is the argument for adding a
 scenario for anything the engine implements rather than only for what it implements well:
 `block/anonymous` found trailing inline content hoisted above a block sibling, `position/fixed`
@@ -372,6 +373,51 @@ Like list markers, almost none of this is specified in usable detail. CSS 2.1 §
 - **A shrink-to-fit table lands on the proportional branch with nothing to spare**, so the multiply-then-divide round trip loses a hundredth of a pixel — enough for the last word in the widest cell to stop fitting, which wraps it and makes the table a whole line taller. `Distribute` clamps each column to its own maximum, which the arithmetic guarantees and floating point does not.
 - **An empty table occupies nothing**, not two pixels square. With no columns there is nothing for the edge spacing to be outside of.
 - **A table lays out its children by ROLE rather than in order**, so a child with no table role is not merely misplaced — it is never positioned or painted at all. Unreachable from HTML, whose parser moves stray content out of tables, and reachable from `display: table` in a stylesheet. `BoxBuilder.TableFixup` wraps such children in anonymous rows and cells; its geometry is not measured against a browser, and content being on the page at all is the point.
+
+## Traps in repeating a table header
+
+`page/table_header` measures these against Chromium over three sheets, exact on all 99 boxes;
+`RunningContentTests` keeps the cases a browser reference cannot express, each of which is about
+something NOT being repeated.
+
+- **The band starts at the TABLE's top edge, not the header's.** Measured: Chromium lands the first
+  continued row 61.5px down a page whose header group is 61px tall, and the half pixel is the top
+  rule the table draws above it. Reserving the header's own height instead puts every horizontal
+  rule on the continuation page one device pixel high — 0.9185 against 0.9934 — which looks like an
+  antialiasing residual and is an off-by-one. A CAPTION is excluded from the band, or a captioned
+  table would carry the caption's height as blank space at the top of every page it continues onto.
+- **It is a PAINTING change, and the corpus can only see it in pixels.** The box harvest runs
+  against one continuous layout, so the browser reports the `thead` exactly once and an engine
+  drawing it on page one alone matches the geometry comparison perfectly. Nothing in the tree moves:
+  `Paginator` shortens the slice by the band and `PdfPainter` pushes the document below it, so the
+  header box is the original drawn a second time through a translate.
+- **A collapsed table's grid lines are not in the header's subtree.** They belong to the table, so
+  re-drawing the group alone leaves it as unruled cells — `PaintHeaderLines` copies the lines lying
+  WITHIN the band, and only those. A vertical rule spans the table's whole height, so it is left to
+  the table's own paint; copied with the header it would run from the top of the page down past
+  wherever the table ends on it.
+- **Those lines were painted UNDER every cell background**, which `page/table_header` found on its
+  first render. Under the collapsing model a cell's border box includes half of every rule around
+  it, so a cell background reaches the middle of the line — and a header row with a fill of its own
+  erased the rule beneath it entirely. CSS 2.1 Appendix E puts the collapsed borders after the
+  backgrounds of all the table's elements; the fix moved them out of `Decorate` and to the end of
+  the `Backgrounds` walk, and left every other scenario identical. Invisible until now because
+  `table/collapse` measures six arrangements of rules and fills no cell.
+- **The header is drawn between the in-flow layer and the positioned content**, which is where a
+  copy of table content belongs. Before the page instead puts it under the root element's own
+  background — which every stylesheet that colours the page paints over the whole sheet, so the
+  header vanished — and after it puts it over a fixed running header it should sit below.
+- **A grid line now has to be culled against the page.** It used to be drawn wherever it fell and
+  clipped away by the page box, which was the same thing until a continuation page could push its
+  content down: a line from the page BEFORE then lands inside the band, which is where it does not
+  belong.
+- **Reserving is bounded at half the page.** A header taller than that turns a continuation page
+  into mostly header, and one taller than the page leaves the slice nothing to advance through, so
+  the page count would follow the length of the document rather than its height.
+- **`tfoot` is not repeated.** The footer is the header reflected — a band reserved at the BOTTOM
+  and a second offset through the painter — and it is not reported either, because a `tfoot` on a
+  table that fits on one page is perfectly correct and a report keyed on the element would fire on
+  documents with nothing wrong with them.
 
 ## Traps in box-sizing
 

@@ -4,9 +4,10 @@
 /// <remarks>
 /// <para>
 /// The document is laid out once, as a single column of unbounded height, and then sliced. That
-/// ordering is what makes pagination cheap, and it is sound as long as nothing on a page can
-/// depend on which page it landed on — true for the current feature set, and the reason running
-/// headers, <c>position: fixed</c> and page-relative counters are not in it.
+/// ordering is what makes pagination cheap, and it survives the two things that DO depend on which
+/// page they landed on, because neither changes a measurement: a <c>position: fixed</c> box is
+/// drawn again through a translate, and a repeating table header takes a band at the top of a
+/// continuation page — which shortens the slice rather than moving anything in the tree.
 /// </para>
 /// <para>
 /// Lines are the unbreakable unit, and a box is one where it asks to be: a table ROW always, and
@@ -25,26 +26,27 @@
 static class Paginator
 {
     /// <summary>
-    /// The Y position, in layout units, where each page's content starts.
+    /// Where each page's content starts, and what is re-drawn above it.
     /// </summary>
     /// <remarks>
     /// Always at least one entry, at zero, so an empty document still produces one page rather
     /// than none — an empty PDF is not a valid document, and a blank page is the honest render of
     /// blank input.
     /// </remarks>
-    public static List<float> PageTops(LayoutBox root, float pageHeight, bool constrainRuns = false)
+    public static List<PageStart> Paginate(LayoutBox root, float pageHeight, bool constrainRuns = false)
     {
-        var tops = new List<float> {0};
+        var pages = new List<PageStart> {PageStart.At(0)};
 
         if (pageHeight <= 0)
         {
-            return tops;
+            return pages;
         }
 
         var units = Unbreakable(root);
         var forced = ForcedBreaks(root);
         var sides = forced.ToDictionary(_ => _.Position, _ => _.Kind);
         var positions = forced.Select(_ => _.Position).ToList();
+        var headers = RepeatingHeaders(root);
 
         var documentHeight = Math.Max(
             root.BorderBox.Bottom,
@@ -52,27 +54,139 @@ static class Paginator
 
         var top = 0f;
 
+        // How much of the page the CURRENT one has left for document content. A page repeating a
+        // table header holds less, which is what makes this a variable rather than `pageHeight`
+        // at every use below.
+        var available = pageHeight;
+
         // The second half of the condition is what a forced break adds. Without it the loop ends
         // as soon as the remaining content fits on one page, and a document asking to start a page
         // is short far more often than not: three boxes totalling 144px on a 1056px page still
         // want two pages if one of them said so.
-        while (top + pageHeight < documentHeight ||
+        while (top + available < documentHeight ||
                (positions.Count > 0 && positions[^1] > top))
         {
-            top = NextTop(units, positions, top, pageHeight, constrainRuns);
-            tops.Add(top);
+            top = NextTop(units, positions, top, available, constrainRuns);
 
             // A break that named a sheet gets a blank page inserted whenever the page it landed on
             // is the wrong parity. The blank page is `top` repeated: its slice runs from `top` to
             // `top`, so it holds nothing but the canvas — which is what a blank page in a browser
-            // holds too.
-            if (sides.TryGetValue(top, out var kind) && Misplaced(kind, tops.Count))
+            // holds too, and why it repeats no header.
+            if (sides.TryGetValue(top, out var kind) && Misplaced(kind, pages.Count + 1))
             {
-                tops.Add(top);
+                pages.Add(PageStart.At(top));
             }
+
+            var repeated = HeadersAt(headers, top, pageHeight);
+
+            pages.Add(new(top, repeated.Sum(_ => _.Band.Height), repeated));
+            available = pageHeight - pages[^1].Reserved;
         }
 
-        return tops;
+        return pages;
+    }
+
+    /// <summary>
+    /// Every table header group that is re-drawn when its table continues onto another page, with
+    /// the extent over which it does.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A browser's printer repeats a <c>thead</c> at the top of every page a table continues onto,
+    /// and the rest of the table moves down to make room. That is the one feature people expect
+    /// from HTML-to-PDF conversion of a long table, and without it page two of a twenty-row report
+    /// is a grid of unlabelled columns.
+    /// </para>
+    /// <para>
+    /// A table may carry more than one header group — <see cref="TableGrid"/> renders them all
+    /// first, in source order — so this yields each, and the caller sums their heights. Nested
+    /// tables give the outer table's header first, by virtue of the walk order, which is the order
+    /// they have to be stacked in on the page.
+    /// </para>
+    /// <para>
+    /// <c>tfoot</c> is NOT repeated. A browser draws it at the foot of every page, which needs a
+    /// band reserved at the BOTTOM as well and a second offset threaded through the painter; the
+    /// header is where the value is, and the footer is reported instead.
+    /// </para>
+    /// </remarks>
+    static List<RepeatingHeader> RepeatingHeaders(LayoutBox root)
+    {
+        var headers = new List<RepeatingHeader>();
+        Walk(root);
+        return headers;
+
+        void Walk(LayoutBox box)
+        {
+            if (box.Style.Display == DisplayKind.Table)
+            {
+                foreach (var group in box.Children)
+                {
+                    if (group.Style.Display == DisplayKind.TableHeaderGroup &&
+                        group.BorderBox.Height > 0)
+                    {
+                        headers.Add(new(group, box));
+                    }
+                }
+            }
+
+            foreach (var child in box.Children)
+            {
+                Walk(child);
+            }
+
+            // A table inside a float or an inline-block is still a table, and the walk that finds
+            // its rows for `Unbreakable` reaches it through the same three branches.
+            foreach (var floated in box.Floats)
+            {
+                Walk(floated.Box);
+            }
+
+            foreach (var line in box.Lines)
+            {
+                foreach (var atomic in line.Boxes)
+                {
+                    Walk(atomic);
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// The headers a page starting at <paramref name="top"/> has to re-draw.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A header repeats where the page begins after the header's own top — so the page it was laid
+    /// out on draws it in place and no other does — and before the table it belongs to has ended.
+    /// </para>
+    /// <para>
+    /// Bounded at half the page. A header taller than that would turn a continuation page into
+    /// mostly header, and a header taller than the page itself would leave nothing for the slice
+    /// to advance through, so the page count would grow with the document rather than with its
+    /// height. A browser stops repeating for the same reason.
+    /// </para>
+    /// </remarks>
+    static List<RepeatingHeader> HeadersAt(List<RepeatingHeader> headers, float top, float pageHeight)
+    {
+        var repeated = new List<RepeatingHeader>();
+        var height = 0f;
+
+        foreach (var header in headers)
+        {
+            var band = header.Band;
+
+            if (top <= band.Y ||
+                top >= header.TableBottom ||
+                height + band.Height > pageHeight / 2)
+            {
+                continue;
+            }
+
+            repeated.Add(header);
+            height += band.Height;
+        }
+
+        return repeated;
     }
 
     /// <summary>
@@ -420,7 +534,7 @@ static class Paginator
         }
 
         // Whole run overleaf. Guarded against a run that starts at or above the page top, where
-        // moving to it would not advance and the loop in `PageTops` would never terminate.
+        // moving to it would not advance and the loop in `Paginate` would never terminate.
         if (group.FirstTop > top)
         {
             return group.FirstTop;
@@ -469,6 +583,7 @@ static class Paginator
     /// <c>break-inside: avoid</c> — which has no lines either side of it to count.
     /// </param>
     readonly record struct PageUnit(Rect Bounds, LineGroup? Group);
+
 
     /// <summary>
     /// Where a line sits in the run its block generated, and what that block asks of a break.

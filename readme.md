@@ -73,6 +73,10 @@ rather than splitting it. The modern `break-*` spellings are read as well. What 
 `avoid` at a box edge, `orphans` and `widows`, and the side a `left`/`right` value asks its page to
 land on — all three are reported through `OnDiagnostic`.
 
+A table's `<thead>` is re-drawn at the top of every page its table continues onto, and the rest of
+the table moves down to make room — so page two of a long report is a labelled grid rather than an
+unlabelled one. `<tfoot>` is not repeated.
+
 A `position: fixed` box is drawn at the same place on every page, which is how a running header or
 footer is written today — CSS 2.1 asks for exactly that in paged media, and it is what a browser's
 printer does. A box with neither `top` nor `bottom` is the one exception: its position comes from

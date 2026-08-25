@@ -86,6 +86,7 @@ page/float_break                 matched  5  offset    0.00  size    0.00  diffe
 page/multi_page_flow             matched  8  offset    0.00  size    0.00  differing  0  unmatched 0
 page/page_size                   matched  3  offset    0.00  size    0.00  differing  0  unmatched 0
 page/table_break                 matched 23  offset    0.00  size    0.00  differing  0  unmatched 0
+page/table_header                matched 99  offset    0.00  size    0.00  differing  0  unmatched 0
 page/tall_block                  matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
 position/absolute                matched  9  offset    0.00  size    0.00  differing  0  unmatched 0
 position/anchors                 matched  9  offset    0.00  size    0.00  differing  0  unmatched 0
