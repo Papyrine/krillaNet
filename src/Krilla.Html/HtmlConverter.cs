@@ -86,6 +86,11 @@ public static class HtmlConverter
         // page and a point on it — and which page an element landed on is what pagination decides.
         var links = LinkTargets.Build(root, pages, content, scale);
 
+        // After pagination, because a named string's value is a function of where the boundaries
+        // fell: the same heading sets it on every page it precedes, and which of those pages is
+        // asking decides the answer.
+        var strings = RunningStrings.Build(root);
+
         // Both of these are addressed by page and point, so both wait for pagination too.
         if (DocumentOutline.Build(root, pages, content, scale, options.OutlineDepth) is {Count: > 0} outline)
         {
@@ -135,7 +140,8 @@ public static class HtmlConverter
                     root.Style.FontFamilies,
                     index + 1,
                     pages.Count,
-                    blank));
+                    blank,
+                    new(strings, pages[index].Top, end)));
         }
 
         return pdf.Finish();

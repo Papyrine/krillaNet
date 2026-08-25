@@ -279,30 +279,98 @@ public class PageMarginBoxTests
     }
 
     /// <summary>
-    /// <c>string()</c> reaches nothing, because AngleSharp drops the declaration carrying it.
+    /// <c>string-set</c> and <c>string()</c>: a running header that names the section it is on.
     /// </summary>
     /// <remarks>
-    /// CSS's own running-header mechanism, paired with <c>string-set</c> on the document's
-    /// headings. It is not implemented here — but that is not why it cannot be reported: the
-    /// cascaded <c>content</c> comes back EMPTY, indistinguishable from a margin box that declared
-    /// none, so there is no value to report and no gap this side can see. The same shape as
-    /// <c>revert</c> and <c>text-overflow</c>, and this test is what stops the limitation being
-    /// rediscovered as a defect.
+    /// <para>
+    /// CSS's own running-header mechanism, and the reason most documents have an <c>@page</c> rule
+    /// at all. Both halves are recovered from the stylesheet's own SOURCE, because AngleSharp drops
+    /// the declarations: <c>string-set: title content()</c> comes back empty and indistinguishable
+    /// from one nobody wrote, and so does <c>content: string(title)</c> outside the <c>@page</c>
+    /// scan.
+    /// </para>
+    /// <para>
+    /// The rule is <c>first</c>, which is the property's default: the value assigned by the first
+    /// element on the page that sets it, and otherwise whatever was carried forward. Page two is
+    /// what says so — it holds no heading of its own and keeps page one's.
+    /// </para>
     /// </remarks>
     [Test]
-    public async Task StringIsDroppedByTheCascadeAndCannotBeReported()
+    public async Task ANamedStringFollowsTheSectionItIsOn()
     {
-        var reports = new List<HtmlDiagnostic>();
+        var html = Sections("""
+                            h2 { string-set: title content() }
+                            @page { @top-center { content: "[" string(title) "]" } }
+                            """);
 
-        var options = Options(Margin);
-        options.OnDiagnostic = reports.Add;
-
-        await HtmlConverter.ConvertAsync(
-            Document("""@page { @top-center { content: string(title); color: #00c000 } }""", pages: 1),
-            options);
-
-        await Assert.That(reports.Select(_ => _.Name)).DoesNotContain("content");
+        await Assert.That(await Text(html, 0)).Contains("[Materials]");
+        await Assert.That(await Text(html, 1)).Contains("[Materials]");
+        await Assert.That(await Text(html, 2)).Contains("[Method]");
     }
+
+    /// <summary>
+    /// A named string a document never sets reads as nothing, and takes the box with it.
+    /// </summary>
+    /// <remarks>
+    /// <c>content</c> decides whether a margin box EXISTS, so a header whose only content is an
+    /// unset string is not drawn at all rather than drawn empty — which matters, because an empty
+    /// box would still paint its own border and background.
+    /// </remarks>
+    [Test]
+    public async Task AnUnsetNamedStringDrawsNothing()
+    {
+        var html = Sections("""@page { @top-center { content: string(missing) } }""");
+
+        await Assert.That(await Text(html, 0)).IsEqualTo("Materials");
+    }
+
+    /// <summary>
+    /// <c>string-set</c> takes the whole <c>content</c> grammar, not just <c>content()</c>.
+    /// </summary>
+    /// <remarks>
+    /// Several values concatenate, which is what lets a running header carry the section's number
+    /// as well as its name — and the counter is read where the ELEMENT is, not where the page is,
+    /// so it holds the value that heading had rather than the one in force at the end.
+    /// </remarks>
+    [Test]
+    public async Task ANamedStringConcatenatesItsValues()
+    {
+        var html = Sections("""
+                            body { counter-reset: part }
+                            h2 { counter-increment: part; string-set: title "Part " counter(part) ": " content() }
+                            @page { @top-center { content: string(title) } }
+                            """);
+
+        await Assert.That(await Text(html, 0)).Contains("Part 1: Materials");
+        await Assert.That(await Text(html, 2)).Contains("Part 2: Method");
+    }
+
+    /// <summary>
+    /// Three pages: a heading, a page of filler, and a second heading.
+    /// </summary>
+    /// <remarks>
+    /// The middle page is the one that matters. It carries no heading of its own, so what its
+    /// running header says is entirely a question of what was carried forward — and an
+    /// implementation that read the LAST assignment in the document, or the nearest one in either
+    /// direction, gets it wrong while getting both other pages right.
+    /// </remarks>
+    static string Sections(string css) =>
+        $$"""
+          <!doctype html>
+          <html><head><style>
+            html, body, div, h2 { margin: 0; padding: 0 }
+            body { font-family: "Liberation Sans"; font-size: 16px; line-height: 24px }
+            h2 { font-size: 16px; line-height: 24px }
+            .filler { height: {{CorpusLayout.PageHeight - 2 * Margin - 24}}px }
+            .whole { height: {{CorpusLayout.PageHeight - 2 * Margin}}px }
+            {{css}}
+          </style></head>
+          <body>
+            <h2>Materials</h2><div class="filler"></div>
+            <div class="whole"></div>
+            <h2>Method</h2><div class="filler"></div>
+          </body></html>
+          """;
 
     /// <summary>
     /// A <c>url()</c> in a margin box resolves through the document's own image store.

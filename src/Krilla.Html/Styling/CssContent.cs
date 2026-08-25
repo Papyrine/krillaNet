@@ -19,7 +19,21 @@ enum ContentKind
     Image,
 
     /// <summary>The opening or closing quotation mark for the current depth.</summary>
-    Quote
+    Quote,
+
+    /// <summary>
+    /// A named string set with <c>string-set</c>, as it stands on the page being drawn.
+    /// </summary>
+    /// <remarks>
+    /// Only meaningful inside an <c>@page</c> margin box. Elsewhere there is no page to ask, and a
+    /// value that changed as the document flowed would be a different thing on every sheet.
+    /// </remarks>
+    String,
+
+    /// <summary>
+    /// The host element's own text, which is what <c>string-set: title content()</c> captures.
+    /// </summary>
+    Element
 }
 
 /// <summary>
@@ -191,6 +205,25 @@ static class CssContent
         if (Function(token, "attr") is {} attribute)
         {
             return new(ContentKind.Attribute, attribute.Trim());
+        }
+
+        // `content()` takes an argument in CSS — `text`, `before`, `after`, `first-letter` — and
+        // only the default is honoured, so the argument is read and ignored rather than parsed. It
+        // is legal empty, which is how everyone writes it.
+        if (token.Equals("content()", StringComparison.OrdinalIgnoreCase) ||
+            Function(token, "content") is not null)
+        {
+            return new(ContentKind.Element, "");
+        }
+
+        if (Function(token, "string") is {} named)
+        {
+            var parts = Arguments(named);
+
+            // A second argument names WHICH value the page takes — `first`, `start`, `last`. Only
+            // the default is implemented, and the others are close enough to it that reporting them
+            // would be noise: they differ only on a page that sets the string more than once.
+            return parts.Count >= 1 ? new(ContentKind.String, parts[0]) : null;
         }
 
         if (Function(token, "url") is {} url)
