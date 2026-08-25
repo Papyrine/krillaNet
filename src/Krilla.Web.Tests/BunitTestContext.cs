@@ -8,7 +8,7 @@ public class BunitTestContext : BunitContext
         // Only the transport differs. FontStore fetches `fonts/<face>.ttf` and the sample button
         // fetches `sample/sample.html`; both are copied into the test output by the csproj, and
         // LocalAssetHandler serves them from there.
-        Services.AddKrillaWeb(_ => new HttpClient(new LocalAssetHandler())
+        Services.AddKrillaWeb(_ => new(new LocalAssetHandler())
         {
             BaseAddress = new("http://localhost/")
         });

@@ -4,7 +4,11 @@
 public class SvgTests
 {
     const string square =
-        """<svg xmlns="http://www.w3.org/2000/svg" width="64" height="32"><rect width="64" height="32" fill="red"/></svg>""";
+        """
+        <svg xmlns="http://www.w3.org/2000/svg" width="64" height="32">
+          <rect width="64" height="32" fill="red"/>
+        </svg>
+        """;
 
     static PdfSvg Parse(string source, SvgOptions? options = null) =>
         PdfSvg.Load(Encoding.UTF8.GetBytes(source), options);
