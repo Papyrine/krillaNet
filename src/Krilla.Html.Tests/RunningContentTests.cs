@@ -1,5 +1,6 @@
 /// <summary>
-/// Content drawn on more than one page: a repeating table header, and a fixed box.
+/// Content drawn on more than one page: a repeating table header, a repeating table footer, and a
+/// fixed box.
 ///
 /// The two corpus scenarios — <c>page/table_header</c> and <c>page/fixed_repeat</c> — measure what
 /// a browser does with each in the shape an author writes. What is here is the edges of that: the
@@ -95,6 +96,86 @@ public class RunningContentTests
     }
 
     /// <summary>
+    /// A footer group is re-drawn at the foot of the page its table continues onto.
+    /// </summary>
+    /// <remarks>
+    /// The corpus measures WHERE, against Chromium over three sheets. What is here is that the
+    /// band is reserved rather than merely painted over: the last row on the page ends above the
+    /// footer, so the footer's own rows are the lowest marked rows on the sheet and there is
+    /// nothing of the table below them.
+    /// </remarks>
+    [Test]
+    public async Task AFooterGroupRepeatsOnAContinuationPage()
+    {
+        var html = Ledger(rows: 30, css: "", header: false, footer: true);
+
+        await Assert.That(await PageCount(html)).IsEqualTo(2);
+
+        var first = MarkedRows(await Render(html, 0));
+
+        await Assert.That(first).IsNotEmpty();
+        await Assert.That(first[0]).IsGreaterThan(900);
+    }
+
+    /// <summary>
+    /// A table with no footer group reserves nothing, and the page fills to its own edge.
+    /// </summary>
+    /// <remarks>
+    /// The control. Without it a band reserved unconditionally would pass every other assertion
+    /// here, and the page count is the sharpest thing that would say so: a footer's band comes out
+    /// of every page the table crosses, so reserving one that does not exist costs a page as soon
+    /// as the table is long enough.
+    /// </remarks>
+    [Test]
+    public async Task ATableWithNoFooterGroupReservesNothing()
+    {
+        var html = Ledger(rows: 30, css: "", header: false);
+
+        await Assert.That(await PageCount(html)).IsEqualTo(2);
+        await Assert.That(MarkedRows(await Render(html, 0))).IsEmpty();
+    }
+
+    /// <summary>
+    /// The footer stops repeating once the table has ended.
+    /// </summary>
+    /// <remarks>
+    /// The header's rule reflected: a page holding the block AFTER a table should not carry that
+    /// table's totals row, which makes the extent of the table the rule rather than the page
+    /// number.
+    /// </remarks>
+    [Test]
+    public async Task TheFooterStopsRepeatingPastTheTable()
+    {
+        var html = Ledger(
+            rows: 30,
+            css: "#after { height: 1000px; background: #d0d0d0 }",
+            header: false,
+            footer: true,
+            after: """<div id="after"></div>""");
+
+        await Assert.That(await PageCount(html)).IsEqualTo(3);
+
+        await Assert.That(MarkedRows(await Render(html, 0))).IsNotEmpty();
+        await Assert.That(MarkedRows(await Render(html, 2))).IsEmpty();
+    }
+
+    /// <summary>
+    /// A footer taller than half the page is not repeated at all.
+    /// </summary>
+    /// <remarks>
+    /// The same bound the header takes, and it matters more here: a band at the foot of the page
+    /// shortens every page the table crosses, so an unbounded one would shorten each of them past
+    /// the point where any row fits and the page count would never converge.
+    /// </remarks>
+    [Test]
+    public async Task AFooterTallerThanHalfThePageIsNotRepeated()
+    {
+        var html = Ledger(rows: 30, css: "#ledger tfoot td { height: 700px }", header: false, footer: true);
+
+        await Assert.That(MarkedRows(await Render(html, 0))).IsEmpty();
+    }
+
+    /// <summary>
     /// An anchored fixed box is drawn at the same place on every page.
     /// </summary>
     /// <remarks>
@@ -164,15 +245,25 @@ public class RunningContentTests
     }
 
     /// <summary>
-    /// A table whose header repeats, with <paramref name="rows"/> body rows.
+    /// A table whose header or footer repeats, with <paramref name="rows"/> body rows.
     /// </summary>
-    static string Ledger(int rows, string css, bool header = true, string after = "")
+    static string Ledger(
+        int rows,
+        string css,
+        bool header = true,
+        string after = "",
+        bool footer = false)
     {
         var body = new StringBuilder("<table id=\"ledger\">");
 
         if (header)
         {
             body.Append("<thead><tr><th>Reference</th><th>Amount</th></tr></thead>");
+        }
+
+        if (footer)
+        {
+            body.Append("<tfoot><tr><td class=\"total\">Carried</td><td class=\"total\">1234.50</td></tr></tfoot>");
         }
 
         body.Append("<tbody>");
@@ -190,7 +281,7 @@ public class RunningContentTests
             $$"""
               #ledger { border-collapse: collapse; width: 400px }
               #ledger th, #ledger td { border: 1px solid #909090; padding: 8px }
-              #ledger th { background: #00c000 }
+              #ledger th, #ledger td.total { background: #00c000 }
               {{css}}
               """);
     }

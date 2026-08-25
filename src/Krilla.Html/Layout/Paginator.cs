@@ -46,7 +46,7 @@ static class Paginator
         var forced = ForcedBreaks(root);
         var sides = forced.ToDictionary(_ => _.Position, _ => _.Kind);
         var positions = forced.Select(_ => _.Position).ToList();
-        var headers = RepeatingHeaders(root);
+        var (headers, footers) = RepeatedGroups(root);
 
         var documentHeight = Math.Max(
             root.BorderBox.Bottom,
@@ -59,14 +59,37 @@ static class Paginator
         // at every use below.
         var available = pageHeight;
 
-        // The second half of the condition is what a forced break adds. Without it the loop ends
-        // as soon as the remaining content fits on one page, and a document asking to start a page
-        // is short far more often than not: three boxes totalling 144px on a 1056px page still
-        // want two pages if one of them said so.
-        while (top + available < documentHeight ||
-               (positions.Count > 0 && positions[^1] > top))
+        while (true)
         {
-            top = NextTop(units, positions, top, available, constrainRuns);
+            // Where the page would end if nothing were reserved at its foot, which is what decides
+            // whether anything IS. The order is not circular: reserving can only move the end
+            // earlier, and a table that continued past the later end continues past the earlier
+            // one too — so one refinement settles it.
+            var end = NextTop(units, positions, top, available, constrainRuns);
+            var feet = FootersAt(footers, top, end, pageHeight);
+            var reserved = feet.Sum(_ => _.Band.Height);
+
+            if (reserved > 0)
+            {
+                available -= reserved;
+                end = NextTop(units, positions, top, available, constrainRuns);
+            }
+
+            // Stamped onto the page this loop has been measuring rather than the one it is about
+            // to start, because a footer belongs to the page whose content it follows.
+            pages[^1] = pages[^1] with {ReservedBottom = reserved, Footers = feet};
+
+            // The second half is what a forced break adds. Without it the loop ends as soon as the
+            // remaining content fits on one page, and a document asking to start a page is short
+            // far more often than not: three boxes totalling 144px on a 1056px page still want two
+            // pages if one of them said so.
+            if (top + available >= documentHeight &&
+                (positions.Count == 0 || positions[^1] <= top))
+            {
+                return pages;
+            }
+
+            top = end;
 
             // A break that named a sheet gets a blank page inserted whenever the page it landed on
             // is the wrong parity. The blank page is `top` repeated: its slice runs from `top` to
@@ -79,11 +102,9 @@ static class Paginator
 
             var repeated = HeadersAt(headers, top, pageHeight);
 
-            pages.Add(new(top, repeated.Sum(_ => _.Band.Height), repeated));
+            pages.Add(new(top, repeated.Sum(_ => _.Band.Height), repeated, 0, []));
             available = pageHeight - pages[^1].Reserved;
         }
-
-        return pages;
     }
 
     /// <summary>
@@ -104,16 +125,17 @@ static class Paginator
     /// they have to be stacked in on the page.
     /// </para>
     /// <para>
-    /// <c>tfoot</c> is NOT repeated. A browser draws it at the foot of every page, which needs a
-    /// band reserved at the BOTTOM as well and a second offset threaded through the painter; the
-    /// header is where the value is, and the footer is reported instead.
+    /// <c>tfoot</c> is the same thing reflected, and is collected by the same walk: a band at the
+    /// BOTTOM of a page rather than at the top, drawn where the page's content ended rather than
+    /// where it began.
     /// </para>
     /// </remarks>
-    static List<RepeatingHeader> RepeatingHeaders(LayoutBox root)
+    static (List<RepeatedRows> Headers, List<RepeatedRows> Footers) RepeatedGroups(LayoutBox root)
     {
-        var headers = new List<RepeatingHeader>();
+        var headers = new List<RepeatedRows>();
+        var footers = new List<RepeatedRows>();
         Walk(root);
-        return headers;
+        return (headers, footers);
 
         void Walk(LayoutBox box)
         {
@@ -121,10 +143,18 @@ static class Paginator
             {
                 foreach (var group in box.Children)
                 {
-                    if (group.Style.Display == DisplayKind.TableHeaderGroup &&
-                        group.BorderBox.Height > 0)
+                    if (group.BorderBox.Height <= 0)
                     {
-                        headers.Add(new(group, box));
+                        continue;
+                    }
+
+                    if (group.Style.Display == DisplayKind.TableHeaderGroup)
+                    {
+                        headers.Add(new(group, box, AtFoot: false));
+                    }
+                    else if (group.Style.Display == DisplayKind.TableFooterGroup)
+                    {
+                        footers.Add(new(group, box, AtFoot: true));
                     }
                 }
             }
@@ -166,9 +196,9 @@ static class Paginator
     /// height. A browser stops repeating for the same reason.
     /// </para>
     /// </remarks>
-    static List<RepeatingHeader> HeadersAt(List<RepeatingHeader> headers, float top, float pageHeight)
+    static List<RepeatedRows> HeadersAt(List<RepeatedRows> headers, float top, float pageHeight)
     {
-        var repeated = new List<RepeatingHeader>();
+        var repeated = new List<RepeatedRows>();
         var height = 0f;
 
         foreach (var header in headers)
@@ -183,6 +213,50 @@ static class Paginator
             }
 
             repeated.Add(header);
+            height += band.Height;
+        }
+
+        return repeated;
+    }
+
+    /// <summary>
+    /// The footers a page running from <paramref name="top"/> to <paramref name="end"/> has to
+    /// re-draw.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The header's rule reflected. A footer repeats where the table has BEGUN by the time the page
+    /// ends and the group's own band has not — so the page the group was laid out on draws it in
+    /// place and no other does, and a page beginning past the table carries nothing.
+    /// </para>
+    /// <para>
+    /// Bounded at half the page, for the reason the header is: a band taller than that would turn a
+    /// continuation page into mostly footer, and one taller than the page would leave nothing for
+    /// the slice to advance through.
+    /// </para>
+    /// </remarks>
+    static List<RepeatedRows> FootersAt(
+        List<RepeatedRows> footers,
+        float top,
+        float end,
+        float pageHeight)
+    {
+        var repeated = new List<RepeatedRows>();
+        var height = 0f;
+
+        foreach (var footer in footers)
+        {
+            var band = footer.Band;
+
+            if (footer.TableTop >= end ||
+                end >= band.Bottom ||
+                footer.TableBottom <= top ||
+                height + band.Height > pageHeight / 2)
+            {
+                continue;
+            }
+
+            repeated.Add(footer);
             height += band.Height;
         }
 

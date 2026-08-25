@@ -89,13 +89,30 @@ static class PdfPainter
         var pageTop = start.Top;
         var reserved = start.Reserved;
 
+        // How far the document is moved to put this page's slice at the page's content origin, and
+        // SNAPPED to a whole pixel.
+        //
+        // Every rectangle this engine fills is already snapped, but in LAYOUT units — and that only
+        // lands on a device pixel if the page's own offset is a whole number of them. It frequently
+        // is not: a page begins at an unbreakable unit's top edge, and under `border-collapse` a
+        // table row's top edge is half a rule below a whole pixel. Everything on such a page then
+        // sits on a half pixel and is drawn antialiased down both sides of every edge, which is a
+        // page's worth of soft edges from one fraction. Chromium starts a fragment on a whole
+        // device pixel; this is that, applied in the one place a whole page passes through.
+        //
+        // It was invisible until a table with no header group broke across a page: a repeated
+        // header's band is the table's top edge to the group's bottom, which carries the same half
+        // pixel and cancels it — so `page/table_header` was already integral and said nothing.
+        var shift = Snap(content.Y + reserved - pageTop);
+
         // Link annotations are queued and applied when the page closes, so they never see the
         // transform stack below and have to be given page coordinates directly. Everything else on
         // this page is painted in layout units through that stack, so the two coordinate spaces
-        // coexist and only annotations use this one.
+        // coexist and only annotations use this one — through the same shift, or a link would sit
+        // half a pixel off the text it names.
         var toPage = (Rect rect) => new Rect(
             (content.X + rect.X) * scale,
-            (content.Y + reserved + rect.Y - pageTop) * scale,
+            (shift + rect.Y) * scale,
             rect.Width * scale,
             rect.Height * scale);
 
@@ -115,7 +132,7 @@ static class PdfPainter
         // Shift the document so this page's slice lands at the page's content origin, below
         // whatever band the repeated headers take. One transform for the whole page beats
         // offsetting every coordinate at every call site.
-        using var __ = surface.PushTransform(Matrix.Translate(content.X, content.Y + reserved - pageTop));
+        using var __ = surface.PushTransform(Matrix.Translate(content.X, shift));
 
         var slice = new PageSlice(
             pageTop,
@@ -125,13 +142,18 @@ static class PdfPainter
             links,
             toPage);
 
+        // A footer band is placed against `End`, which is infinite on the last page — and a page
+        // holding no more of a table than its own end has no footer to repeat, so the two never
+        // meet. Asserting it here rather than guarding for it keeps the arithmetic above honest.
+        Debug.Assert(start.Footers.Count == 0 || !float.IsInfinity(pageEnd));
+
         // The page is the initial stacking context, so everything on it goes down in the order
         // Appendix E gives that one — which is not the order it was declared in. A positioned box
         // belongs to the stacking layer of the page rather than to the flow position of whichever
         // box happened to contain it, and painting one inside its declaring parent buries it under
         // any later sibling; the box it is anchored to is frequently an ancestor of that sibling,
         // so the burial is the normal case rather than a corner one.
-        PaintStack(surface, root, slice, collects: true, headers: start.Headers);
+        PaintStack(surface, root, slice, collects: true, repeats: start);
     }
 
     /// <summary>
@@ -171,13 +193,19 @@ static class PdfPainter
     }
 
     /// <summary>
-    /// Re-draws a continuation page's table headers in the band reserved at its top.
+    /// Re-draws a continuation page's table headers and footers in the bands reserved for them.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Each header keeps the x it was laid out at — a browser puts a repeated header at the
-    /// table's own left edge rather than at the page's — and is stacked below the one before it,
-    /// which is what an outer table's header and a nested one's need.
+    /// Each group keeps the x it was laid out at — a browser puts a repeated header at the table's
+    /// own left edge rather than at the page's — and is stacked past the one before it, which is
+    /// what an outer table's group and a nested one's need.
+    /// </para>
+    /// <para>
+    /// A header goes to the page's own origin and a footer to where the page's content ENDED,
+    /// which is the whole of the difference between them: measured, Chromium draws the repeated
+    /// footer immediately below the last row that fitted rather than flush with the paper, so the
+    /// blank strip a short page leaves is BELOW the footer and not above it.
     /// </para>
     /// <para>
     /// The original box, drawn a second time through a translate. Copying the subtree instead
@@ -185,19 +213,23 @@ static class PdfPainter
     /// would then have two answers for one element.
     /// </para>
     /// </remarks>
-    static void PaintHeaders(Surface surface, List<RepeatingHeader> headers, PageSlice page)
+    static void PaintRepeats(
+        Surface surface,
+        List<RepeatedRows> groups,
+        PageSlice page,
+        float origin)
     {
         var stacked = 0f;
 
-        foreach (var header in headers)
+        foreach (var group in groups)
         {
-            var band = header.Band;
-            var dy = page.ToPageOrigin + stacked - band.Y;
+            var band = group.Band;
+            var dy = origin + stacked - band.Y;
 
             using var moved = surface.PushTransform(Matrix.Translate(0, dy));
 
-            PaintStack(surface, header.Group, page.Repeated(dy, band.Y, band.Bottom), collects: true);
-            PaintHeaderLines(surface, header.Table, band);
+            PaintStack(surface, group.Group, page.Repeated(dy, band.Y, band.Bottom), collects: true);
+            PaintHeaderLines(surface, group.Table, band);
 
             stacked += band.Height;
         }
@@ -229,12 +261,12 @@ static class PdfPainter
     /// so gathering them again here would paint every one of them a second time.
     /// </para>
     /// <para>
-    /// <paramref name="headers"/> is passed by the page and by nothing else. A repeated table
-    /// header is a copy of table CONTENT, so it belongs between steps 3–5 and step 7 — after every
-    /// in-flow background and line on the page, and under everything positioned, which is where a
-    /// fixed running header has to stay. Drawing it before the page instead puts it under the root
-    /// element's own background, which every stylesheet that colours the page paints over the whole
-    /// sheet; drawing it after puts it over a fixed box it should sit below.
+    /// <paramref name="repeats"/> is passed by the page and by nothing else. A repeated table
+    /// header or footer is a copy of table CONTENT, so it belongs between steps 3–5 and step 7 —
+    /// after every in-flow background and line on the page, and under everything positioned, which
+    /// is where a fixed running header has to stay. Drawing it before the page instead puts it
+    /// under the root element's own background, which every stylesheet that colours the page paints
+    /// over the whole sheet; drawing it after puts it over a fixed box it should sit below.
     /// </para>
     /// </remarks>
     static void PaintStack(
@@ -242,7 +274,7 @@ static class PdfPainter
         LayoutBox box,
         PageSlice page,
         bool collects,
-        List<RepeatingHeader>? headers = null)
+        PageStart? repeats = null)
     {
         var contexts = Ordered(box, collects);
 
@@ -264,9 +296,14 @@ static class PdfPainter
 
         PaintLayer(surface, box, page, decorated: true);
 
-        if (headers is {Count: > 0} repeated)
+        if (repeats is {} start)
         {
-            PaintHeaders(surface, repeated, page);
+            PaintRepeats(surface, start.Headers, page, page.ToPageOrigin);
+
+            // Where the page's content ended, in the document coordinates everything here is drawn
+            // in. `End` is the next page's top, so the footer's band begins exactly where the last
+            // row on this page left off.
+            PaintRepeats(surface, start.Footers, page, page.End);
         }
 
         for (var i = above; i < contexts.Count; i++)
