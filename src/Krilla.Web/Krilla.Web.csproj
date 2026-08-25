@@ -1,0 +1,77 @@
+<Project Sdk="Microsoft.NET.Sdk.BlazorWebAssembly">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <!-- App, not a package: no XML docs. ProjectDefaults turns on GenerateDocumentationFile in
+         Release, which with TreatWarningsAsErrors would fail on every undocumented component. -->
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <IsPackable>false</IsPackable>
+    <InvariantGlobalization>true</InvariantGlobalization>
+    <BlazorEnableTimeZoneSupport>false</BlazorEnableTimeZoneSupport>
+
+    <!--
+      REQUIRED, and the one property this app cannot do without. Krilla's native is a static
+      archive linked into the app's own .wasm module; without a native build step there is
+      nothing to link it into and the first P/Invoke fails at run time. Every other Blazor app
+      treats WasmBuildNative as an optimisation, so it is worth knowing that here it is not.
+    -->
+    <WasmBuildNative>true</WasmBuildNative>
+
+    <!--
+      Single-threaded runtime (WasmEnableThreads deliberately NOT set). The threaded runtime
+      needs SharedArrayBuffer and so a cross-origin-isolated page, which GitHub Pages does not
+      serve. A conversion therefore runs on the UI thread; Task.Run still lets the "converting"
+      state paint before the compute begins, which for a page or two of HTML is a blink.
+    -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Microsoft.AspNetCore.Components.WebAssembly" />
+    <PackageReference Include="ProjectDefaults" PrivateAssets="all" />
+    <ProjectReference Include="..\Krilla.Html\Krilla.Html.csproj" />
+  </ItemGroup>
+
+  <!--
+    The consumer-side wiring that would arrive automatically with a PackageReference. A
+    ProjectReference does not import a referenced project's MSBuild assets, and a
+    NativeFileReference declared by a referenced project does not reach the consuming app at all
+    (dotnet/runtime#114724) — so the file the NuGet package ships in buildTransitive/ is picked
+    up here by path instead. It is the same file consumers get, which is what makes this app a
+    real test of it rather than a special case.
+  -->
+  <Import Project="..\Krilla\buildTransitive\Krilla.targets" />
+
+  <!--
+    AngleSharp discovers its services and CSS property handlers by reflection, so the trimmer
+    cannot see what they reach. Root them whole; the saving from trimming a parser this app's
+    whole purpose depends on would be small and the failure mode is a conversion that throws
+    only in the published build.
+  -->
+  <ItemGroup>
+    <TrimmerRootAssembly Include="AngleSharp" />
+    <TrimmerRootAssembly Include="AngleSharp.Css" />
+    <TrimmerRootAssembly Include="Krilla.Html" />
+    <TrimmerRootAssembly Include="Krilla" />
+  </ItemGroup>
+
+  <!--
+    The faces the document is rendered with, served as static web assets and fetched at boot.
+
+    Linked out of Krilla.Html.Tests rather than copied: these are the exact files the corpus
+    renders with, so the app draws what the test suite measures against Chrome, and a second
+    copy of 2.4 MB of binaries would only be a second thing to keep in step. Six faces rather
+    than the full twelve, because each one is a download — the sans family in four styles, plus
+    a serif and a monospace regular for the two other generic families.
+  -->
+  <ItemGroup>
+    <Content Include="..\Krilla.Html.Tests\Fonts\LiberationSans-Regular.ttf" Link="wwwroot\fonts\LiberationSans-Regular.ttf" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\Krilla.Html.Tests\Fonts\LiberationSans-Bold.ttf" Link="wwwroot\fonts\LiberationSans-Bold.ttf" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\Krilla.Html.Tests\Fonts\LiberationSans-Italic.ttf" Link="wwwroot\fonts\LiberationSans-Italic.ttf" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\Krilla.Html.Tests\Fonts\LiberationSans-BoldItalic.ttf" Link="wwwroot\fonts\LiberationSans-BoldItalic.ttf" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\Krilla.Html.Tests\Fonts\LiberationSerif-Regular.ttf" Link="wwwroot\fonts\LiberationSerif-Regular.ttf" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\Krilla.Html.Tests\Fonts\LiberationMono-Regular.ttf" Link="wwwroot\fonts\LiberationMono-Regular.ttf" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\Krilla.Html.Tests\Fonts\OFL.txt" Link="wwwroot\fonts\OFL.txt" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

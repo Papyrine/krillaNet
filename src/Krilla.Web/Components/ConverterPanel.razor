@@ -1,0 +1,101 @@
+@inject ConversionService Conversion
+@inject HttpClient Http
+@inject IJSRuntime JSRuntime
+
+<div class="converter">
+
+    <section class="source-panel">
+        <div class="panel-head">
+            <h2>HTML</h2>
+            <div class="source-actions">
+                <label class="file-btn">
+                    Open file
+                    <InputFile OnChange="LoadFileAsync" accept=".html,.htm,text/html" id="source-file" />
+                </label>
+                <button class="sample-btn" type="button" @onclick="LoadSampleAsync">Sample</button>
+            </div>
+        </div>
+
+        <textarea class="source-text"
+                  spellcheck="false"
+                  aria-label="HTML to convert"
+                  @bind="html"
+                  @bind:event="oninput"></textarea>
+
+        <div class="options">
+            <label>
+                Paper
+                <select class="paper-select" @bind="paper">
+                    <option value="@PaperSize.Letter">Letter</option>
+                    <option value="@PaperSize.A4">A4</option>
+                </select>
+            </label>
+            <label>
+                Margin
+                <select class="margin-select" @bind="margin">
+                    <option value="0">None</option>
+                    <option value="48">0.5 in</option>
+                    <option value="96">1 in</option>
+                </select>
+            </label>
+            <button class="convert-btn" type="button" @onclick="ConvertAsync" disabled="@busy">
+                @(busy ? "Converting…" : "Convert to PDF")
+            </button>
+        </div>
+    </section>
+
+    <section class="result-panel">
+        <div class="panel-head">
+            <h2>PDF</h2>
+            @if (pdfUrl is not null)
+            {
+                <button class="download-btn" type="button" @onclick="DownloadAsync">Download</button>
+            }
+        </div>
+
+        @if (error is not null)
+        {
+            <div class="error-panel" role="alert">
+                <strong>Conversion failed</strong>
+                <p>@error</p>
+            </div>
+        }
+        else if (pdfUrl is not null)
+        {
+            <iframe class="result-frame" src="@pdfUrl" title="Converted PDF"></iframe>
+        }
+        else
+        {
+            <div class="result-empty">
+                <p>Convert some HTML to see the PDF here.</p>
+            </div>
+        }
+
+        @if (result is { } done)
+        {
+            <p class="result-note">
+                @FormatKb(done.Pdf.Length) · @($"{done.Elapsed.TotalMilliseconds:0} ms")
+            </p>
+
+            @if (done.Diagnostics.Count == 0)
+            {
+                <p class="diagnostics-clean">
+                    Nothing reported — every construct in the document was laid out the way a browser would.
+                </p>
+            }
+            else
+            {
+                <details class="diagnostics" open>
+                    <summary>@done.Diagnostics.Count not rendered as a browser would</summary>
+                    <ul>
+                        @foreach (var diagnostic in done.Diagnostics)
+                        {
+                            <li>@diagnostic.ToString()</li>
+                        }
+                    </ul>
+                </details>
+            }
+        }
+    </section>
+
+</div>
