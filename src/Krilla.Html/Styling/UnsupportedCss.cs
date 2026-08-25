@@ -58,19 +58,6 @@ static class UnsupportedCss
     static readonly string[] positions = ["background-position", "object-position"];
 
     /// <summary>
-    /// The colour properties drawn fully opaque, whatever alpha they were given.
-    /// </summary>
-    static readonly string[] opaque =
-    [
-        "border-top-color",
-        "border-right-color",
-        "border-bottom-color",
-        "border-left-color",
-        "outline-color",
-        "text-decoration-color"
-    ];
-
-    /// <summary>
     /// The <c>text-transform</c> values that are applied. Everything else falls through to the
     /// inherited casing, which is what gets reported.
     /// </summary>
@@ -156,7 +143,6 @@ static class UnsupportedCss
         Shadows(declaration, name, style, sink);
         Ratio(declaration, name, style, sink);
         Positions(declaration, name, sink);
-        Translucent(declaration, name, sink);
         Counters(declaration, name, sink);
         Spaces(declaration, name, sink);
         Collapse(declaration, name, sink);
@@ -553,30 +539,6 @@ static class UnsupportedCss
                     painted == 0
                         ? "not painted; only an offset with no blur or spread is drawn"
                         : "one or more layers are not painted; only an offset with no blur or spread is drawn");
-            }
-        }
-    }
-
-    /// <summary>
-    /// A translucent colour on a property that is drawn fully opaque.
-    /// </summary>
-    /// <remarks>
-    /// <c>color</c> and <c>background-color</c> honour their alpha, and are absent here. The rest
-    /// draw through <see cref="Krilla.Color"/>, which has no alpha — krilla models opacity as a fill
-    /// property — so carrying it would mean threading a second value to each of them. Reported until
-    /// they do.
-    /// </remarks>
-    static void Translucent(ICssStyleDeclaration declaration, string element, Action<HtmlDiagnostic> sink)
-    {
-        foreach (var property in opaque)
-        {
-            if (Set(declaration, property) is {} value &&
-                !IsInitial(value) &&
-                CssValues.ParseColor(value) is not null &&
-                CssValues.ParseAlpha(value) < 1)
-            {
-                Diagnostic.Property(sink, element, property, value, "drawn fully opaque");
-                return;
             }
         }
     }

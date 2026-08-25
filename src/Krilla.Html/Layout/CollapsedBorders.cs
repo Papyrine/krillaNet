@@ -45,7 +45,12 @@ sealed class CollapsedBorders
         Cell
     }
 
-    readonly record struct Edge(float Width, Color? Color, BorderStyleKind Style, Origin Origin)
+    readonly record struct Edge(
+        float Width,
+        Color? Color,
+        BorderStyleKind Style,
+        Origin Origin,
+        float Alpha = 1)
     {
         public static readonly Edge None = new(0, null, BorderStyleKind.Solid, Origin.Table);
 
@@ -304,10 +309,10 @@ sealed class CollapsedBorders
     static Edge Of(ComputedStyle style, Side side, Origin origin) =>
         side switch
         {
-            Side.Top => new(style.BorderTop, style.BorderTopColor, style.BorderTopStyle, origin),
-            Side.Right => new(style.BorderRight, style.BorderRightColor, style.BorderRightStyle, origin),
-            Side.Bottom => new(style.BorderBottom, style.BorderBottomColor, style.BorderBottomStyle, origin),
-            _ => new(style.BorderLeft, style.BorderLeftColor, style.BorderLeftStyle, origin)
+            Side.Top => new(style.BorderTop, style.BorderTopColor, style.BorderTopStyle, origin, style.BorderTopAlpha),
+            Side.Right => new(style.BorderRight, style.BorderRightColor, style.BorderRightStyle, origin, style.BorderRightAlpha),
+            Side.Bottom => new(style.BorderBottom, style.BorderBottomColor, style.BorderBottomStyle, origin, style.BorderBottomAlpha),
+            _ => new(style.BorderLeft, style.BorderLeftColor, style.BorderLeftStyle, origin, style.BorderLeftAlpha)
         };
 
     /// <summary>
@@ -461,7 +466,7 @@ sealed class CollapsedBorders
 
                 lines.Add((
                     edge.Width,
-                    new(new(x - edge.Width / 2, top, edge.Width, bottom - top), color)));
+                    new(new(x - edge.Width / 2, top, edge.Width, bottom - top), color, edge.Alpha)));
             }
         }
 
@@ -485,7 +490,7 @@ sealed class CollapsedBorders
 
                 lines.Add((
                     edge.Width,
-                    new(new(from, y - edge.Width / 2, to - from, edge.Width), color)));
+                    new(new(from, y - edge.Width / 2, to - from, edge.Width), color, edge.Alpha)));
             }
         }
 

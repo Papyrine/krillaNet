@@ -681,6 +681,14 @@ sealed record ComputedStyle
     /// <summary>Colour of the outline, or null when it is not painted.</summary>
     public Color? OutlineColor { get; init; }
 
+    /// <summary>How opaque the outline is, from <c>rgba()</c>.</summary>
+    /// <remarks>
+    /// Carried beside the colour rather than in it, because <see cref="Krilla.Color"/> has no
+    /// fourth channel — krilla models opacity as a property of the fill rather than of the paint,
+    /// which is what lets one colour be drawn at two opacities without allocating a second.
+    /// </remarks>
+    public float OutlineAlpha { get; init; } = 1;
+
     /// <summary>How far outside the border edge the outline sits.</summary>
     public float OutlineOffset { get; init; }
 
@@ -714,6 +722,16 @@ sealed record ComputedStyle
     /// first takes each run's own colour and the second does not.
     /// </remarks>
     public Color? DecorationColor { get; init; }
+
+    /// <summary>
+    /// How opaque a text decoration is, from <c>rgba()</c>.
+    /// </summary>
+    /// <remarks>
+    /// Inherits with the decoration and not with the text, exactly as
+    /// <see cref="DecorationColor"/> does: an element starting a rule of its own starts its own
+    /// opacity with it, and one merely inheriting an ancestor's keeps the ancestor's.
+    /// </remarks>
+    public float DecorationAlpha { get; init; } = 1;
 
     /// <summary>How a text decoration's rule is drawn.</summary>
     /// <remarks>
@@ -1044,6 +1062,19 @@ sealed record ComputedStyle
 
     /// <summary>Top border colour.</summary>
     public Color? BorderTopColor { get; init; }
+
+    /// <summary>How opaque the top border is, from <c>rgba()</c>.</summary>
+    /// <inheritdoc cref="OutlineAlpha" path="/remarks"/>
+    public float BorderTopAlpha { get; init; } = 1;
+
+    /// <inheritdoc cref="BorderTopAlpha"/>
+    public float BorderRightAlpha { get; init; } = 1;
+
+    /// <inheritdoc cref="BorderTopAlpha"/>
+    public float BorderBottomAlpha { get; init; } = 1;
+
+    /// <inheritdoc cref="BorderTopAlpha"/>
+    public float BorderLeftAlpha { get; init; } = 1;
 
     /// <summary>Right border colour.</summary>
     public Color? BorderRightColor { get; init; }

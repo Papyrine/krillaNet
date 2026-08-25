@@ -372,6 +372,11 @@ public class DiagnosticTests
             <div style="background-image: linear-gradient(to right, red, blue)">ramped</div>
             <div style="background-image: radial-gradient(circle, red, blue)">round</div>
             <div style="transform: rotate(15deg) scale(1.2); transform-origin: top left">turned</div>
+            <div style="border: 2px solid rgba(0, 0, 0, 0.4); outline: 1px solid rgba(0, 0, 0, 0.2)">faint</div>
+            <p style="text-decoration: underline; text-decoration-color: rgba(0, 0, 0, 0.3)">faintly ruled</p>
+            <p style="height: 40px"><span style="height: 50%">a share of a definite height</span></p>
+            <div style="break-before: avoid; break-after: avoid">kept with its neighbours</div>
+            <table><tr><td style="vertical-align: baseline">on the row's baseline</td></tr></table>
             """);
 
         await Assert.That(reports).IsEmpty();
@@ -391,7 +396,8 @@ public class DiagnosticTests
     /// <c>border-style: hidden</c> inside a collapsed table used to be here and is not. It was
     /// documented as unimplementable because the width was folded to zero before anything could tell
     /// it from an absent border, and became a two-line change once the style was kept as its own
-    /// value. A property that stops reporting has to be seen to stop, which is what
+    /// value. A translucent border was here too, until the alpha was given somewhere to travel
+    /// beside the colour. A property that stops reporting has to be seen to stop, which is what
     /// <see cref="ImplementedPropertiesStopReporting"/> is for.
     /// </para>
     /// </remarks>
@@ -401,14 +407,14 @@ public class DiagnosticTests
         var reports = await Collect(
             """
             <div style="box-shadow: 0 0 4px #000">a blurred shadow</div>
-            <div style="border: 2px solid rgba(0, 0, 0, 0.4)">a translucent border</div>
+            <div style="column-count: 2">two columns</div>
             <div style="list-style-type: lower-greek">an unimplemented counter style</div>
             """);
 
         var lines = reports.Select(_ => _.ToString()).ToList();
 
         await Assert.That(lines).Contains(_ => _.Contains("box-shadow"));
-        await Assert.That(lines).Contains(_ => _.Contains("border-top-color"));
+        await Assert.That(lines).Contains(_ => _.Contains("column-count"));
         await Assert.That(lines).Contains(_ => _.Contains("list-style-type"));
     }
 

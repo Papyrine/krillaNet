@@ -672,14 +672,23 @@ static class PdfPainter
                 continue;
             }
 
-            surface.FillRectangle(
-                Rectangle.FromSize(
-                    line.Bounds.X,
-                    line.Bounds.Y,
-                    line.Bounds.Width,
-                    line.Bounds.Height),
-                line.Color);
+            Rule(surface, line);
         }
+    }
+
+    /// <summary>One collapsed grid line, at whatever opacity its colour carried.</summary>
+    static void Rule(Surface surface, CollapsedLine line)
+    {
+        using var paint = Krilla.Paint.Solid(line.Color);
+
+        using var path = PdfPath.Rectangle(
+            Rectangle.FromSize(
+                line.Bounds.X,
+                line.Bounds.Y,
+                line.Bounds.Width,
+                line.Bounds.Height));
+
+        surface.SetFill(new Fill(paint, line.Alpha)).DrawPath(path);
     }
 
     /// <summary>
@@ -716,13 +725,7 @@ static class PdfPainter
                 continue;
             }
 
-            surface.FillRectangle(
-                Rectangle.FromSize(
-                    line.Bounds.X,
-                    line.Bounds.Y,
-                    line.Bounds.Width,
-                    line.Bounds.Height),
-                line.Color);
+            Rule(surface, line);
         }
     }
 
@@ -768,7 +771,8 @@ static class PdfPainter
         AddRectangle(builder, inner.X, inner.Y, inner.Right, inner.Bottom, clockwise: false);
 
         using var path = builder.Build();
-        surface.SetFill(color).DrawPath(path);
+        using var paint = Krilla.Paint.Solid(color);
+        surface.SetFill(new Fill(paint, style.OutlineAlpha)).DrawPath(path);
     }
 
     /// <summary>
@@ -882,10 +886,18 @@ static class PdfPainter
             surface.SetFill(new Fill(inline, style.BackgroundAlpha)).DrawPath(path);
         }
 
-        Edge(style.BorderTopColor, style.BorderTop, bounds.X, bounds.Y, bounds.Width, style.BorderTop);
+        Edge(
+            style.BorderTopColor,
+            style.BorderTopAlpha,
+            style.BorderTop,
+            bounds.X,
+            bounds.Y,
+            bounds.Width,
+            style.BorderTop);
 
         Edge(
             style.BorderBottomColor,
+            style.BorderBottomAlpha,
             style.BorderBottom,
             bounds.X,
             bounds.Bottom - style.BorderBottom,
@@ -894,13 +906,21 @@ static class PdfPainter
 
         if (kind == InlineEdgeKind.Leading)
         {
-            Edge(style.BorderLeftColor, style.BorderLeft, bounds.X, bounds.Y, style.BorderLeft, bounds.Height);
+            Edge(
+                style.BorderLeftColor,
+                style.BorderLeftAlpha,
+                style.BorderLeft,
+                bounds.X,
+                bounds.Y,
+                style.BorderLeft,
+                bounds.Height);
         }
 
         if (kind == InlineEdgeKind.Trailing)
         {
             Edge(
                 style.BorderRightColor,
+                style.BorderRightAlpha,
                 style.BorderRight,
                 bounds.Right - style.BorderRight,
                 bounds.Y,
@@ -908,7 +928,7 @@ static class PdfPainter
                 bounds.Height);
         }
 
-        void Edge(Color? color, float width, float x, float y, float w, float h)
+        void Edge(Color? color, float alpha, float width, float x, float y, float w, float h)
         {
             if (color is not {} painted || width <= 0 || w <= 0 || h <= 0)
             {
@@ -916,7 +936,8 @@ static class PdfPainter
             }
 
             using var path = PdfPath.Rectangle(Rectangle.FromSize(x, y, w, h));
-            surface.SetFill(painted).DrawPath(path);
+            using var paint = Krilla.Paint.Solid(painted);
+            surface.SetFill(new Fill(paint, alpha)).DrawPath(path);
         }
     }
 
@@ -1611,7 +1632,16 @@ static class PdfPainter
 
         if (UniformColor(style) is {} uniform && style.PaintsBorderAsRing)
         {
-            PaintUniformBorder(surface, style, uniform, outer, innerLeft, innerTop, innerRight, innerBottom);
+            PaintUniformBorder(
+                surface,
+                style,
+                uniform,
+                style.BorderTopAlpha,
+                outer,
+                innerLeft,
+                innerTop,
+                innerRight,
+                innerBottom);
             return;
         }
 
@@ -1621,12 +1651,12 @@ static class PdfPainter
         // to join two colours cleanly on a diagonal, is not what they want.
         PaintPatternedEdges(surface, style, outer);
 
-        Edge(style.BorderTopStyle, style.BorderTop, style.BorderTopColor, Side.Top, style.BorderTopColorIsCurrent);
-        Edge(style.BorderBottomStyle, style.BorderBottom, style.BorderBottomColor, Side.Bottom, style.BorderBottomColorIsCurrent);
-        Edge(style.BorderLeftStyle, style.BorderLeft, style.BorderLeftColor, Side.Left, style.BorderLeftColorIsCurrent);
-        Edge(style.BorderRightStyle, style.BorderRight, style.BorderRightColor, Side.Right, style.BorderRightColorIsCurrent);
+        Edge(style.BorderTopStyle, style.BorderTop, style.BorderTopColor, style.BorderTopAlpha, Side.Top, style.BorderTopColorIsCurrent);
+        Edge(style.BorderBottomStyle, style.BorderBottom, style.BorderBottomColor, style.BorderBottomAlpha, Side.Bottom, style.BorderBottomColorIsCurrent);
+        Edge(style.BorderLeftStyle, style.BorderLeft, style.BorderLeftColor, style.BorderLeftAlpha, Side.Left, style.BorderLeftColorIsCurrent);
+        Edge(style.BorderRightStyle, style.BorderRight, style.BorderRightColor, style.BorderRightAlpha, Side.Right, style.BorderRightColorIsCurrent);
 
-        void Edge(BorderStyleKind kind, float width, Color? color, Side side, bool current)
+        void Edge(BorderStyleKind kind, float width, Color? color, float alpha, Side side, bool current)
         {
             if (width <= 0 || color is not {} declared || !Mitred(kind))
             {
@@ -1646,6 +1676,7 @@ static class PdfPainter
             {
                 Band(
                     Bevel.Shade(declared, kind, near, outer: band == 0, current),
+                    alpha,
                     (float) band / bands,
                     (float) (band + 1) / bands,
                     side);
@@ -1655,7 +1686,7 @@ static class PdfPainter
         // The band between two rectangles nested inside the border box at `from` and `to` of the
         // way in — so 0 to 1 is the whole edge, and the two halves of a groove are 0 to 0.5 and
         // 0.5 to 1. All four sides step inward together, so the mitres still meet on the diagonal.
-        void Band(Color color, float from, float to, Side side)
+        void Band(Color color, float alpha, float from, float to, Side side)
         {
             var (aLeft, aTop, aRight, aBottom) = Nested(from);
             var (bLeft, bTop, bRight, bBottom) = Nested(to);
@@ -1666,6 +1697,7 @@ static class PdfPainter
                     FillPolygon(
                         surface,
                         color,
+                        alpha,
                         new(aLeft, aTop),
                         new(aRight, aTop),
                         new(bRight, bTop),
@@ -1675,6 +1707,7 @@ static class PdfPainter
                     FillPolygon(
                         surface,
                         color,
+                        alpha,
                         new(aRight, aBottom),
                         new(aLeft, aBottom),
                         new(bLeft, bBottom),
@@ -1684,6 +1717,7 @@ static class PdfPainter
                     FillPolygon(
                         surface,
                         color,
+                        alpha,
                         new(aLeft, aBottom),
                         new(aLeft, aTop),
                         new(bLeft, bTop),
@@ -1693,6 +1727,7 @@ static class PdfPainter
                     FillPolygon(
                         surface,
                         color,
+                        alpha,
                         new(aRight, aTop),
                         new(aRight, aBottom),
                         new(bRight, bBottom),
@@ -1788,12 +1823,12 @@ static class PdfPainter
     /// </remarks>
     static void PaintPatternedEdges(Surface surface, ComputedStyle style, Rect outer)
     {
-        Edge(style.BorderTopStyle, style.BorderTop, style.BorderTopColor, horizontal: true, near: true);
-        Edge(style.BorderBottomStyle, style.BorderBottom, style.BorderBottomColor, horizontal: true, near: false);
-        Edge(style.BorderLeftStyle, style.BorderLeft, style.BorderLeftColor, horizontal: false, near: true);
-        Edge(style.BorderRightStyle, style.BorderRight, style.BorderRightColor, horizontal: false, near: false);
+        Edge(style.BorderTopStyle, style.BorderTop, style.BorderTopColor, style.BorderTopAlpha, horizontal: true, near: true);
+        Edge(style.BorderBottomStyle, style.BorderBottom, style.BorderBottomColor, style.BorderBottomAlpha, horizontal: true, near: false);
+        Edge(style.BorderLeftStyle, style.BorderLeft, style.BorderLeftColor, style.BorderLeftAlpha, horizontal: false, near: true);
+        Edge(style.BorderRightStyle, style.BorderRight, style.BorderRightColor, style.BorderRightAlpha, horizontal: false, near: false);
 
-        void Edge(BorderStyleKind kind, float width, Color? color, bool horizontal, bool near)
+        void Edge(BorderStyleKind kind, float width, Color? color, float alpha, bool horizontal, bool near)
         {
             if (width <= 0 || Mitred(kind) || color is not {} paint)
             {
@@ -1864,7 +1899,8 @@ static class PdfPainter
                             width);
 
                     using var path = PdfPath.Rectangle(rect);
-                    surface.SetFill(line).DrawPath(path);
+                    using var dot = Krilla.Paint.Solid(line);
+                    surface.SetFill(new Fill(dot, alpha)).DrawPath(path);
                 }
             }
 
@@ -1891,7 +1927,16 @@ static class PdfPainter
                 // a stroked line left with a fill from the previous call would be filled as a
                 // degenerate polygon as well.
                 surface.SetFill(null);
-                surface.SetStroke(line, thickness, round ? LineCap.Round : LineCap.Butt, dashes);
+
+                using var paint = Krilla.Paint.Solid(line);
+
+                surface.SetStroke(new Stroke(
+                    paint,
+                    thickness,
+                    alpha,
+                    round ? LineCap.Round : LineCap.Butt,
+                    DashArray: dashes));
+
                 surface.DrawPath(path);
                 surface.SetStroke(null);
             }
@@ -1909,6 +1954,13 @@ static class PdfPainter
     {
         if (style.BorderTop <= 0 || style.BorderRight <= 0 ||
             style.BorderBottom <= 0 || style.BorderLeft <= 0)
+        {
+            return null;
+        }
+
+        if (style.BorderTopAlpha != style.BorderRightAlpha ||
+            style.BorderTopAlpha != style.BorderBottomAlpha ||
+            style.BorderTopAlpha != style.BorderLeftAlpha)
         {
             return null;
         }
@@ -1939,6 +1991,7 @@ static class PdfPainter
         Surface surface,
         ComputedStyle style,
         Color color,
+        float alpha,
         Rect outer,
         float innerLeft,
         float innerTop,
@@ -1978,7 +2031,8 @@ static class PdfPainter
         }
 
         using var path = builder.Build();
-        surface.SetFill(color).DrawPath(path);
+        using var paint = Krilla.Paint.Solid(color);
+        surface.SetFill(new Fill(paint, alpha)).DrawPath(path);
     }
 
     /// <summary>Adds a rectangular contour wound in the given direction.</summary>
@@ -2060,10 +2114,11 @@ static class PdfPainter
             count <= 1 ? wanted : MathF.Max(0, (length - count * dash) / (count - 1));
     }
 
-    static void FillPolygon(Surface surface, Color color, params ReadOnlySpan<Point> points)
+    static void FillPolygon(Surface surface, Color color, float alpha, params ReadOnlySpan<Point> points)
     {
         using var path = PdfPath.Polygon(points);
-        surface.SetFill(color).DrawPath(path);
+        using var paint = Krilla.Paint.Solid(color);
+        surface.SetFill(new Fill(paint, alpha)).DrawPath(path);
     }
 
     /// <summary>
@@ -2456,10 +2511,8 @@ static class PdfPainter
                     // at baseline+1 puts its second line at baseline+4. Measured; the arithmetic
                     // that puts them 2px apart is a rule thinner than the gap, which is not what
                     // Chrome draws.
-                    surface.FillRectangle(Rectangle.FromSize(run.X, top, run.Width, thickness), color);
-                    surface.FillRectangle(
-                        Rectangle.FromSize(run.X, top + 3 * thickness, run.Width, thickness),
-                        color);
+                    Band(run.X, top, run.Width, thickness, color);
+                    Band(run.X, top + 3 * thickness, run.Width, thickness, color);
                     return;
 
                 case BorderStyleKind.Dashed:
@@ -2468,9 +2521,21 @@ static class PdfPainter
                     return;
 
                 default:
-                    surface.FillRectangle(Rectangle.FromSize(run.X, top, run.Width, thickness), color);
+                    Band(run.X, top, run.Width, thickness, color);
                     return;
             }
+        }
+
+        // Every piece of every rule goes through here, so the decoration's own alpha is applied in
+        // one place. It is the decoration's rather than the text's: an element that declares a
+        // translucent underline and then a different `color` for its words draws the rule at the
+        // opacity the rule was given.
+        void Band(float x, float top, float width, float thickness, Color color)
+        {
+            using var paint = Krilla.Paint.Solid(color);
+
+            using var path = PdfPath.Rectangle(Rectangle.FromSize(x, top, width, thickness));
+            surface.SetFill(new Fill(paint, run.Style.DecorationAlpha)).DrawPath(path);
         }
 
         // A patterned rule is drawn at TWICE the thickness a solid one gets, which is measured
@@ -2493,7 +2558,7 @@ static class PdfPainter
             for (var x = run.X; x < run.X + run.Width; x += dash + gap)
             {
                 var length = MathF.Min(dash, run.X + run.Width - x);
-                surface.FillRectangle(Rectangle.FromSize(x, band, length, width), color);
+                Band(x, band, length, width, color);
             }
         }
     }

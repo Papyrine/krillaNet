@@ -221,6 +221,7 @@ static class StyleResolver
             RadiusBottomLeft = Radius(declaration, "bottom-left", font, root),
             OutlineWidth = OutlineWidth(declaration, font, root),
             OutlineColor = CssValues.ParseColor(declaration.GetPropertyValue("outline-color")) ?? color,
+            OutlineAlpha = ColorAlpha(declaration, "outline-color", alpha),
             OutlineOffset = Length(declaration, "outline-offset", font, root).Resolve(0),
             BorderCollapse = declaration.GetPropertyValue("border-collapse")
                 .Trim()
@@ -247,6 +248,10 @@ static class StyleResolver
             BorderRightColor = BorderColor(declaration, "right", color),
             BorderBottomColor = BorderColor(declaration, "bottom", color),
             BorderLeftColor = BorderColor(declaration, "left", color),
+            BorderTopAlpha = ColorAlpha(declaration, "border-top-color", alpha),
+            BorderRightAlpha = ColorAlpha(declaration, "border-right-color", alpha),
+            BorderBottomAlpha = ColorAlpha(declaration, "border-bottom-color", alpha),
+            BorderLeftAlpha = ColorAlpha(declaration, "border-left-color", alpha),
             BorderTopColorIsCurrent = IsCurrentColor(declaration, "top"),
             BorderRightColorIsCurrent = IsCurrentColor(declaration, "right"),
             BorderBottomColorIsCurrent = IsCurrentColor(declaration, "bottom"),
@@ -300,6 +305,7 @@ static class StyleResolver
             WordBreaking = ParseWordBreaking(declaration, parent.WordBreaking),
             Decorations = ParseDecorations(declaration, parent.Decorations),
             DecorationColor = DecorationColour(declaration, parent, color),
+            DecorationAlpha = DecorationOpacity(declaration, parent, alpha),
             DecorationStyle = DecorationRule(declaration, parent),
             ListStyle = ParseListStyle(declaration.GetPropertyValue("list-style-type"), parent.ListStyle),
             BorderSpacingX = Spacing(declaration, "border-spacing", font, root, first: true)
@@ -539,6 +545,28 @@ static class StyleResolver
         return string.IsNullOrWhiteSpace(value) ||
                value.Equals("currentcolor", StringComparison.OrdinalIgnoreCase) ||
                value.Equals("initial", StringComparison.OrdinalIgnoreCase);
+    }
+
+    /// <summary>
+    /// The alpha a colour property was given, or <paramref name="current"/> when it names none.
+    /// </summary>
+    /// <remarks>
+    /// The fallback is the element's OWN text alpha rather than 1, because every property here
+    /// defaults to <c>currentColor</c> — so <c>color: rgba(0, 0, 0, 0.4)</c> gives a translucent
+    /// border to a box that never mentioned one, which is what a browser draws.
+    /// </remarks>
+    static float ColorAlpha(ICssStyleDeclaration declaration, string property, float current)
+    {
+        var value = declaration.GetPropertyValue(property);
+
+        if (string.IsNullOrWhiteSpace(value) ||
+            value.Equals("currentcolor", StringComparison.OrdinalIgnoreCase) ||
+            value.Equals("initial", StringComparison.OrdinalIgnoreCase))
+        {
+            return current;
+        }
+
+        return CssValues.ParseAlpha(value);
     }
 
     static Color? BorderColor(ICssStyleDeclaration declaration, string side, Color inherited)
@@ -1332,6 +1360,26 @@ static class StyleResolver
     /// colour. An element that starts its own underline starts its own colour with it, and only an
     /// element merely INHERITING an ancestor's rule keeps the ancestor's colour.
     /// </remarks>
+    /// <summary>
+    /// The alpha the decoration's colour carries, by the same three-way rule the colour follows.
+    /// </summary>
+    /// <remarks>
+    /// It has to follow the colour rather than the text, or an element that declares a translucent
+    /// underline and then a different <c>color</c> for the words draws the rule at the words'
+    /// opacity.
+    /// </remarks>
+    static float DecorationOpacity(ICssStyleDeclaration declaration, ComputedStyle parent, float alpha)
+    {
+        var value = declaration.GetPropertyValue("text-decoration-color");
+
+        if (CssValues.ParseColor(value) is not null)
+        {
+            return CssValues.ParseAlpha(value);
+        }
+
+        return Declares(declaration) ? alpha : parent.DecorationAlpha;
+    }
+
     static Color? DecorationColour(ICssStyleDeclaration declaration, ComputedStyle parent, Color color)
     {
         if (CssValues.ParseColor(declaration.GetPropertyValue("text-decoration-color")) is {} declared)

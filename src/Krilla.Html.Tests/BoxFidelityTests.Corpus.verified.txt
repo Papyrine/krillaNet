@@ -35,6 +35,7 @@ block/percentage_width           matched  5  offset    0.00  size    0.00  diffe
 block/percent_height             matched 19  offset    0.00  size    0.00  differing  0  unmatched 0
 block/shadows                    matched  8  offset    0.00  size    0.00  differing  0  unmatched 0
 block/transform                  matched 17  offset    0.00  size    0.00  differing  0  unmatched 0
+block/translucent                matched 18  offset    0.00  size    0.00  differing  0  unmatched 0
 block/viewport_units             matched  7  offset    0.00  size    0.00  differing  0  unmatched 0
 block/visibility                 matched  8  offset    0.00  size    0.00  differing  0  unmatched 0
 float/basic                      matched 12  offset    0.00  size    0.00  differing  0  unmatched 0
