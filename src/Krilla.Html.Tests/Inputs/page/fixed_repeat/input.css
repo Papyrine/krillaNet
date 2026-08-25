@@ -1,0 +1,54 @@
+/* Anchored to the top edge: a running header, which is the reason the property is worth having
+   in paged media at all. */
+#header {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 816px;
+  height: 60px;
+  background-color: #d8e0f0;
+  font-size: 24px;
+  line-height: 60px;
+}
+
+/* Anchored to the BOTTOM edge, which is the half that says the offset is resolved against the
+   page rather than against the document: a `bottom` measured from the document's end would put
+   this after the last paragraph on the last page and nowhere else. */
+#footer {
+  position: fixed;
+  bottom: 0;
+  right: 0;
+  width: 240px;
+  height: 40px;
+  background-color: #f0e0d8;
+  font-size: 16px;
+  line-height: 40px;
+  text-align: center;
+}
+
+/* Neither edge of the page, so its position is arithmetic rather than an edge it could have
+   landed on by accident. */
+#tab {
+  position: fixed;
+  top: 500px;
+  left: 0;
+  width: 24px;
+  height: 90px;
+  background-color: #c8dcc8;
+}
+
+/* Whole paragraphs move, so a page boundary always falls BETWEEN two of them. Without it the
+   break lands inside a paragraph, where Chrome's own orphan handling decides how many lines may
+   be left behind — a question this scenario is not asking, and one loud enough to drown the one
+   it is. */
+p {
+  break-inside: avoid;
+  page-break-inside: avoid;
+  margin: 0 0 40px 0;
+  padding: 0 24px;
+  font-size: 30px;
+  line-height: 48px;
+  background-color: #f4f4f4;
+}
+
+p:first-of-type { margin-top: 80px; }

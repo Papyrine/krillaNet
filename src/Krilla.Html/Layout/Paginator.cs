@@ -261,6 +261,15 @@ static class Paginator
             // the row it was declared in, so no row stands in for one.
             foreach (var positioned in box.Positioned)
             {
+                // A box repeated on every page is on the page it is drawn on by definition, so
+                // there is nothing for a break to fall inside and nothing it can lengthen. Left
+                // in, a fixed footer near the foot of the page would count as content the
+                // document has to make room for and add a page holding nothing else.
+                if (positioned.Box.Style.RepeatsOnEveryPage)
+                {
+                    continue;
+                }
+
                 Walk(positioned.Box, covered: false);
             }
         }

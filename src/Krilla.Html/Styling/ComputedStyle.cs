@@ -1217,16 +1217,26 @@ sealed record ComputedStyle
     /// Whether this box establishes a stacking context of its own.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <c>opacity</c>, <c>transform</c>, and a <c>z-index</c> that is not <c>auto</c> on a
     /// positioned box — the three this engine reads that do it. The consequence that matters is
     /// paint ORDER: such a box leaves its parent's phases and paints with the positioned content,
     /// after every in-flow background and line on the page — so a faded box written first covers an
     /// opaque sibling written after it, which is measurable and is what <c>block/opacity</c>'s last
     /// row measures.
+    /// </para>
+    /// <para>
+    /// <c>position: fixed</c> is the fourth, and it is here for a structural reason as well as a
+    /// specified one. CSS Position 3 says a fixed box always establishes one; here that is also
+    /// what keeps its subtree together, because a fixed box is painted through an extra
+    /// per-page translate and anything flattened out of it onto the page would be painted without
+    /// that translate — at its page-one position, on every page.
+    /// </para>
     /// </remarks>
     public bool CreatesStackingContext =>
         Opacity < 1 ||
         Transform is not null ||
+        Position == PositionKind.Fixed ||
         (IsPositioned && ZIndex is not null);
 
     /// <summary>How this box's text is cased before shaping.</summary>
@@ -1297,6 +1307,28 @@ sealed record ComputedStyle
     /// Whether this box is the containing block for absolutely positioned descendants.
     /// </summary>
     public bool IsPositioned => Position != PositionKind.Static;
+
+    /// <summary>
+    /// Whether this box is drawn at the same place on every page.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// CSS 2.1 §9.6.1 says a fixed box in paged media is repeated on every page, and Chromium's
+    /// printer agrees — a fixed banner appears at the same corner of every sheet, which is what
+    /// <c>page/fixed_repeat</c> measures.
+    /// </para>
+    /// <para>
+    /// A VERTICAL anchor is required, and that is the one part of this not taken from the
+    /// specification. With both <c>top</c> and <c>bottom</c> auto the box sits at its static
+    /// position, which is a position in the DOCUMENT — repeating it would add each page's own top
+    /// to a coordinate that already includes it, so a box whose flow position is on page three
+    /// would fall off the bottom of every page and disappear from a document it currently appears
+    /// in. Such a box is painted once, where flow put it.
+    /// </para>
+    /// </remarks>
+    public bool RepeatsOnEveryPage =>
+        Position == PositionKind.Fixed &&
+        (Top.Kind != LengthKind.Auto || Bottom.Kind != LengthKind.Auto);
 
     /// <summary>
     /// Whether this box is laid out as one unbreakable box on a line rather than in flow.

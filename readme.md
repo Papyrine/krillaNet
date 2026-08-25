@@ -73,6 +73,12 @@ rather than splitting it. The modern `break-*` spellings are read as well. What 
 `avoid` at a box edge, `orphans` and `widows`, and the side a `left`/`right` value asks its page to
 land on — all three are reported through `OnDiagnostic`.
 
+A `position: fixed` box is drawn at the same place on every page, which is how a running header or
+footer is written today — CSS 2.1 asks for exactly that in paged media, and it is what a browser's
+printer does. A box with neither `top` nor `bottom` is the one exception: its position comes from
+where flow put it, which is a position in the document rather than on a page, so it is drawn once
+and reported.
+
 A document's `@page` rules decide the paper — size, orientation and margins — unless
 `HtmlOptions.HonourPageRules` says otherwise, and media queries resolve against **print**, so a
 `@media print` block is the one that applies. `orphans` and `widows` are implemented and off by

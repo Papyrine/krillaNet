@@ -39,13 +39,6 @@ public class DiagnosticTests
     [
         with(StringComparer.OrdinalIgnoreCase),
 
-        // The one construct the corpus deliberately contains that is not fully honoured: CSS says
-        // a fixed box repeats on every page and this places it on the one page its position falls
-        // on. The scenario is a single page, so the unimplemented half is a no-op there and the
-        // geometry is exact — but the report is about the construct, and the reporter cannot know
-        // the page count from the cascade.
-        "position/fixed",
-
         // A row that deliberately names an image which does not exist, to measure the fallback to
         // the counter style. The fallback is exactly what a browser does, so the RENDER is right
         // and the report is still wanted: from the resolved style, an image the policy refused and

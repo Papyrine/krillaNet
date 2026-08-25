@@ -81,6 +81,7 @@ page/break_after                 matched  5  offset    0.00  size    0.00  diffe
 page/break_before                matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
 page/break_between_lines         matched  4  offset    0.00  size    0.00  differing  0  unmatched 0
 page/break_inside                matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
+page/fixed_repeat                matched 19  offset    0.00  size    0.00  differing  0  unmatched 0
 page/float_break                 matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
 page/multi_page_flow             matched  8  offset    0.00  size    0.00  differing  0  unmatched 0
 page/page_size                   matched  3  offset    0.00  size    0.00  differing  0  unmatched 0

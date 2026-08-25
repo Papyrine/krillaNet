@@ -1,0 +1,30 @@
+﻿{
+  "ReferencePageCount": 3,
+  "ResultingPageCount": 3,
+  "Boxes": {
+    "Matched": 19
+  },
+  "PageDiffs": [
+    {
+      "Page": 1,
+      "AbsoluteError": 0.0039,
+      "Ssim": 0.9992,
+      "ReferenceFile": "reference_0001.png",
+      "RenderedFile": "result#page_0001.verified.png"
+    },
+    {
+      "Page": 2,
+      "AbsoluteError": 0.0015,
+      "Ssim": 0.9994,
+      "ReferenceFile": "reference_0002.png",
+      "RenderedFile": "result#page_0002.verified.png"
+    },
+    {
+      "Page": 3,
+      "AbsoluteError": 0.0012,
+      "Ssim": 0.9998,
+      "ReferenceFile": "reference_0003.png",
+      "RenderedFile": "result#page_0003.verified.png"
+    }
+  ]
+}

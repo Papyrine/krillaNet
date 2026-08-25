@@ -700,20 +700,34 @@ static class UnsupportedCss
     }
 
     /// <summary>
-    /// <c>position: fixed</c>, which is placed once rather than repeated.
+    /// <c>position: fixed</c> with no vertical anchor, which is placed once rather than repeated.
     /// </summary>
     /// <remarks>
-    /// The only positioning value still reported. It is laid out correctly against the page, so
-    /// the geometry is right — what is undecided is paged media: CSS says a fixed box repeats on
-    /// every page, and this places it on the one page its position falls on. A running header
-    /// written that way appears once.
+    /// <para>
+    /// An anchored fixed box repeats on every page and is not reported. What remains is the box
+    /// with <c>top</c> and <c>bottom</c> both auto, which sits at its STATIC position — a position
+    /// in the document rather than on a page, so repeating it would add each page's own top to a
+    /// coordinate that already includes it. Such a box is painted where flow put it, once.
+    /// </para>
+    /// <para>
+    /// Chromium's printer draws one twice: once where flow put it, straddling a page boundary if
+    /// that is where it falls, and again at that page-relative offset on every LATER page. The
+    /// divergence is deliberate, so the report is what makes it visible.
+    /// </para>
     /// </remarks>
     static void Fixed(ICssStyleDeclaration declaration, string element, Action<HtmlDiagnostic> sink)
     {
-        if (Set(declaration, "position") is "fixed")
+        if (Set(declaration, "position") is not "fixed" ||
+            Anchored("top") ||
+            Anchored("bottom"))
         {
-            Diagnostic.Property(sink, element, "position", "fixed", "placed once rather than repeated on every page");
+            return;
         }
+
+        Diagnostic.Property(sink, element, "position", "fixed", "placed once rather than repeated on every page");
+
+        bool Anchored(string property) =>
+            Set(declaration, property) is {} value && value != "auto";
     }
 
     /// <summary>

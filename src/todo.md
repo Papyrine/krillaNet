@@ -14,12 +14,12 @@ it, that is stated, because an unmeasured gap is the more dangerous kind.
 
 ## Where the corpus stands
 
-120 scenarios across 10 categories, 1269 element boxes matched. **Box geometry matches Chrome
+121 scenarios across 10 categories, 1288 element boxes matched. **Box geometry matches Chrome
 exactly on every one** — worst offset 0.00px, worst size 0.00px, and nothing unmatched — and 88
 read SSIM 1.0000, of which 60 are pixel-identical outright. The other 28 differ on a scattering of
 antialiased pixels, which is what `AE` is there to show.
 
-Thirty-one read below 1.0000. None is a mystery, and none should be "fixed" by regenerating a
+Thirty-three read below 1.0000. None is a mystery, and none should be "fixed" by regenerating a
 baseline:
 
 | Scenario | AE | SSIM | Cause |
@@ -29,6 +29,8 @@ baseline:
 | `text/kerning` | 0.0201 | 0.9945 | Sub-pixel glyph positioning, below |
 | `text/ligatures` | 0.0099 | 0.9982 | Same |
 | `block/shadows` | 0.0057 | 0.9985 | Antialiasing on `#rounded`'s corner; no pixel differs by more than 2 of 255 |
+| `image/svg` | 0.0028 | 0.9988 | Sub-pixel glyph positioning in the `<text>` inside the picture |
+| `page/fixed_repeat` | 0.0039 | 0.9992 | Sub-pixel glyph positioning |
 | `page/break_between_lines` | 0.0017 | 0.9996 | Sub-pixel glyph positioning |
 | `page/float_break` | 0.0023 | 0.9997 | Same |
 | `table/columns` | 0.0005 | 0.9997 | Unsnapped border at a fractional column edge, below |
@@ -56,7 +58,7 @@ baseline:
 | `text/text_transform` | 0.0002 | 0.9999 | Same |
 | `ua/blockquote_pre` | 0.0005 | 0.9999 | Same |
 
-Six causes cover all thirty-one. Four are property gaps with a fix behind them — the dash phase,
+Six causes cover all thirty-three. Four are property gaps with a fix behind them — the dash phase,
 the `inset` family, `text-decoration-skip-ink` and the gradient quantisation — and each is written
 up in the sections below. The other two are general: **sub-pixel glyph positioning**, and **a box
 edge landing on a fractional position**.
@@ -167,21 +169,25 @@ wrong is still unmeasured.
 
 ## Positioning
 
-- **`position: fixed` is placed once rather than repeated on every page.** Its geometry against the
-  page is right — `position/fixed` measures that — so the difference is entirely about paged media:
-  CSS repeats a fixed box on each page, which is what would make it usable for a running header.
-  Reported, and unmeasured, because `position/fixed` is a single-page scenario.
+- **A `position: fixed` box with neither `top` nor `bottom` is painted once**, where flow put it.
+  The anchored case repeats on every page and `page/fixed_repeat` measures it; this one cannot,
+  because its position is a position in the DOCUMENT rather than on a page and repeating it would
+  put a box whose flow position is on page three off the bottom of every page. Chromium draws such
+  a box twice — once where flow put it, and again at that page-relative offset on every later page
+  — which is measured in `page/fixed_repeat`'s notes and deliberately not matched. Reported.
 - **Auto margins on an absolute box resolve to zero rather than centring it.** CSS centres a box
   whose width and both offsets are given and whose margins are both auto, which is one of the two
   standard centring idioms. Nothing measures it.
 
 ## Pagination and paged media
 
-- **No `@page` margin boxes and no page selectors.** So no running headers or footers and no page
-  numbers, and `:first`/`:left`/`:right` select nothing. This is one of the commonest reasons to
-  convert HTML to PDF at all, and it needs a decision about how to express content that repeats per
-  page — which makes it the natural companion to repeating table headers and to `position: fixed`
-  above, since all three are the same missing capability seen from three directions. Reported.
+- **No `@page` margin boxes and no page selectors.** So no page numbers, and
+  `:first`/`:left`/`:right` select nothing. A running header or footer can be written today as a
+  `position: fixed` box, which repeats on every page — what is still missing is the `@page` route
+  to one, and with it `counter(page)`, which is the part no other construct substitutes for.
+  Reported. Chromium implements none of it either, so the corpus cannot measure this the way it
+  measures everything else: a reference would show no header at all, and an engine that drew one
+  would read as the one in the wrong.
 - **An INLINE image taller than a page is sliced at the page edge**, where Chrome moves it whole to
   a fresh page and lets it overflow from there. The block-level case is fixed —
   `Paginator.Unbreakable` lists a replaced element alongside a table row — but an inline image is
@@ -217,10 +223,10 @@ the table does NOT cover belongs here:
   resolution and font fallback are properties of the text, not of a declaration anyone wrote, so no
   amount of scanning the cascade finds them. A document in Arabic converts silently and wrongly.
   The same is true of the `ex` and `ch` approximation and of sub-pixel glyph positioning.
-- **Structural gaps do not report.** A table not repeating its header group, an absolute box's auto
-  margins not centring it, a fixed box not repeating: each is a shape the engine does not produce
-  rather than a value it declined to honour, and there is no site in the cascade scan to hang them
-  on. `position: fixed` reports only because the declaration itself is a site.
+- **Structural gaps do not report.** A table not repeating its header group, and an absolute box's
+  auto margins not centring it: each is a shape the engine does not produce rather than a value it
+  declined to honour, and there is no site in the cascade scan to hang them on. An unanchored
+  `position: fixed` box reports only because the declaration itself is a site.
 - **A percentage height resolving as `auto`** is correct whenever the containing height is
   indefinite and wrong otherwise, and which of those applies is a layout result rather than a
   declaration. Reporting it from `StyleResolver` would fire on documents that are perfectly

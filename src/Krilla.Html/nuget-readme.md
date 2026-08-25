@@ -31,6 +31,9 @@ decorations with their colour and style, `opacity`, 2D transforms, gradients, `b
 table border models, forced page breaks, `@page` rules, print media queries, generated content with
 CSS counters, `aspect-ratio`, `rgba()` colours, shadows as offsets, and `<col>` widths.
 
+A `position: fixed` box is drawn on every page, which is how a running header or footer is written
+today.
+
 The PDF gets a bookmark tree from the document's headings, a named destination for every `id`, and
 its title and language from the document when the caller has not set them.
 

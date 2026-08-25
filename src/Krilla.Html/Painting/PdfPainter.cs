@@ -192,6 +192,19 @@ static class PdfPainter
     /// </remarks>
     static void PaintContext(Surface surface, LayoutBox box, PageSlice page)
     {
+        // A fixed box is anchored to the PAGE rather than to the document, so it is drawn on every
+        // one. Everything below here is painted through a translate that has already subtracted
+        // this page's top; adding it back lands the box at the same place on every sheet, and
+        // makes the whole of the repetition one transform rather than a second walk.
+        if (box.Style.RepeatsOnEveryPage)
+        {
+            using var repeated = surface.PushTransform(Matrix.Translate(0, page.Top));
+            using var faded = Fade(surface, box);
+
+            PaintStack(surface, box, page.Repeated(), collects: true);
+            return;
+        }
+
         using var _ = Fade(surface, box);
 
         PaintStack(surface, box, page, collects: box.Style.CreatesStackingContext);
@@ -939,6 +952,40 @@ static class PdfPainter
             box.Lines.Count == 0 &&
             box.Floats.Count == 0 &&
             (box.BorderBox.Bottom < Top || box.BorderBox.Y > Bottom);
+
+        /// <summary>
+        /// This slice as seen by content that repeats at the same place on every page.
+        /// </summary>
+        /// <remarks>
+        /// <para>
+        /// A repeated box — a fixed one, or a table header re-drawn at a continuation page's top —
+        /// keeps the geometry layout gave it, which is a position on the FIRST page it appears on.
+        /// The caller paints it through a translate that puts it where this page wants it, and
+        /// this moves the window to match: without it every such box is culled on every page but
+        /// the one it was laid out for, which is the page nobody notices because it looks right.
+        /// </para>
+        /// <para>
+        /// <see cref="End"/> goes to infinity for the same reason it exists at all — it culls a
+        /// box that was moved WHOLE to a later page, and a box drawn on every page was moved
+        /// nowhere.
+        /// </para>
+        /// </remarks>
+        public PageSlice Repeated()
+        {
+            // Copied out before the `with`, because a lambda inside a struct cannot capture
+            // `this` — and because the closure must hold the ORIGINAL offset rather than the
+            // zeroed one this produces.
+            var top = Top;
+            var toPage = ToPage;
+
+            return this with
+            {
+                Top = 0,
+                Bottom = Bottom - top,
+                End = float.PositiveInfinity,
+                ToPage = rect => toPage(rect.Offset(0, top))
+            };
+        }
     }
 
     static void PaintBackground(Surface surface, LayoutBox box)
