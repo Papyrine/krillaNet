@@ -56,22 +56,17 @@
   </ItemGroup>
 
   <!--
-    The faces the document is rendered with, served as static web assets and fetched at boot.
+    The faces live under wwwroot/ physically, and that is deliberate rather than lazy.
 
-    Linked out of Krilla.Html.Tests rather than copied: these are the exact files the corpus
-    renders with, so the app draws what the test suite measures against Chrome, and a second
-    copy of 2.4 MB of binaries would only be a second thing to keep in step. Six faces rather
-    than the full twelve, because each one is a download — the sans family in four styles, plus
-    a serif and a monospace regular for the two other generic families.
+    They were originally linked out of Krilla.Html.Tests by a Content item pointing at
+    wwwroot/fonts, to avoid a second copy of 2.4 MB of binaries. That reaches the PUBLISH output correctly and
+    never becomes a static web asset, so `dotnet run` served every face as an empty 200 and the
+    first conversion failed with "The data is too short to be a font". Both the Playwright tests
+    and the published site were fine, because both use the published output — the failure existed
+    only in Development, which is where the app is actually developed.
+
+    A file under wwwroot is the convention the SDK discovers, and it is what Morph.Blazor does with
+    its own faces. The duplication is the price of the app working in every mode.
   -->
-  <ItemGroup>
-    <Content Include="..\Krilla.Html.Tests\Fonts\LiberationSans-Regular.ttf" Link="wwwroot\fonts\LiberationSans-Regular.ttf" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="..\Krilla.Html.Tests\Fonts\LiberationSans-Bold.ttf" Link="wwwroot\fonts\LiberationSans-Bold.ttf" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="..\Krilla.Html.Tests\Fonts\LiberationSans-Italic.ttf" Link="wwwroot\fonts\LiberationSans-Italic.ttf" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="..\Krilla.Html.Tests\Fonts\LiberationSans-BoldItalic.ttf" Link="wwwroot\fonts\LiberationSans-BoldItalic.ttf" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="..\Krilla.Html.Tests\Fonts\LiberationSerif-Regular.ttf" Link="wwwroot\fonts\LiberationSerif-Regular.ttf" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="..\Krilla.Html.Tests\Fonts\LiberationMono-Regular.ttf" Link="wwwroot\fonts\LiberationMono-Regular.ttf" CopyToOutputDirectory="PreserveNewest" />
-    <Content Include="..\Krilla.Html.Tests\Fonts\OFL.txt" Link="wwwroot\fonts\OFL.txt" CopyToOutputDirectory="PreserveNewest" />
-  </ItemGroup>
 
 </Project>

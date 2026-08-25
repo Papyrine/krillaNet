@@ -21,7 +21,8 @@ public class FontStore(HttpClient client)
     // the other two generic families resolve to something of the right shape rather than falling
     // back to sans. Bold serif and bold monospace are deliberately absent: each is another
     // 300-400 KB for a case this app's samples do not reach, and FontSet picks the nearest face.
-    static readonly string[] faces =
+    /// <summary>The face files this store fetches, relative to <c>wwwroot/fonts</c>.</summary>
+    public static readonly string[] Faces =
     [
         "LiberationSans-Regular.ttf",
         "LiberationSans-Bold.ttf",
@@ -45,7 +46,7 @@ public class FontStore(HttpClient client)
 
         // Fetched together rather than in sequence: six requests one after another is six
         // round trips, and the browser will run them in parallel for free.
-        var downloads = faces.Select(_ => client.GetByteArrayAsync($"fonts/{_}"));
+        var downloads = Faces.Select(_ => client.GetByteArrayAsync($"fonts/{_}"));
         var payloads = await Task.WhenAll(downloads);
 
         var built = new FontSet();

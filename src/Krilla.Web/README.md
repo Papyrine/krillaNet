@@ -50,9 +50,14 @@ Six faces ship, not the full twelve: Liberation Sans in four styles, plus a seri
 regular so the other two generic families resolve to something of the right shape. Each face is
 another download, and bold serif is a case the samples here do not reach.
 
-They are linked out of `Krilla.Html.Tests/Fonts` rather than copied. These are the exact files the
-corpus renders with, so this app draws what the test suite measures against Chrome, and a second
-copy of 2.4 MB of binaries would only be a second thing to keep in step.
+They sit under `wwwroot/fonts` physically, copied from `Krilla.Html.Tests/Fonts` — the same files
+the corpus renders with, so this app draws what the test suite measures against Chrome.
+
+Linking them in from that project instead, to avoid a second copy of 2.4 MB of binaries, is what
+the first version did. It reaches the publish output and never becomes a static web asset, so
+`dotnet run` answered every font request with an empty 200 and the first conversion failed with
+"The data is too short to be a font" — while the Playwright tests and a published site were both
+fine, because both use the published output. `FontAssetTests` now pins the faces to `wwwroot`.
 
 ## Images
 
@@ -85,6 +90,17 @@ before the compute begins, which for a page or two of HTML is a blink.
   is the only place a conversion runs in a browser against the trimmed, relinked build with the
   native actually inside the module. A P/Invoke into an archive the linker stripped fails nowhere
   else.
+
+There is a blind spot common to both, and two bugs went through it. A published Blazor app runs as
+**Production**, where the container's scope validation is off — so a service registered with a
+lifetime the container cannot satisfy passed every test here and failed on `dotnet run`. And the
+published output has files that the Development static-web-asset manifest does not.
+
+`ServiceRegistrationTests` closes the first by building the app's own container with validation
+turned on explicitly rather than inherited from an environment, which is why the registrations live
+in `ServiceRegistration` instead of inline in `Program`. `FontAssetTests` closes the second
+structurally. Anything else Development-only remains uncovered; a test that stands up the dev server
+is what would close the class.
 
 The page screenshots pin every face to the Liberation Sans the app already ships, because the
 stylesheet's system font stack resolves differently on a Windows machine and a Linux runner — a
