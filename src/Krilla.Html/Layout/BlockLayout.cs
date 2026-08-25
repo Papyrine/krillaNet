@@ -227,8 +227,13 @@ static class BlockLayout
     {
         var y = 0f;
         var pending = CollapsedMargin.Empty;
-        var openTop = IsTopOpen(parent, contentWidth);
-        var first = true;
+
+        // Whether the margin collapsing out through the parent's top edge is still being skipped.
+        // It covers a RUN of self-collapsing children rather than only the first, because
+        // `LeadingMargin` walks that whole run when the ancestor applies the margin — so every
+        // margin in the run has already been applied by the time this gets here.
+        var escaping = IsTopOpen(parent, contentWidth);
+
         var placed = 0;
         var noted = 0;
 
@@ -248,27 +253,56 @@ static class BlockLayout
 
             pending = pending.Merge(LeadingMargin(child, contentWidth));
 
-            if (first && openTop)
+            if (escaping)
             {
                 // This margin collapsed out through the parent's top edge, so it was already
                 // applied by whoever positioned the parent. Applying it again would double it.
                 pending = CollapsedMargin.Empty;
             }
 
+            // Where the flow stood before the margin was applied, which is what a self-collapsing
+            // child has to be able to return to.
+            var open = y;
+
             y += pending.Value;
 
             // Clearance, applied after the collapsed margin has been added rather than instead of
             // it: `clear` moves the box down to the bottom of the floats it names, and a margin
-            // that already carried it further stands. Simplified against CSS 2.1 §9.5.2, which
-            // introduces clearance as a separate quantity that also stops the margin collapsing
-            // through — that distinction shows up only when a cleared box has a margin large
-            // enough to clear the float by itself.
+            // that already carried it further stands.
             var cleared = floats.ClearTo(child.Style.Clear, contentY + y);
+            var clearance = cleared - contentY - y;
             y = cleared - contentY;
 
             y += Place(child, contentX, contentY + y, contentWidth, fonts, floats, contentHeight);
+
+            // A self-collapsing box does not SEPARATE the margin above it from the margin below:
+            // the two join one collapsed set, which is applied once — to whatever comes after it
+            // rather than to the box itself. So the flow position goes back to where the margin
+            // started and the box keeps the position the partial collapse gave it, which is what a
+            // browser reports for such a box.
+            //
+            // Applying it twice is what an empty `<div>` between two paragraphs used to do: with a
+            // 40px margin above and a 50px margin of its own, everything after it sat 90px down
+            // where 50 belongs. CSS 2.1 §8.3.1's collapse-through, and nothing in the corpus held
+            // an empty box between two boxes with margins until `float/clearance` did.
+            //
+            // CLEARANCE takes it out of that rule, which is §8.3.1's own wording: two margins are
+            // adjoining only when no clearance separates them, so a box that took any keeps its
+            // margins apart like a box with a border.
+            if (clearance == 0 && IsSelfCollapsing(child, contentWidth))
+            {
+                y = open;
+
+                if (!escaping)
+                {
+                    pending = pending.Merge(TrailingMargin(child, contentWidth));
+                }
+
+                continue;
+            }
+
             pending = TrailingMargin(child, contentWidth);
-            first = false;
+            escaping = false;
         }
 
         // Out-of-flow boxes declared after the last in-flow child, which is where a trailing float

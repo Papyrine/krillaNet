@@ -1,0 +1,18 @@
+.frame { width: 400px; margin-bottom: 12px; background-color: #eef1f5; }
+.fl { float: left; width: 90px; height: 100px; background-color: #b06060; }
+.fl.short { height: 40px; }
+
+p { font-size: 16px; line-height: 24px; margin: 0; background-color: #cfd8e8; }
+
+/* The previous sibling's bottom margin and the cleared box's top margin, which collapse to 40
+   where nothing clears — the question is what happens when clearance is introduced between them. */
+.before { margin-bottom: 40px; }
+.cleared { clear: left; margin-top: 20px; }
+
+/* Already past the float on its own margin, so there is no clearance to introduce. */
+.far { margin-top: 150px; }
+
+.after { margin-top: 30px; }
+
+/* A cleared box with no content, whose own two margins would otherwise collapse together. */
+.empty { margin-bottom: 50px; }
