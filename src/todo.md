@@ -25,7 +25,7 @@ baseline:
 | Scenario | AE | SSIM | Cause |
 | --- | --- | --- | --- |
 | `page/table_header` | 0.0119 | 0.9900 | Sub-pixel glyph positioning at 24 and 30px; page three is identical |
-| `block/border_styles` | 0.0034 | 0.9906 | Dash phase restarts at each corner, below |
+| `block/border_styles` | 0.0019 | 0.9938 | A 3px dot drawn round where Chromium draws it square, below |
 | `text/kerning` | 0.0201 | 0.9945 | Sub-pixel glyph positioning, below |
 | `text/ligatures` | 0.0099 | 0.9982 | Same |
 | `block/shadows` | 0.0057 | 0.9985 | Antialiasing on `#rounded`'s corner; no pixel differs by more than 2 of 255 |
@@ -60,9 +60,9 @@ baseline:
 | `text/text_transform` | 0.0002 | 0.9999 | Same |
 | `ua/blockquote_pre` | 0.0005 | 0.9999 | Same |
 
-Six causes cover all thirty-five. Three are property gaps with a fix behind them — the dash phase,
-`text-decoration-skip-ink` and the gradient quantisation — and each is written up in the sections
-below. The other three are general: **sub-pixel glyph positioning**, **a box edge landing on a
+Six causes cover all thirty-five. Three are property gaps with a fix behind them — a small dot's
+shape, `text-decoration-skip-ink` and the gradient quantisation — and each is written up in the
+sections below. The other three are general: **sub-pixel glyph positioning**, **a box edge landing on a
 fractional position**, and **two antialiased edges meeting on a mitre**, which is the same shortfall
 `PaintUniformBorder` avoids for a uniform border by painting one ring.
 
@@ -109,11 +109,11 @@ wrong is still unmeasured.
 
 ## Boxes and painting
 
-- **A dashed border's phase restarts at each corner.** A side whose length is not a whole number of
-  periods therefore ends on a partial dash, where a browser redistributes the remainder along the
-  side so it ends flush. Measured by `block/border_styles`, and it is the largest residual in the
-  corpus: visible at the end of each side and nowhere else, since the dashes along most of every
-  edge line up exactly.
+- **A small dot is drawn round where Chromium draws it square.** Measured at three widths: a 3px
+  dot in Chromium is three solid pixels with no antialiasing anywhere in it, a 12px one is a genuine
+  antialiased circle, and this draws a circle at both. The positions agree exactly — the flush
+  distribution puts them where Chromium's are — so what is left is the shape alone, and it is the
+  whole of `block/border_styles`' residual. Where the threshold sits was not measured.
 - **Borders and replaced content are not snapped to whole pixels.** Backgrounds are — the block
   fill, the inline fill, the inline edge boxes and the background-image origin are all snapped,
   because that is what the browser fills — but the border path has no snap at all, and neither does

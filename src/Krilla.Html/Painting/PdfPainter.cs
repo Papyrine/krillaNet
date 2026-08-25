@@ -1712,10 +1712,16 @@ static class PdfPainter
     /// double</c> is indistinguishable from solid.
     /// </para>
     /// <para>
-    /// The dash phase restarts at each corner, so a side whose length is not a whole number of
-    /// periods ends on a partial dash. A browser redistributes the remainder along the side so it
-    /// ends flush, which is not reproduced here — <c>block/border_styles</c> records what that
-    /// costs in pixels.
+    /// The period is then ADJUSTED so the side ends flush, which is what
+    /// <see cref="FlushGap"/> does: the dash keeps its length and the gap gives, because a side is
+    /// almost never a whole number of periods long. Left unadjusted, every side ended on a partial
+    /// dash and the corners disagreed with the browser by up to a whole period.
+    /// </para>
+    /// <para>
+    /// A DOT is positioned by its centre rather than by its leading edge, since a zero-length dash
+    /// under a round cap paints a circle around the point the pattern puts it at. So the line is
+    /// pulled in half a width at each end — without that the first dot is centred on the corner and
+    /// half of it falls outside the box.
     /// </para>
     /// </remarks>
     static void PaintPatternedEdges(Surface surface, ComputedStyle style, Rect outer)
@@ -1742,13 +1748,28 @@ static class PdfPainter
                 return;
             }
 
-            var dashes = kind == BorderStyleKind.Dashed
-                ? new[] {width * 2, width}
-                : [0f, width * 2];
+            // The whole side, corner to corner, which is what the pattern is fitted into. Dashes
+            // run past the corner rather than mitring, so this is the border box's own extent.
+            var side = horizontal ? outer.Width : outer.Height;
 
-            Line(width, width / 2, paint, dashes, kind == BorderStyleKind.Dotted);
+            if (kind == BorderStyleKind.Dashed)
+            {
+                var dash = width * 2;
+                Line(width, width / 2, paint, [dash, FlushGap(side, dash, width)], round: false);
+                return;
+            }
 
-            void Line(float thickness, float offset, Color line, float[]? dashes, bool round)
+            // A dot is the border's width across and repeats at twice it, and the pattern places
+            // its CENTRE — hence the inset of half a width at each end.
+            Line(
+                width,
+                width / 2,
+                paint,
+                [0, width + FlushGap(side, width, width)],
+                round: true,
+                inset: width / 2);
+
+            void Line(float thickness, float offset, Color line, float[]? dashes, bool round, float inset = 0)
             {
                 var along = near ? offset : -offset;
 
@@ -1757,12 +1778,12 @@ static class PdfPainter
                 if (horizontal)
                 {
                     var y = (near ? outer.Y : outer.Bottom) + along;
-                    builder.MoveTo(outer.X, y).LineTo(outer.Right, y);
+                    builder.MoveTo(outer.X + inset, y).LineTo(outer.Right - inset, y);
                 }
                 else
                 {
                     var x = (near ? outer.X : outer.Right) + along;
-                    builder.MoveTo(x, outer.Y).LineTo(x, outer.Bottom);
+                    builder.MoveTo(x, outer.Y + inset).LineTo(x, outer.Bottom - inset);
                 }
 
                 using var path = builder.Build();
@@ -1894,6 +1915,50 @@ static class PdfPainter
     }
 
     /// <summary>Fills a closed polygon with a solid colour.</summary>
+    /// <summary>
+    /// The gap that makes a whole number of dashes fit <paramref name="length"/> exactly.
+    /// </summary>
+    /// <param name="length">The side's length, corner to corner.</param>
+    /// <param name="dash">The dash's own length, which is held fixed.</param>
+    /// <param name="wanted">The gap the pattern asks for, which is what the result is chosen near.</param>
+    /// <remarks>
+    /// <para>
+    /// Chromium's rule, and it is the DASH that is held rather than the gap: two counts bracket the
+    /// side — the most dashes that fit at the requested gap, and one more — and whichever leaves a
+    /// gap closer to the one asked for wins. A 266px side under a 6px dash and a 3px gap takes 30
+    /// dashes at 2.97 rather than 29 at 3.29, so the last dash ends on the corner.
+    /// </para>
+    /// <para>
+    /// A side has one gap FEWER than it has dashes, because both ends carry a dash. Dividing by the
+    /// dash count instead leaves the side ending on a gap, which is a whole period out at the far
+    /// corner and looks like a phase error rather than a counting one.
+    /// </para>
+    /// </remarks>
+    static float FlushGap(float length, float dash, float wanted)
+    {
+        if (length <= 0 || dash <= 0 || wanted <= 0)
+        {
+            return wanted;
+        }
+
+        var fewer = MathF.Floor(length / (dash + wanted));
+
+        if (fewer < 1)
+        {
+            return wanted;
+        }
+
+        var narrow = Spread(fewer + 1);
+        var wide = Spread(fewer);
+
+        return MathF.Abs(narrow - wanted) < MathF.Abs(wide - wanted) ? narrow : wide;
+
+        // One dash at each end and the rest shared out between them. A single dash has no gap to
+        // give, so it keeps the requested one and loses the comparison above to the two-dash case.
+        float Spread(float count) =>
+            count <= 1 ? wanted : MathF.Max(0, (length - count * dash) / (count - 1));
+    }
+
     static void FillPolygon(Surface surface, Color color, params ReadOnlySpan<Point> points)
     {
         using var path = PdfPath.Polygon(points);
