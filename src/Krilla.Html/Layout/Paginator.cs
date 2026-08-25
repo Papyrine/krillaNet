@@ -634,10 +634,13 @@ static class Paginator
                 break;
             }
 
-            // A unit taller than the page has nowhere better to go — moving it to the top of the
-            // next page would leave it still not fitting, and it would move again forever. Let it
-            // overflow and keep looking for one that can actually be moved.
-            if (bounds.Height > pageHeight)
+            // A unit taller than the page is moved to the top of the next one and allowed to
+            // overflow from there, which is what a browser does with a picture or a table row that
+            // cannot fit on any sheet. Moving it is safe because it starts BELOW this page's top —
+            // the loop advances — and a unit already at the top has nowhere better to go, so that
+            // one is stepped over and the search continues past it. Without that second half it
+            // would move to the top of the next page forever.
+            if (bounds.Height > pageHeight && bounds.Y <= top)
             {
                 continue;
             }
