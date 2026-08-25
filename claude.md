@@ -148,7 +148,7 @@ It records two independent measurements, and **asserts neither**:
 - **`reference.boxes.json`** — the browser's `getBoundingClientRect()` per element, against our box tree. Integer-exact, localising ("this paragraph is 14px low" is a defect report), and — the practical reason it leads — computable without the native library, so it works on a machine with no Rust toolchain.
 - **`reference_0001.png`** — pixels, via AbsoluteError and SSIM.
 
-**Box geometry currently sits at zero across all 126 scenarios, with nothing unmatched**, and 91
+**Box geometry currently sits at zero across all 126 scenarios, with nothing unmatched**, and 93
 read SSIM 1.0000. Several got there by finding a defect first, which is the argument for adding a
 scenario for anything the engine implements rather than only for what it implements well:
 `block/anonymous` found trailing inline content hoisted above a block sibling, `position/fixed`
@@ -164,8 +164,8 @@ a mystery: `block/border_styles` (0.9938) is a small dot drawn round where Chrom
 `text/decoration_style` (0.9999) is `text-decoration-skip-ink`, `image/inline_flow` (0.9998) is
 antialiasing on an image edge at a fractional position, and the rest are the same glyph positioning
 seen on fewer words. A scenario reading SSIM 1.0000 is not necessarily pixel-identical —
-twenty-eight differ on a scattering of antialiased pixels, which is what `AE` is there to show.
-Sixty-three are identical outright.
+twenty-six differ on a scattering of antialiased pixels, which is what `AE` is there to show.
+Sixty-seven are identical outright.
 
 **The unmatched count is an assertion, not a statistic.** `BaselineHealthTests.EveryElementIsMeasured`
 requires every element the browser laid out to have a box on this side. It closes the same hole
@@ -1081,7 +1081,9 @@ One difference is deliberately NOT reported: Chrome interrupts an underline arou
 - **A corpus scenario needs `Krilla.Html.RefGen` run before it measures anything.** Without a reference it still runs and still snapshots, but both comparisons are null, so it looks like a passing test while measuring nothing. `BaselineHealthTests.ScenariosHaveReferences` is what stops one being added and forgotten.
 - **`mdsnippets.json` excludes `target`, and the exclusion is load-bearing.** Two projects now reference MarkdownSnippets, their scans run concurrently during a solution build, and both open `rust/target/.cargo-artifact-lock` — which fails the build with "another process has locked a portion of the file". It only reproduces once the native has been built, so a clean checkout will not show it and removing the exclusion looks harmless.
 - **The showcase specimen's page baseline is compared by SSIM, so it can drift without failing.** `VerifierSettings.UseSsimForPng()` applies to it as well as to the corpus, and a change confined to one inline element passed as "equal" while the committed PNG — the image the readme shows — no longer matched the render. The corpus is the real gate; when a change alters the specimen, delete `ShowcaseTests.Specimen#page_0001.verified.png` and let it be regenerated rather than trusting the comparison to notice.
-- **A block background fill is SNAPPED to whole pixels, and so are an inline fill and a background image.** All three because that is what the browser fills; the block one was found last, by `aspect-ratio` producing the corpus's first deliberately fractional box height. Applying it improved eight existing scenarios and regressed none. Snapping in LAYOUT units does not guarantee whole DEVICE pixels, though — coordinates round-trip through PDF points, so a fractional width can still leave a faint extra column, which is why `PageRuleTests` asserts a measured box rather than where the ink stops.
+- **Everything that fills a rectangle is SNAPPED to whole pixels**: a block background, an inline fill, a background image, a border, and an image draw. All of them because that is what the browser fills. They were found in that order, each by a different scenario, and the last two took four scenarios to pixel-identical at once — `table/columns`, `table/spacing_borders`, `inline/inline_block` and `ua/acid1`. Snapping in LAYOUT units does not guarantee whole DEVICE pixels, though — coordinates round-trip through PDF points, so a fractional width can still leave a faint extra column, which is why `PageRuleTests` asserts a measured box rather than where the ink stops.
+- **A border is snapped at each EDGE, never by rounding its width.** A 3px border at x=10.5 stays 3px wide; rounding the width instead makes it 2 or 4 depending on where it fell. Table columns make that case common, being fractional by nature.
+- **The OUTER rectangle has to be snapped along with the inner one.** Snapping only the padding box leaves a uniform border a fraction wider on one side than the other, which is worse than leaving both fractional: it turns a soft edge into an asymmetric one. Doing both is what took `table/columns` and `table/spacing_borders` from 0.9999 to identical, where snapping the inner edge alone had moved them only from 0.9997.
 - **`BaselineHealthTests`' degeneracy threshold is 1, not Morph's 16.** Morph reasons that a rendered page always carries anti-aliased text and so has hundreds of colours. This corpus deliberately contains flat-fill scenarios with three colours total, precisely so they carry no rasterisation noise — anything above two fails them. The guard is correspondingly narrower, which it can afford to be because every page here is also compared against a browser reference.
 
 ## Package Management

@@ -15,11 +15,11 @@ it, that is stated, because an unmeasured gap is the more dangerous kind.
 ## Where the corpus stands
 
 126 scenarios across 10 categories, 1428 element boxes matched. **Box geometry matches Chrome
-exactly on every one** — worst offset 0.00px, worst size 0.00px, and nothing unmatched — and 91
-read SSIM 1.0000, of which 63 are pixel-identical outright. The other 28 differ on a scattering of
+exactly on every one** — worst offset 0.00px, worst size 0.00px, and nothing unmatched — and 93
+read SSIM 1.0000, of which 67 are pixel-identical outright. The other 26 differ on a scattering of
 antialiased pixels, which is what `AE` is there to show.
 
-Thirty-five read below 1.0000. None is a mystery, and none should be "fixed" by regenerating a
+Thirty-three read below 1.0000. None is a mystery, and none should be "fixed" by regenerating a
 baseline:
 
 | Scenario | AE | SSIM | Cause |
@@ -35,10 +35,9 @@ baseline:
 | `page/break_between_lines` | 0.0017 | 0.9996 | Sub-pixel glyph positioning |
 | `page/orphans_widows` | 0.0019 | 0.9998 | Same; pages one and three are identical |
 | `page/float_break` | 0.0023 | 0.9997 | Same |
-| `table/columns` | 0.0005 | 0.9997 | Unsnapped border at a fractional column edge, below |
 | `text/underline_offset` | 0.0002 | 0.9997 | Glyph edges |
 | `block/min_width` | 0.0009 | 0.9998 | Sub-pixel glyph positioning |
-| `image/inline_flow` | 0.0007 | 0.9998 | Unsnapped image edge at a fractional position |
+| `image/inline_flow` | 0.0006 | 0.9999 | One antialiased pixel column at an image edge |
 | `page/break_inside` | 0.0012 | 0.9998 | Sub-pixel glyph positioning on page two; page one is identical |
 | `page/multi_page_flow` | 0.0016 | 0.9998 | Sub-pixel glyph positioning |
 | `text/word_spacing` | 0.0009 | 0.9998 | Same, across the widened spaces |
@@ -52,19 +51,18 @@ baseline:
 | `link/fragment` | 0.0001 | 0.9999 | Same |
 | `link/wrapped` | 0.0000 | 0.9999 | Same |
 | `page/tall_block` | 0.0004 | 0.9999 | Same |
-| `position/absolute` | 0.0005 | 0.9999 | Unsnapped border at a fractional position |
-| `table/spacing_borders` | 0.0003 | 0.9999 | Same |
+| `position/absolute` | 0.0005 | 0.9999 | One pixel column where two backgrounds meet at a fractional edge |
 | `text/decoration_style` | 0.0002 | 0.9999 | `text-decoration-skip-ink`, deliberate, below |
 | `text/font_size_keywords` | 0.0006 | 0.9999 | Sub-pixel glyph positioning |
 | `text/letter_spacing` | 0.0005 | 0.9999 | Same |
 | `text/text_transform` | 0.0002 | 0.9999 | Same |
 | `ua/blockquote_pre` | 0.0005 | 0.9999 | Same |
 
-Six causes cover all thirty-five. Three are property gaps with a fix behind them — a small dot's
+Six causes cover all thirty-three. Three are property gaps with a fix behind them — a small dot's
 shape, `text-decoration-skip-ink` and the gradient quantisation — and each is written up in the
-sections below. The other three are general: **sub-pixel glyph positioning**, **a box edge landing on a
-fractional position**, and **two antialiased edges meeting on a mitre**, which is the same shortfall
-`PaintUniformBorder` avoids for a uniform border by painting one ring.
+sections below. The other three are general: **sub-pixel glyph positioning**, **a box edge landing
+on a fractional position**, and **two antialiased edges meeting on a mitre**, which is the same
+shortfall `PaintUniformBorder` avoids for a uniform border by painting one ring.
 
 ## Unimplemented layout modes
 
@@ -114,15 +112,13 @@ wrong is still unmeasured.
   antialiased circle, and this draws a circle at both. The positions agree exactly — the flush
   distribution puts them where Chromium's are — so what is left is the shape alone, and it is the
   whole of `block/border_styles`' residual. Where the threshold sits was not measured.
-- **Borders and replaced content are not snapped to whole pixels.** Backgrounds are — the block
-  fill, the inline fill, the inline edge boxes and the background-image origin are all snapped,
-  because that is what the browser fills — but the border path has no snap at all, and neither does
-  an image draw. That is the second general residual: `table/spacing_borders`, `table/columns` and
-  `position/absolute` are borders at fractional positions, and `image/inline_flow` is an image
-  edge. It shows up in tables more than anywhere else because column widths are fractional by
-  nature. Worth doing deliberately rather than alongside something else, and worth knowing that
-  snapping in LAYOUT units does not guarantee whole DEVICE pixels — coordinates round-trip through
-  PDF points, so a fractional width can still leave a faint extra column.
+- **A box edge landing on a fractional position still leaves a pixel column.** Every rectangle fill
+  is snapped now — the block background, the inline fill, the inline edge boxes, the background
+  image, the border box and an image draw — and what is left is where two SNAPPED boxes disagree
+  about which pixel a shared edge belongs to. `position/absolute` is one column at x=158 between two
+  differently coloured backgrounds; `image/inline_flow` is one at an image edge. Snapping in LAYOUT
+  units does not guarantee whole DEVICE pixels either, since coordinates round-trip through PDF
+  points.
 - **`text-decoration-skip-ink` is not implemented**, and deliberately not reported. Chrome
   interrupts an underline around a descender at the property's default of `auto`; doing the same
   needs glyph outlines rather than advances. A report would fire on every underlined document ever

@@ -1637,7 +1637,7 @@ replaced element.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |
-| **Page 1** | **Page 1. AE 0.0007 · SSIM 0.9998** |
+| **Page 1** | **Page 1. AE 0.0006 · SSIM 0.9999** |
 | <img src="image/inline_flow/reference_0001.png" width="480"> | <img src="image/inline_flow/result%23page_0001.verified.png" width="480"> |
 
 
@@ -2021,7 +2021,7 @@ few pixels low with its text still aligned is half-leading, not this.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |
-| **Page 1** | **Page 1. AE 0.0002 · SSIM 1.0000** |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
 | <img src="inline/inline_block/reference_0001.png" width="480"> | <img src="inline/inline_block/result%23page_0001.verified.png" width="480"> |
 
 
@@ -3348,7 +3348,7 @@ the three is the width it asked for.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |
-| **Page 1** | **Page 1. AE 0.0005 · SSIM 0.9997** |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
 | <img src="table/columns/reference_0001.png" width="480"> | <img src="table/columns/result%23page_0001.verified.png" width="480"> |
 
 
@@ -3520,7 +3520,7 @@ edge.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |
-| **Page 1** | **Page 1. AE 0.0003 · SSIM 0.9999** |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
 | <img src="table/spacing_borders/reference_0001.png" width="480"> | <img src="table/spacing_borders/result%23page_0001.verified.png" width="480"> |
 
 
@@ -4101,7 +4101,7 @@ With both fixed it matches Chrome exactly.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |
-| **Page 1** | **Page 1. AE 0.0009 · SSIM 1.0000** |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
 | <img src="ua/acid1/reference_0001.png" width="480"> | <img src="ua/acid1/result%23page_0001.verified.png" width="480"> |
 
 

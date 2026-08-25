@@ -1550,15 +1550,27 @@ static class PdfPainter
             return;
         }
 
-        var outer = box.BorderBox;
+        // Snapped at each edge, which everything below derives from — the ring, the mitred
+        // trapezia and the patterned edges all measure from this rectangle, and snapping only the
+        // inner one would leave a uniform border a fraction of a pixel wider on one side than the
+        // other.
+        var left = Snap(box.BorderBox.X);
+        var top = Snap(box.BorderBox.Y);
+        var outer = new Rect(left, top, Snap(box.BorderBox.Right) - left, Snap(box.BorderBox.Bottom) - top);
 
         // The padding box, which is where all four mitres converge. Clamped so that a border
         // thicker than the box it surrounds collapses to a degenerate inner rectangle rather than
         // an inside-out one.
-        var innerLeft = Math.Min(outer.X + style.BorderLeft, outer.Right);
-        var innerRight = Math.Max(outer.Right - style.BorderRight, innerLeft);
-        var innerTop = Math.Min(outer.Y + style.BorderTop, outer.Bottom);
-        var innerBottom = Math.Max(outer.Bottom - style.BorderBottom, innerTop);
+        //
+        // Snapped, the same way a block fill and a background image are, and for the same reason:
+        // a browser puts a border edge on a pixel boundary, and a fractional one leaves a column of
+        // half-covered pixels the reference does not have. Each EDGE is snapped rather than the
+        // width, so a 3px border at x=10.5 stays 3px wide instead of becoming 2 or 4 depending on
+        // where it fell — table columns make that case common, being fractional by nature.
+        var innerLeft = Snap(Math.Min(outer.X + style.BorderLeft, outer.Right));
+        var innerRight = Snap(Math.Max(outer.Right - style.BorderRight, innerLeft));
+        var innerTop = Snap(Math.Min(outer.Y + style.BorderTop, outer.Bottom));
+        var innerBottom = Snap(Math.Max(outer.Bottom - style.BorderBottom, innerTop));
 
         if (UniformColor(style) is {} uniform && style.PaintsBorderAsRing)
         {
@@ -1656,14 +1668,14 @@ static class PdfPainter
         // surrounds collapses to a degenerate rectangle rather than an inside-out one.
         (float Left, float Top, float Right, float Bottom) Nested(float fraction)
         {
-            var left = Math.Min(outer.X + style.BorderLeft * fraction, outer.Right);
-            var top = Math.Min(outer.Y + style.BorderTop * fraction, outer.Bottom);
+            var left = Snap(Math.Min(outer.X + style.BorderLeft * fraction, outer.Right));
+            var top = Snap(Math.Min(outer.Y + style.BorderTop * fraction, outer.Bottom));
 
             return (
                 left,
                 top,
-                Math.Max(outer.Right - style.BorderRight * fraction, left),
-                Math.Max(outer.Bottom - style.BorderBottom * fraction, top));
+                Snap(Math.Max(outer.Right - style.BorderRight * fraction, left)),
+                Snap(Math.Max(outer.Bottom - style.BorderBottom * fraction, top)));
         }
     }
 
@@ -2137,7 +2149,19 @@ static class PdfPainter
             return;
         }
 
-        var rectangle = Rectangle.FromSize(bounds.X, bounds.Y, bounds.Width, bounds.Height);
+        // Snapped to whole pixels the way a block fill and a background image already are, and for
+        // the same reason: the browser draws an image edge on a pixel boundary, and left fractional
+        // the rasteriser reading the PDF picks up a column of half-covered pixels along the edge
+        // that the reference does not have. Snapped at each EDGE rather than by rounding the size,
+        // or a box at x=10.5 with width 63 comes out a pixel narrower than the same box at x=10.
+        var left = Snap(bounds.X);
+        var top = Snap(bounds.Y);
+
+        var rectangle = Rectangle.FromSize(
+            left,
+            top,
+            Snap(bounds.Right) - left,
+            Snap(bounds.Bottom) - top);
 
         if (image.IsVector)
         {
