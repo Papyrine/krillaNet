@@ -1696,6 +1696,17 @@ static class PdfPainter
     /// bevelled edge does; a dash, a dot or a double band runs past the corner instead, which is
     /// what <see cref="PaintPatternedEdges"/> draws.
     /// </remarks>
+    /// <summary>
+    /// The widest dot Chromium draws as a crisp square rather than as an antialiased circle.
+    /// </summary>
+    /// <remarks>
+    /// Measured at ten widths from 1 to 12 pixels. One, two and three come back with no
+    /// antialiased pixel anywhere in them — a 3px dot is three solid pixels across — and four
+    /// upward are genuine antialiased circles. Where between three and four the switch is made is
+    /// not measurable, since a browser rounds a border's width to whole pixels first.
+    /// </remarks>
+    const float SquareDot = 3;
+
     static bool Mitred(BorderStyleKind kind) =>
         kind is BorderStyleKind.Solid
             or BorderStyleKind.Inset
@@ -1714,9 +1725,11 @@ static class PdfPainter
     /// width — an 8px border repeats every 24 pixels, 16 on and 8 off, and a 3px border every 9.
     /// </para>
     /// <para>
-    /// A dot is the border's width across and repeats at twice it, and it is ROUND. That is why it
-    /// is drawn as a zero-length dash under a round cap rather than as a square one: the two are
-    /// indistinguishable at 1px and obviously different at 8.
+    /// A dot is the border's width across and repeats at twice it, and its SHAPE depends on how
+    /// big it is: at or below <see cref="SquareDot"/> pixels Chromium draws a crisp square snapped
+    /// to the pixel grid, and above it an antialiased circle. Both are drawn here, because neither
+    /// approximates the other — a circle at 3px is a soft blob where the browser has three solid
+    /// pixels, and a square at 12px is a visibly different shape.
     /// </para>
     /// <para>
     /// A double border is two bands each a third of the width with a third-width gap between them,
@@ -1725,7 +1738,7 @@ static class PdfPainter
     /// </para>
     /// <para>
     /// The period is then ADJUSTED so the side ends flush, which is what
-    /// <see cref="FlushGap"/> does: the dash keeps its length and the gap gives, because a side is
+    /// <see cref="FlushPattern"/> does: the dash keeps its length and the gap gives, because a side is
     /// almost never a whole number of periods long. Left unadjusted, every side ended on a partial
     /// dash and the corners disagreed with the browser by up to a whole period.
     /// </para>
@@ -1767,7 +1780,18 @@ static class PdfPainter
             if (kind == BorderStyleKind.Dashed)
             {
                 var dash = width * 2;
-                Line(width, width / 2, paint, [dash, FlushGap(side, dash, width)], round: false);
+                Line(width, width / 2, paint, [dash, FlushPattern(side, dash, width).Gap], round: false);
+                return;
+            }
+
+            var dots = FlushPattern(side, width, width);
+
+            // A SMALL dot is a snapped square rather than a circle, which is what Chromium draws
+            // and is not something either shape can approximate: at three pixels it comes out of
+            // the browser with no antialiased pixel anywhere in it.
+            if (width <= SquareDot)
+            {
+                Squares(paint, dots.Count, width + dots.Gap);
                 return;
             }
 
@@ -1777,9 +1801,35 @@ static class PdfPainter
                 width,
                 width / 2,
                 paint,
-                [0, width + FlushGap(side, width, width)],
+                [0, width + dots.Gap],
                 round: true,
                 inset: width / 2);
+
+            void Squares(Color line, int count, float pitch)
+            {
+                for (var index = 0; index < count; index++)
+                {
+                    // FLOORED, not rounded. Measured across a 200px side at three widths: the
+                    // browser's dots land on exactly this sequence, and rounding moves half of
+                    // them a pixel on.
+                    var along = MathF.Floor(index * pitch);
+
+                    var rect = horizontal
+                        ? Rectangle.FromSize(
+                            outer.X + along,
+                            near ? outer.Y : outer.Bottom - width,
+                            width,
+                            width)
+                        : Rectangle.FromSize(
+                            near ? outer.X : outer.Right - width,
+                            outer.Y + along,
+                            width,
+                            width);
+
+                    using var path = PdfPath.Rectangle(rect);
+                    surface.SetFill(line).DrawPath(path);
+                }
+            }
 
             void Line(float thickness, float offset, Color line, float[]? dashes, bool round, float inset = 0)
             {
@@ -1928,7 +1978,7 @@ static class PdfPainter
 
     /// <summary>Fills a closed polygon with a solid colour.</summary>
     /// <summary>
-    /// The gap that makes a whole number of dashes fit <paramref name="length"/> exactly.
+    /// How many dashes fit <paramref name="length"/> exactly, and the gap that makes them.
     /// </summary>
     /// <param name="length">The side's length, corner to corner.</param>
     /// <param name="dash">The dash's own length, which is held fixed.</param>
@@ -1946,24 +1996,26 @@ static class PdfPainter
     /// corner and looks like a phase error rather than a counting one.
     /// </para>
     /// </remarks>
-    static float FlushGap(float length, float dash, float wanted)
+    static (int Count, float Gap) FlushPattern(float length, float dash, float wanted)
     {
         if (length <= 0 || dash <= 0 || wanted <= 0)
         {
-            return wanted;
+            return (0, wanted);
         }
 
         var fewer = MathF.Floor(length / (dash + wanted));
 
         if (fewer < 1)
         {
-            return wanted;
+            return (1, wanted);
         }
 
         var narrow = Spread(fewer + 1);
         var wide = Spread(fewer);
 
-        return MathF.Abs(narrow - wanted) < MathF.Abs(wide - wanted) ? narrow : wide;
+        return MathF.Abs(narrow - wanted) < MathF.Abs(wide - wanted)
+            ? ((int) fewer + 1, narrow)
+            : ((int) fewer, wide);
 
         // One dash at each end and the rest shared out between them. A single dash has no gap to
         // give, so it keeps the requested one and loses the comparison above to the two-dash case.

@@ -14,10 +14,12 @@ and leaves every length to the user agent, so the numbers were measured out of C
   dashes that fit at the requested gap, and one more — and whichever leaves a gap closer to the one
   asked for wins. `#dashed`'s 266px side takes 30 dashes at a gap of 2.97 rather than 29 at 3.29,
   and `#thick-dashed`'s 276px side takes 12 at 7.64 rather than 11 at 10.
-- A **dot** is the border's width across and repeats at twice it, and it is ROUND. That is why it
-  is drawn as a zero-length dash under a round cap rather than as a square one: the two are
-  indistinguishable at 1px and obviously different at 8. `#dotted` is 3px and `#thick-dashed` is
-  8px so that the width-dependent half of both rules is exercised rather than assumed.
+- A **dot** is the border's width across and repeats at twice it, and its SHAPE follows its size. At
+  three pixels and below Chromium draws a crisp square snapped to the pixel grid — measured at ten
+  widths, a 1, 2 or 3px dot comes back with no antialiased pixel anywhere in it — and from four
+  upward it draws a genuine antialiased circle. Neither approximates the other, so both are drawn.
+  `#dotted` is 3px and `#thick-dashed` is 8px so that the width-dependent half of both rules is
+  exercised rather than assumed.
 - A **double** border is two bands each a third of the width with a third-width gap, which is why
   6px reads 2-2-2 down a column of pixels and why `border: 1px double` is indistinguishable from
   solid.
@@ -28,19 +30,18 @@ side — so the trapezium's purpose, joining two colours cleanly on a diagonal, 
 `#mixed` is what keeps the two paths honest: three patterned edges and one solid on the same box,
 so the solid edge still mitres while the others do not.
 
-**Residual**: SSIM 0.9938, and every dash in the scenario now lands where Chrome's does — both
-dashed rows agree run for run, corner to corner. What is left is the DOTS, and it is a rasterisation
-difference rather than a placement one.
+**Residual**: SSIM 0.9995, and it is confined to the VERTICAL dotted edges. Every horizontal edge in
+the scenario is exact — dashes and dots alike, corner to corner, at both widths — and the dots on
+`#dotted`'s left and right sides are not.
 
-Their positions match: floored to whole pixels, Chrome's 3px dots start at 0, 5, 11, 17, 23 … which
-is exactly the flush pitch of 5.977 this computes. Their SHAPE does not. Chromium draws a small dot
-as a crisp square snapped to whole pixels — three solid pixels across, no antialiasing anywhere in
-it — and draws a large one as a genuine antialiased circle, which was measured at 3, 8 and 12px.
-This draws a circle at every size, so at 3px it is a soft blob where Chrome has a hard square.
+A horizontal dotted edge fits its pattern into the whole side, corner to corner, and the flush rule
+above reproduces it exactly. A vertical one does not: on a 30px box Chromium's left edge carries
+five dots at a pitch of 6.25 starting a pixel below the top corner, where the same rule applied to
+the full side gives six at 5.4. It is a different construction rather than an offset — probed at
+four heights, with and without adjacent horizontal borders, and no inset of the side reproduces it.
+The end of such an edge carries a solid square that no dot in the sequence accounts for, which is
+the shape of Blink filling a rect at each endpoint of a dashed line and dashing between them.
 
-That is why the note above about a dot being ROUND stands: it is right at 8px and wrong at 3, and
-the corpus only has a 3px row. A row at 8px would show the two agreeing.
-
-What to look at: dash and dot SIZE and spacing, which should match along the WHOLE of any edge now
-rather than only its first two thirds. A difference that accumulates toward a corner is the flush
-distribution gone; one that starts at the first dash is the period.
+What to look at: dash and dot SIZE and spacing along the HORIZONTAL edges, which should match
+exactly. A difference there is a real regression; a difference on a left or right dotted edge is
+the residual above.
