@@ -25,6 +25,6 @@ change in the line's thickness or vertical position is the border, which is the 
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |
-| **Page 1** | **Page 1. AE 0.0023 · SSIM 0.9911** |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
 | <img src="reference_0001.png" width="480"> | <img src="result%23page_0001.verified.png" width="480"> |
 

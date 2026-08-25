@@ -157,12 +157,21 @@ public class DiagnosticTests
                 <p style="hyphens: manual">h</p>
                 """));
 
+    /// <summary>
+    /// What painting still reports.
+    /// </summary>
+    /// <remarks>
+    /// A bevelled border style used to lead this list. It does not any more: <c>groove</c>,
+    /// <c>ridge</c>, <c>inset</c> and <c>outset</c> are drawn in the two shades Chromium draws them
+    /// in, so every value <c>border-style</c> takes is now honoured and the whole entry came off the
+    /// table. What is left of the borders here is a RADIUS on an edge that is not solid, which is a
+    /// different gap — the corner is painted square.
+    /// </remarks>
     [Test]
     public async Task UnsupportedPaintingIsReported() =>
         await Verify(
             await Collect(
                 """
-                <div style="border: 2px groove red">a</div>
                 <div style="border-radius: 4px; border: 2px dashed red">b</div>
                 <div style="text-transform: full-width">f</div>
                 <div style="visibility: collapse">g</div>
@@ -183,9 +192,11 @@ public class DiagnosticTests
     /// that stops reporting has to be seen to stop.
     ///
     /// What remains is an <c>avoid</c> at a box edge, which asks for a break to be MOVED rather
-    /// than taken and so has nowhere to go in a forward-only slice, and the two line-count
-    /// properties, which are honoured only on request because the reference browser does not
-    /// implement them.
+    /// than taken and so has nowhere to go in a forward-only slice. The two line-count properties
+    /// used to be named here as well, as honoured only on request because the reference browser did
+    /// not implement them. Both halves of that were wrong — the browser does implement them and they
+    /// are on by default now — so they have a test of their own below, which reports for the caller
+    /// who turned them OFF.
     /// </remarks>
     [Test]
     public async Task PaginationPropertiesAreReported() =>

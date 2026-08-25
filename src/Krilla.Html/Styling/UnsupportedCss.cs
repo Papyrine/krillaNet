@@ -54,8 +54,6 @@ static class UnsupportedCss
         "border-bottom-left-radius"
     ];
 
-    static readonly string[] sides = ["top", "right", "bottom", "left"];
-
     /// <summary>The two properties whose value is a position, read as two components.</summary>
     static readonly string[] positions = ["background-position", "object-position"];
 
@@ -182,7 +180,6 @@ static class UnsupportedCss
         InlineSurround(declaration, name, style, sink);
         Fixed(declaration, name, sink);
         Radius(declaration, name, style, sink);
-        BorderStyles(declaration, name, sink);
         CellBaseline(declaration, name, style, sink);
     }
 
@@ -766,60 +763,6 @@ static class UnsupportedCss
                     value,
                     "the border is painted with square corners");
                 return;
-            }
-        }
-    }
-
-    /// <summary>
-    /// A border style that is drawn as solid because it needs shading.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// <c>none</c> and <c>hidden</c> stay silent because they are honoured exactly:
-    /// <see cref="StyleResolver"/> folds them into a zero width, so such a border neither paints
-    /// nor takes space.
-    /// </para>
-    /// <para>
-    /// So does <c>hr</c>, whose <c>inset</c> border comes from the default stylesheet rather than
-    /// from the document. A plain <c>&lt;hr&gt;</c> in a page carrying no CSS at all would
-    /// otherwise report four times, which is the noise this whole table exists to avoid. The
-    /// exclusion is by element because the cascade does not expose which origin a declaration came
-    /// from — the same limitation that <c>Inputs/flatten.css</c> works around.
-    /// </para>
-    /// </remarks>
-    static void BorderStyles(ICssStyleDeclaration declaration, string element, Action<HtmlDiagnostic> sink)
-    {
-        if (element == "hr")
-        {
-            return;
-        }
-
-        var styles = new string?[sides.Length];
-
-        for (var index = 0; index < sides.Length; index++)
-        {
-            var value = Set(declaration, $"border-{sides[index]}-style");
-            styles[index] = value is null or "none" or "hidden" or "solid"
-                                     or "dashed" or "dotted" or "double" ||
-                            IsInitial(value)
-                ? null
-                : value;
-        }
-
-        // One report for the shorthand the author almost certainly wrote, rather than four for the
-        // longhands the cascade expanded it into. Per-side reporting survives for the case that
-        // actually differs by side.
-        if (styles[0] is {} uniform && styles.All(_ => _ == uniform))
-        {
-            Diagnostic.Property(sink, element, "border-style", uniform, "painted solid");
-            return;
-        }
-
-        for (var index = 0; index < sides.Length; index++)
-        {
-            if (styles[index] is {} value)
-            {
-                Diagnostic.Property(sink, element, $"border-{sides[index]}-style", value, "painted solid");
             }
         }
     }

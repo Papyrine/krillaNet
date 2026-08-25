@@ -1,0 +1,42 @@
+/* The four border styles that are drawn in two shades of the declared colour. CSS specifies none
+   of the shading — it says the box should look carved into or raised out of the canvas and leaves
+   every colour to the user agent — so every number behind this was measured out of Chromium. */
+div {
+  width: 120px;
+  height: 30px;
+  border-width: 12px;
+  margin-bottom: 8px;
+  border-color: #3366cc;
+}
+
+#inset { border-style: inset; }
+#outset { border-style: outset; }
+
+/* Two bands per edge, and they are not two shades of one bevel: the outer half of a groove is an
+   `inset` edge and the inner half an `outset` one, which is what puts dark over light on the top
+   and light over dark on the bottom. A ridge is those two exchanged. */
+#groove { border-style: groove; }
+#ridge { border-style: ridge; }
+
+/* A 1px groove has half a pixel per band. */
+#thin { border-style: groove; border-width: 1px; }
+
+/* An UNDECLARED colour is the case no derivation predicts: Chromium ignores the element's own
+   colour and draws a fixed pair of greys. `color` here is deliberately not grey, so a reading that
+   derived the shades from `currentColor` would be visibly wrong rather than subtly so. */
+#current { border-style: inset; border-color: currentColor; color: #cc3333; }
+
+/* Two more bases, because the derivation is not linear: it scales by a factor taken from the
+   BRIGHTEST channel, so a colour already at full brightness on one channel behaves differently
+   from one that is not. White is the case Chromium hardcodes. */
+#coloured { border-style: outset; border-color: #808080; }
+#white { border-style: inset; border-color: #ffffff; background-color: #f0f0f0; }
+
+/* Mixed styles round one box, which is what keeps the mitres honest — a bevel is drawn as a mitred
+   trapezium while a dash runs past the corner instead. */
+#mixed {
+  border-top-style: inset;
+  border-right-style: dashed;
+  border-bottom-style: ridge;
+  border-left-style: solid;
+}

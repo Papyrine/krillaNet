@@ -14,9 +14,9 @@ it, that is stated, because an unmeasured gap is the more dangerous kind.
 
 ## Where the corpus stands
 
-123 scenarios across 10 categories, 1393 element boxes matched. **Box geometry matches Chrome
-exactly on every one** — worst offset 0.00px, worst size 0.00px, and nothing unmatched — and 88
-read SSIM 1.0000, of which 60 are pixel-identical outright. The other 28 differ on a scattering of
+126 scenarios across 10 categories, 1428 element boxes matched. **Box geometry matches Chrome
+exactly on every one** — worst offset 0.00px, worst size 0.00px, and nothing unmatched — and 91
+read SSIM 1.0000, of which 63 are pixel-identical outright. The other 28 differ on a scattering of
 antialiased pixels, which is what `AE` is there to show.
 
 Thirty-five read below 1.0000. None is a mystery, and none should be "fixed" by regenerating a
@@ -26,11 +26,11 @@ baseline:
 | --- | --- | --- | --- |
 | `page/table_header` | 0.0119 | 0.9900 | Sub-pixel glyph positioning at 24 and 30px; page three is identical |
 | `block/border_styles` | 0.0034 | 0.9906 | Dash phase restarts at each corner, below |
-| `ua/hr` | 0.0023 | 0.9911 | `inset` painted solid, below |
 | `text/kerning` | 0.0201 | 0.9945 | Sub-pixel glyph positioning, below |
 | `text/ligatures` | 0.0099 | 0.9982 | Same |
 | `block/shadows` | 0.0057 | 0.9985 | Antialiasing on `#rounded`'s corner; no pixel differs by more than 2 of 255 |
 | `image/svg` | 0.0028 | 0.9988 | Sub-pixel glyph positioning in the `<text>` inside the picture |
+| `block/bevelled_borders` | 0.0009 | 0.9990 | Antialiasing where two colours meet on a mitre, below |
 | `page/fixed_repeat` | 0.0039 | 0.9992 | Sub-pixel glyph positioning |
 | `page/break_between_lines` | 0.0017 | 0.9996 | Sub-pixel glyph positioning |
 | `page/orphans_widows` | 0.0019 | 0.9998 | Same; pages one and three are identical |
@@ -60,10 +60,11 @@ baseline:
 | `text/text_transform` | 0.0002 | 0.9999 | Same |
 | `ua/blockquote_pre` | 0.0005 | 0.9999 | Same |
 
-Six causes cover all thirty-five. Four are property gaps with a fix behind them — the dash phase,
-the `inset` family, `text-decoration-skip-ink` and the gradient quantisation — and each is written
-up in the sections below. The other two are general: **sub-pixel glyph positioning**, and **a box
-edge landing on a fractional position**.
+Six causes cover all thirty-five. Three are property gaps with a fix behind them — the dash phase,
+`text-decoration-skip-ink` and the gradient quantisation — and each is written up in the sections
+below. The other three are general: **sub-pixel glyph positioning**, **a box edge landing on a
+fractional position**, and **two antialiased edges meeting on a mitre**, which is the same shortfall
+`PaintUniformBorder` avoids for a uniform border by painting one ring.
 
 ## Unimplemented layout modes
 
@@ -105,19 +106,9 @@ wrong is still unmeasured.
   `CharacterMap` tests whether a face covers a given character. A character the resolved face lacks
   renders as `.notdef`. This interacts with shaping: fallback means splitting a run at coverage
   boundaries and shaping each piece separately.
-- **`ex` and `ch` are both approximated at half an em** (`CssValues`). `ex` wants the face's
-  x-height, which `OpenTypeMetrics` already reads for `vertical-align: middle`, and `ch` wants the
-  advance of `0`; both mean threading a face into length resolution, which is why neither is done.
-  Not reported, and no scenario uses either unit.
 
 ## Boxes and painting
 
-- **`groove`, `ridge`, `inset` and `outset` paint solid.** They need two derived shades of the
-  declared colour, which is the whole of why they were left. This is the entirety of `ua/hr`'s
-  0.9911 — the rule is a zero-height box drawn by its border, so the border is the whole box. It is
-  reported everywhere except on `hr` itself, which `UnsupportedCss.BorderStyles` exempts by name
-  because AngleSharp's default sheet makes every plain `<hr>` `inset` and a page carrying no CSS at
-  all would otherwise report four times.
 - **A dashed border's phase restarts at each corner.** A side whose length is not a whole number of
   periods therefore ends on a partial dash, where a browser redistributes the remainder along the
   side so it ends flush. Measured by `block/border_styles`, and it is the largest residual in the
@@ -176,9 +167,11 @@ wrong is still unmeasured.
   put a box whose flow position is on page three off the bottom of every page. Chromium draws such
   a box twice — once where flow put it, and again at that page-relative offset on every later page
   — which is measured in `page/fixed_repeat`'s notes and deliberately not matched. Reported.
-- **Auto margins on an absolute box resolve to zero rather than centring it.** CSS centres a box
-  whose width and both offsets are given and whose margins are both auto, which is one of the two
-  standard centring idioms. Nothing measures it.
+- **An absolute box with `top` and `bottom` given and an auto HEIGHT does not stretch between
+  them**, where an auto width already stretches between `left` and `right`. `BlockLayout.Layout`
+  takes an assigned width and no assigned height, so there is nothing to hand a forced height to.
+  `position/auto_margins` records it, and `AbsoluteLayout.Definite` keeps the vertical auto-margin
+  case gated on a declared height because of it.
 
 ## Pagination and paged media
 
@@ -246,9 +239,11 @@ the table does NOT cover belongs here:
   declaration. Reporting it from `StyleResolver` would fire on documents that are perfectly
   correct, which is the one thing the table must not do.
 - **Origin is not testable.** `ComputeCascadedStyle` does not say whether a declaration came from
-  the document or from the default stylesheet, so a UA rule the author never wrote can only be kept
-  quiet by naming the element. `hr` is the single case that needs it today; a second one would be a
-  reason to look for a real fix rather than to add another exemption.
+  the document or from the default stylesheet, so a UA rule the author never wrote could only be
+  kept quiet by naming the element. Nothing needs it today — `hr` was the single case, exempted from
+  border-style reporting, and implementing the four bevelled styles removed the entry that would
+  have fired. Worth remembering that an exemption by element name is a sign the property is
+  unimplemented rather than a sign the report is wrong.
 - **A value nothing PARSES is a value nothing can report.** The audit that diffs what
   `StyleResolver` reads against what `UnsupportedCss` lists cannot see a syntax the resolver does
   not recognise — `calc()` was that case, falling through to the unparseable fallback with no

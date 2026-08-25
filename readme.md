@@ -117,6 +117,12 @@ Also `aspect-ratio`, `rgba()` colours, text and box shadows as offsets, `text-de
 and `text-underline-offset`, `<col>` and `<colgroup>` widths, and `border-style: hidden` in a
 collapsed table.
 
+Every value `border-style` takes is drawn the way a browser draws it, `groove`, `ridge`, `inset` and
+`outset` included — each in the two derived shades of the declared colour that CSS asks for and
+specifies nothing about. The `ex` and `ch` units resolve against the face rather than at an
+approximate half an em, and an absolutely positioned box with an offset at each end and auto margins
+is centred between them.
+
 The PDF gets structure the page cannot show. Headings become a bookmark tree, nested by level and
 bounded by `HtmlOptions.OutlineDepth`; every `id` becomes a named destination, so
 `report.pdf#introduction` opens at that heading; and the document's `<title>` and `lang` fill the

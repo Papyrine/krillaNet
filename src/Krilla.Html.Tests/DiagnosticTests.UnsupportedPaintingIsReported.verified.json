@@ -1,12 +1,6 @@
 ﻿[
   {
     "Element": "div",
-    "Name": "border-style",
-    "Value": "groove",
-    "Reason": "painted solid"
-  },
-  {
-    "Element": "div",
     "Name": "border-top-left-radius",
     "Value": "4px",
     "Reason": "the border is painted with square corners"

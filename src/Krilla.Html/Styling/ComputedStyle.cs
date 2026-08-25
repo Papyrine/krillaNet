@@ -549,11 +549,11 @@ enum ObjectFitKind
 
 /// <summary>How a border edge is drawn.</summary>
 /// <remarks>
-/// <c>none</c> and <c>hidden</c> are absent: <see cref="StyleResolver"/> folds them into a zero
-/// width, so an edge that is not drawn is one that takes no space either and layout never has to
-/// consult a style. The rest of the CSS list — <c>groove</c>, <c>ridge</c>, <c>inset</c> and
-/// <c>outset</c> — need two derived shades of the declared colour and are not implemented, so they
-/// arrive here as <see cref="Solid"/> and are reported instead.
+/// <c>none</c> is absent: <see cref="StyleResolver"/> folds it into a zero width, so an edge that
+/// is not drawn is one that takes no space either and layout never has to consult a style.
+/// <c>hidden</c> does the same to its width and is kept as a value all the same, because a
+/// collapsed table has to be able to tell it from an absent border. Everything else CSS lists is
+/// here, so a value not in this enum is a value nobody wrote.
 /// </remarks>
 enum BorderStyleKind
 {
@@ -568,6 +568,29 @@ enum BorderStyleKind
 
     /// <summary>Two bands a third of the width each, with a third-width gap between them.</summary>
     Double,
+
+    /// <summary>
+    /// Bevelled so the box looks pressed IN: the top and left edges darkened, the bottom and right
+    /// lightened.
+    /// </summary>
+    Inset,
+
+    /// <summary>
+    /// <see cref="Inset"/> reflected — the top and left lightened, the bottom and right darkened —
+    /// so the box looks raised.
+    /// </summary>
+    Outset,
+
+    /// <summary>
+    /// A groove carved into the canvas: the outer half of each edge drawn as <see cref="Inset"/>
+    /// and the inner half as <see cref="Outset"/>.
+    /// </summary>
+    Groove,
+
+    /// <summary>
+    /// A ridge standing out of it, which is <see cref="Groove"/> with the two halves exchanged.
+    /// </summary>
+    Ridge,
 
     /// <summary>
     /// <c>hidden</c>: no ink and no space, and inside a COLLAPSED table it suppresses the
@@ -949,6 +972,36 @@ sealed record ComputedStyle
     /// </remarks>
     static bool IsRounded((CssLength X, CssLength Y) corner) =>
         corner.X.Value != 0 || corner.Y.Value != 0;
+
+    /// <summary>
+    /// Whether each border colour came from <c>currentColor</c> rather than from a declaration.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Only a BEVELLED edge reads this, and it reads it because Chromium does something with the
+    /// case that cannot be derived from the colour: an <c>inset</c> border whose colour was not
+    /// declared is drawn in a fixed pair of greys, whatever the element's own <c>color</c> is.
+    /// Measured — a box with <c>color: gray</c> and one with <c>color: black</c> produce the same
+    /// two shades, and a box declaring <c>border-color: gray</c> produces the shades derived from
+    /// grey instead.
+    /// </para>
+    /// <para>
+    /// Per side rather than one flag for the box, because the flag has to travel with the colour it
+    /// qualifies and a border can declare a colour on one edge and not another. Four properties for
+    /// what is nearly always one answer, and the alternative is a simplification that would be wrong
+    /// exactly where the corpus would find it.
+    /// </para>
+    /// </remarks>
+    public bool BorderTopColorIsCurrent { get; init; }
+
+    /// <inheritdoc cref="BorderTopColorIsCurrent"/>
+    public bool BorderRightColorIsCurrent { get; init; }
+
+    /// <inheritdoc cref="BorderTopColorIsCurrent"/>
+    public bool BorderBottomColorIsCurrent { get; init; }
+
+    /// <inheritdoc cref="BorderTopColorIsCurrent"/>
+    public bool BorderLeftColorIsCurrent { get; init; }
 
     /// <summary>How the top border edge is drawn.</summary>
     public BorderStyleKind BorderTopStyle { get; init; }

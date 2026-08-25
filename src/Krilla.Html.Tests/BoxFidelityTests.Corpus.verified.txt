@@ -8,6 +8,7 @@ block/auto_margins               matched  4  offset    0.00  size    0.00  diffe
 block/auto_width                 matched  4  offset    0.00  size    0.00  differing  0  unmatched 0
 block/background_color           matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
 block/background_image           matched 18  offset    0.00  size    0.00  differing  0  unmatched 0
+block/bevelled_borders           matched 11  offset    0.00  size    0.00  differing  0  unmatched 0
 block/borders                    matched  3  offset    0.00  size    0.00  differing  0  unmatched 0
 block/border_radius              matched  7  offset    0.00  size    0.00  differing  0  unmatched 0
 block/border_styles              matched  7  offset    0.00  size    0.00  differing  0  unmatched 0

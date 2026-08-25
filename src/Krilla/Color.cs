@@ -64,6 +64,39 @@ public readonly record struct Color
     /// </summary>
     public static Color White => Gray(255);
 
+    /// <summary>
+    /// This colour's red, green and blue components, when it has any.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Grey converts exactly: one lightness stands for all three channels. CMYK does not, and is
+    /// refused rather than approximated — the conversion back depends on the device and the
+    /// profile, so any answer here would be a guess presented as a measurement.
+    /// </para>
+    /// <para>
+    /// A colour could be constructed and never read back, which is the gap this closes. Anything
+    /// deriving one colour from another needs the components: a bevelled CSS border is the first
+    /// such caller, since <c>inset</c> and its three relatives are drawn in two shades the author
+    /// never wrote.
+    /// </para>
+    /// </remarks>
+    /// <returns>Whether the colour is in a space with RGB components.</returns>
+    public bool TryGetRgb(out byte red, out byte green, out byte blue)
+    {
+        switch (Space)
+        {
+            case SpaceRgb:
+                (red, green, blue) = (C0, C1, C2);
+                return true;
+            case SpaceLuma:
+                (red, green, blue) = (C0, C0, C0);
+                return true;
+            default:
+                (red, green, blue) = (0, 0, 0);
+                return false;
+        }
+    }
+
     internal NativeColor ToNative() =>
         new()
         {

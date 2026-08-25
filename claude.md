@@ -121,7 +121,8 @@ Also implemented, and each measured against Chrome the same way: `calc()` and th
 and horizontal margins, one fragment per line), raster background images with `background-repeat`,
 `-position`, `-size`, `-clip` and `-origin`, soft hyphens, `overflow-wrap`/`word-break`, tabs under
 `pre`, `text-decoration-color` and `-style`, `object-position`, `empty-cells`,
-`list-style-image`, `aspect-ratio`, `text-shadow` and `box-shadow` (offsets only),
+`list-style-image`, `aspect-ratio`, `text-shadow` and `box-shadow` (offsets only), the `ex` and
+`ch` units, auto margins centring an absolute box, the four bevelled border styles,
 `text-decoration-thickness` and `text-underline-offset`, `rgba()` on `color` and `background-color`,
 and `<col>`/`<colgroup>` widths.
 
@@ -132,7 +133,7 @@ Three structural points worth knowing before changing anything:
 - **An absolute box is positioned in a second pass.** `AbsoluteLayout` runs after flow, because an absolute box is measured against an ancestor that is sized by flowing the very children that may declare it. `LayoutBox.Positioned` holds them against the box that DECLARED them — which is what knows their static position, where flow would have put them and where they go when their offsets are auto — while the containing block is found by walking the ancestor chain in that second pass.
 - **A float is out of flow but not out of the tree.** `LayoutBox.Floats` holds them, apart from `Children`, each with the index of the in-flow child it was declared before — a float starts at the flow position it was written at, not at the top of its container. Keeping them out of `Children` preserves the rule that a block container is all-block or all-inline, which a float inside a paragraph would otherwise break. `Descendants()`, `Translate` and the painter all still walk them.
 - **Images do not fetch over the network**, and that is a security default rather than a missing feature — converting an untrusted document would otherwise issue requests to whatever hosts it names. `HtmlOptions.ImageResolver` is where a caller takes that decision explicitly, and `LocalImages`/`WebImages` (`ImagePolicy`) bound what any resolver may load. The policy is checked in `ImageStore.Resolve` *before* the resolver runs, which is the whole point: a caller-supplied resolver that fetches is the one with something to constrain, and a refused source is never requested. `data:` is ungated — its bytes are already in the document.
-- **`OnDiagnostic` reports only the deliberate sites, never every unrecognised declaration.** The signal worth having is "recognised, and not rendered the way a browser would" — `display: flex`, a presentational attribute, an image that resolved to nothing. Reporting unknown CSS too would bury that under the `cursor` and `content` an ordinary stylesheet carries, and would cost the invariant its meaning: **a conversion that reports nothing laid out every construct in the document the way a browser would.** `UnsupportedCss` holds the table of what to report and `UnsupportedAttributes` the presentational attributes; both run only when `DocumentContext.Reports` is true, because the scan costs a cascade lookup per property per element and a caller who is not subscribed should not pay for it. Two rules keep the false-positive rate at zero, and both were arrived at by finding the false positives first: a value that is a **no-op** is silent (`float: none` in a reset stylesheet renders exactly as asked), and so is anything the **default stylesheet** supplies rather than the document — which is why `hr` is exempt from border-style reporting, since AngleSharp's built-in sheet makes every plain `<hr>` `inset`. Origin cannot be tested directly; `ComputeCascadedStyle` does not expose it, the same limitation `Inputs/flatten.css` works around.
+- **`OnDiagnostic` reports only the deliberate sites, never every unrecognised declaration.** The signal worth having is "recognised, and not rendered the way a browser would" — `display: flex`, a presentational attribute, an image that resolved to nothing. Reporting unknown CSS too would bury that under the `cursor` and `content` an ordinary stylesheet carries, and would cost the invariant its meaning: **a conversion that reports nothing laid out every construct in the document the way a browser would.** `UnsupportedCss` holds the table of what to report and `UnsupportedAttributes` the presentational attributes; both run only when `DocumentContext.Reports` is true, because the scan costs a cascade lookup per property per element and a caller who is not subscribed should not pay for it. Two rules keep the false-positive rate at zero, and both were arrived at by finding the false positives first: a value that is a **no-op** is silent (`float: none` in a reset stylesheet renders exactly as asked), and so is anything the **default stylesheet** supplies rather than the document. Origin cannot be tested directly; `ComputeCascadedStyle` does not expose it, the same limitation `Inputs/flatten.css` works around — and there is nothing exempted by name any more. `hr` was the single case that needed it, exempted from border-style reporting because AngleSharp's built-in sheet makes every plain `<hr>` `inset`; implementing the four bevelled styles removed the entry that would have fired, and with it the exemption. **An exemption by element name is a sign the property is unimplemented, not a sign the report is wrong**, which is worth knowing before adding a second one.
 
 ### The corpus (`src/Krilla.Html.Tests/Inputs`)
 
@@ -147,7 +148,7 @@ It records two independent measurements, and **asserts neither**:
 - **`reference.boxes.json`** — the browser's `getBoundingClientRect()` per element, against our box tree. Integer-exact, localising ("this paragraph is 14px low" is a defect report), and — the practical reason it leads — computable without the native library, so it works on a machine with no Rust toolchain.
 - **`reference_0001.png`** — pixels, via AbsoluteError and SSIM.
 
-**Box geometry currently sits at zero across all 123 scenarios, with nothing unmatched**, and 88
+**Box geometry currently sits at zero across all 126 scenarios, with nothing unmatched**, and 91
 read SSIM 1.0000. Several got there by finding a defect first, which is the argument for adding a
 scenario for anything the engine implements rather than only for what it implements well:
 `block/anonymous` found trailing inline content hoisted above a block sibling, `position/fixed`
@@ -157,13 +158,14 @@ on a section with no columns, `page/table_break` found a break taken at the line
 `text/word_break` found a word moved to a fresh line and then never offered for splitting, and
 `position/z_index` found an absolute box inside a stacking context painted twice — once where it
 belonged and once flattened onto the page. Each is written up in its own `notes.md`. The remaining pixel residuals each have a named cause rather than
-a mystery: `block/border_styles` (0.9906) and `ua/hr` (0.9911) are patterned and `inset` rules,
+a mystery: `block/border_styles` (0.9906) is a dash phase restarting at each corner,
 `text/kerning` (0.9945) and `text/ligatures` (0.9982) are sub-pixel glyph positioning,
+`block/bevelled_borders` (0.9990) is antialiasing where two colours meet on a mitre,
 `text/decoration_style` (0.9999) is `text-decoration-skip-ink`, `image/inline_flow` (0.9998) is
 antialiasing on an image edge at a fractional position, and the rest are the same glyph positioning
 seen on fewer words. A scenario reading SSIM 1.0000 is not necessarily pixel-identical —
 twenty-eight differ on a scattering of antialiased pixels, which is what `AE` is there to show.
-Sixty are identical outright.
+Sixty-three are identical outright.
 
 **The unmatched count is an assertion, not a statistic.** `BaselineHealthTests.EveryElementIsMeasured`
 requires every element the browser laid out to have a box on this side. It closes the same hole
@@ -235,6 +237,9 @@ Measured out of Chrome before being written, the same as the float rules. `Posit
 - **A FIXED box is drawn on EVERY page, and that is a painting rule rather than a layout one.** CSS 2.1 §9.6.1 says so and Chromium's printer agrees, which `page/fixed_repeat` measures across three sheets. It costs one transform: everything on a page is painted through a translate that has already subtracted the page's top, so adding the top back puts the box at the same place on every sheet. The corpus can only see it in PIXELS — the box harvest runs against one continuous layout, so the browser reports such a box exactly once and an engine drawing it on page one alone matches the geometry comparison perfectly.
 - **A fixed box with `top` and `bottom` both auto is the exception, and is painted once.** Its position is its STATIC position, which is a position in the DOCUMENT rather than on a page — so repeating it would add each page's own top to a coordinate that already includes it, and a box whose flow position is on page three would fall off the bottom of every page and vanish. Chromium does something else again: it draws such a box where flow put it, across a page boundary if that is where it falls, and ALSO repeats it at that page-relative offset on every later page, so a straddling box appears twice on the page after it. Measured, deliberately not matched, and reported by `UnsupportedCss.Fixed` — which is why that entry narrowed rather than disappearing.
 - **`position: fixed` establishes a stacking context**, which CSS Position 3 says outright and which is also what holds the subtree together here: anything flattened out of it onto the page would be painted without the per-page translate, at its page-one position, on every page.
+- **An AUTO margin means something on an absolute box that it means nowhere else on one.** With an offset at each end and a definite size between them the box is over-constrained, and CSS 2.1 §10.3.7 makes the auto margins absorb the slack — both auto centres it, one auto takes the whole remainder. That is one of the two standard centring idioms and it resolved to zero for a long time, under a comment saying centring "is not a case this distinguishes yet". `position/auto_margins` measures all six arrangements.
+- **Negative slack is NOT split.** A box wider than the gap its offsets leave keeps the whole overflow on the end margin and stays against the start edge. Splitting it pulls the box half its overflow off the start edge, which reads as a centring bug in exactly the case where centring was impossible.
+- **The vertical half is gated on a DECLARED height rather than mirroring the horizontal one.** An auto width stretches between `left` and `right`; an auto height does not stretch between `top` and `bottom`, because `BlockLayout.Layout` takes an assigned width and no assigned height. Centring such a box would share out the gap it should have filled, so `Definite` keeps it out until the stretch exists.
 - **`bottom` and `right` name the edge the box moves AWAY from.** In relative positioning `bottom: 5px` lifts a box; in absolute positioning it measures the gap from the containing block's bottom edge, so the box has to be sized before it can be placed.
 - **Relative positioning is applied to the whole subtree at the end of `BlockLayout.Layout`**, after the height has been returned. It changes no measurement: siblings sit where they would have, the parent keeps its height, and the float context keeps the pre-offset entry for any float inside — which is also correct, since content outside flows as though the offset never happened.
 - **Positioned boxes are painted from the root, not where they were declared.** They belong to the page's stacking layer rather than to their parent's flow position, and painting one inside its declaring parent buries it under any later sibling. That burial is the normal case rather than a corner one, because the box an absolute is anchored to is frequently an ancestor of the sibling that covers it. `PdfPainter.Hoisted` collects them in tree order — RELATIVE boxes too, which stay in flow and are still out of Appendix E's steps 3 and 7. It flattens the whole page into one list rather than nesting, which is Appendix E's own rule: a positioned descendant of a float, or of another positioned box, belongs to the parent stacking context.
@@ -516,6 +521,45 @@ All four are geometry-exact; the middle two are pixel-identical.
 - **An over-large radius scales the WHOLE box, not each side.** `border-radius: 999px` on a box 40px tall scales every radius by one factor, the smallest that makes each side fit. Clamping per side gives a rectangle with mismatched circular ends where a browser gives a pill.
 - **An inner radius is the outer one less the edge it runs along, floored at zero**, which is what makes a thick rounded border read as a ring rather than a tube.
 
+## Traps in the bevelled border styles
+
+`block/bevelled_borders` measures these and `ua/hr` is pixel-identical because of them. CSS specifies
+none of the shading — it says the box should look carved into or raised out of the canvas and leaves
+every colour to the user agent — so, as with `line-height: normal` and every number in
+`ListMarkers`, there is no correct value to compute and agreeing with the reference browser is the
+only useful target.
+
+- **`<hr>` was not drawn AT ALL, and the corpus said the residual was shading.** `ua/hr`'s notes
+  recorded 0.9911 as "the shading of Chrome's `inset` against a solid line". The truth was worse and
+  simpler: `border: 1px inset` — what the default stylesheet writes — sets `border-color: initial`,
+  `initial` was not read as `currentColor`, the colour parsed to null, `HasBorder` went false, and
+  the rule left no ink. **A residual with a stated cause is still a guess until something measures
+  the cause**, which is what reading the actual pixels out of the two PNGs did in about a minute.
+- **The two shades scale by a factor taken from the BRIGHTEST channel**, which moves the lightness
+  while keeping the hue, and both truncate through a scale of 255.99998 rather than rounding — so
+  `#3366cc` lightens to `#3f7fff`, whose red is 63 where rounding 63.75 gives 64. Verified against
+  Chromium at five bases and three border widths. White and black are hardcoded in Chromium rather
+  than computed, one having no brightest channel to scale down and the other none to scale up.
+- **An UNDECLARED colour ignores the element's colour entirely** and takes a fixed `#9a9a9a` over
+  `#eeeeee`. Four arrangements were measured and all four agree — `color: gray`, `color: black`, an
+  explicit `border-color: currentColor`, and a plain `<hr>`. It is the one rule here that no
+  derivation predicts, and it is why `ComputedStyle` carries a per-side flag saying the colour came
+  from `currentColor`: the cascade cannot otherwise tell a declared grey from a resolved one, and a
+  box declaring `border-color: gray` gets the derivation instead.
+- **A groove is not one bevel in two shades.** Its outer half is an `inset` edge and its inner half
+  an `outset` one, which is what puts dark over light on the top and light over dark on the bottom;
+  a ridge is those two exchanged. Shading one band from light to dark is the plausible reading and
+  gives a different picture on every side.
+- **The style precedence in a collapsed table had all four in one bucket.** CSS 2.1 §17.6.2 orders
+  `double` over `solid` over `dashed` over `dotted` over `ridge` over `outset` over `groove` over
+  `inset`; `Rank` stopped at `dashed` and swept the rest into one, which was correct only while the
+  bevelled styles did not exist. Nothing failed, because the tie is observable only where two edges
+  of equal width meet with different bevelled styles.
+- **The mitre is where the residual is.** Every differing pixel in `block/bevelled_borders` is on a
+  corner diagonal, two per row, because two antialiased edges meeting there do not composite to full
+  coverage — the same reason `PaintUniformBorder` paints a uniform border as one ring. Chromium
+  covers the same pixel fully with a 50/50 blend of the two colours.
+
 ## Traps in overflow, visibility and text spacing
 
 Five properties that were read and not honoured, each measured out of Chrome before being written.
@@ -615,8 +659,28 @@ they came from, which is the point the section below about measurement makes.
 
 ## Traps in the value layer
 
-`block/calc`, `block/viewport_units` and `inline/vertical_align_length` measure these, all three
-exact on geometry.
+`block/calc`, `block/viewport_units`, `inline/vertical_align_length` and `text/ex_ch` measure these,
+all four exact on geometry.
+
+- **`ex` and `ch` need a FACE, not a size**, and the value layer threaded a bare `float` — so both
+  were approximated at half an em, with nowhere to put the answer. `CssFont` carries the size
+  alongside the x-height and the advance of `0`, and `StyleResolver` settles the family, the weight
+  and the slope before parsing any length. Deliberately NOT an implicit conversion from `float`: an
+  implicit one would let a call site pass a size where a font belongs and silently go back to
+  approximating, which is the failure it replaced.
+- **Neither is half an em, and they are not the same quantity as each other.** Liberation Sans is
+  0.5283 of the em at the x-height and 0.5561 at the advance of `0`, so `20ex` and `20ch` differ by
+  11px in one face at 20px.
+- **`ex` alone cannot show that the value follows the face.** All four Liberation faces share an
+  x-height ratio, so the sans, the bold and the monospace rows of `text/ex_ch` come out identical;
+  `ch` is what separates them, at 0.6 of the em in the monospace face. A scenario measuring only
+  `ex` would pass an implementation that read the size and ignored the family.
+- **`font-size: 3ex` resolves against the PARENT's face**, the same rule `em` follows, because the
+  face after the declaration is what is being computed. `ResolveFontSize` is handed the parent's
+  font rather than one built from a size it does not have yet.
+- **`@page` cannot have a face at all.** Its geometry is settled before the cascade can be read, and
+  which face the root resolves to is a cascade result — so a page sized or margined in `ex` takes
+  the approximation, and that is circular rather than lazy.
 
 - **AngleSharp hands `calc()` back verbatim**, exactly as it does a bare percentage, so evaluating it
   falls to this engine. Before that it fell through to the "unparseable" fallback and the property
@@ -993,6 +1057,8 @@ Both are now reported, and the lesson generalises: a value-by-value fallback wit
 The other thing the audit cannot see is a syntax the resolver does not PARSE. `calc()` was the case: it fell through to the unparseable fallback, the property took its default, and no diagnostic could fire because nothing recognised the value as one the engine was getting wrong. **A value nothing recognises is a value nothing can report.**
 
 Still reported rather than implemented: `column-count`, `writing-mode`, `direction`, `font-variant`, `font-stretch`, a wavy text decoration, `word-break: keep-all`, a blurred or spread shadow and an `inset` one, `rgba()` on a border, an outline or a decoration, `break-before`/`break-after: avoid`, automatic hyphenation, a `position: fixed` box with neither `top` nor `bottom` given, `visibility: collapse` on a table row, an unrecognised `list-style-type`, `white-space: break-spaces`, an unresolved `list-style-image`, a `content` value that names something unreadable, a non-inline `display` on a pseudo-element, a named `@page` selector, rounded corners on an inline element, and a gradient as an inline element's background.
+
+`border-style` came off it entirely, which is the first property to leave the table by having every value it takes honoured rather than by having one value reasoned about — the four bevelled styles were the last four, and `hr`'s by-name exemption went with them.
 
 Two entries came OFF that list by being measured rather than implemented, which is its own kind of result. `border-style: hidden` inside a collapsed table was documented as unimplementable — the width was folded to zero before anything could tell it from an absent border — and became a two-line change once `hidden` was kept as a style of its own; `table/collapse` is pixel-identical with it. And `visibility: collapse` on a table row was written, measured, and reverted: Chrome disagrees with ITSELF, its screen layout zeroing the row's track while its printed page puts everything after it twenty pixels further down, so no engine behaviour can be exact on both of the corpus's measurements.
 

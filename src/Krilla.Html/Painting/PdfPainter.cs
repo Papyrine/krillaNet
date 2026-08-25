@@ -1566,76 +1566,130 @@ static class PdfPainter
             return;
         }
 
-        // Every edge that is not solid, drawn along its own centre line. A browser does not mitre
-        // these into their neighbours — dashes and dots run past the corner and a double border's
-        // two bands span the whole side — so the trapezium below, whose purpose is to join two
-        // colours cleanly on a diagonal, is not what they want.
+        // Every edge that is neither solid nor bevelled, drawn along its own centre line. A browser
+        // does not mitre these into their neighbours — dashes and dots run past the corner and a
+        // double border's two bands span the whole side — so the trapezium below, whose purpose is
+        // to join two colours cleanly on a diagonal, is not what they want.
         PaintPatternedEdges(surface, style, outer);
 
-        if (style is
-            {
-                BorderTop: > 0,
-                BorderTopColor: {} topColor,
-                BorderTopStyle: BorderStyleKind.Solid
-            })
+        Edge(style.BorderTopStyle, style.BorderTop, style.BorderTopColor, Side.Top, style.BorderTopColorIsCurrent);
+        Edge(style.BorderBottomStyle, style.BorderBottom, style.BorderBottomColor, Side.Bottom, style.BorderBottomColorIsCurrent);
+        Edge(style.BorderLeftStyle, style.BorderLeft, style.BorderLeftColor, Side.Left, style.BorderLeftColorIsCurrent);
+        Edge(style.BorderRightStyle, style.BorderRight, style.BorderRightColor, Side.Right, style.BorderRightColorIsCurrent);
+
+        void Edge(BorderStyleKind kind, float width, Color? color, Side side, bool current)
         {
-            FillPolygon(
-                surface,
-                topColor,
-                new(outer.X, outer.Y),
-                new(outer.Right, outer.Y),
-                new(innerRight, innerTop),
-                new(innerLeft, innerTop));
+            if (width <= 0 || color is not {} declared || !Mitred(kind))
+            {
+                return;
+            }
+
+            // The top and left edges are the ones a bevel darkens under `inset`. Nothing else here
+            // distinguishes them.
+            var near = side is Side.Top or Side.Left;
+
+            // One band for a solid or a single-shade bevel, two for a groove or a ridge — which is
+            // Chromium's construction: the outer half of a groove is an `inset` edge and the inner
+            // half an `outset` one.
+            var bands = kind is BorderStyleKind.Groove or BorderStyleKind.Ridge ? 2 : 1;
+
+            for (var band = 0; band < bands; band++)
+            {
+                Band(
+                    Bevel.Shade(declared, kind, near, outer: band == 0, current),
+                    (float) band / bands,
+                    (float) (band + 1) / bands,
+                    side);
+            }
         }
 
-        if (style is
-            {
-                BorderBottom: > 0,
-                BorderBottomColor: {} bottomColor,
-                BorderBottomStyle: BorderStyleKind.Solid
-            })
+        // The band between two rectangles nested inside the border box at `from` and `to` of the
+        // way in — so 0 to 1 is the whole edge, and the two halves of a groove are 0 to 0.5 and
+        // 0.5 to 1. All four sides step inward together, so the mitres still meet on the diagonal.
+        void Band(Color color, float from, float to, Side side)
         {
-            FillPolygon(
-                surface,
-                bottomColor,
-                new(outer.Right, outer.Bottom),
-                new(outer.X, outer.Bottom),
-                new(innerLeft, innerBottom),
-                new(innerRight, innerBottom));
+            var (aLeft, aTop, aRight, aBottom) = Nested(from);
+            var (bLeft, bTop, bRight, bBottom) = Nested(to);
+
+            switch (side)
+            {
+                case Side.Top:
+                    FillPolygon(
+                        surface,
+                        color,
+                        new(aLeft, aTop),
+                        new(aRight, aTop),
+                        new(bRight, bTop),
+                        new(bLeft, bTop));
+                    return;
+                case Side.Bottom:
+                    FillPolygon(
+                        surface,
+                        color,
+                        new(aRight, aBottom),
+                        new(aLeft, aBottom),
+                        new(bLeft, bBottom),
+                        new(bRight, bBottom));
+                    return;
+                case Side.Left:
+                    FillPolygon(
+                        surface,
+                        color,
+                        new(aLeft, aBottom),
+                        new(aLeft, aTop),
+                        new(bLeft, bTop),
+                        new(bLeft, bBottom));
+                    return;
+                default:
+                    FillPolygon(
+                        surface,
+                        color,
+                        new(aRight, aTop),
+                        new(aRight, aBottom),
+                        new(bRight, bBottom),
+                        new(bRight, bTop));
+                    return;
+            }
         }
 
-        if (style is
-            {
-                BorderLeft: > 0,
-                BorderLeftColor: {} leftColor,
-                BorderLeftStyle: BorderStyleKind.Solid
-            })
+        // Clamped the same way the padding box above is, so a border thicker than the box it
+        // surrounds collapses to a degenerate rectangle rather than an inside-out one.
+        (float Left, float Top, float Right, float Bottom) Nested(float fraction)
         {
-            FillPolygon(
-                surface,
-                leftColor,
-                new(outer.X, outer.Bottom),
-                new(outer.X, outer.Y),
-                new(innerLeft, innerTop),
-                new(innerLeft, innerBottom));
-        }
+            var left = Math.Min(outer.X + style.BorderLeft * fraction, outer.Right);
+            var top = Math.Min(outer.Y + style.BorderTop * fraction, outer.Bottom);
 
-        if (style is
-            {
-                BorderRight: > 0,
-                BorderRightColor: {} rightColor,
-                BorderRightStyle: BorderStyleKind.Solid
-            })
-        {
-            FillPolygon(
-                surface,
-                rightColor,
-                new(outer.Right, outer.Y),
-                new(outer.Right, outer.Bottom),
-                new(innerRight, innerBottom),
-                new(innerRight, innerTop));
+            return (
+                left,
+                top,
+                Math.Max(outer.Right - style.BorderRight * fraction, left),
+                Math.Max(outer.Bottom - style.BorderBottom * fraction, top));
         }
     }
+
+    /// <summary>Which of the four border edges is being drawn.</summary>
+    enum Side
+    {
+        Top,
+        Right,
+        Bottom,
+        Left
+    }
+
+    /// <summary>
+    /// Whether the style is drawn as a mitred trapezium rather than as a stroked line.
+    /// </summary>
+    /// <remarks>
+    /// The two groups are exactly the ones whose ends have to meet a neighbour cleanly. A solid or
+    /// bevelled edge does; a dash, a dot or a double band runs past the corner instead, which is
+    /// what <see cref="PaintPatternedEdges"/> draws.
+    /// </remarks>
+    static bool Mitred(BorderStyleKind kind) =>
+        kind is BorderStyleKind.Solid
+            or BorderStyleKind.Inset
+            or BorderStyleKind.Outset
+            or BorderStyleKind.Groove
+            or BorderStyleKind.Ridge;
 
     /// <summary>
     /// Draws every border edge whose style is not solid.
@@ -1673,7 +1727,7 @@ static class PdfPainter
 
         void Edge(BorderStyleKind kind, float width, Color? color, bool horizontal, bool near)
         {
-            if (width <= 0 || kind == BorderStyleKind.Solid || color is not {} paint)
+            if (width <= 0 || Mitred(kind) || color is not {} paint)
             {
                 return;
             }

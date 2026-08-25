@@ -104,16 +104,25 @@ sealed class CollapsedBorders
         }
 
         /// <summary>
-        /// Style precedence, higher winning. <c>double</c> over <c>solid</c> over the broken
-        /// styles is the specification's order; the shaded styles are absent because
-        /// <see cref="StyleResolver"/> never produces them.
+        /// Style precedence, higher winning: CSS 2.1 §17.6.2's order, in full.
         /// </summary>
+        /// <remarks>
+        /// The four bevelled styles used to be absent from this list because
+        /// <see cref="StyleResolver"/> never produced them, so all four fell into the same bucket
+        /// as <c>dotted</c> — which is two ranks too high for three of them and one too low for
+        /// <c>ridge</c>. Nothing failed, because the tie is only observable where two edges of
+        /// equal width meet with different bevelled styles.
+        /// </remarks>
         static int Rank(BorderStyleKind style) =>
             style switch
             {
-                BorderStyleKind.Double => 4,
-                BorderStyleKind.Solid => 3,
-                BorderStyleKind.Dashed => 2,
+                BorderStyleKind.Double => 8,
+                BorderStyleKind.Solid => 7,
+                BorderStyleKind.Dashed => 6,
+                BorderStyleKind.Dotted => 5,
+                BorderStyleKind.Ridge => 4,
+                BorderStyleKind.Outset => 3,
+                BorderStyleKind.Groove => 2,
                 _ => 1
             };
 

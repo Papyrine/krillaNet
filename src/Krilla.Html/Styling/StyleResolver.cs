@@ -247,6 +247,10 @@ static class StyleResolver
             BorderRightColor = BorderColor(declaration, "right", color),
             BorderBottomColor = BorderColor(declaration, "bottom", color),
             BorderLeftColor = BorderColor(declaration, "left", color),
+            BorderTopColorIsCurrent = IsCurrentColor(declaration, "top"),
+            BorderRightColorIsCurrent = IsCurrentColor(declaration, "right"),
+            BorderBottomColorIsCurrent = IsCurrentColor(declaration, "bottom"),
+            BorderLeftColorIsCurrent = IsCurrentColor(declaration, "left"),
             BoxSizing = ParseBoxSizing(declaration.GetPropertyValue("box-sizing")),
             Width = Length(declaration, "width", font, root, CssLength.Auto),
             Height = Length(declaration, "height", font, root, CssLength.Auto),
@@ -519,14 +523,37 @@ static class StyleResolver
         return CssValues.ParseLength(value, fontSize, root, CssLength.Zero).Resolve(0);
     }
 
+    /// <summary>
+    /// Whether the edge's colour is <c>currentColor</c>, declared or by default.
+    /// </summary>
+    /// <remarks>
+    /// The same three conditions <see cref="BorderColor"/> treats as the initial value, asked
+    /// separately because the answer outlives the colour: a bevelled edge is drawn in a fixed pair
+    /// of shades in this case rather than in shades derived from what <c>currentColor</c> resolved
+    /// to. See <see cref="ComputedStyle.BorderTopColorIsCurrent"/>.
+    /// </remarks>
+    static bool IsCurrentColor(ICssStyleDeclaration declaration, string side)
+    {
+        var value = declaration.GetPropertyValue($"border-{side}-color");
+
+        return string.IsNullOrWhiteSpace(value) ||
+               value.Equals("currentcolor", StringComparison.OrdinalIgnoreCase) ||
+               value.Equals("initial", StringComparison.OrdinalIgnoreCase);
+    }
+
     static Color? BorderColor(ICssStyleDeclaration declaration, string side, Color inherited)
     {
         var value = declaration.GetPropertyValue($"border-{side}-color");
 
         // border-color defaults to currentColor, so an unset edge takes the element's own colour
-        // rather than disappearing.
+        // rather than disappearing. `initial` IS that default and has to be read as one — it
+        // arrives far more often than anyone writes it, because a `border` shorthand that omits the
+        // colour sets the component to `initial`, and `border: 1px inset` is exactly how the
+        // default stylesheet draws an `<hr>`. Left unread it parsed to null, `HasBorder` went false,
+        // and the rule was not drawn at all.
         if (string.IsNullOrWhiteSpace(value) ||
-            value.Equals("currentcolor", StringComparison.OrdinalIgnoreCase))
+            value.Equals("currentcolor", StringComparison.OrdinalIgnoreCase) ||
+            value.Equals("initial", StringComparison.OrdinalIgnoreCase))
         {
             return inherited;
         }
@@ -894,6 +921,10 @@ static class StyleResolver
             "dashed" => BorderStyleKind.Dashed,
             "dotted" => BorderStyleKind.Dotted,
             "double" => BorderStyleKind.Double,
+            "inset" => BorderStyleKind.Inset,
+            "outset" => BorderStyleKind.Outset,
+            "groove" => BorderStyleKind.Groove,
+            "ridge" => BorderStyleKind.Ridge,
             // Kept rather than folded into the zero width beside it, because a collapsed table has
             // to be able to tell `hidden` from absent: CSS gives it absolute priority at a shared
             // edge, which cannot be expressed by a border that looks like no border at all.
