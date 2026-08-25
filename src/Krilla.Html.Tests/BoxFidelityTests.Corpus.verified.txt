@@ -80,6 +80,7 @@ link/fragment                    matched  8  offset    0.00  size    0.00  diffe
 link/wrapped                     matched  4  offset    0.00  size    0.00  differing  0  unmatched 0
 page/absolute_break              matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
 page/break_after                 matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
+page/break_avoid                 matched  8  offset    0.00  size    0.00  differing  0  unmatched 0
 page/break_before                matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
 page/break_between_lines         matched  4  offset    0.00  size    0.00  differing  0  unmatched 0
 page/break_inside                matched  5  offset    0.00  size    0.00  differing  0  unmatched 0

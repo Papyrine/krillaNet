@@ -1,0 +1,17 @@
+body { font-size: 16px; }
+
+.filler { height: 960px; background-color: #eef1f4; margin: 0; font-size: 24px; line-height: 40px; }
+#two { height: 816px; }
+
+h2 {
+  margin: 0;
+  height: 60px;
+  font-size: 24px;
+  line-height: 60px;
+  background-color: #cfd8e8;
+}
+
+p { margin: 0; line-height: 40px; }
+
+/* The property under test. Its own top edge is where the break lands instead. */
+#kept { break-after: avoid; }

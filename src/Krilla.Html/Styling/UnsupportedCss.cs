@@ -71,18 +71,6 @@ static class UnsupportedCss
     ];
 
     /// <summary>
-    /// The two break properties whose values are only partly honoured, in the modern spelling.
-    /// </summary>
-    /// <remarks>
-    /// <c>break-inside</c> is absent because the only value it takes that means anything outside a
-    /// multi-column or paged-region context is <c>avoid</c>, and that one is honoured — the box
-    /// becomes an unbreakable unit. Its other values behave as <c>auto</c> here by the
-    /// specification's own rule rather than by omission, so reporting them would be a false
-    /// positive.
-    /// </remarks>
-    static readonly string[] breakEdges = ["break-before", "break-after"];
-
-    /// <summary>
     /// The <c>text-transform</c> values that are applied. Everything else falls through to the
     /// inherited casing, which is what gets reported.
     /// </summary>
@@ -161,7 +149,6 @@ static class UnsupportedCss
             }
         }
 
-        Breaks(declaration, name, sink);
         Hyphens(declaration, name, sink);
         Wrapping(declaration, name, sink);
         Decoration(declaration, name, sink);
@@ -191,47 +178,6 @@ static class UnsupportedCss
             !displays.Contains(value))
         {
             Diagnostic.Property(sink, element, "display", value, "laid out as a block");
-        }
-    }
-
-    /// <summary>
-    /// A break request that is recognised and not honoured as asked.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// The forced values are honoured and silent, which is what this whole method is arranged
-    /// around: after the pagination work, most of what an author writes here is rendered the way a
-    /// browser renders it, and blanket-reporting the property would now be reporting documents
-    /// that convert correctly. What is left is two cases.
-    /// </para>
-    /// <para>
-    /// <c>avoid</c> asks for a break to be MOVED rather than taken, which the slice cannot do at a
-    /// box edge: <see cref="Paginator"/> chooses where a page ends from the unbreakable units
-    /// below it, and has no notion of a candidate it should reject in favour of an earlier one.
-    /// <c>break-inside: avoid</c> is different, and honoured, because it names a rectangle to keep
-    /// together rather than an edge to keep clear.
-    /// </para>
-    /// <para>
-    /// The four that name a side are honoured now, blank page and all, so they are silent. What is
-    /// left is <c>avoid</c> alone.
-    /// </para>
-    /// </remarks>
-    static void Breaks(ICssStyleDeclaration declaration, string element, Action<HtmlDiagnostic> sink)
-    {
-        foreach (var edge in breakEdges)
-        {
-            var (property, value) = Declared(declaration, edge);
-
-            var reason = value switch
-            {
-                "avoid" or "avoid-page" => "a page break is taken where pagination puts it",
-                _ => null
-            };
-
-            if (reason is not null)
-            {
-                Diagnostic.Property(sink, element, property, value!, reason);
-            }
         }
     }
 

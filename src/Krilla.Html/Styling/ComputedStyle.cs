@@ -161,11 +161,13 @@ enum BreakKind
     /// <remarks><c>left</c> and <c>verso</c>: an even-numbered page.</remarks>
     Verso,
 
-    /// <summary>A page should not start here, which is not honoured.</summary>
+    /// <summary>A page should not start here.</summary>
     /// <remarks>
-    /// Honoured for <c>break-inside</c>, where it makes the box one unbreakable unit. Not for
-    /// <c>break-before</c> and <c>break-after</c>, which ask for a break to be moved somewhere
-    /// earlier rather than for one to be taken — reported instead.
+    /// For <c>break-inside</c> it makes the box one unbreakable unit. For <c>break-before</c> and
+    /// <c>break-after</c> it moves a break that lands at the box's edge — back to whatever precedes
+    /// the box for the first, and back to the box's own top edge for the second, so the box travels
+    /// with what follows it. A preference rather than a requirement: a move that would leave the
+    /// page holding nothing is refused, since a break has to happen somewhere.
     /// </remarks>
     Avoid
 }

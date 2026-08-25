@@ -1,8 +1,0 @@
-﻿[
-  {
-    "Element": "div",
-    "Name": "page-break-before",
-    "Value": "avoid",
-    "Reason": "a page break is taken where pagination puts it"
-  }
-]

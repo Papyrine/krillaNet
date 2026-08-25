@@ -182,33 +182,35 @@ public class DiagnosticTests
                 """));
 
     /// <summary>
-    /// What is left of the pagination properties once the forced breaks are honoured.
+    /// Every pagination property is silent, because every one of them is honoured.
     /// </summary>
     /// <remarks>
-    /// Four of the six are silent, and are here for that reason rather than despite it: they are
-    /// the values this engine paginates the way a browser does, and a report against one would be a
-    /// false positive of exactly the kind the sink exists not to produce. A sheet side joined them
-    /// when the blank page it asks for was implemented, which is why it stays in the list — a value
-    /// that stops reporting has to be seen to stop.
+    /// An assertion of ABSENCE, which is what makes it worth having: these values are the ones this
+    /// engine paginates the way a browser does, and a report against any of them would be a false
+    /// positive of exactly the kind the sink exists not to produce. The list is the history of the
+    /// feature — each entry reported at some point and stopped when the value was implemented, and
+    /// a value that stops reporting has to be seen to stop. <c>avoid</c> at a box edge was the last
+    /// to go, moving a break to the declaring box's own edge rather than taking it where pagination
+    /// put it.
     ///
-    /// What remains is an <c>avoid</c> at a box edge, which asks for a break to be MOVED rather
-    /// than taken and so has nowhere to go in a forward-only slice. The two line-count properties
-    /// used to be named here as well, as honoured only on request because the reference browser did
-    /// not implement them. Both halves of that were wrong — the browser does implement them and they
-    /// are on by default now — so they have a test of their own below, which reports for the caller
-    /// who turned them OFF.
+    /// The two line-count properties were named here as well, as honoured only on request because
+    /// the reference browser did not implement them. Both halves of that were wrong — the browser
+    /// does implement them and they are on by default now — so they have a test of their own below,
+    /// which reports for the caller who turned them OFF.
     /// </remarks>
     [Test]
-    public async Task PaginationPropertiesAreReported() =>
-        await Verify(
-            await Collect(
-                """
-                <div style="break-before: page">a</div>
-                <div style="page-break-after: always">b</div>
-                <div style="break-inside: avoid">c</div>
-                <div style="page-break-before: avoid">d</div>
-                <div style="break-after: left">e</div>
-                """));
+    public async Task PaginationPropertiesAreSilent() =>
+        await Assert.That(
+                await Collect(
+                    """
+                    <div style="break-before: page">a</div>
+                    <div style="page-break-after: always">b</div>
+                    <div style="break-inside: avoid">c</div>
+                    <div style="page-break-before: avoid">d</div>
+                    <div style="break-after: avoid">e</div>
+                    <div style="break-after: left">f</div>
+                    """))
+            .IsEmpty();
 
     /// <summary>
     /// <c>orphans</c> and <c>widows</c> report only for a caller who has turned them off.

@@ -43,7 +43,7 @@ static class Paginator
         }
 
         var units = Unbreakable(root);
-        var forced = ForcedBreaks(root);
+        var (forced, avoided) = Breaks(root);
         var sides = forced.ToDictionary(_ => _.Position, _ => _.Kind);
         var positions = forced.Select(_ => _.Position).ToList();
         var (headers, footers) = RepeatedGroups(root);
@@ -65,14 +65,14 @@ static class Paginator
             // whether anything IS. The order is not circular: reserving can only move the end
             // earlier, and a table that continued past the later end continues past the earlier
             // one too — so one refinement settles it.
-            var end = NextTop(units, positions, top, available, constrainRuns);
+            var end = NextTop(units, positions, avoided, top, available, constrainRuns);
             var feet = FootersAt(footers, top, end, pageHeight);
             var reserved = feet.Sum(_ => _.Band.Height);
 
             if (reserved > 0)
             {
                 available -= reserved;
-                end = NextTop(units, positions, top, available, constrainRuns);
+                end = NextTop(units, positions, avoided, top, available, constrainRuns);
             }
 
             // Stamped onto the page this loop has been measuring rather than the one it is about
@@ -304,7 +304,8 @@ static class Paginator
     /// block-level boxes.
     /// </para>
     /// </remarks>
-    static List<(float Position, BreakKind Kind)> ForcedBreaks(LayoutBox root)
+    static (List<(float Position, BreakKind Kind)> Forced, Dictionary<float, float> Avoided) Breaks(
+        LayoutBox root)
     {
         // Pre-order, so a box's descendants are exactly the entries between its own index and
         // `ends`. That is what makes "the next box after this subtree" an index rather than a
@@ -319,26 +320,55 @@ static class Paginator
         // and is only reachable when two adjacent boxes disagree about the sheet.
         var breaks = new SortedDictionary<float, BreakKind>();
 
+        // A position a page may not begin at, and the position it moves to instead. Not a set:
+        // `avoid` names the box the break has to stay clear of, and where the break goes is
+        // decided by WHICH side of that box asked. A set would leave the answer to a search
+        // through the earlier candidates, and the nearest of those is a line inside the box —
+        // which splits the very box the property was written to keep whole.
+        var avoided = new Dictionary<float, float>();
+
         for (var index = 0; index < flow.Count; index++)
         {
-            var style = flow[index].Style;
+            var box = flow[index];
+            var style = box.Style;
 
             if (style.BreakBefore.Forces())
             {
-                Add(flow[index].BorderBox.Y, style.BreakBefore);
+                Add(box.BorderBox.Y, style.BreakBefore);
+            }
+
+            // `break-before: avoid` moves the break back to whatever precedes the box in document
+            // order — its previous sibling, or its parent when it is a first child, which is the
+            // pre-order predecessor in both cases. The box at the very start of the document has
+            // none, and a page could not begin earlier than the document does anyway.
+            if (style.BreakBefore == BreakKind.Avoid && index > 0)
+            {
+                Avoid(box.BorderBox.Y, flow[index - 1].BorderBox.Y);
             }
 
             // Nothing follows the last box in the document, so there is nothing to move onto a
             // page of its own and no break worth taking. A browser emits a trailing blank page
             // here; one blank page at the end of a converted document is the less useful answer.
-            if (style.BreakAfter.Forces() &&
-                ends[index] < flow.Count)
+            if (ends[index] < flow.Count)
             {
-                Add(flow[ends[index]].BorderBox.Y, style.BreakAfter);
+                if (style.BreakAfter.Forces())
+                {
+                    Add(flow[ends[index]].BorderBox.Y, style.BreakAfter);
+                }
+
+                // And `break-after: avoid` moves it back to the declaring box's OWN top edge, so
+                // the box travels with what follows it. That is the property as every print
+                // stylesheet uses it — a heading stranded at the foot of a page is the thing it is
+                // written to prevent — and it is why the destination is recorded here rather than
+                // searched for later.
+                if (style.BreakAfter == BreakKind.Avoid)
+                {
+                    Avoid(flow[ends[index]].BorderBox.Y, box.BorderBox.Y);
+                }
             }
         }
 
-        return [.. breaks.Select(_ => (_.Key, _.Value))];
+        return ([.. breaks.Select(_ => (_.Key, _.Value))], avoided);
 
         void Collect(LayoutBox box)
         {
@@ -352,6 +382,17 @@ static class Paginator
             }
 
             ends[index] = flow.Count;
+        }
+
+        // A FORCED break at the same position wins, which is CSS's own precedence: a break that
+        // must be taken beats one that should not be. Recorded first-writer-wins otherwise, so two
+        // boxes both avoiding one position do not chase each other.
+        void Avoid(float from, float to)
+        {
+            if (to < from)
+            {
+                avoided.TryAdd(from, to);
+            }
         }
 
         void Add(float y, BreakKind kind)
@@ -479,6 +520,41 @@ static class Paginator
     /// edge and the block's end is simply never drawn.
     /// </remarks>
     static float NextTop(
+        List<PageUnit> units,
+        List<float> forced,
+        Dictionary<float, float> avoided,
+        float top,
+        float pageHeight,
+        bool constrainRuns)
+    {
+        var chosen = Candidate(units, forced, top, pageHeight, constrainRuns);
+
+        // Where a break asking not to be taken there goes instead. Chained, because the box it
+        // moves to may itself be asking — a run of headings each kept with what follows it walks
+        // back to the first of them — and bounded by the number of entries, since each step moves
+        // strictly earlier and no position repeats.
+        //
+        // A move that would leave the page holding nothing is refused: `avoid` is a preference and
+        // a break has to happen somewhere, so the alternative to taking it here is not taking it
+        // at all.
+        for (var step = 0; step <= avoided.Count; step++)
+        {
+            if (!avoided.TryGetValue(chosen, out var earlier) || earlier <= top)
+            {
+                break;
+            }
+
+            chosen = earlier;
+        }
+
+        return chosen;
+    }
+
+    /// <summary>
+    /// Where the page would end with nothing asking otherwise: a forced break if one falls on this
+    /// page, else the top of the first unbreakable unit straddling its edge, else the edge itself.
+    /// </summary>
+    static float Candidate(
         List<PageUnit> units,
         List<float> forced,
         float top,
