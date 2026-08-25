@@ -154,10 +154,10 @@ static class BlockLayout
             // line asks the context how much room is left beside them. They go at the content top:
             // a float written between two words belongs on the line carrying those words, and this
             // box has not flowed any lines yet to know where that is.
-            PlaceFloats(box, 0, box.Floats.Count, contentX, contentY, contentWidth, fonts, floats);
+            PlaceFloats(box, 0, box.Floats.Count, contentX, contentY, contentWidth, fonts, floats, inner);
             NoteStatic(box, 0, box.Positioned.Count, contentX, contentY);
 
-            contentHeight = InlineLayout.Layout(box, contentX, contentY, contentWidth, fonts, floats);
+            contentHeight = InlineLayout.Layout(box, contentX, contentY, contentWidth, fonts, floats, inner);
 
             // Inline layout works from a zero origin so it never has to know where the block
             // ended up; the lines are moved into place once, here.
@@ -239,7 +239,7 @@ static class BlockLayout
             // Floats declared ahead of this child go down first, at the flow position reached so
             // far. A float written after two paragraphs starts below them, and one written before
             // any of them starts at the top.
-            placed = PlaceFloats(parent, placed, index, contentX, contentY + y, contentWidth, fonts, floats);
+            placed = PlaceFloats(parent, placed, index, contentX, contentY + y, contentWidth, fonts, floats, contentHeight);
 
             // The same position, recorded rather than used. An absolutely positioned box takes no
             // space, so this is the only moment where "the place flow would have given it" exists —
@@ -273,7 +273,7 @@ static class BlockLayout
 
         // Out-of-flow boxes declared after the last in-flow child, which is where a trailing float
         // lands and where a trailing absolute box would have gone.
-        PlaceFloats(parent, placed, parent.Floats.Count, contentX, contentY + y, contentWidth, fonts, floats);
+        PlaceFloats(parent, placed, parent.Floats.Count, contentX, contentY + y, contentWidth, fonts, floats, contentHeight);
         NoteStatic(parent, noted, parent.Positioned.Count, contentX, contentY + y);
 
         // A trailing margin escapes downward only when nothing stops it: no bottom border, no
@@ -441,11 +441,12 @@ static class BlockLayout
         float top,
         float contentWidth,
         FontSet fonts,
-        FloatContext floats)
+        FloatContext floats,
+        float? contentHeight)
     {
         while (from < parent.Floats.Count && parent.Floats[from].Index <= until)
         {
-            PlaceFloat(parent.Floats[from].Box, contentX, top, contentWidth, fonts, floats);
+            PlaceFloat(parent.Floats[from].Box, contentX, top, contentWidth, fonts, floats, contentHeight);
             from++;
         }
 
@@ -479,7 +480,8 @@ static class BlockLayout
         float top,
         float contentWidth,
         FontSet fonts,
-        FloatContext floats)
+        FloatContext floats,
+        float? contentHeight)
     {
         var style = box.Style;
         var marginTop = style.MarginTop.Resolve(contentWidth);
@@ -487,7 +489,14 @@ static class BlockLayout
         var marginLeft = style.MarginLeft.Resolve(contentWidth);
         var marginRight = style.MarginRight.Resolve(contentWidth);
 
-        var height = Layout(box, 0, 0, contentWidth, fonts, ShrinkToFit(box, contentWidth, fonts));
+        var height = Layout(
+            box,
+            0,
+            0,
+            contentWidth,
+            fonts,
+            ShrinkToFit(box, contentWidth, fonts),
+            containingHeight: contentHeight);
         var width = box.BorderBox.Width;
 
         // Clearance first, then the sideways search: a float carrying `clear` starts below what it

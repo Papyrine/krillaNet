@@ -29,15 +29,19 @@ CSS 2.1 §10.5 makes the percentage resolve against the containing block's heigh
   height on one always has a basis. Its frame declares 200 here, but the rule does not depend on
   that.
 
+- **`#atomic`** and **`#celled`** put the percentage inside an inline-block and inside a table cell,
+  both with a definite height of their own. Neither needed anything: a box with a DECLARED height
+  settles its own before its subtree is laid out, so what it passes down does not depend on what was
+  passed to it.
+- **`#atomic-half`** and **`#floated`** are the two that did. An inline-block and a float each resolve
+  their OWN percentage height against the block that holds them, and both are laid out through paths
+  that threaded no containing height — so both came out one line tall where 100px belongs. They are
+  the reason the height goes down alongside the width in `InlineLayout` and `PlaceFloat` rather than
+  only through `LayoutChildren`.
+
 The answer has to exist BEFORE the subtree is laid out, which is the whole shape of the change: a
 definite height is one the box was told — declared, resolved against its own containing block, or
 handed down by an absolute box's offsets — rather than one its content came to, so it can be settled
 early and passed down.
 
-Exact on all 19 boxes, and both pages are pixel-identical.
-
-## What is still not done
-
-An inline-block's contents see no containing height. It is laid out through `InlineLayout` rather
-than through the block path that threads one, so a percentage height inside one still behaves as
-`auto`. So does one inside a table cell.
+Exact on all 32 boxes, and all three pages are pixel-identical.

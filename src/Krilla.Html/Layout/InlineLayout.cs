@@ -38,11 +38,12 @@ static class InlineLayout
         float contentY,
         float contentWidth,
         FontSet fonts,
-        FloatContext floats)
+        FloatContext floats,
+        float? contentHeight = null)
     {
         box.Lines.Clear();
 
-        var tokens = Tokenize(box.Inlines, fonts, contentWidth);
+        var tokens = Tokenize(box.Inlines, fonts, contentWidth, containingHeight: contentHeight);
         if (tokens.Count == 0)
         {
             return 0;
@@ -580,7 +581,8 @@ static class InlineLayout
         List<InlineItem> items,
         FontSet fonts,
         float contentWidth,
-        bool measuring = false)
+        bool measuring = false,
+        float? containingHeight = null)
     {
         var tokens = new List<Token>();
 
@@ -646,7 +648,7 @@ static class InlineLayout
             {
                 // Either side of an atomic inline is an opportunity, with or without a space —
                 // measured, and the reason this is stated rather than inherited from `breakable`.
-                tokens.Add(InlineBlock(item, inline, face, fonts, contentWidth, measuring) with
+                tokens.Add(InlineBlock(item, inline, face, fonts, contentWidth, measuring, containingHeight) with
                 {
                     BreaksBefore = true
                 });
@@ -862,7 +864,8 @@ static class InlineLayout
         FontFace face,
         FontSet fonts,
         float contentWidth,
-        bool measuring)
+        bool measuring,
+        float? containingHeight)
     {
         var style = box.Style;
         var marginLeft = style.MarginLeft.Resolve(contentWidth);
@@ -890,7 +893,17 @@ static class InlineLayout
         var assigned = BlockLayout.ShrinkToFit(box, available, fonts) ??
                        Declared(style, available);
 
-        var height = BlockLayout.Layout(box, 0, 0, available, fonts, assigned);
+        // The containing height goes down with the width, so an inline-block's own percentage
+        // height resolves against the block that holds the line — measured: a 50% one inside a
+        // 200px frame is 100px, and its contents then see that as a definite height in turn.
+        var height = BlockLayout.Layout(
+            box,
+            0,
+            0,
+            available,
+            fonts,
+            assigned,
+            containingHeight: containingHeight);
 
         box.Translate(marginLeft - box.BorderBox.X, marginTop - box.BorderBox.Y);
 
