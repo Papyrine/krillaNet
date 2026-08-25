@@ -3,7 +3,7 @@
 /// </summary>
 public class SvgTests
 {
-    const string Square =
+    const string square =
         """<svg xmlns="http://www.w3.org/2000/svg" width="64" height="32"><rect width="64" height="32" fill="red"/></svg>""";
 
     static PdfSvg Parse(string source, SvgOptions? options = null) =>
@@ -32,7 +32,7 @@ public class SvgTests
     [Test]
     public async Task SizeComesFromTheWidthAndHeightAttributes()
     {
-        using var svg = Parse(Square);
+        using var svg = Parse(square);
 
         await Assert.That(svg.Width).IsEqualTo(64f);
         await Assert.That(svg.Height).IsEqualTo(32f);
@@ -62,7 +62,7 @@ public class SvgTests
     {
         var baseline = Pdf(_ => { }).Length;
 
-        using var svg = Parse(Square);
+        using var svg = Parse(square);
         var drawn = Pdf(_ => _.DrawSvg(svg, new(0, 0, 64, 32)));
 
         await Assert.That(drawn.Length).IsGreaterThan(baseline);
@@ -71,7 +71,7 @@ public class SvgTests
     [Test]
     public async Task OneParsedSvgDrawsIntoManyRectangles()
     {
-        using var svg = Parse(Square);
+        using var svg = Parse(square);
 
         var pdf = Pdf(
             _ =>
@@ -108,7 +108,7 @@ public class SvgTests
         }
 
         payload.Append("</svg>");
-        File.WriteAllText(path, payload.ToString());
+        await File.WriteAllTextAsync(path, payload.ToString());
 
         try
         {
@@ -155,7 +155,7 @@ public class SvgTests
              </svg>
              """);
 
-        using var without = Parse(Square);
+        using var without = Parse(square);
 
         var drawn = Pdf(_ => _.DrawSvg(withImage, new(0, 0, 64, 32))).Length;
         var plain = Pdf(_ => _.DrawSvg(without, new(0, 0, 64, 32))).Length;
@@ -166,7 +166,7 @@ public class SvgTests
     [Test]
     public async Task DisposedSvgIsRejected()
     {
-        var svg = Parse(Square);
+        var svg = Parse(square);
         svg.Dispose();
 
         await Assert.That(() => Pdf(_ => _.DrawSvg(svg, new(0, 0, 64, 32))))

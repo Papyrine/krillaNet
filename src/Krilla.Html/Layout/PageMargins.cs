@@ -248,7 +248,6 @@ static class PageMargins
         int count)
     {
         var text = new StringBuilder();
-        var depth = 0;
 
         foreach (var item in content)
         {
@@ -284,7 +283,6 @@ static class PageMargins
                         text.Append(style.Quotes[item.Opening ? 0 : 1]);
                     }
 
-                    depth += item.Opening ? 1 : -1;
                     break;
 
                 case ContentKind.Image:
