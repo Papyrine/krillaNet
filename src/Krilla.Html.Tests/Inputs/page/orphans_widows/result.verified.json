@@ -1,0 +1,28 @@
+﻿{
+  "ReferencePageCount": 3,
+  "ResultingPageCount": 3,
+  "Boxes": {
+    "Matched": 6
+  },
+  "PageDiffs": [
+    {
+      "Page": 1,
+      "Ssim": 1.0,
+      "ReferenceFile": "reference_0001.png",
+      "RenderedFile": "result#page_0001.verified.png"
+    },
+    {
+      "Page": 2,
+      "AbsoluteError": 0.0019,
+      "Ssim": 0.9998,
+      "ReferenceFile": "reference_0002.png",
+      "RenderedFile": "result#page_0002.verified.png"
+    },
+    {
+      "Page": 3,
+      "Ssim": 1.0,
+      "ReferenceFile": "reference_0003.png",
+      "RenderedFile": "result#page_0003.verified.png"
+    }
+  ]
+}

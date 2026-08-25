@@ -197,8 +197,34 @@ public class DiagnosticTests
                 <div style="break-inside: avoid">c</div>
                 <div style="page-break-before: avoid">d</div>
                 <div style="break-after: left">e</div>
-                <p style="orphans: 3; widows: 3">f</p>
                 """));
+
+    /// <summary>
+    /// <c>orphans</c> and <c>widows</c> report only for a caller who has turned them off.
+    /// </summary>
+    /// <remarks>
+    /// They are honoured by default, so reporting them there would fire on documents that are
+    /// laid out exactly as the browser lays them out — the one thing the table must never do. The
+    /// switch is the only thing that makes them unhonoured, and it is a document-wide decision
+    /// rather than a property of the value, which is why this is not an entry in the table.
+    /// </remarks>
+    [Test]
+    public async Task RunConstraintsReportOnlyWhenTurnedOff()
+    {
+        const string body = """<p style="orphans: 3; widows: 3">f</p>""";
+
+        await Assert.That(await Collect(body)).IsEmpty();
+
+        var reports = new List<HtmlDiagnostic>();
+        var options = CorpusRunner.Options();
+        options.OnDiagnostic = reports.Add;
+        options.HonourOrphansAndWidows = false;
+
+        await HtmlConverter.ConvertAsync(Page(body, null), options);
+
+        await Assert.That(reports.Select(_ => _.Name)).Contains("orphans");
+        await Assert.That(reports.Select(_ => _.Name)).Contains("widows");
+    }
 
     [Test]
     public async Task PresentationalAttributesAreReported() =>

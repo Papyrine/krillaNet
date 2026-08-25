@@ -4,17 +4,5 @@
     "Name": "page-break-before",
     "Value": "avoid",
     "Reason": "a page break is taken where pagination puts it"
-  },
-  {
-    "Element": "p",
-    "Name": "orphans",
-    "Value": "3",
-    "Reason": "pages break between lines"
-  },
-  {
-    "Element": "p",
-    "Name": "widows",
-    "Value": "3",
-    "Reason": "pages break between lines"
   }
 ]

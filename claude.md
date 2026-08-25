@@ -112,8 +112,9 @@ with `attr()`, `counter()`, `counters()`, `url()` and the quote keywords, plus `
 destination per `id`, and its title and language from the document. Content repeats per page:
 `@page`'s sixteen margin boxes carry running headers, footers and page numbers, a `position: fixed`
 box is drawn on every page, and a table's `<thead>` is re-drawn at the top of every page the table
-continues onto. `@page` page selectors work — `:first`, `:left`, `:right` and `:blank`. `orphans`
-and `widows` are implemented and OFF by default — see the trap list.
+continues onto. `@page` page selectors work — `:first`, `:left`, `:right` and `:blank` — and
+`orphans` and `widows` constrain where a page breaks, ON by default because the browser honours
+them too.
 
 Also implemented, and each measured against Chrome the same way: `calc()` and the viewport units,
 `vertical-align` given a length or a percentage, the inline box model (background, padding, border
@@ -146,7 +147,7 @@ It records two independent measurements, and **asserts neither**:
 - **`reference.boxes.json`** — the browser's `getBoundingClientRect()` per element, against our box tree. Integer-exact, localising ("this paragraph is 14px low" is a defect report), and — the practical reason it leads — computable without the native library, so it works on a machine with no Rust toolchain.
 - **`reference_0001.png`** — pixels, via AbsoluteError and SSIM.
 
-**Box geometry currently sits at zero across all 122 scenarios, with nothing unmatched**, and 88
+**Box geometry currently sits at zero across all 123 scenarios, with nothing unmatched**, and 88
 read SSIM 1.0000. Several got there by finding a defect first, which is the argument for adding a
 scenario for anything the engine implements rather than only for what it implements well:
 `block/anonymous` found trailing inline content hoisted above a block sibling, `position/fixed`
@@ -754,17 +755,27 @@ changing it would suppress SSIM rather than report a difference.
 - **One length in `size` is a SQUARE page**, which is the specification's rule and not what an author
   writing a width expects. Two lengths are not turned by an orientation keyword — they are already in
   the order the author wanted — while a keyword alone turns whatever paper the caller chose.
-- **`orphans` and `widows` are implemented and OFF by default — and the reason recorded here for a
-  long time was WRONG.** It said Chromium does not implement them. It does: a probe of a four-line
-  paragraph whose natural break would leave one line above moves the whole paragraph to the next
-  sheet, and raising `orphans` to three on `page/break_between_lines`' own arrangement moves it
-  there too. What Chromium does differently is the case where NEITHER constraint can be met — a
-  three-line paragraph under `orphans: 2; widows: 2`, which is exactly `page/break_between_lines`.
-  There it splits two and one anyway; this moves the whole run overleaf. So the switch is not the
-  choice between typography and fidelity it was documented as, and turning it on today costs that
-  one scenario 0.9996 for 0.9769. Turning it on and relaxing the unsatisfiable case to split is
-  the change that would agree with the browser, and it is not made yet. The move must ADVANCE the
-  page top either way, or the loop that produces page tops never ends.
+- **`orphans` and `widows` are ON by default, and the note here said for a long time that they
+  were off because CHROMIUM DOES NOT IMPLEMENT THEM. That was wrong.** It does: a four-line
+  paragraph whose natural break would leave one line above is moved whole to the next sheet, at the
+  initial counts and at raised ones. Nothing in the corpus could tell, because every scenario that
+  broke inside a paragraph happened to break where both counts permit — which is why
+  `page/orphans_widows` exists now, and why with the constraint off it produces TWO pages against
+  the browser's three.
+- **Too few above and too few below are answered differently, and that is the whole rule.** Too few
+  ABOVE can only be fixed by moving the run whole, since moving the break earlier takes more lines
+  off the top. Too few BELOW is fixed by moving the break to the line that leaves exactly `widows`
+  below it — but only when that still leaves `orphans` above. `page/orphans_widows` carries one of
+  each, and a scenario with only one of them would pass an engine that got the other completely
+  wrong.
+- **A run too short to satisfy both counts KEEPS its break rather than moving whole.** Measured, and
+  the opposite of what this did first: moving the run overleaf is the tidier answer and is what a
+  print engine is usually described as doing, and Chromium splits. Under the initial two and two
+  that means every three-line paragraph, which is what `page/break_between_lines` holds — two lines
+  above the break and one below, under a `widows: 2` that forbids exactly that. Getting this wrong
+  is what made turning the switch on look like a fidelity loss.
+- **A move must ADVANCE the page top**, both when the whole run goes overleaf and when the break
+  moves earlier, or the loop that produces page tops never ends.
 - **A sided break inserts a blank page, which is a page COUNT difference.** `right` lands its content
   on an odd page and `left` on an even one, counting page one as a right-hand sheet. The rule that
   drops a break at the very start of the document applies to them too, or `right` on the first element

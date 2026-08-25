@@ -1,16 +1,16 @@
 /// <summary>
-/// <c>orphans</c> and <c>widows</c>, which the corpus cannot measure because the reference browser
-/// does not implement them.
+/// <c>orphans</c> and <c>widows</c>, in the arrangements the corpus does not hold.
 ///
-/// That is not a guess. <c>page/break_between_lines</c> holds a Chromium reference in which a
-/// three-line paragraph is broken after its second line, leaving one line overleaf under the
-/// initial <c>widows: 2</c> — so the browser ignored the property. Honouring it by default would
-/// therefore make this engine disagree with the reference on every document long enough to
-/// paginate, which is why <see cref="HtmlOptions.HonourOrphansAndWidows"/> exists and why it is
-/// off.
+/// It holds two. <c>page/orphans_widows</c> measures the rule's two halves against Chromium — a
+/// run moved whole because too few lines fit above the break, and a break moved earlier because
+/// too few fall below it — and <c>page/break_between_lines</c> measures the case where neither
+/// count can be met, where the browser splits rather than moving. What is here is everything
+/// around those: the counts already satisfied, a run of one line, a run taller than the page, and
+/// the switch itself.
 ///
-/// So the property is asserted here instead, by page count and by where the ink falls, on the same
-/// arrangement the corpus scenario uses.
+/// The note that used to stand at the top of this file said the browser implemented neither
+/// property. It does, and nothing in the corpus could tell, because every scenario that broke
+/// inside a paragraph happened to break where both counts permit.
 /// </summary>
 public class RunConstraintTests
 {
@@ -41,43 +41,67 @@ public class RunConstraintTests
         """;
 
     [Test]
-    public async Task UnconstrainedTheBreakFallsBetweenLines()
+    public async Task TurningTheConstraintOffChangesNothingHere()
     {
-        // The control, and the behaviour the corpus reference agrees with: two lines stay, one
-        // goes overleaf.
-        var first = await Render(Straddling, Options(), 0);
-
-        await Assert.That(LastInkedRow(first)).IsGreaterThan(1010);
-    }
-
-    [Test]
-    public async Task TheDefaultCountsAreAlreadySatisfiedHere()
-    {
-        // Two lines above the break and two below, which `orphans: 2; widows: 2` permits — so
-        // turning the constraint on must change nothing. Worth asserting: a reading that compared
-        // the counts the wrong way round would move this run and look like it was working.
-        var options = Options();
-        options.HonourOrphansAndWidows = true;
-
-        await Assert.That(LastInkedRow(await Render(Straddling, options, 0)))
+        // The control. Two lines above the break and one below, which the initial counts forbid —
+        // and this run is too short to fix, so the constrained answer is the unconstrained one.
+        // Both leave ink low on the first page, where a run moved whole would leave none.
+        await Assert.That(LastInkedRow(await Render(Straddling, Options(constrain: false), 0)))
             .IsEqualTo(LastInkedRow(await Render(Straddling, Options(), 0)));
+
+        await Assert.That(LastInkedRow(await Render(Straddling, Options(), 0))).IsGreaterThan(1010);
     }
 
+    /// <summary>
+    /// A run that cannot satisfy both counts keeps its break rather than moving whole.
+    /// </summary>
+    /// <remarks>
+    /// MEASURED, and the opposite of what this did first. Moving the whole run overleaf is the
+    /// tidier-looking answer and is what a print engine is often described as doing; Chromium
+    /// splits, and <c>page/break_between_lines</c> holds the reference — two lines above the break
+    /// and one below, under the initial <c>widows: 2</c> that forbids exactly that.
+    /// </remarks>
+    /// <remarks>
+    /// Three lines, and <c>widows: 2</c> wants two below a break that can leave at most one
+    /// without stranding a single line above. Nothing satisfies both, so the break stays and the
+    /// last line on the page sits low.
+    /// </remarks>
     [Test]
-    public async Task NeitherConstraintSatisfiableMovesTheWholeRun()
-    {
-        var options = Options();
-        options.HonourOrphansAndWidows = true;
+    public async Task NeitherConstraintSatisfiableKeepsTheBreak() =>
+        await Assert.That(LastInkedRow(await Render(Straddling, Options(), 0))).IsGreaterThan(1010);
 
-        // Three of each on a four-line run: two above the break is one short of `orphans`, and
-        // moving the break to leave three below would leave only one above. Nothing satisfies both,
-        // so the whole run goes overleaf — which is what a print engine does with a short paragraph
-        // caught at a page edge.
+    [Test]
+    public async Task TooFewLinesAboveMovesTheWholeRun()
+    {
+        // Three of each on a three-line run: two above the break is one short of `orphans`, and
+        // moving the break earlier only takes more lines off the top. Nothing but moving the whole
+        // paragraph fixes it, and that is what Chromium does — `page/orphans_widows`' first half
+        // measures the same rule at the initial counts.
         var html = Straddling.Replace(
             "line-height: 32px;",
             "line-height: 32px; orphans: 3; widows: 3;");
 
-        await Assert.That(LastInkedRow(await Render(html, options, 0))).IsEqualTo(-1);
+        await Assert.That(LastInkedRow(await Render(html, Options(), 0))).IsEqualTo(-1);
+    }
+
+    /// <summary>
+    /// The properties are read from the cascade rather than assumed, and the switch turns them off.
+    /// </summary>
+    /// <remarks>
+    /// The one thing the corpus cannot state, its scenarios all running with the default. A caller
+    /// who wants a break decided by height alone — a form, a ticket, anything whose lines are not
+    /// prose — gets one.
+    /// </remarks>
+    [Test]
+    public async Task TheSwitchTurnsTheConstraintOff()
+    {
+        var html = Straddling.Replace(
+            "line-height: 32px;",
+            "line-height: 32px; orphans: 3; widows: 3;");
+
+        await Assert.That(LastInkedRow(await Render(html, Options(), 0))).IsEqualTo(-1);
+        await Assert.That(LastInkedRow(await Render(html, Options(constrain: false), 0)))
+            .IsGreaterThan(1010);
     }
 
     [Test]
@@ -87,7 +111,6 @@ public class RunConstraintTests
         // the loop that produces page tops never terminates. A paragraph taller than the page it
         // would move to is the case that tests it.
         var options = Options();
-        options.HonourOrphansAndWidows = true;
 
         var tall =
             """
@@ -115,7 +138,6 @@ public class RunConstraintTests
         // typographic nicety into a page of white space. It moves the break instead, by however
         // many lines the widow count asks for.
         var options = Options();
-        options.HonourOrphansAndWidows = true;
 
         var html =
             """
@@ -146,7 +168,6 @@ public class RunConstraintTests
         // reading that compared the line count to `orphans` would move every short paragraph that
         // happened to straddle a boundary.
         var options = Options();
-        options.HonourOrphansAndWidows = true;
 
         var html =
             """
@@ -166,12 +187,13 @@ public class RunConstraintTests
         await Assert.That(document.PageCount).IsEqualTo(2);
     }
 
-    static HtmlOptions Options() =>
+    static HtmlOptions Options(bool constrain = true) =>
         new()
         {
             PageWidth = CorpusLayout.PageWidth,
             PageHeight = CorpusLayout.PageHeight,
-            Fonts = CorpusRunner.Options().Fonts
+            Fonts = CorpusRunner.Options().Fonts,
+            HonourOrphansAndWidows = constrain
         };
 
     static async Task<PngImage> Render(string html, HtmlOptions options, int index)

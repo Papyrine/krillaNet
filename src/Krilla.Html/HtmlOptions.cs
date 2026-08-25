@@ -130,25 +130,22 @@ public sealed class HtmlOptions
     public bool HonourPageRules { get; set; } = true;
 
     /// <summary>
-    /// Whether <c>orphans</c> and <c>widows</c> constrain where a page breaks. Off by default.
+    /// Whether <c>orphans</c> and <c>widows</c> constrain where a page breaks. On by default.
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Off because this engine and Chromium disagree about ONE case, and the corpus is measured
-    /// against Chromium. Chromium does implement both properties — a paragraph whose natural break
-    /// would strand a single line is moved whole to the next sheet, at the initial counts and at
-    /// raised ones. Where the two part is a run that cannot satisfy both at once, which a
-    /// three-line paragraph under the initial <c>orphans: 2; widows: 2</c> never can: Chromium
-    /// splits it two and one anyway, and this moves the whole run overleaf.
+    /// On because Chromium honours them and this converter's fidelity is measured against
+    /// Chromium. That was not always the note here: it read that the browser implemented neither,
+    /// which measurement contradicted — a paragraph whose natural break would strand a single line
+    /// above it is moved whole to the next sheet, at the initial counts and at raised ones.
     /// </para>
     /// <para>
-    /// So turning it on today buys typographic quality at the cost of one scenario's fidelity
-    /// rather than the whole corpus's. A single line stranded at the foot or head of a page is the
-    /// defect the properties exist to prevent, and a print engine that can prevent it should be
-    /// able to.
+    /// Off is still worth having, for a caller who wants a page break decided by height alone —
+    /// a form or a ticket, where a run of lines is not prose and moving it wastes the sheet. It is
+    /// the switch that changes fidelity now rather than the one that keeps it.
     /// </para>
     /// </remarks>
-    public bool HonourOrphansAndWidows { get; set; }
+    public bool HonourOrphansAndWidows { get; set; } = true;
 
     /// <summary>
     /// How deep a bookmark tree to build from the document's headings. Six by default; zero

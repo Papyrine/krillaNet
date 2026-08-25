@@ -14,12 +14,12 @@ it, that is stated, because an unmeasured gap is the more dangerous kind.
 
 ## Where the corpus stands
 
-122 scenarios across 10 categories, 1387 element boxes matched. **Box geometry matches Chrome
+123 scenarios across 10 categories, 1393 element boxes matched. **Box geometry matches Chrome
 exactly on every one** — worst offset 0.00px, worst size 0.00px, and nothing unmatched — and 88
 read SSIM 1.0000, of which 60 are pixel-identical outright. The other 28 differ on a scattering of
 antialiased pixels, which is what `AE` is there to show.
 
-Thirty-four read below 1.0000. None is a mystery, and none should be "fixed" by regenerating a
+Thirty-five read below 1.0000. None is a mystery, and none should be "fixed" by regenerating a
 baseline:
 
 | Scenario | AE | SSIM | Cause |
@@ -33,6 +33,7 @@ baseline:
 | `image/svg` | 0.0028 | 0.9988 | Sub-pixel glyph positioning in the `<text>` inside the picture |
 | `page/fixed_repeat` | 0.0039 | 0.9992 | Sub-pixel glyph positioning |
 | `page/break_between_lines` | 0.0017 | 0.9996 | Sub-pixel glyph positioning |
+| `page/orphans_widows` | 0.0019 | 0.9998 | Same; pages one and three are identical |
 | `page/float_break` | 0.0023 | 0.9997 | Same |
 | `table/columns` | 0.0005 | 0.9997 | Unsnapped border at a fractional column edge, below |
 | `text/underline_offset` | 0.0002 | 0.9997 | Glyph edges |
@@ -59,7 +60,7 @@ baseline:
 | `text/text_transform` | 0.0002 | 0.9999 | Same |
 | `ua/blockquote_pre` | 0.0005 | 0.9999 | Same |
 
-Six causes cover all thirty-four. Four are property gaps with a fix behind them — the dash phase,
+Six causes cover all thirty-five. Four are property gaps with a fix behind them — the dash phase,
 the `inset` family, `text-decoration-skip-ink` and the gradient quantisation — and each is written
 up in the sections below. The other two are general: **sub-pixel glyph positioning**, and **a box
 edge landing on a fractional position**.
@@ -181,17 +182,11 @@ wrong is still unmeasured.
 
 ## Pagination and paged media
 
-- **`orphans` and `widows` are off by default for a reason that turned out to be wrong.** The note
-  said Chromium does not implement them. It does: a four-line paragraph whose natural break would
-  leave one line above is moved whole to the next sheet, and raising `orphans` to three on
-  `page/break_between_lines`' own arrangement moves it there too — both measured. Where the two
-  engines actually part is the case where NEITHER constraint can be met, which a three-line
-  paragraph under the initial `2`/`2` never can: Chromium splits it two and one, and this moves the
-  whole run overleaf. Turning the switch on today costs `page/break_between_lines` 0.9996 for
-  0.9769 and changes nothing else in the corpus, so the work is small and well bounded: relax
-  `Paginator.Constrained`'s unsatisfiable case to split, then make the default true. Worth doing —
-  it is a real fidelity gap on every document long enough to break inside a paragraph, and it went
-  unnoticed because no scenario until now discriminated.
+- **A run's lines are counted from the BLOCK's start, not from the page top**, which `orphans` and
+  `widows` both read. The two agree for a block that fits on two pages, which is every arrangement
+  either property is written for; for one spanning three or more, the count above a break on the
+  third page includes lines that are on the first. Nothing measures it, and no report is possible —
+  which page a line landed on is a layout result rather than a declaration.
 
 - **`string()` and `string-set` are not implemented**, which is CSS's own way of putting a
   section's heading into a running header. Not reported either, and that is the harder half: the

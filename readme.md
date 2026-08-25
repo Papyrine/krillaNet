@@ -104,10 +104,11 @@ inheriting from the document. No browser implements any of this, so it is one of
 this converter does more than the reference it is measured against. `string()` and `string-set`
 are the part still missing, and a named page — `@page cover` — selects nothing and is reported.
 
-`orphans` and `widows` are implemented and off by default. Chromium implements them too, and the
-two agree except on a run that cannot satisfy both at once — a three-line paragraph under the
-initial `2`/`2` — where Chromium splits it two and one and this moves the whole run overleaf.
-`HtmlOptions.HonourOrphansAndWidows` turns them on.
+`orphans` and `widows` constrain where a page breaks, on by default because a browser honours them
+too: a paragraph whose natural break would strand a single line moves whole to the next sheet, and
+one long enough to give a line up moves its break instead. A run too short to satisfy both counts
+keeps its break and splits, which is also what the browser does.
+`HtmlOptions.HonourOrphansAndWidows` turns them off, for a document whose lines are not prose.
 
 Generated content works: `::before` and `::after` with strings, `attr()`, `counter()`, `counters()`,
 `url()` and the quote keywords, along with `counter-reset`, `counter-increment` and `quotes`.

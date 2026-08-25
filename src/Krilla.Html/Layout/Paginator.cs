@@ -521,25 +521,39 @@ static class Paginator
             return unit.Bounds.Y;
         }
 
-        if (below < group.Widows)
+        // Too few ABOVE. Moving the break earlier only takes more lines off the top, so the whole
+        // run has to go overleaf or nothing changes — which is what Chromium does with a paragraph
+        // whose natural break would strand a single line at the foot of a page.
+        //
+        // Guarded against a run that starts at or above the page top, where moving to it would not
+        // advance and the loop in `Paginate` would never terminate.
+        if (above < group.Orphans)
         {
-            // The line that leaves exactly `Widows` below it. Enough remains above only when the
-            // run is long enough to hold both constraints at once.
-            var wanted = group.Count - group.Widows;
-
-            if (wanted >= group.Orphans && Line(units, group, wanted) is {} moved)
-            {
-                return moved;
-            }
+            return group.FirstTop > top ? group.FirstTop : unit.Bounds.Y;
         }
 
-        // Whole run overleaf. Guarded against a run that starts at or above the page top, where
-        // moving to it would not advance and the loop in `Paginate` would never terminate.
-        if (group.FirstTop > top)
+        // Too few BELOW, and enough above. The line that leaves exactly `Widows` below it, when
+        // that still leaves `Orphans` above — which needs a run long enough to hold both at once.
+        var wanted = group.Count - group.Widows;
+
+        if (wanted >= group.Orphans &&
+            Line(units, group, wanted) is {} moved &&
+            moved > top)
         {
-            return group.FirstTop;
+            return moved;
         }
 
+        // Neither can be met: the run is too short to hold both counts, which under the initial
+        // 2 and 2 means any paragraph of three lines. The break stays where it fell and the run
+        // splits.
+        //
+        // MEASURED, and the opposite of what this did first. Moving the whole run overleaf is the
+        // tidier-looking answer and is what a print engine is often described as doing; Chromium
+        // splits, and `page/break_between_lines` holds the reference — two lines above the break
+        // and one below, under the initial `widows: 2` that forbids exactly that. A run this short
+        // has no arrangement that satisfies both, so honouring one of them by moving the whole
+        // paragraph trades a stranded line for a page ending early, which is not obviously better
+        // and is not what the browser does.
         return unit.Bounds.Y;
     }
 

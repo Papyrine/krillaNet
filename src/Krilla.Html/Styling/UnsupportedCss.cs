@@ -42,7 +42,7 @@ static class UnsupportedCss
     /// <remarks>
     /// They are not in the table above because whether they are honoured is a document-wide
     /// decision rather than a property of the value — <see cref="HtmlOptions.HonourOrphansAndWidows"/>
-    /// decides, and it is off by default because Chromium does not implement them either.
+    /// decides, and it is ON by default, so this reports only for a caller who has turned it off.
     /// </remarks>
     static readonly string[] runs = ["orphans", "widows"];
 
