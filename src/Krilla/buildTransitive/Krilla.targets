@@ -1,0 +1,119 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project>
+
+  <!--
+    Consumer-side wiring for browser-wasm. This is the only file this package imports into
+    somebody else's build, and it exists because WebAssembly is the one shipped target where
+    the native cannot be found at run time.
+
+    Every other RID ships a shared library that the .NET loader resolves by name when the
+    first P/Invoke runs, so the package needs no build logic at all: NuGet's RID asset
+    resolution copies runtimes/<rid>/native/ and the loader does the rest. WebAssembly has no
+    loader to search. The archive has to be linked INTO the application's own .wasm module,
+    which happens only if it reaches the Emscripten link step as a NativeFileReference. The
+    archive is named krilla_capi.a rather than cargo's libkrilla_capi.a because the SDK reads
+    the P/Invoke module name straight off that file name, `lib` prefix included; see the
+    comment in Krilla.Native.props.
+
+    Nothing puts it there automatically, and — the part that decides where this file lives —
+    a NativeFileReference declared by a referenced project or package does NOT flow to the
+    consuming WebAssembly app (dotnet/runtime#114724, open). Declaring the item inside
+    Krilla.csproj would therefore compile cleanly and link nothing. It is declared here
+    instead, in a file NuGet imports into the app's OWN evaluation, so it is the app's own
+    item and the gap never applies.
+
+    A .targets and not a .props: $(RuntimeIdentifier) is settled by the WebAssembly SDK, and
+    a buildTransitive .props is imported before that has happened.
+  -->
+
+  <PropertyGroup>
+    <_KrillaWasmNative>$(MSBuildThisFileDirectory)../runtimes/browser-wasm/native/krilla_capi.a</_KrillaWasmNative>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(RuntimeIdentifier)' == 'browser-wasm' and Exists('$(_KrillaWasmNative)')">
+    <NativeFileReference Include="$(_KrillaWasmNative)" />
+  </ItemGroup>
+
+  <Target Name="KrillaCheckWasmPrerequisites"
+          BeforeTargets="PrepareForBuild"
+          Condition="'$(RuntimeIdentifier)' == 'browser-wasm'">
+
+    <!--
+      A package packed without the wasm native restores and builds perfectly and then fails at
+      run time on the first P/Invoke, with a missing-symbol error naming neither this package
+      nor the call. Only the release pack job sets KrillaRequireAllNatives, so a locally built
+      package really can be missing it.
+    -->
+    <Error Condition="!Exists('$(_KrillaWasmNative)')"
+           Text="Krilla: this package carries no browser-wasm native, so there is nothing for the WebAssembly link step to pull in. It was packed without one — use a package from nuget.org, or build the native with: cargo rustc -p krilla-capi --release --target wasm32-unknown-emscripten --crate-type staticlib" />
+
+    <!--
+      The shim is built with panic = "unwind", because every export wraps its body in
+      catch_unwind so a krilla panic surfaces as a status code rather than killing the host.
+      On this target rustc implements that with NATIVE WebAssembly exception handling, so the
+      archive references the __cpp_exception tag.
+
+      .NET links with wasm EH ON by default, which is the whole reason this works out of the
+      box: BrowserWasmApp.targets passes -fwasm-exceptions when WasmEnableExceptionHandling is
+      true, and -fexceptions when it is false. Those are two different exception schemes rather
+      than on and off, and only the first defines that tag — so turning the property off fails
+      deep inside emscripten with `wasm-ld: error: undefined symbol: __cpp_exception`, naming
+      neither this package nor the property responsible.
+    -->
+    <Error Condition="'$(WasmEnableExceptionHandling)' == 'false'"
+           Text="Krilla: the browser-wasm native needs WebAssembly exception handling, which this project has switched off. Remove &lt;WasmEnableExceptionHandling&gt;false&lt;/WasmEnableExceptionHandling&gt;, or drop the Krilla package reference from the WebAssembly project. Without it the link fails with an undefined __cpp_exception symbol." />
+  </Target>
+
+  <!--
+    Two adjustments to the consumer's own wasm steps, both needed only because this archive is
+    compiled by a much newer LLVM than the Emscripten the .NET workload ships.
+
+    _RunWasmOptPostLink runs wasm-opt again after linking, purely to strip DWARF, and hardcodes
+    its feature list to simd, exception-handling and bulk-memory. rustc's output also uses
+    sign-ext, non-trapping float casts, multivalue and reference types, so that pass rejects
+    the module with a bare "Fatal: error validating input" naming nothing. WasmOptConfigurationFlags
+    is the extension point the SDK provides for exactly this, and every flag added here appears
+    in the main link's own wasm-opt call already, so none of it is speculative.
+  -->
+  <ItemGroup Condition="'$(RuntimeIdentifier)' == 'browser-wasm' and Exists('$(_KrillaWasmNative)')">
+    <WasmOptConfigurationFlags Include="--enable-sign-ext" />
+    <WasmOptConfigurationFlags Include="--enable-nontrapping-float-to-int" />
+    <WasmOptConfigurationFlags Include="--enable-multivalue" />
+    <WasmOptConfigurationFlags Include="--enable-reference-types" />
+    <WasmOptConfigurationFlags Include="--enable-mutable-globals" />
+  </ItemGroup>
+
+  <!--
+    Keep the archive out of the application's OUTPUT. NuGet's RID asset resolution sees a file
+    under runtimes/browser-wasm/native/ and copies it beside the app like any other native
+    dependency, which is right for the eight loadable RIDs and pointless here: the bytes are
+    inside the consumer's .wasm module before anything is copied. Left alone it adds about ten
+    megabytes to every publish, deployed and never read.
+
+    Two targets because the lists are populated at different times and answer different
+    questions: ReferenceCopyLocalPaths is the build output, settled at ResolveReferences, and
+    ResolvedFileToPublish is the publish output, settled much later. Each is collected into a
+    temporary item first and removed by reference, since a Remove attribute carrying its own
+    metadata condition does not batch the way it reads as though it would.
+  -->
+  <Target Name="KrillaDropWasmArchiveFromBuildOutput"
+          AfterTargets="ResolveReferences"
+          Condition="'$(RuntimeIdentifier)' == 'browser-wasm'">
+    <ItemGroup>
+      <_KrillaWasmArchiveCopy Include="@(ReferenceCopyLocalPaths)"
+                              Condition="'%(Filename)%(Extension)' == 'krilla_capi.a'" />
+      <ReferenceCopyLocalPaths Remove="@(_KrillaWasmArchiveCopy)" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="KrillaDropWasmArchiveFromPublishOutput"
+          AfterTargets="ComputeResolvedFilesToPublishList"
+          Condition="'$(RuntimeIdentifier)' == 'browser-wasm'">
+    <ItemGroup>
+      <_KrillaWasmArchivePublish Include="@(ResolvedFileToPublish)"
+                                 Condition="'%(Filename)%(Extension)' == 'krilla_capi.a'" />
+      <ResolvedFileToPublish Remove="@(_KrillaWasmArchivePublish)" />
+    </ItemGroup>
+  </Target>
+
+</Project>

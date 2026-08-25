@@ -1,0 +1,75 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!--
+    Proves the one part of browser-wasm support that lives in the package rather than in the
+    binary: that buildTransitive/Krilla.targets puts the static archive in front of a
+    consumer's Emscripten link step.
+
+    That hop is worth a test of its own because it fails SILENTLY. A NativeFileReference
+    declared by a referenced project or package does not reach the consuming WebAssembly app
+    (dotnet/runtime#114724), so a package that declared it in the wrong place would restore,
+    build and publish perfectly, and then fail on the first P/Invoke with a missing symbol
+    naming neither Krilla nor the call.
+
+    OutputType is Library and nothing here links anything, which is the point: the assertion is
+    on the item group, so this needs no wasm-tools workload and adds seconds rather than the
+    couple of gigabytes an Emscripten relink would cost. What it therefore does NOT prove is
+    that the archive itself is good — native.yml's browser-wasm leg does that, by linking it
+    and running the result under node.
+  -->
+
+  <!--
+    DELIBERATELY NOT IN IntegrationTests.slnx, and that is load-bearing rather than an
+    oversight. The smoke jobs run `dotnet build IntegrationTests`, which builds the solution;
+    a browser-wasm project in it fails with NETSDK1147 on every runner that has no wasm-tools
+    workload, which is all of them. So this project is invoked by path, by the one CI step that
+    installs the workload first.
+  -->
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <RuntimeIdentifier>browser-wasm</RuntimeIdentifier>
+    <OutputType>Library</OutputType>
+    <!-- No ProjectReference, for the reason IntegrationTests.csproj gives: this exists to test
+         the package, and a project reference would bypass exactly what is under test. -->
+  </PropertyGroup>
+
+  <ItemGroup>
+    <PackageReference Include="Krilla" />
+  </ItemGroup>
+
+  <Target Name="VerifyKrillaWasmNative">
+    <PropertyGroup>
+      <_KrillaNativeRefs>@(NativeFileReference)</_KrillaNativeRefs>
+    </PropertyGroup>
+
+    <Error Condition="!$(_KrillaNativeRefs.Contains('krilla_capi.a'))"
+           Text="Krilla: restoring the package for browser-wasm produced no NativeFileReference for krilla_capi.a, so a WebAssembly consumer would link nothing and fail at the first P/Invoke. Check that buildTransitive/Krilla.targets is in the package and that its RuntimeIdentifier condition still matches. NativeFileReference was: '$(_KrillaNativeRefs)'" />
+
+    <ItemGroup>
+      <_KrillaWasmArchive Include="@(NativeFileReference)" />
+    </ItemGroup>
+
+    <Error Condition="!Exists('%(_KrillaWasmArchive.Identity)')"
+           Text="Krilla: the browser-wasm NativeFileReference points at '%(_KrillaWasmArchive.Identity)', which does not exist. The package carries the import but not the archive." />
+
+    <Message Importance="high" Text="Krilla: browser-wasm archive reaches the link step: $(_KrillaNativeRefs)" />
+  </Target>
+
+  <!--
+    The mirror assertion, and not a formality: the import is conditioned on the runtime
+    identifier, and a condition that always fired would hand a wasm archive to every ordinary
+    build. Run this target with -p:RuntimeIdentifier=win-x64.
+  -->
+  <Target Name="VerifyKrillaNativeIsWasmOnly">
+    <PropertyGroup>
+      <_KrillaNativeRefs>@(NativeFileReference)</_KrillaNativeRefs>
+    </PropertyGroup>
+
+    <Error Condition="$(_KrillaNativeRefs.Contains('libkrilla_capi'))"
+           Text="Krilla: a non-WebAssembly build was handed the wasm archive as a NativeFileReference ('$(_KrillaNativeRefs)'). The RuntimeIdentifier condition in buildTransitive/Krilla.targets is not holding." />
+
+    <Message Importance="high" Text="Krilla: no native file reference under $(RuntimeIdentifier), as expected." />
+  </Target>
+
+</Project>

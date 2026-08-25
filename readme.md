@@ -741,7 +741,7 @@ Content that is decoration rather than meaning — running heads, page numbers, 
 
 ## Native binaries
 
-The package carries `runtimes/<rid>/native/` entries for eight RIDs: `win-x64`, `win-arm64`, `linux-x64`, `linux-arm64`, `linux-musl-x64`, `linux-musl-arm64`, `osx-x64` and `osx-arm64`. NuGet copies only the one matching the target runtime, so `dotnet publish -r linux-x64` emits a single `libkrilla_capi.so`.
+The package carries `runtimes/<rid>/native/` entries for nine RIDs: `win-x64`, `win-arm64`, `linux-x64`, `linux-arm64`, `linux-musl-x64`, `linux-musl-arm64`, `osx-x64`, `osx-arm64` and `browser-wasm`. NuGet copies only the one matching the target runtime, so `dotnet publish -r linux-x64` emits a single `libkrilla_capi.so`.
 
 A runtime-agnostic `dotnet build` copies the whole tree into `bin`. To avoid that, set a runtime identifier:
 
@@ -754,6 +754,35 @@ A runtime-agnostic `dotnet build` copies the whole tree into `bin`. To avoid tha
 The Linux builds are linked against glibc 2.17, so they load on every currently supported distribution. Separate musl builds are shipped because .NET's RID graph does not fall back from `linux-musl-x64` to `linux-x64`; without them an Alpine container would fail with a bare `DllNotFoundException`.
 
 Building from source needs [Rust](https://rustup.rs) — `dotnet build` shells out to cargo when the native is missing or stale, and skips silently when cargo is absent. Consumers of the package never need Rust.
+
+
+### WebAssembly
+
+`browser-wasm` is the odd one out, and how it differs is worth knowing before reaching for it. There is no dynamic loader in a browser for a P/Invoke to search, so the shim ships as a static archive — `krilla_capi.a` — which is linked into the application's own `.wasm` module while it builds. The package hands it to that link step, so a package reference and a runtime identifier are the whole of the setup:
+
+```xml
+<PropertyGroup>
+  <RuntimeIdentifier>browser-wasm</RuntimeIdentifier>
+</PropertyGroup>
+```
+
+Two things follow from being linked rather than loaded.
+
+**The `wasm-tools` workload is required**, because the application is relinked from source rather than assembled out of prebuilt parts:
+
+```bash
+dotnet workload install wasm-tools
+```
+
+Expect the build to take appreciably longer than a managed-only one. That is the relink, and it is charged whether or not Krilla is the reason for it.
+
+**The application's `.wasm` grows by roughly the size of a PDF engine**, because that is what is being linked in. A stock Blazor WebAssembly app publishes a 2.9 MB `dotnet.native.wasm`; the same app with Krilla publishes 7.4 MB, compressed to well under half that in transit by the `.br` files the SDK emits alongside. Worth knowing before putting a PDF writer in a page that has to load quickly.
+
+**WebAssembly exception handling has to stay switched on**, which it is by default. Every export in the shim contains its panics inside `catch_unwind`, so a failure inside krilla comes back as a status code rather than taking the runtime down with it, and on this target the compiler implements that with native WebAssembly exception handling. `<WasmEnableExceptionHandling>false</WasmEnableExceptionHandling>` therefore fails the link on an undefined `__cpp_exception` symbol — the package raises a message naming the property before the linker gets that far.
+
+`browser-wasm` is also the only 32-bit target here. Nothing in the public API changes: the interop layer is written in pointer-sized types throughout, so the struct layouts follow the target on their own, and the shipped archive is checked against the managed side's expectations on every release build.
+
+Images are worth a thought on this platform in particular. Krilla never fetches over the network on any target — that is a security default rather than a gap — so pictures and fonts arrive as bytes the caller supplies, which in a browser means fetching them in application code before handing them over.
 
 
 ## Third-party licences
