@@ -180,7 +180,6 @@ static class UnsupportedCss
         InlineSurround(declaration, name, style, sink);
         Fixed(declaration, name, sink);
         Radius(declaration, name, style, sink);
-        CellBaseline(declaration, name, style, sink);
     }
 
     /// <summary>
@@ -764,26 +763,6 @@ static class UnsupportedCss
                     "the border is painted with square corners");
                 return;
             }
-        }
-    }
-
-    /// <summary>
-    /// Baseline alignment of a table cell, which aligns to the top instead.
-    /// </summary>
-    /// <remarks>
-    /// Only reachable by asking for it — the user-agent stylesheet makes a cell <c>middle</c> —
-    /// which is why it earns a report rather than being a silent default.
-    /// </remarks>
-    static void CellBaseline(
-        ICssStyleDeclaration declaration,
-        string element,
-        ComputedStyle style,
-        Action<HtmlDiagnostic> sink)
-    {
-        if (style.Display == DisplayKind.TableCell &&
-            Set(declaration, "vertical-align") is "baseline")
-        {
-            Diagnostic.Property(sink, element, "vertical-align", "baseline", "aligned to the top of the cell");
         }
     }
 

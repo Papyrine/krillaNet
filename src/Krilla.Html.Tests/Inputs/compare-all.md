@@ -1,4 +1,4 @@
-# All scenarios (126)
+# All scenarios (127)
 
 The browser reference (left) beside the page Krilla.Html produced (right). `AE` is the fraction of pixels that differ and `SSIM` is structural similarity; neither is asserted. The worst offset is the largest positional disagreement in CSS pixels between the rendered element geometry and the browser's, and is the number to watch — it reaches zero exactly when the layout is right.
 
@@ -102,6 +102,7 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [table/anonymous](#table-anonymous)
 - [table/auto_widths](#table-auto_widths)
 - [table/caption_side](#table-caption_side)
+- [table/cell_baseline](#table-cell_baseline)
 - [table/collapse](#table-collapse)
 - [table/columns](#table-columns)
 - [table/empty](#table-empty)
@@ -479,10 +480,12 @@ and leaves every length to the user agent, so the numbers were measured out of C
   dashes that fit at the requested gap, and one more — and whichever leaves a gap closer to the one
   asked for wins. `#dashed`'s 266px side takes 30 dashes at a gap of 2.97 rather than 29 at 3.29,
   and `#thick-dashed`'s 276px side takes 12 at 7.64 rather than 11 at 10.
-- A **dot** is the border's width across and repeats at twice it, and it is ROUND. That is why it
-  is drawn as a zero-length dash under a round cap rather than as a square one: the two are
-  indistinguishable at 1px and obviously different at 8. `#dotted` is 3px and `#thick-dashed` is
-  8px so that the width-dependent half of both rules is exercised rather than assumed.
+- A **dot** is the border's width across and repeats at twice it, and its SHAPE follows its size. At
+  three pixels and below Chromium draws a crisp square snapped to the pixel grid — measured at ten
+  widths, a 1, 2 or 3px dot comes back with no antialiased pixel anywhere in it — and from four
+  upward it draws a genuine antialiased circle. Neither approximates the other, so both are drawn.
+  `#dotted` is 3px and `#thick-dashed` is 8px so that the width-dependent half of both rules is
+  exercised rather than assumed.
 - A **double** border is two bands each a third of the width with a third-width gap, which is why
   6px reads 2-2-2 down a column of pixels and why `border: 1px double` is indistinguishable from
   solid.
@@ -493,28 +496,27 @@ side — so the trapezium's purpose, joining two colours cleanly on a diagonal, 
 `#mixed` is what keeps the two paths honest: three patterned edges and one solid on the same box,
 so the solid edge still mitres while the others do not.
 
-**Residual**: SSIM 0.9938, and every dash in the scenario now lands where Chrome's does — both
-dashed rows agree run for run, corner to corner. What is left is the DOTS, and it is a rasterisation
-difference rather than a placement one.
+**Residual**: SSIM 0.9995, and it is confined to the VERTICAL dotted edges. Every horizontal edge in
+the scenario is exact — dashes and dots alike, corner to corner, at both widths — and the dots on
+`#dotted`'s left and right sides are not.
 
-Their positions match: floored to whole pixels, Chrome's 3px dots start at 0, 5, 11, 17, 23 … which
-is exactly the flush pitch of 5.977 this computes. Their SHAPE does not. Chromium draws a small dot
-as a crisp square snapped to whole pixels — three solid pixels across, no antialiasing anywhere in
-it — and draws a large one as a genuine antialiased circle, which was measured at 3, 8 and 12px.
-This draws a circle at every size, so at 3px it is a soft blob where Chrome has a hard square.
+A horizontal dotted edge fits its pattern into the whole side, corner to corner, and the flush rule
+above reproduces it exactly. A vertical one does not: on a 30px box Chromium's left edge carries
+five dots at a pitch of 6.25 starting a pixel below the top corner, where the same rule applied to
+the full side gives six at 5.4. It is a different construction rather than an offset — probed at
+four heights, with and without adjacent horizontal borders, and no inset of the side reproduces it.
+The end of such an edge carries a solid square that no dot in the sequence accounts for, which is
+the shape of Blink filling a rect at each endpoint of a dashed line and dashing between them.
 
-That is why the note above about a dot being ROUND stands: it is right at 8px and wrong at 3, and
-the corpus only has a 3px row. A row at 8px would show the two agreeing.
-
-What to look at: dash and dot SIZE and spacing, which should match along the WHOLE of any edge now
-rather than only its first two thirds. A difference that accumulates toward a corner is the flush
-distribution gone; one that starts at the first dash is the period.
+What to look at: dash and dot SIZE and spacing along the HORIZONTAL edges, which should match
+exactly. A difference there is a real regression; a difference on a left or right dotted edge is
+the residual above.
 
 **Boxes**: 7 matched, worst offset 0.00px, worst size 0.00px.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |
-| **Page 1** | **Page 1. AE 0.0019 · SSIM 0.9938** |
+| **Page 1** | **Page 1. AE 0.0002 · SSIM 0.9995** |
 | <img src="block/border_styles/reference_0001.png" width="480"> | <img src="block/border_styles/result%23page_0001.verified.png" width="480"> |
 
 
@@ -3225,6 +3227,63 @@ one is the edge spacing being applied twice.
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
 | <img src="table/caption_side/reference_0001.png" width="480"> | <img src="table/caption_side/result%23page_0001.verified.png" width="480"> |
+
+
+## table/cell_baseline
+
+# table/cell_baseline
+
+`vertical-align: baseline` on a table cell, which lines a row's cells up on their first baselines
+rather than on any edge of the row. It was rendered as `top` and reported as unimplemented.
+
+It is the property's initial value and still not the usual case: the user-agent stylesheet gives a
+table `middle` and its cells `inherit`, so a cell only reaches `baseline` by asking for it. That is
+why it earned a report rather than being a silent default, and why implementing it moves no other
+scenario in the corpus.
+
+Three tables, and the third is what keeps the other two honest:
+
+- **`#mixed`** — 16px text, 32px text, and a cell with 18px of extra top padding. All three land
+  their first baseline on the same line, 33px below the row's top edge. The 16px cell's content is
+  moved down 16px to get there and the other two do not move at all, which is the point: the row's
+  baseline is the FURTHEST any cell carries its own, so most cells sit still and one does the
+  travelling.
+- **`#lines`** — a one-line cell, a two-line cell and a 32px cell. The two-line cell aligns on its
+  FIRST line, not its last, so its second line hangs below the row's baseline and makes the row
+  60px tall where the same three cells top-aligned need 44. A row's height is therefore not the
+  tallest cell: it is the furthest above the baseline plus the furthest below it, and those two
+  maxima come from different cells.
+- **`#against`** — `top`, `bottom` and `middle` beside a baseline cell in one row. None of them
+  takes part in the baseline, and the row is sized by the tallest of them instead. Without this row
+  an implementation that treated every cell as baseline-aligned would pass.
+
+**Geometry is exact on all 33 boxes**, which is what says the rule is right — every span in every
+cell lands where Chrome's layout puts it.
+
+**Residual**: SSIM 0.9926, and it is not this engine's. **Chromium's PRINTER does not apply the
+alignment, though it reserves the room for it.** The two halves of this scenario's reference
+disagree: `getBoundingClientRect()` puts `#lines`'s `.one` span at y=87, and the printed page draws
+that same text at y=71 — top-aligned, 16px higher — while both agree the row is 60px tall. So the
+browser computes the taller row that baseline alignment demands and then leaves the content against
+the top of it.
+
+That is the same shape as `visibility: collapse` on a table row, where Chrome also disagrees with
+itself and no engine behaviour can be exact on both measurements. It is resolved the other way here,
+because the disagreement is one-sided rather than symmetric: the box geometry agrees with CSS 2.1
+§17.5.4 and with every other browser, and the print render agrees with nothing — including its own
+row height. Matching the geometry is matching the specification; matching the pixels would mean
+reproducing a bug that the browser's own layout contradicts.
+
+What to look at: the box comparison, which is the measurement that means something here. Any
+non-zero offset is a real regression. The page render will differ on every baseline-aligned cell
+whose content had to move, and only on those — `#against` is pixel-clean.
+
+**Boxes**: 33 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0031 · SSIM 0.9926** |
+| <img src="table/cell_baseline/reference_0001.png" width="480"> | <img src="table/cell_baseline/result%23page_0001.verified.png" width="480"> |
 
 
 ## table/collapse

@@ -685,7 +685,7 @@ static class TableLayout
                 fonts,
                 CellWidth(cell, widths, spacingX));
 
-            natural[index] = new(used, ContentExtent(cell.Box));
+            natural[index] = new(used, ContentExtent(cell.Box), FirstBaseline(cell.Box));
         }
 
         return natural;
@@ -693,7 +693,47 @@ static class TableLayout
 
     /// <param name="Used">The cell's border-box height, which is what a row has to hold.</param>
     /// <param name="Content">How much of it the content actually occupies.</param>
-    readonly record struct CellHeight(float Used, float Content);
+    /// <param name="Baseline">
+    /// How far its first line's baseline sits below its border-box top, or null when it has no
+    /// line to take one from.
+    /// </param>
+    readonly record struct CellHeight(float Used, float Content, float? Baseline)
+    {
+        /// <summary>What a baseline-aligned cell needs above the row's baseline.</summary>
+        public float Above => Baseline ?? Used;
+
+        /// <summary>And below it. The two sum to <see cref="Used"/>.</summary>
+        public float Below => Used - Above;
+    }
+
+    /// <summary>
+    /// Where a cell's FIRST line puts its baseline, measured from the cell's border-box top.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Cells are laid out at the origin, so the line's own position is already relative to the
+    /// border box. A pre-order walk, so a cell whose first line is inside a nested block still
+    /// finds it — which is what CSS 2.1 §17.5.4 means by the cell's first in-flow line box.
+    /// </para>
+    /// <para>
+    /// Null when there is no line at all. CSS then puts the cell's baseline on its bottom margin
+    /// edge, which is <see cref="CellHeight.Above"/>'s fallback: a cell with nothing in it hangs
+    /// entirely above the row's baseline and cannot pull it down.
+    /// </para>
+    /// </remarks>
+    static float? FirstBaseline(LayoutBox box)
+    {
+        foreach (var descendant in box.Descendants())
+        {
+            if (descendant.Lines.Count > 0)
+            {
+                var line = descendant.Lines[0];
+                return line.Bounds.Y + line.Baseline;
+            }
+        }
+
+        return null;
+    }
 
     /// <summary>
     /// How far a cell's content actually reaches below its content edge.
@@ -752,11 +792,41 @@ static class TableLayout
                 : 0;
         }
 
+        // The row's own baseline first, because a baseline-aligned cell's contribution to the
+        // row's height is not its used height: it is how far it reaches above that baseline plus
+        // how far the DEEPEST cell reaches below it, and those two maxima come from different
+        // cells. A spanning cell takes part in the row it starts in — CSS 2.1 §17.5.4 aligns it
+        // there — and its own height is settled by the shortfall pass below like any other.
+        var below = new float[grid.Rows.Count];
+
         for (var index = 0; index < grid.Cells.Count; index++)
         {
             var cell = grid.Cells[index];
 
+            if (!Aligns(cell))
+            {
+                continue;
+            }
+
+            var row = grid.Rows[cell.Row];
+            row.Baseline = Math.Max(row.Baseline, natural[index].Above);
+
             if (cell.RowSpan == 1)
+            {
+                below[cell.Row] = Math.Max(below[cell.Row], natural[index].Below);
+            }
+        }
+
+        for (var row = 0; row < grid.Rows.Count; row++)
+        {
+            grid.Rows[row].Height = Math.Max(grid.Rows[row].Height, grid.Rows[row].Baseline + below[row]);
+        }
+
+        for (var index = 0; index < grid.Cells.Count; index++)
+        {
+            var cell = grid.Cells[index];
+
+            if (cell.RowSpan == 1 && !Aligns(cell))
             {
                 var row = grid.Rows[cell.Row];
                 row.Height = Math.Max(row.Height, natural[index].Used);
@@ -772,12 +842,14 @@ static class TableLayout
             }
 
             var available = SpannedHeight(grid, cell, spacingY);
-            if (natural[index].Used <= available)
+            var wanted = natural[index].Used + Offset(grid, cell, natural[index]);
+
+            if (wanted <= available)
             {
                 continue;
             }
 
-            var extra = (natural[index].Used - available) / cell.RowSpan;
+            var extra = (wanted - available) / cell.RowSpan;
 
             for (var row = cell.Row; row < cell.Row + cell.RowSpan; row++)
             {
@@ -786,6 +858,18 @@ static class TableLayout
         }
 
     }
+
+    /// <summary>Whether a cell's content is aligned on its row's baseline.</summary>
+    /// <remarks>
+    /// The property's initial value, and NOT the usual case: the user-agent sheet gives a table
+    /// <c>middle</c> and its cells <c>inherit</c>, so a cell only reaches this by asking for it.
+    /// </remarks>
+    static bool Aligns(TableCell cell) =>
+        cell.Box.Style.VerticalAlign == VerticalAlignKind.Baseline;
+
+    /// <summary>How far down a cell's content is moved inside the space its row gives it.</summary>
+    static float Offset(TableGrid grid, TableCell cell, CellHeight height) =>
+        Aligns(cell) ? grid.Rows[cell.Row].Baseline - height.Above : 0;
 
     /// <summary>The height a cell has across the rows it spans, gaps included.</summary>
     static float SpannedHeight(TableGrid grid, TableCell cell, float spacingY)
@@ -817,6 +901,12 @@ static class TableLayout
     /// A cell is stretched to its row's height whatever its content came to, so the content has to
     /// be moved down inside it — which is what <c>vertical-align</c> decides, and why cells are
     /// laid out at the origin and translated rather than laid out in place.
+    ///
+    /// <c>middle</c> and <c>bottom</c> centre or sink the CONTENT within the room the cell's
+    /// padding leaves, which is not the same as centring the cell's used height: a cell asking for
+    /// <c>height: 100px</c> and holding one line is a hundred pixels tall with eighteen pixels of
+    /// content in it. <c>baseline</c> ignores that room entirely and measures against the row's own
+    /// baseline instead.
     /// </remarks>
     /// <summary>
     /// Gives each <c>&lt;col&gt;</c> and <c>&lt;colgroup&gt;</c> the rectangle a browser reports for
@@ -887,10 +977,10 @@ static class TableLayout
             {
                 VerticalAlignKind.Middle => (room - content) / 2,
                 VerticalAlignKind.Bottom => room - content,
-                // Baseline aligns a row's cells against each other's first baselines, which needs a
-                // pass this does not have. Falling back to the top edge is what Chrome renders for
-                // a row with one baseline-aligned cell, and is never further out than the row is
-                // tall.
+                // Against the ROW's baseline rather than against its edges, and the quantity is
+                // the whole border-box top of the cell rather than the room its padding leaves —
+                // which is why this one does not go through `room` at all.
+                VerticalAlignKind.Baseline => Offset(grid, cell, natural[index]),
                 _ => 0
             };
 

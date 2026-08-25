@@ -12,4 +12,14 @@ sealed class TableRow
 
     /// <summary>Height, once the cells in it have been measured.</summary>
     public float Height { get; set; }
+
+    /// <summary>
+    /// Where the row's baseline sits below its top edge, once its cells have been measured.
+    /// </summary>
+    /// <remarks>
+    /// The furthest any <c>vertical-align: baseline</c> cell in the row carries its own first
+    /// baseline below its border-box top. Zero when no cell in the row asks for it, which is the
+    /// usual case — the user-agent sheet makes a cell <c>middle</c>.
+    /// </remarks>
+    public float Baseline { get; set; }
 }

@@ -1,0 +1,20 @@
+table {
+  border-collapse: separate;
+  border-spacing: 4px;
+  margin-bottom: 12px;
+  background-color: #eef2f6;
+}
+
+td {
+  vertical-align: baseline;
+  background-color: #ffffff;
+  padding: 2px;
+  font-size: 16px;
+  line-height: 20px;
+}
+
+.big { font-size: 32px; line-height: 40px; }
+.pad { padding-top: 18px; }
+.top { vertical-align: top; }
+.bottom { vertical-align: bottom; }
+.middle { vertical-align: middle; }
