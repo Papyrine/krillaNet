@@ -134,18 +134,18 @@ public sealed class HtmlOptions
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Off because CHROMIUM DOES NOT IMPLEMENT THEM, and this converter's fidelity is measured
-    /// against Chromium. That is not an assumption: the corpus scenario
-    /// <c>page/break_between_lines</c> holds a browser reference in which a three-line paragraph is
-    /// broken after its second line, leaving one line overleaf under the initial <c>widows: 2</c> —
-    /// so the browser ignored the property, and honouring it by default would make this engine
-    /// disagree with the reference on every document long enough to paginate.
+    /// Off because this engine and Chromium disagree about ONE case, and the corpus is measured
+    /// against Chromium. Chromium does implement both properties — a paragraph whose natural break
+    /// would strand a single line is moved whole to the next sheet, at the initial counts and at
+    /// raised ones. Where the two part is a run that cannot satisfy both at once, which a
+    /// three-line paragraph under the initial <c>orphans: 2; widows: 2</c> never can: Chromium
+    /// splits it two and one anyway, and this moves the whole run overleaf.
     /// </para>
     /// <para>
-    /// Turn it on for typographic quality rather than for browser fidelity. The two are genuinely
-    /// in conflict here, which is why this is a switch rather than a decision taken once: a single
-    /// line stranded at the foot or head of a page is the defect the properties exist to prevent,
-    /// and a print engine that can prevent it should be able to.
+    /// So turning it on today buys typographic quality at the cost of one scenario's fidelity
+    /// rather than the whole corpus's. A single line stranded at the foot or head of a page is the
+    /// defect the properties exist to prevent, and a print engine that can prevent it should be
+    /// able to.
     /// </para>
     /// </remarks>
     public bool HonourOrphansAndWidows { get; set; }

@@ -754,14 +754,17 @@ changing it would suppress SSIM rather than report a difference.
 - **One length in `size` is a SQUARE page**, which is the specification's rule and not what an author
   writing a width expects. Two lengths are not turned by an orientation keyword — they are already in
   the order the author wanted — while a keyword alone turns whatever paper the caller chose.
-- **`orphans` and `widows` are implemented and OFF by default, because CHROMIUM DOES NOT IMPLEMENT
-  THEM.** `page/break_between_lines` holds a reference in which a four-line paragraph is broken
-  leaving two lines either side, and raising the counts to three shows the browser ignoring the
-  constraint entirely. Honouring them by default would make this engine disagree with the reference on
-  every document long enough to paginate, so `HtmlOptions.HonourOrphansAndWidows` is a choice between
-  typographic quality and browser fidelity rather than a default. Where neither constraint can be met
-  the whole run moves overleaf, and the move has to ADVANCE the page top or the loop that produces
-  page tops never ends.
+- **`orphans` and `widows` are implemented and OFF by default — and the reason recorded here for a
+  long time was WRONG.** It said Chromium does not implement them. It does: a probe of a four-line
+  paragraph whose natural break would leave one line above moves the whole paragraph to the next
+  sheet, and raising `orphans` to three on `page/break_between_lines`' own arrangement moves it
+  there too. What Chromium does differently is the case where NEITHER constraint can be met — a
+  three-line paragraph under `orphans: 2; widows: 2`, which is exactly `page/break_between_lines`.
+  There it splits two and one anyway; this moves the whole run overleaf. So the switch is not the
+  choice between typography and fidelity it was documented as, and turning it on today costs that
+  one scenario 0.9996 for 0.9769. Turning it on and relaxing the unsatisfiable case to split is
+  the change that would agree with the browser, and it is not made yet. The move must ADVANCE the
+  page top either way, or the loop that produces page tops never ends.
 - **A sided break inserts a blank page, which is a page COUNT difference.** `right` lands its content
   on an odd page and `left` on an even one, counting page one as a right-hand sheet. The rule that
   drops a break at the very start of the document applies to them too, or `right` on the first element

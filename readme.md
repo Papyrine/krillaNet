@@ -102,9 +102,12 @@ A document's `@page` rules decide the paper — size, orientation and margins �
 `:right` and `:blank` all select, and a margin box takes its own declarations rather than
 inheriting from the document. No browser implements any of this, so it is one of the few places
 this converter does more than the reference it is measured against. `string()` and `string-set`
-are the part still missing, and a named page — `@page cover` — selects nothing and is reported. `orphans` and `widows` are implemented and off by
-default, because Chromium does not implement them and this converter is measured against Chromium;
-`HtmlOptions.HonourOrphansAndWidows` is the choice between typographic quality and browser fidelity.
+are the part still missing, and a named page — `@page cover` — selects nothing and is reported.
+
+`orphans` and `widows` are implemented and off by default. Chromium implements them too, and the
+two agree except on a run that cannot satisfy both at once — a three-line paragraph under the
+initial `2`/`2` — where Chromium splits it two and one and this moves the whole run overleaf.
+`HtmlOptions.HonourOrphansAndWidows` turns them on.
 
 Generated content works: `::before` and `::after` with strings, `attr()`, `counter()`, `counters()`,
 `url()` and the quote keywords, along with `counter-reset`, `counter-increment` and `quotes`.

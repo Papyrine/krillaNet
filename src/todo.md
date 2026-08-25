@@ -181,6 +181,18 @@ wrong is still unmeasured.
 
 ## Pagination and paged media
 
+- **`orphans` and `widows` are off by default for a reason that turned out to be wrong.** The note
+  said Chromium does not implement them. It does: a four-line paragraph whose natural break would
+  leave one line above is moved whole to the next sheet, and raising `orphans` to three on
+  `page/break_between_lines`' own arrangement moves it there too — both measured. Where the two
+  engines actually part is the case where NEITHER constraint can be met, which a three-line
+  paragraph under the initial `2`/`2` never can: Chromium splits it two and one, and this moves the
+  whole run overleaf. Turning the switch on today costs `page/break_between_lines` 0.9996 for
+  0.9769 and changes nothing else in the corpus, so the work is small and well bounded: relax
+  `Paginator.Constrained`'s unsatisfiable case to split, then make the default true. Worth doing —
+  it is a real fidelity gap on every document long enough to break inside a paragraph, and it went
+  unnoticed because no scenario until now discriminated.
+
 - **`string()` and `string-set` are not implemented**, which is CSS's own way of putting a
   section's heading into a running header. Not reported either, and that is the harder half: the
   cascade DROPS a `content` declaration carrying `string()`, so it comes back empty and is
