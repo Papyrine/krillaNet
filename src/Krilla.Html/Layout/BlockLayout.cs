@@ -37,6 +37,14 @@ static class BlockLayout
     /// <param name="y">Top edge of this box's border box. Margins are the caller's business.</param>
     /// <param name="containingWidth">The containing block's content width.</param>
     /// <param name="fonts">The faces available for measuring text.</param>
+    /// <param name="assignedHeight">
+    /// A content height to use in place of the one the content came to, for a caller that has
+    /// already decided how tall the box is. Only <see cref="AbsoluteLayout"/> passes it, for a box
+    /// stretched between <c>top</c> and <c>bottom</c> — the vertical mirror of
+    /// <paramref name="assignedWidth"/>, and the reason an auto height can now be settled by
+    /// something other than the content. A DECLARED height still wins, since a caller only passes
+    /// this where there is none.
+    /// </param>
     /// <param name="assignedWidth">
     /// A width to use instead of resolving one, for a box whose width its container decided. A
     /// table cell has one, its column having settled the width before the cell was reached; so
@@ -55,7 +63,8 @@ static class BlockLayout
         float containingWidth,
         FontSet fonts,
         float? assignedWidth = null,
-        FloatContext? floats = null)
+        FloatContext? floats = null,
+        float? assignedHeight = null)
     {
         var style = box.Style;
 
@@ -161,7 +170,7 @@ static class BlockLayout
             replacedHeight ??
             (style.Height.Kind == LengthKind.Absolute
                 ? style.ContentSize(style.Height.Value, surroundY)
-                : Ratio(style, borderBoxWidth, surroundY) ?? contentHeight),
+                : assignedHeight ?? Ratio(style, borderBoxWidth, surroundY) ?? contentHeight),
             style,
             surroundY);
 

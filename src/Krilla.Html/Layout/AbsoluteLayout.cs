@@ -115,7 +115,16 @@ static class AbsoluteLayout
         var marginTop = style.MarginTop.Resolve(width);
 
         var assigned = Width(box, containing, left, right, marginLeft, marginRight, fonts);
-        var used = BlockLayout.Layout(box, 0, 0, width, fonts, assigned);
+
+        var stretched = Height(
+            box,
+            containing,
+            top,
+            bottom,
+            marginTop,
+            style.MarginBottom.Resolve(width));
+
+        var used = BlockLayout.Layout(box, 0, 0, width, fonts, assigned, assignedHeight: stretched);
 
         // CSS 2.1 §10.3.7 and §10.6.4. With an offset at each end AND a definite size between them
         // the equation is over-constrained, and it is the auto margins that absorb the slack: both
@@ -124,9 +133,10 @@ static class AbsoluteLayout
         // standard ways to centre something — `left: 0; right: 0; margin: 0 auto` on a box with a
         // width.
         //
-        // A definite size is the condition that matters. With `width: auto` the box already
-        // stretches to span the offsets and there is no slack to share; vertically, an auto height
-        // does NOT stretch here, so centring it would be sharing out the gap it should have filled.
+        // A definite size is the condition that matters, and BOTH axes now stretch when it is
+        // absent — an auto width spans `left` to `right` and an auto height spans `top` to
+        // `bottom`, so in either case the box already fills the gap and there is no slack for a
+        // margin to absorb.
         if (left is not null && right is not null && Definite(box, style.Width))
         {
             (marginLeft, marginRight) = Share(
@@ -214,6 +224,53 @@ static class AbsoluteLayout
         // Over-constrained with nothing auto to absorb it. The end offset is ignored, which is
         // what preferring `left` and `top` below already does.
         return (start, end);
+    }
+
+    /// <summary>
+    /// The content height to give the box, or null to let its own content decide.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// With <c>top</c> and <c>bottom</c> both given and an auto height, CSS 2.1 §10.6.4 solves the
+    /// equation for the height rather than for a margin: the box fills the gap the offsets leave,
+    /// and the auto margins that would otherwise have absorbed the slack resolve to zero because
+    /// there is none. That is the vertical mirror of an auto width spanning <c>left</c> and
+    /// <c>right</c>.
+    /// </para>
+    /// <para>
+    /// A CONTENT height, so the surround comes off here. The gap between the offsets is a
+    /// margin-box extent and the box's own padding and border sit inside it, which is true whatever
+    /// <c>box-sizing</c> says — the number was never a declared one, so there is nothing for that
+    /// property to reinterpret.
+    /// </para>
+    /// <para>
+    /// The content itself is NOT stretched. It stays at the top of a box that is now taller than it
+    /// needed to be, which is what a browser does and what makes this a sizing change rather than
+    /// an alignment one.
+    /// </para>
+    /// </remarks>
+    static float? Height(
+        LayoutBox box,
+        Rect containing,
+        float? top,
+        float? bottom,
+        float marginTop,
+        float marginBottom)
+    {
+        var style = box.Style;
+
+        if (top is null || bottom is null || Definite(box, style.Height))
+        {
+            return null;
+        }
+
+        var surround = style.PaddingTop.Resolve(containing.Width) +
+                       style.PaddingBottom.Resolve(containing.Width) +
+                       style.BorderWidthY;
+
+        return Math.Max(
+            0,
+            containing.Height - top.Value - bottom.Value - marginTop - marginBottom - surround);
     }
 
     /// <summary>

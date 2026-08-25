@@ -36,3 +36,21 @@
 
 /* Only one offset given, so the box is not over-constrained and the auto margins are zero. */
 #left { left: 40px; width: 120px; margin-left: auto; margin-right: auto; }
+
+/* An AUTO height spans `top` to `bottom`, the mirror of `#filled`. Its one line of text stays at
+   the top of the box it fills rather than being stretched or centred, so the background reaching
+   the frame's bottom edge is the whole of what says the box grew. */
+#stretched { top: 10px; bottom: 15px; left: 20px; width: 120px; margin-top: auto; margin-bottom: auto; }
+
+/* The same, with padding and a border inside it: the gap the offsets leave is a MARGIN-box extent,
+   so the surround comes out of the height rather than being added to it. */
+#inset {
+  top: 10px;
+  bottom: 15px;
+  left: 20px;
+  width: 120px;
+  margin-top: 5px;
+  padding: 6px 4px 9px;
+  border-top: 3px solid #808898;
+  border-bottom: 7px solid #808898;
+}

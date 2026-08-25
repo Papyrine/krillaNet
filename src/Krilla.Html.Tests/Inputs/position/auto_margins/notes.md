@@ -31,11 +31,13 @@ distinguishes yet". Nothing in the corpus measured it.
   width already spans the offsets so there is no slack, and a single offset does not over-constrain
   anything. Both render identically with the property implemented and without it, and they are here
   so that an over-eager reading has somewhere to fail.
-
-## What is still not done
-
-An auto HEIGHT with `top` and `bottom` both given should stretch the box between them, the way an
-auto width already does horizontally. It does not: `BlockLayout.Layout` takes an assigned width and
-no assigned height, so there is nothing to hand a forced height to. That is why `Definite` gates the
-vertical case on a declared height rather than mirroring the horizontal branch — centring a box that
-should have stretched shares out the gap it was supposed to fill.
+- **`#stretched`** is `#filled`'s vertical mirror, and it is the row that says an auto HEIGHT spans
+  `top` to `bottom`. Its auto margins are zero for the same reason: the box already fills the gap.
+  Its single line of text stays at the TOP of the box rather than being stretched or centred, so
+  what says the box grew is its background reaching the frame's bottom edge — a stretch that was
+  not applied leaves a 24px box where a 45px one belongs.
+- **`#inset`** is the same with a border and padding inside it. The gap the offsets leave is a
+  MARGIN-box extent, so the surround comes OUT of the height rather than being added to it: 70px of
+  frame less a 10px top offset, a 15px bottom offset and a 5px top margin leaves a 40px border box,
+  and 10px of border and 15px of padding leave 15px of content. Adding the surround instead gives a
+  box 25px too tall, which overflows the frame and is the mistake this row exists to catch.

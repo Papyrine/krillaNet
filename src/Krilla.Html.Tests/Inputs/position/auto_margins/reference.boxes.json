@@ -4,14 +4,14 @@
     "x": 0,
     "y": 0,
     "width": 816,
-    "height": 480
+    "height": 640
   },
   {
     "selector": "html > body:nth-child(2)",
     "x": 0,
     "y": 0,
     "width": 816,
-    "height": 470
+    "height": 630
   },
   {
     "selector": "html > body:nth-child(2) > div:nth-child(1)",
@@ -96,5 +96,33 @@
     "y": 400,
     "width": 120,
     "height": 24
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(7)",
+    "x": 0,
+    "y": 480,
+    "width": 400,
+    "height": 70
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(7) > div:nth-child(1)",
+    "x": 20,
+    "y": 490,
+    "width": 120,
+    "height": 45
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(8)",
+    "x": 0,
+    "y": 560,
+    "width": 400,
+    "height": 70
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(8) > div:nth-child(1)",
+    "x": 20,
+    "y": 575,
+    "width": 128,
+    "height": 40
   }
 ]

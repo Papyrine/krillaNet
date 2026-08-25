@@ -92,7 +92,7 @@ page/table_header                matched 99  offset    0.00  size    0.00  diffe
 page/tall_block                  matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
 position/absolute                matched  9  offset    0.00  size    0.00  differing  0  unmatched 0
 position/anchors                 matched  9  offset    0.00  size    0.00  differing  0  unmatched 0
-position/auto_margins            matched 14  offset    0.00  size    0.00  differing  0  unmatched 0
+position/auto_margins            matched 18  offset    0.00  size    0.00  differing  0  unmatched 0
 position/fixed                   matched  6  offset    0.00  size    0.00  differing  0  unmatched 0
 position/relative                matched 12  offset    0.00  size    0.00  differing  0  unmatched 0
 position/z_index                 matched 19  offset    0.00  size    0.00  differing  0  unmatched 0
