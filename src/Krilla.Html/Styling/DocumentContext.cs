@@ -13,14 +13,19 @@ sealed class DocumentContext :
     IDisposable
 {
     readonly IStyleCollection styles;
+    readonly IDocument document;
+
+    List<((string Prefix, string Pseudo) Selector, DisplayKind Display)>? displays;
 
     DocumentContext(
+        IDocument document,
         IStyleCollection styles,
         CssRoot root,
         ImageStore images,
         FontSet? fonts,
         Action<HtmlDiagnostic>? onDiagnostic)
     {
+        this.document = document;
         this.styles = styles;
         Root = root;
         Images = images;
@@ -143,6 +148,7 @@ sealed class DocumentContext :
             options.Fonts);
 
         return new(
+            document,
             window.GetStyleCollection(device),
             // The viewport in paged media is the page's CONTENT box, which is what a browser
             // printing to PDF resolves `vh` and `vw` against — so `height: 100vh` fills the sheet
@@ -181,6 +187,158 @@ sealed class DocumentContext :
     /// </remarks>
     public static ICssStyleDeclaration? Cascade(IElement element, string pseudo) =>
         element.Pseudo(pseudo)?.GetCascadedStyle();
+
+    /// <summary>
+    /// The <c>display</c> a <c>::before</c> or <c>::after</c> rule declared for
+    /// <paramref name="element"/>, or null when none did.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Recovered from the RULES rather than from the cascade, because the cascade cannot answer it.
+    /// A pseudo-element's cascaded style carries the host's declarations too — measured: a
+    /// <c>&lt;div&gt;</c> whose <c>::before</c> declares nothing at all comes back with
+    /// <c>display: block</c>, leaked from the user-agent rule for <c>div</c>. So a value the two
+    /// agree on tells you nothing, and <c>block</c> is exactly the value they agree on for every
+    /// block host — which is every host anyone writes a block pseudo for.
+    /// </para>
+    /// <para>
+    /// The same shape as the <c>@page</c> recovery, and bounded the same way: only style rules,
+    /// only a selector naming this pseudo, only the <c>display</c> declaration. Cascade order is
+    /// approximated by DOCUMENT order — the last matching rule wins and specificity is not compared
+    /// — which is a real limitation and a small one, since a document that declares two different
+    /// displays for one pseudo-element is a document that has already lost.
+    /// </para>
+    /// <para>
+    /// Media queries are not evaluated here, exactly as the <c>@page</c> scan does not evaluate
+    /// them. A PDF resolves media against PRINT, so the block that matters is the one this gets
+    /// right by accident.
+    /// </para>
+    /// </remarks>
+    public DisplayKind? PseudoDisplay(IElement element, string pseudo)
+    {
+        DisplayKind? found = null;
+
+        foreach (var (selector, display) in Displays())
+        {
+            if (!selector.Pseudo.Equals(pseudo, StringComparison.OrdinalIgnoreCase))
+            {
+                continue;
+            }
+
+            if (Matches(element, selector.Prefix))
+            {
+                found = display;
+            }
+        }
+
+        return found;
+    }
+
+    /// <summary>
+    /// Every <c>display</c> declared on a pseudo-element rule, in document order.
+    /// </summary>
+    /// <remarks>
+    /// Built once and cached, because the scan walks every rule in every stylesheet and a document
+    /// with generated content asks this question once per host element.
+    /// </remarks>
+    List<((string Prefix, string Pseudo) Selector, DisplayKind Display)> Displays()
+    {
+        if (displays is not null)
+        {
+            return displays;
+        }
+
+        displays = [];
+
+        // The DOCUMENT's sheets rather than the matched collection, which does not expose the rules
+        // it matched against. Media queries are therefore not evaluated — see above.
+        foreach (var sheet in document.StyleSheets.OfType<ICssStyleSheet>())
+        {
+            Walk(sheet.Rules);
+        }
+
+        return displays;
+
+        void Walk(ICssRuleList rules)
+        {
+            foreach (var rule in rules)
+            {
+                if (rule is ICssGroupingRule group)
+                {
+                    Walk(group.Rules);
+                    continue;
+                }
+
+                if (rule is not ICssStyleRule style)
+                {
+                    continue;
+                }
+
+                var declared = style.Style.GetPropertyValue("display");
+
+                if (string.IsNullOrWhiteSpace(declared))
+                {
+                    continue;
+                }
+
+                foreach (var selector in style.SelectorText.Split(','))
+                {
+                    if (Split(selector) is {} split)
+                    {
+                        displays.Add((split, StyleResolver.PseudoDisplay(declared)));
+                    }
+                }
+            }
+        }
+    }
+
+    /// <summary>
+    /// A selector's element part and the pseudo-element it names, or null when it names none.
+    /// </summary>
+    /// <remarks>
+    /// Both spellings, since CSS 2.1 wrote one colon and Selectors 3 writes two, and a stylesheet
+    /// in the wild carries either. A bare <c>::before</c> with nothing before it matches every
+    /// element, which is what the <c>*</c> stands in for.
+    /// </remarks>
+    static (string Prefix, string Pseudo)? Split(string selector)
+    {
+        var text = selector.Trim();
+
+        foreach (var name in (string[]) ["before", "after"])
+        {
+            foreach (var spelling in (string[]) [$"::{name}", $":{name}"])
+            {
+                if (text.EndsWith(spelling, StringComparison.OrdinalIgnoreCase))
+                {
+                    var prefix = text[..^spelling.Length].Trim();
+                    return (prefix.Length == 0 ? "*" : prefix, name);
+                }
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Whether <paramref name="element"/> matches a selector, treating one it cannot parse as no
+    /// match.
+    /// </summary>
+    /// <remarks>
+    /// A selector reaching here came out of a stylesheet AngleSharp already parsed, so a failure
+    /// means a construct its matcher does not implement rather than a syntax error. Swallowing it
+    /// leaves the pseudo inline, which is what it was before this existed.
+    /// </remarks>
+    static bool Matches(IElement element, string selector)
+    {
+        try
+        {
+            return element.Matches(selector);
+        }
+        catch (DomException)
+        {
+            return false;
+        }
+    }
 
     /// <inheritdoc />
     public void Dispose() =>

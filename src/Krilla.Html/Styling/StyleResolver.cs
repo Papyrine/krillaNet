@@ -119,13 +119,19 @@ static class StyleResolver
             return null;
         }
 
-        var style = Resolve(element, declaration, parent, context, pseudo: true);
+        var style = Resolve(element, Own(element, declaration, host), parent, context, pseudo: true);
 
         // A pseudo-element's display defaults to `inline`, not to whatever the host's element name
         // defaults to: a ::before on a div is inline.
+        //
+        // Taken from the RULES rather than from the cascade, because the cascade cannot tell a
+        // display the pseudo declared from the host's leaking into it — and for a block host the
+        // two are the same value, which is every host anyone writes a block pseudo for. See
+        // `DocumentContext.PseudoDisplay`.
         style = style with
         {
-            Display = ParseDisplay(Own(declaration, host, "display") ?? "inline", "span")
+            Display = context.PseudoDisplay(element, pseudo) ??
+                      ParseDisplay(Own(declaration, host, "display") ?? "inline", "span")
         };
 
         if (style.Display == DisplayKind.None)
@@ -134,6 +140,58 @@ static class StyleResolver
         }
 
         return (style, content);
+    }
+
+    /// <summary>
+    /// A pseudo-element's cascade with the host's declarations taken out of it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The pseudo cascade carries the host's declarations too, and the leak is not a curiosity: a
+    /// host with <c>width: 400px</c> hands that width to its <c>::before</c>, which then ignores
+    /// its own margins because it was told how wide to be. Every box property on the host arrives
+    /// this way.
+    /// </para>
+    /// <para>
+    /// So the pseudo's own declarations are separated out and re-parsed through an element that is
+    /// never added to the document — the same route <see cref="PageMargins"/> takes for a margin
+    /// box, and for the same reason: it is the only way to get a declaration block from a string of
+    /// CSS with shorthands expanded.
+    /// </para>
+    /// <para>
+    /// A value the two AGREE on is treated as the host's, which is the limitation this heuristic
+    /// carries: a pseudo declaring exactly what its host declares loses the declaration. It is the
+    /// same shape as every other origin question here — <c>ComputeCascadedStyle</c> does not say
+    /// where a declaration came from — and it is why <c>display</c> is recovered from the rules
+    /// instead, that being the property the two agree on for every block host.
+    /// </para>
+    /// </remarks>
+    static ICssStyleDeclaration Own(
+        IElement element,
+        ICssStyleDeclaration pseudo,
+        ICssStyleDeclaration host)
+    {
+        if (element.Owner is not {} document)
+        {
+            return pseudo;
+        }
+
+        var text = new StringBuilder();
+
+        for (var index = 0; index < pseudo.Length; index++)
+        {
+            var property = pseudo[index];
+
+            if (Own(pseudo, host, property) is {} value)
+            {
+                text.Append(property).Append(':').Append(value).Append(';');
+            }
+        }
+
+        var carrier = document.CreateElement("div");
+        carrier.SetAttribute("style", text.ToString());
+
+        return carrier.GetStyle();
     }
 
     /// <summary>
@@ -588,6 +646,16 @@ static class StyleResolver
 
         return CssValues.ParseColor(value);
     }
+
+    /// <summary>
+    /// One <c>display</c> value, as a pseudo-element takes it.
+    /// </summary>
+    /// <remarks>
+    /// A pseudo-element has no element name to fall back on, so the fallback is the one CSS gives
+    /// it — <c>inline</c>, which is what <c>span</c> stands in for here.
+    /// </remarks>
+    public static DisplayKind PseudoDisplay(string value) =>
+        ParseDisplay(value, "span");
 
     static DisplayKind ParseDisplay(string value, string localName) =>
         value.Trim().ToLowerInvariant() switch

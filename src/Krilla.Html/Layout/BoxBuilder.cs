@@ -59,14 +59,14 @@ static class BoxBuilder
         context.PendingColumns = [];
         context.PendingColumnBoxes = [];
 
-        Generated(element, "before", style, context, inlines, link);
+        Generated(element, "before", style, context, inlines, link, blocks);
 
         foreach (var node in element.ChildNodes)
         {
             Collect(node, style, context, blocks, inlines, floats, positioned, link, numbering);
         }
 
-        Generated(element, "after", style, context, inlines, link);
+        Generated(element, "after", style, context, inlines, link, blocks);
 
         // The scopes this element created end with its subtree, which is what keeps a second list
         // from continuing the first one's numbering.
@@ -730,6 +730,20 @@ static class BoxBuilder
     /// is the effect: generated content changes the host's own box, so a scenario measures it
     /// through the element it was added to.
     /// </para>
+    /// <para>
+    /// A pseudo asking to be a BLOCK gets a box of its own instead, appended to the host's block
+    /// children rather than to its line. The run is closed first, so a <c>::before</c> lands above
+    /// the host's own text and an <c>::after</c> below it — and the box carries the pseudo's own
+    /// style, so its margins, its <c>clear</c> and its height are the ordinary block ones. That is
+    /// what makes the oldest idiom in CSS work: <c>content: ""; display: block; clear: both</c> on
+    /// an <c>::after</c>, which is how a container was made to enclose its floats before
+    /// <c>overflow</c> was used for it.
+    /// </para>
+    /// <para>
+    /// Only where the host HAS block children to append to. An inline host contributes runs to a
+    /// line rather than a list of boxes, so a block pseudo inside one would have to blockify the
+    /// host — and that is reported instead.
+    /// </para>
     /// </remarks>
     static void Generated(
         IElement element,
@@ -737,14 +751,17 @@ static class BoxBuilder
         ComputedStyle host,
         DocumentContext context,
         List<InlineItem> inlines,
-        string? link)
+        string? link,
+        List<LayoutBox>? blocks = null)
     {
         if (StyleResolver.ResolvePseudo(element, pseudo, host, context) is not var (style, content))
         {
             return;
         }
 
-        if (style.Display != DisplayKind.Inline && context.Reports)
+        var block = blocks is not null && style.Display is DisplayKind.Block or DisplayKind.ListItem;
+
+        if (style.Display != DisplayKind.Inline && !block && context.Reports)
         {
             Diagnostic.Property(
                 context.OnDiagnostic,
@@ -754,12 +771,26 @@ static class BoxBuilder
                 "generated content is laid out as inline content of its host");
         }
 
+        // Where the content goes: the host's own line, or a box of the pseudo's own. In source
+        // order either way — closing the run first is what puts a block `::after` below the host's
+        // text rather than above it.
+        var target = inlines;
+
+        if (block)
+        {
+            CloseRun(blocks!, inlines, host);
+            target = [];
+        }
+
         // The pseudo's own padding and border, exactly as an inline element's are. Its edges carry
         // no selector, having no element to name — which costs nothing, since a selector is only
         // ever read by the box dump and a browser reports no rectangle for a pseudo-element either.
-        if (style.HasSurround)
+        //
+        // Not for a block pseudo: its box carries the pseudo's style directly, so the surround is
+        // already the box's own and adding it again would apply it twice.
+        if (style.HasSurround && !block)
         {
-            inlines.Add(new("", style, null, Edge: InlineEdgeKind.Leading));
+            target.Add(new("", style, null, Edge: InlineEdgeKind.Leading));
         }
 
         var text = new StringBuilder();
@@ -799,7 +830,7 @@ static class BoxBuilder
                     // image that does not resolve contributes nothing, as one in the markup does.
                     if (context.Images.Resolve(item.Text, out var reason) is {} image)
                     {
-                        inlines.Add(new("", style, null, Image: image, Link: link));
+                        target.Add(new("", style, null, Image: image, Link: link));
                     }
                     else if (context.Reports)
                     {
@@ -816,9 +847,23 @@ static class BoxBuilder
 
         Flush();
 
-        if (style.HasSurround)
+        if (style.HasSurround && !block)
         {
-            inlines.Add(new("", style, null, Edge: InlineEdgeKind.Trailing));
+            target.Add(new("", style, null, Edge: InlineEdgeKind.Trailing));
+        }
+
+        if (block)
+        {
+            // Appended even when it holds nothing. `content: ""` is the whole of the clearfix
+            // idiom, and a box dropped for being empty is a box whose margins and `clear` are
+            // dropped with it — which is the only thing that idiom asks for.
+            var own = new LayoutBox
+            {
+                Style = style
+            };
+
+            own.Inlines.AddRange(target);
+            blocks!.Add(own);
         }
 
         void Flush()
@@ -833,7 +878,11 @@ static class BoxBuilder
 
             if (processed.Length > 0)
             {
-                inlines.Add(new(processed, style, null, Link: link, Generated: true));
+                // NOT generated when the pseudo took a box of its own. The flag exists to tell the
+                // painter that a run has a background to fill even though it has no element to name
+                // one — and a block pseudo's box has already filled it, so the flag would fill it
+                // twice and draw the box's border a second time inside its own padding.
+                target.Add(new(processed, style, null, Link: link, Generated: !block));
             }
         }
     }
