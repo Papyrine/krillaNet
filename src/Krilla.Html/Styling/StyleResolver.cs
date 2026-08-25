@@ -1556,10 +1556,14 @@ static class StyleResolver
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Only the two-length form is kept — an offset and a colour. Anything with a third length is
-    /// dropped, because <see cref="BoxShadow"/> cannot tell a blur from a spread once AngleSharp has
-    /// elided the zero between them, and <c>inset</c> is dropped because it shades the inside of the
-    /// box rather than casting outside it. Every dropped layer is reported.
+    /// Only the two-length form is kept — an offset and a colour, with or without <c>inset</c>.
+    /// Anything with a third length is dropped, because <see cref="BoxShadow"/> cannot tell a blur
+    /// from a spread once AngleSharp has elided the zero between them. Every dropped layer is
+    /// reported.
+    /// </para>
+    /// <para>
+    /// <c>inset</c> is rejected for <c>text-shadow</c>, which has no inside to shade: CSS does not
+    /// allow the keyword there, and a layer carrying it is invalid rather than merely unsupported.
     /// </para>
     /// <para>
     /// Layers are REVERSED, because CSS paints the first-written one on top and the painter draws in
@@ -1584,9 +1588,11 @@ static class StyleResolver
 
         var shadows = new List<BoxShadow>();
 
+        var insettable = property.Equals("box-shadow", StringComparison.OrdinalIgnoreCase);
+
         foreach (var layer in CssValues.SplitLayers(value))
         {
-            if (Shadow(layer, fontSize, root) is {} shadow)
+            if (Shadow(layer, fontSize, root, insettable) is {} shadow)
             {
                 shadows.Add(shadow);
             }
@@ -1596,17 +1602,24 @@ static class StyleResolver
         return [.. shadows];
     }
 
-    static BoxShadow? Shadow(string layer, CssFont fontSize, CssRoot root)
+    static BoxShadow? Shadow(string layer, CssFont fontSize, CssRoot root, bool insettable)
     {
         Color? color = null;
         var opacity = 1f;
+        var inset = false;
         var lengths = new List<float>();
 
         foreach (var token in CssValues.SplitArguments(layer))
         {
             if (token.Equals("inset", StringComparison.OrdinalIgnoreCase))
             {
-                return null;
+                if (!insettable)
+                {
+                    return null;
+                }
+
+                inset = true;
+                continue;
             }
 
             if (CssValues.ParseColor(token) is {} parsed)
@@ -1633,7 +1646,7 @@ static class StyleResolver
         // cannot draw it.
         if (lengths.Count == 2 && color is {} painted)
         {
-            return new(lengths[0], lengths[1], painted, opacity);
+            return new(lengths[0], lengths[1], painted, opacity, inset);
         }
 
         return null;

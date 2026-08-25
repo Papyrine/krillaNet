@@ -373,6 +373,7 @@ public class DiagnosticTests
             <div style="background-image: radial-gradient(circle, red, blue)">round</div>
             <div style="transform: rotate(15deg) scale(1.2); transform-origin: top left">turned</div>
             <div style="border: 2px solid rgba(0, 0, 0, 0.4); outline: 1px solid rgba(0, 0, 0, 0.2)">faint</div>
+            <div style="box-shadow: inset 4px 4px #000">pressed in</div>
             <p style="text-decoration: underline; text-decoration-color: rgba(0, 0, 0, 0.3)">faintly ruled</p>
             <p style="height: 40px"><span style="height: 50%">a share of a definite height</span></p>
             <div style="break-before: avoid; break-after: avoid">kept with its neighbours</div>

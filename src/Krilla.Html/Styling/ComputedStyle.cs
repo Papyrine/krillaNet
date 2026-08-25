@@ -335,7 +335,19 @@ enum WordBreaking
 /// not — <c>rgba(0, 0, 0, 0.25)</c> is what a shadow IS — so ignoring it would leave the feature
 /// drawing a solid black slab in the usual case.
 /// </param>
-readonly record struct BoxShadow(float OffsetX, float OffsetY, Color Color, float Alpha = 1f);
+/// <param name="Inset">
+/// Whether it shades the INSIDE of the box rather than casting outside it. With no blur and no
+/// spread that is a subtraction — the padding box less the same rectangle moved by the offset — so
+/// it is the one thing in the shadow grammar that needs no Gaussian and could be drawn exactly.
+/// Never true for a <c>text-shadow</c>, which has no inside and where CSS does not allow the
+/// keyword.
+/// </param>
+readonly record struct BoxShadow(
+    float OffsetX,
+    float OffsetY,
+    Color Color,
+    float Alpha = 1f,
+    bool Inset = false);
 
 /// <summary>One of the three nested rectangles a box is made of.</summary>
 enum BoxArea

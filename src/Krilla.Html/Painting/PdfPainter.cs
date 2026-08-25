@@ -1281,12 +1281,15 @@ static class PdfPainter
             return;
         }
 
-        // Shadows first of all, because a shadow is BEHIND the box that casts it — including
+        // OUTER shadows first of all, because a shadow is BEHIND the box that casts it — including
         // behind its own background, which is what makes a translucent background show the shadow
         // through where the two overlap.
         foreach (var shadow in style.BoxShadows)
         {
-            PaintShadow(surface, style, box.BorderBox, shadow);
+            if (!shadow.Inset)
+            {
+                PaintShadow(surface, style, box.BorderBox, shadow);
+            }
         }
 
 
@@ -1311,6 +1314,17 @@ static class PdfPainter
         if (style.BackgroundPicture is {} picture)
         {
             PaintBackgroundImage(surface, style, rect, Area(box, style.BackgroundOrigin), picture);
+        }
+
+        // INSET shadows last: they shade the inside of the box, so they go OVER the background and
+        // under the border — which is where CSS Backgrounds 3 puts them, and it is what makes an
+        // inset shadow read as light falling into the box rather than as part of its fill.
+        foreach (var shadow in style.BoxShadows)
+        {
+            if (shadow.Inset)
+            {
+                PaintInsetShadow(surface, style, box, shadow);
+            }
         }
 
         void Fill(Paint paint, float opacity = 1f)
@@ -1540,6 +1554,66 @@ static class PdfPainter
         }
 
         return position.Resolve(area);
+    }
+
+    /// <summary>
+    /// Paints one INSET box shadow: the sliver of the padding box the offset copy of it leaves
+    /// uncovered.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// An inset shadow is drawn inside the padding edge rather than the border edge — measured, and
+    /// what CSS Backgrounds 3 says: a box with a 4px border and <c>inset 10px 8px</c> starts its
+    /// shadow at the inside of that border, not at the box's own edge.
+    /// </para>
+    /// <para>
+    /// With no blur and no spread it is a subtraction: the padding box, less the same rectangle
+    /// moved by the offset. A positive offset therefore leaves a band along the top and the left,
+    /// which is what makes a box look pressed in.
+    /// </para>
+    /// <para>
+    /// The clip is doing real work rather than tidying up. The offset copy hangs OUT of the padding
+    /// box on the far side, and under the non-zero rule the region outside the outer contour but
+    /// inside the inner one would come out filled — so the shadow would leak past the box's own
+    /// edge in exactly the direction it was offset.
+    /// </para>
+    /// </remarks>
+    static void PaintInsetShadow(Surface surface, ComputedStyle style, LayoutBox box, BoxShadow shadow)
+    {
+        var padding = Area(box, BoxArea.Padding);
+
+        if (padding.Width <= 0 || padding.Height <= 0)
+        {
+            return;
+        }
+
+        var radii = RoundedBox
+            .Resolve(style, box.BorderBox)
+            .Deflate(style.BorderTop, style.BorderRight, style.BorderBottom, style.BorderLeft);
+
+        using var clipBuilder = new PathBuilder();
+        Contour(clipBuilder, padding, clockwise: true);
+        using var clipPath = clipBuilder.Build();
+        using var clip = surface.PushClip(clipPath);
+
+        using var builder = new PathBuilder();
+        Contour(builder, padding, clockwise: true);
+        Contour(builder, padding.Offset(shadow.OffsetX, shadow.OffsetY), clockwise: false);
+
+        using var path = builder.Build();
+        using var paint = Krilla.Paint.Solid(shadow.Color);
+        surface.SetFill(new Fill(paint, shadow.Alpha)).DrawPath(path);
+
+        void Contour(PathBuilder into, Rect rect, bool clockwise)
+        {
+            if (radii.IsRounded)
+            {
+                radii.Trace(into, rect, clockwise);
+                return;
+            }
+
+            AddRectangle(into, rect.X, rect.Y, rect.Right, rect.Bottom, clockwise);
+        }
     }
 
     /// <summary>

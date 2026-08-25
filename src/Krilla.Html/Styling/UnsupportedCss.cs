@@ -504,9 +504,10 @@ static class UnsupportedCss
     /// short, and the report should say so once per layer lost.
     /// </para>
     /// <para>
-    /// What is lost is a blur, a spread, and <c>inset</c>. A blur needs a Gaussian; a spread is
-    /// indistinguishable from a blur once AngleSharp elides the zero between them; and <c>inset</c>
-    /// shades the inside of the box rather than casting outside it.
+    /// What is lost is a blur and a spread. A blur needs a Gaussian, which a PDF content stream
+    /// cannot express for an arbitrary shape; a spread is indistinguishable from a blur once
+    /// AngleSharp elides the zero between them. <c>inset</c> used to be here and is not — with no
+    /// blur it is a subtraction rather than a halo, so it could be drawn exactly.
     /// </para>
     /// </remarks>
     static void Shadows(
