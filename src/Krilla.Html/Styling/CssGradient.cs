@@ -88,7 +88,7 @@ sealed record CssGradient(
     /// Parses a <c>background-image</c> value, or returns null when it is not a gradient this
     /// engine draws.
     /// </summary>
-    public static CssGradient? Parse(string value, float fontSize, CssRoot root)
+    public static CssGradient? Parse(string value, CssFont fontSize, CssRoot root)
     {
         var text = value.Trim();
 
@@ -246,7 +246,7 @@ sealed record CssGradient(
     /// <summary>
     /// One <c>&lt;color&gt; [&lt;position&gt;]</c> argument.
     /// </summary>
-    static CssGradientStop? Stop(string argument, float fontSize, CssRoot root)
+    static CssGradientStop? Stop(string argument, CssFont fontSize, CssRoot root)
     {
         var text = argument.Trim();
         if (text.Length == 0)

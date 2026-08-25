@@ -18,13 +18,27 @@ sealed class DocumentContext :
         IStyleCollection styles,
         CssRoot root,
         ImageStore images,
+        FontSet? fonts,
         Action<HtmlDiagnostic>? onDiagnostic)
     {
         this.styles = styles;
         Root = root;
         Images = images;
+        Fonts = fonts;
         OnDiagnostic = onDiagnostic;
     }
+
+    /// <summary>
+    /// The faces the caller supplied, for the two units that need one.
+    /// </summary>
+    /// <remarks>
+    /// Styling has no other use for a font — sizes and families are strings until layout shapes
+    /// something. <c>ex</c> and <c>ch</c> are the exception: both name a glyph measurement, so
+    /// resolving them means resolving the element's family here, in the same place the cascade is
+    /// read. Nullable because a context can be built without one and every unit but those two
+    /// still resolves.
+    /// </remarks>
+    public FontSet? Fonts { get; }
 
     /// <summary>The root element's font size in CSS pixels.</summary>
     public float RootFontSize => Root.FontSize;
@@ -135,6 +149,7 @@ sealed class DocumentContext :
             // between the margins rather than the sheet itself.
             new(options.RootFontSize, options.ContentWidth, options.ContentHeight),
             images,
+            options.Fonts,
             options.OnDiagnostic)
         {
             ConstrainRuns = options.HonourOrphansAndWidows

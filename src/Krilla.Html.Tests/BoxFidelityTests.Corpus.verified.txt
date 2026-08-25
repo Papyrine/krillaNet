@@ -108,6 +108,7 @@ table/spacing_borders            matched 31  offset    0.00  size    0.00  diffe
 table/spans                      matched 35  offset    0.00  size    0.00  differing  0  unmatched 0
 text/decorations                 matched  9  offset    0.00  size    0.00  differing  0  unmatched 0
 text/decoration_style            matched 14  offset    0.00  size    0.00  differing  0  unmatched 0
+text/ex_ch                       matched 10  offset    0.00  size    0.00  differing  0  unmatched 0
 text/font_size_keywords          matched 13  offset    0.00  size    0.00  differing  0  unmatched 0
 text/kerning                     matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
 text/letter_spacing              matched  8  offset    0.00  size    0.00  differing  0  unmatched 0

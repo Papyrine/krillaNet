@@ -1,4 +1,4 @@
-# All scenarios (123)
+# All scenarios (124)
 
 The browser reference (left) beside the page Krilla.Html produced (right). `AE` is the fraction of pixels that differ and `SSIM` is structural similarity; neither is asserted. The worst offset is the largest positional disagreement in CSS pixels between the rendered element geometry and the browser's, and is the number to watch — it reaches zero exactly when the layout is right.
 
@@ -111,6 +111,7 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [table/spans](#table-spans)
 - [text/decorations](#text-decorations)
 - [text/decoration_style](#text-decoration_style)
+- [text/ex_ch](#text-ex_ch)
 - [text/font_size_keywords](#text-font_size_keywords)
 - [text/kerning](#text-kerning)
 - [text/letter_spacing](#text-letter_spacing)
@@ -2143,7 +2144,9 @@ Two further things were measured because they are not obvious:
 - Chrome holds lengths on a 1/64 pixel grid and truncates onto it, so a superscript offset of
   16/3 + 1 is stored as 6.328125 rather than 6.3333. That is a fortieth of a pixel and it was still
   visible: the paragraph background painted to the line's fractional bottom row came out a
-  different shade. Quantising the offsets took the page from SSIM 0.9969 to 0.9989.
+  different shade. Quantising the offsets took the page from SSIM 0.9969 to 0.9989, and snapping the
+  block background fill to whole pixels — done later, for `aspect-ratio`'s fractional heights — took
+  the last of it.
 
 `vertical-align` is INHERITED here, which CSS does not do, because the user-agent sheet gives a
 table `middle` and its cells `inherit` and a cell can only read the value by being handed it. The
@@ -2152,9 +2155,10 @@ not act on it. So the inline half applies only where the value was DECLARED and 
 that is not the block's own text — two guards, both needed, and without them every table scenario
 in the corpus moves at once.
 
-**Residual**: SSIM 0.9989. One row of one paragraph, where a box edge lands on a fractional pixel
-and the browser's background fill snaps to a whole one — the same cause as `table/spacing_borders`
-and `image/inline_flow`.
+**Residual**: none. SSIM 1.0000. It sat at 0.9989 for a while, on one row of one paragraph where a
+box edge landed on a fractional pixel and the browser's background fill snapped to a whole one; that
+went when block fills were snapped too. `table/spacing_borders` and `image/inline_flow` still carry
+the same cause on a border and an image edge, neither of which is snapped.
 
 What to look at: the offsets, which are the whole assertion. `super` and `sub` are the two that
 cannot be derived and so are the two most likely to drift.
@@ -3490,6 +3494,63 @@ What to look at: the gaps in the Chrome underline under each descender, and thei
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0002 · SSIM 0.9999** |
 | <img src="text/decoration_style/reference_0001.png" width="480"> | <img src="text/decoration_style/result%23page_0001.verified.png" width="480"> |
+
+
+## text/ex_ch
+
+# text/ex_ch
+
+`ex` and `ch`, the two length units that name a glyph measurement rather than arithmetic on the
+font size.
+
+Both were approximated at half an em for as long as the value layer threaded a bare `float`: a
+length parse had a size and no face, and the x-height and the advance of `0` are properties of the
+glyphs. `CssFont` carries the face now, and `#half-em` is the row that says the difference is real —
+it asks for `10em` against `#ex`'s `20ex`, and the two boxes are the same width only under the old
+approximation.
+
+## What the browser measures
+
+At 20px, in the corpus's own faces:
+
+| Row | Family | Declared | Chrome | Ratio to the em |
+| --- | --- | --- | --- | --- |
+| `#ex` | Liberation Sans | `20ex` | 211.33 | 0.5283 |
+| `#ex-bold` | Liberation Sans Bold | `20ex` | 211.33 | 0.5283 |
+| `#ex-mono` | Liberation Mono | `20ex` | 211.33 | 0.5283 |
+| `#ch` | Liberation Sans | `20ch` | 222.45 | 0.5561 |
+| `#ch-mono` | Liberation Mono | `20ch` | 240.03 | 0.6000 |
+| `#ex-inherited` | Liberation Mono, inherited | `20ex` | 211.33 | 0.5283 |
+| `#half-em` | Liberation Sans | `10em` | 200.00 | — |
+
+Two things worth reading off that table, and the second was a surprise:
+
+- **Neither unit is half an em**, and they are not the same quantity as each other. In one face
+  `20ex` and `20ch` differ by 11px.
+- **The three `ex` rows agree.** All four Liberation faces here share an x-height ratio, so `ex`
+  alone cannot show that the value follows the FACE rather than the size — `ch` is what shows it,
+  and `#ch-mono` is 17.6px wider than `#ch` because a monospaced advance is 0.6 of the em. So the
+  rows are not redundant in the direction they look redundant: `#ex-mono` pins that a face change
+  does NOT move `ex` here, and `#ch-mono` pins that it moves `ch`.
+
+`#ex-inherited` takes its family from a wrapper rather than from its own declaration, so a
+resolution that read the declaration being parsed instead of the resolved style would fall back to
+the default face and be wrong by whatever that face's x-height is.
+
+## What this cannot ask
+
+Whether the unit resolves against the parent's face in a `font-size` declaration. `font-size: 3ex`
+is the case, and its answer is the size in effect BEFORE the declaration — the same rule `em`
+follows. Nothing in a box rectangle separates that from the other reading without a second element
+to compare against, so it is settled in `StyleResolver` by construction instead: `ResolveFontSize`
+is handed the parent's font rather than one built from a size it is still computing.
+
+**Boxes**: 10 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| <img src="text/ex_ch/reference_0001.png" width="480"> | <img src="text/ex_ch/result%23page_0001.verified.png" width="480"> |
 
 
 ## text/font_size_keywords

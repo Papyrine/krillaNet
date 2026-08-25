@@ -1,0 +1,28 @@
+/* `ex` is the face's x-height and `ch` the advance of "0". Neither is a fixed fraction of the em,
+   which is the whole of what this measures: both were approximated at half the size for as long as
+   the value layer threaded a bare number, and `#half-em` is the row that says so — it is 10em of
+   width against `#ex`'s 20ex, and the two are equal only under the approximation. */
+div {
+  font-size: 20px;
+  line-height: 24px;
+  background-color: #dde5f0;
+  margin-bottom: 4px;
+}
+
+#ex { width: 20ex; }
+
+/* The face, not the size. */
+#ex-bold { width: 20ex; font-weight: bold; }
+
+/* A different family again, and the one whose ratios are furthest from a half. */
+#ex-mono { width: 20ex; font-family: 'Liberation Mono'; }
+
+#ch { width: 20ch; }
+#ch-mono { width: 20ch; font-family: 'Liberation Mono'; }
+
+/* The unit resolves against the element's OWN font, and the family here is INHERITED rather than
+   declared — so a resolution reading the declaration alone falls back to the default face. */
+#inherits { font-family: 'Liberation Mono'; background-color: transparent; margin-bottom: 0; }
+#ex-inherited { width: 20ex; }
+
+#half-em { width: 10em; }

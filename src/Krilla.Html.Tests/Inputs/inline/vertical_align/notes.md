@@ -38,7 +38,9 @@ Two further things were measured because they are not obvious:
 - Chrome holds lengths on a 1/64 pixel grid and truncates onto it, so a superscript offset of
   16/3 + 1 is stored as 6.328125 rather than 6.3333. That is a fortieth of a pixel and it was still
   visible: the paragraph background painted to the line's fractional bottom row came out a
-  different shade. Quantising the offsets took the page from SSIM 0.9969 to 0.9989.
+  different shade. Quantising the offsets took the page from SSIM 0.9969 to 0.9989, and snapping the
+  block background fill to whole pixels — done later, for `aspect-ratio`'s fractional heights — took
+  the last of it.
 
 `vertical-align` is INHERITED here, which CSS does not do, because the user-agent sheet gives a
 table `middle` and its cells `inherit` and a cell can only read the value by being handed it. The
@@ -47,9 +49,10 @@ not act on it. So the inline half applies only where the value was DECLARED and 
 that is not the block's own text — two guards, both needed, and without them every table scenario
 in the corpus moves at once.
 
-**Residual**: SSIM 0.9989. One row of one paragraph, where a box edge lands on a fractional pixel
-and the browser's background fill snaps to a whole one — the same cause as `table/spacing_borders`
-and `image/inline_flow`.
+**Residual**: none. SSIM 1.0000. It sat at 0.9989 for a while, on one row of one paragraph where a
+box edge landed on a fractional pixel and the browser's background fill snapped to a whole one; that
+went when block fills were snapped too. `table/spacing_borders` and `image/inline_flow` still carry
+the same cause on a border and an image edge, neither of which is snapped.
 
 What to look at: the offsets, which are the whole assertion. `super` and `sub` are the two that
 cannot be derived and so are the two most likely to drift.

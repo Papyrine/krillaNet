@@ -16,10 +16,10 @@ static class CssValues
     /// Parses a length or percentage.
     /// </summary>
     /// <param name="value">The serialized value.</param>
-    /// <param name="fontSize">The element's own font size, for <c>em</c>, <c>ex</c> and <c>ch</c>.</param>
+    /// <param name="fontSize">The element's own font, for <c>em</c>, <c>ex</c> and <c>ch</c>.</param>
     /// <param name="root">The root font size and viewport, for <c>rem</c> and the <c>v*</c> units.</param>
     /// <param name="fallback">Returned when the value is missing or unparseable.</param>
-    public static CssLength ParseLength(string? value, float fontSize, CssRoot root, CssLength fallback)
+    public static CssLength ParseLength(string? value, CssFont fontSize, CssRoot root, CssLength fallback)
     {
         if (string.IsNullOrWhiteSpace(value))
         {
@@ -83,7 +83,7 @@ static class CssValues
             "cm" => CssLength.Pixels(amount * 96 / 2.54f),
             "mm" => CssLength.Pixels(amount * 96 / 25.4f),
             "q" => CssLength.Pixels(amount * 96 / 101.6f),
-            "em" => CssLength.Pixels(amount * fontSize),
+            "em" => CssLength.Pixels(amount * fontSize.Size),
             "rem" => CssLength.Pixels(amount * root.FontSize),
             // The viewport units. In paged media the viewport is the page's content box, so these
             // are a proportion of the sheet — resolved here rather than carried as percentages,
@@ -93,11 +93,12 @@ static class CssValues
             "vh" => CssLength.Pixels(amount * root.ViewportHeight / 100),
             "vmin" => CssLength.Pixels(amount * root.ViewportMin / 100),
             "vmax" => CssLength.Pixels(amount * root.ViewportMax / 100),
-            // Approximations, and knowingly so. Exact values need the font's x-height and the
-            // advance of "0", which would mean threading a face through every parse. Both units
-            // are rare in the corpus, and the ratios below are the conventional defaults.
-            "ex" => CssLength.Pixels(amount * fontSize * 0.5f),
-            "ch" => CssLength.Pixels(amount * fontSize * 0.5f),
+            // Both come off the face rather than off the size. `ex` is the x-height and `ch`
+            // the advance of "0", neither of which is a fixed fraction of the em: this face is
+            // 0.5283 and 0.5561. They were approximated at half an em for as long as the value
+            // layer threaded a bare float, and `CssFont` exists to carry the answer.
+            "ex" => CssLength.Pixels(amount * fontSize.ExHeight),
+            "ch" => CssLength.Pixels(amount * fontSize.ZeroAdvance),
             _ => fallback
         };
     }

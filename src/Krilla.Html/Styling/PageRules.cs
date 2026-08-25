@@ -406,7 +406,11 @@ sealed class PageRules
             return null;
         }
 
-        var length = CssValues.ParseLength(value, rootFontSize, root, CssLength.None);
+        // Approximated, and it has to be. `ex` and `ch` name glyph measurements, and which face
+        // the root element resolves to is a cascade result — while the cascade cannot be read
+        // until the page geometry settled here gives the viewport units something to resolve
+        // against. A page sized in `ex` is the price, and nothing writes one.
+        var length = CssValues.ParseLength(value, CssFont.Approximate(rootFontSize), root, CssLength.None);
 
         // A percentage margin resolves against the page's own dimension, which is not settled until
         // the size below is — and a page margin given as a percentage is rare enough that taking
@@ -467,7 +471,12 @@ sealed class PageRules
                 continue;
             }
 
-            var length = CssValues.ParseLength(part, rootFontSize, root, CssLength.None);
+            var length = CssValues.ParseLength(
+                part,
+                // See `Length` above: no face is resolvable this early.
+                CssFont.Approximate(rootFontSize),
+                root,
+                CssLength.None);
 
             if (length.Kind != LengthKind.Absolute || length.Value <= 0)
             {

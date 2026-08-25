@@ -51,7 +51,7 @@ static class CssCalc
     /// either way the value falls through to whatever it would have without this. The two are
     /// distinguished for reporting by <see cref="Looks"/>.
     /// </remarks>
-    public static CssLength? Parse(string value, float fontSize, CssRoot root)
+    public static CssLength? Parse(string value, CssFont fontSize, CssRoot root)
     {
         if (!Looks(value))
         {
@@ -191,7 +191,7 @@ static class CssCalc
     }
 
     /// <summary>Additive terms, left to right.</summary>
-    static Term? Expression(List<string> tokens, ref int index, float fontSize, CssRoot root)
+    static Term? Expression(List<string> tokens, ref int index, CssFont fontSize, CssRoot root)
     {
         if (Product(tokens, ref index, fontSize, root) is not {} left)
         {
@@ -220,7 +220,7 @@ static class CssCalc
     }
 
     /// <summary>Multiplicative terms, where one side of each has to be dimensionless.</summary>
-    static Term? Product(List<string> tokens, ref int index, float fontSize, CssRoot root)
+    static Term? Product(List<string> tokens, ref int index, CssFont fontSize, CssRoot root)
     {
         if (Operand(tokens, ref index, fontSize, root) is not {} left)
         {
@@ -267,7 +267,7 @@ static class CssCalc
     }
 
     /// <summary>A parenthesised expression, or a single number, length or percentage.</summary>
-    static Term? Operand(List<string> tokens, ref int index, float fontSize, CssRoot root)
+    static Term? Operand(List<string> tokens, ref int index, CssFont fontSize, CssRoot root)
     {
         if (index >= tokens.Count)
         {
@@ -311,7 +311,7 @@ static class CssCalc
     /// <see cref="CssLength.None"/> because it is the one kind no real length produces, which makes
     /// "unparseable" distinguishable from a genuine zero.
     /// </remarks>
-    static Term? Value(string token, float fontSize, CssRoot root)
+    static Term? Value(string token, CssFont fontSize, CssRoot root)
     {
         if (CssValues.TryParseNumber(token, out var number))
         {

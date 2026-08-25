@@ -77,7 +77,7 @@ sealed record CssTransform(
     public static CssTransform? Parse(
         string transform,
         string origin,
-        float fontSize,
+        CssFont fontSize,
         CssRoot root)
     {
         var text = transform.Trim();
@@ -232,7 +232,7 @@ sealed record CssTransform(
     static TransformFunction? Function(
         string name,
         IReadOnlyList<string> arguments,
-        float fontSize,
+        CssFont fontSize,
         CssRoot root)
     {
         CssLength? Length(int index)
@@ -397,7 +397,7 @@ sealed record CssTransform(
     /// <c>top left</c> arrives as <c>left top</c> and the two can be read positionally. A single
     /// value leaves the other centred.
     /// </remarks>
-    static (CssLength X, CssLength Y) Origin(string value, float fontSize, CssRoot root)
+    static (CssLength X, CssLength Y) Origin(string value, CssFont fontSize, CssRoot root)
     {
         var half = CssLength.Percentage(50);
         var parts = value.Trim().ToLowerInvariant()
