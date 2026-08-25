@@ -1,0 +1,17 @@
+body { font-size: 16px; line-height: 20px; }
+
+.frame { height: 200px; width: 300px; margin-bottom: 8px; background-color: #eceff3; }
+.auto { width: 300px; margin-bottom: 8px; background-color: #eceff3; }
+.half { height: 50%; background-color: #b8c8dc; }
+.tall { height: 300%; max-height: 40%; background-color: #b8c8dc; }
+.short { height: 10px; min-height: 30%; background-color: #b8c8dc; }
+
+/* The percentage resolves against the CONTENT box, so padding and border come off first. */
+#padded { padding: 20px 0; }
+#bordered { border: 15px solid #808898; }
+
+/* Nested: 50% of 200 is 100, and 50% of that is 50. */
+#c { background-color: #cdd8e6; }
+
+.anchor { position: relative; }
+.pinned { position: absolute; top: 0; left: 0; width: 120px; height: 50%; background-color: #b8c8dc; }

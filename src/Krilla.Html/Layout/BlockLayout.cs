@@ -37,6 +37,12 @@ static class BlockLayout
     /// <param name="y">Top edge of this box's border box. Margins are the caller's business.</param>
     /// <param name="containingWidth">The containing block's content width.</param>
     /// <param name="fonts">The faces available for measuring text.</param>
+    /// <param name="containingHeight">
+    /// The containing block's CONTENT height, when that is definite, and null when it is not.
+    /// What a percentage <c>height</c>, <c>min-height</c> or <c>max-height</c> resolves against —
+    /// CSS 2.1 §10.5 makes such a percentage behave as <c>auto</c> when there is nothing definite
+    /// to resolve it against, which is why this is nullable rather than defaulted.
+    /// </param>
     /// <param name="assignedHeight">
     /// A content height to use in place of the one the content came to, for a caller that has
     /// already decided how tall the box is. Only <see cref="AbsoluteLayout"/> passes it, for a box
@@ -64,7 +70,8 @@ static class BlockLayout
         FontSet fonts,
         float? assignedWidth = null,
         FloatContext? floats = null,
-        float? assignedHeight = null)
+        float? assignedHeight = null,
+        float? containingHeight = null)
     {
         var style = box.Style;
 
@@ -119,6 +126,22 @@ static class BlockLayout
         var contentX = borderBoxX + style.BorderLeft + paddingLeft;
         var contentY = y + style.BorderTop + paddingTop;
 
+        var surroundY = paddingTop + paddingBottom + style.BorderWidthY;
+
+        // Settled BEFORE the subtree, which is the whole reason a percentage height works at all:
+        // a child resolves its own percentage against this box's content height, and that answer
+        // has to exist before the child is laid out. It can, because a definite height is one this
+        // box was TOLD — declared, resolved against its own containing block, or handed down by an
+        // absolute box's offsets — rather than one its content came to.
+        var declared = replacedHeight ?? Definite(style.Height, containingHeight, style, surroundY) ?? assignedHeight;
+
+        // And what the children see. Clamped, because the used height is what they resolve
+        // against; null when this box has no definite height of its own, which stops the
+        // percentage in its tracks exactly as CSS asks.
+        var inner = declared is {} settled
+            ? ClampHeight(settled, style, surroundY, containingHeight)
+            : (float?) null;
+
         float contentHeight;
 
         if (replacedHeight is {} imageHeight)
@@ -145,7 +168,7 @@ static class BlockLayout
         }
         else
         {
-            contentHeight = LayoutChildren(box, contentX, contentY, contentWidth, fonts, floats);
+            contentHeight = LayoutChildren(box, contentX, contentY, contentWidth, fonts, floats, inner);
         }
 
         // A box that established this formatting context grows to contain the floats in it; every
@@ -158,21 +181,13 @@ static class BlockLayout
             contentHeight = Math.Max(contentHeight, floats.Bottom(contentY) - contentY);
         }
 
-        // A percentage height resolves against the containing block's height, which is not known
-        // here and in the common case is itself auto. Treating it as auto matches what CSS
-        // requires whenever the containing height is indefinite, which is the case throughout a
-        // paginated document.
-        //
-        // A replaced box's height already came from the aspect ratio, so it wins over both.
-        var surroundY = paddingTop + paddingBottom + style.BorderWidthY;
-
+        // A declared height wins over the aspect ratio, which wins over what the content came to.
+        // A replaced box's height already came from the ratio, so it wins over all three.
         var height = ClampHeight(
-            replacedHeight ??
-            (style.Height.Kind == LengthKind.Absolute
-                ? style.ContentSize(style.Height.Value, surroundY)
-                : assignedHeight ?? Ratio(style, borderBoxWidth, surroundY) ?? contentHeight),
+            declared ?? Ratio(style, borderBoxWidth, surroundY) ?? contentHeight,
             style,
-            surroundY);
+            surroundY,
+            containingHeight);
 
         var borderBoxHeight = height + paddingTop + paddingBottom + style.BorderWidthY;
 
@@ -207,7 +222,8 @@ static class BlockLayout
         float contentY,
         float contentWidth,
         FontSet fonts,
-        FloatContext floats)
+        FloatContext floats,
+        float? contentHeight)
     {
         var y = 0f;
         var pending = CollapsedMargin.Empty;
@@ -250,7 +266,7 @@ static class BlockLayout
             var cleared = floats.ClearTo(child.Style.Clear, contentY + y);
             y = cleared - contentY;
 
-            y += Place(child, contentX, contentY + y, contentWidth, fonts, floats);
+            y += Place(child, contentX, contentY + y, contentWidth, fonts, floats, contentHeight);
             pending = TrailingMargin(child, contentWidth);
             first = false;
         }
@@ -303,11 +319,19 @@ static class BlockLayout
         float top,
         float contentWidth,
         FontSet fonts,
-        FloatContext floats)
+        FloatContext floats,
+        float? contentHeight)
     {
         if (!child.Style.EstablishesContext)
         {
-            return Layout(child, contentX, top, contentWidth, fonts, floats: floats);
+            return Layout(
+                child,
+                contentX,
+                top,
+                contentWidth,
+                fonts,
+                floats: floats,
+                containingHeight: contentHeight);
         }
 
         // An infinitesimally thin slice at the child's top edge, rather than a zero-height one:
@@ -322,14 +346,16 @@ static class BlockLayout
 
         // No float beside it, so nothing to avoid and the ordinary path applies — which also keeps
         // `margin: auto` centring a box that happens to carry `overflow: hidden`.
-        if (available >= contentWidth)
+        if (available >= contentWidth || child.Style.Width.Kind != LengthKind.Auto)
         {
-            return Layout(child, contentX, top, contentWidth, fonts, floats: null);
-        }
-
-        if (child.Style.Width.Kind != LengthKind.Auto)
-        {
-            return Layout(child, contentX, top, contentWidth, fonts, floats: null);
+            return Layout(
+                child,
+                contentX,
+                top,
+                contentWidth,
+                fonts,
+                floats: null,
+                containingHeight: contentHeight);
         }
 
         var margins =
@@ -640,30 +666,48 @@ static class BlockLayout
 
     /// <summary>Applies <c>min-height</c> and <c>max-height</c>, in that precedence.</summary>
     /// <remarks>
-    /// Percentages are skipped rather than resolved, for the reason a percentage <c>height</c> is:
-    /// the containing height is indefinite throughout a paginated document, and CSS says a
-    /// percentage against an indefinite containing height behaves as though it were not there.
+    /// A percentage resolves against <paramref name="containing"/> and is SKIPPED when there is
+    /// none, which is CSS 2.1 §10.7's rule: a percentage against an indefinite containing height
+    /// behaves as though the property were not there.
     ///
     /// Shortening a box here does not by itself hide what it holds: content keeps drawing past the
     /// bottom edge, which is what <c>overflow: visible</c> asks for. A box that clips is the one
     /// declaring <c>overflow</c>, and it clips in the painter rather than here.
     /// </remarks>
-    static float ClampHeight(float height, ComputedStyle style, float surround)
+    static float ClampHeight(float height, ComputedStyle style, float surround, float? containing)
     {
-        if (style.MaxHeight.Kind == LengthKind.Absolute)
+        if (Definite(style.MaxHeight, containing, style, surround) is {} max)
         {
-            height = Math.Min(height, style.ContentSize(style.MaxHeight.Value, surround));
+            height = Math.Min(height, max);
         }
 
         // After max-height, so a minimum taller than the maximum wins — the order CSS specifies,
         // and the one `Clamp` uses for the horizontal pair.
-        if (style.MinHeight.Kind == LengthKind.Absolute)
+        if (Definite(style.MinHeight, containing, style, surround) is {} min)
         {
-            height = Math.Max(height, style.ContentSize(style.MinHeight.Value, surround));
+            height = Math.Max(height, min);
         }
 
         return height;
     }
+
+    /// <summary>
+    /// One of the three height properties as a CONTENT height, or null when it settles nothing.
+    /// </summary>
+    /// <remarks>
+    /// The one place a vertical percentage is resolved. It goes through <c>box-sizing</c> like
+    /// every other declared size, because the property means the same thing however it was written
+    /// — <c>height: 50%</c> under <c>border-box</c> names half the containing block's height as a
+    /// BORDER box, and the surround comes out of it the same way an absolute length's would.
+    /// </remarks>
+    static float? Definite(CssLength length, float? containing, ComputedStyle style, float surround) =>
+        length.Kind switch
+        {
+            LengthKind.Absolute => style.ContentSize(length.Value, surround),
+            LengthKind.Percent or LengthKind.Calc when containing is {} basis =>
+                style.ContentSize(Math.Max(0, length.Resolve(basis)), surround),
+            _ => null
+        };
 
     /// <summary>
     /// The margin that collapses out through <paramref name="box"/>'s top edge.

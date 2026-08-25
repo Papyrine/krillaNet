@@ -293,7 +293,18 @@ public static class HtmlConverter
         // if they did. Everything stays document-relative from there; page margins are applied
         // once, when painting.
         var top = root.Style.MarginTop.Resolve(options.ContentWidth);
-        BlockLayout.Layout(root, 0, top, options.ContentWidth, fonts);
+
+        // The page's content HEIGHT goes with its width, which is what makes `html { height: 50% }`
+        // half a sheet rather than nothing at all. In paged media the initial containing block is
+        // the page area, so a percentage height at the root has a definite basis where in a
+        // scrolling viewport it would have none.
+        BlockLayout.Layout(
+            root,
+            0,
+            top,
+            options.ContentWidth,
+            fonts,
+            containingHeight: options.ContentHeight);
 
         // After flow, never during it. An absolute box is positioned against an ancestor that is
         // sized by flowing the very children that may declare it, so the only order without a

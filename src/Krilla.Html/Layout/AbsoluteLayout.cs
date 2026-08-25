@@ -124,7 +124,18 @@ static class AbsoluteLayout
             marginTop,
             style.MarginBottom.Resolve(width));
 
-        var used = BlockLayout.Layout(box, 0, 0, width, fonts, assigned, assignedHeight: stretched);
+        // The containing block's height goes down with its width: an absolute box's containing
+        // block is a laid-out rectangle, so a percentage height on one always has something
+        // definite to resolve against, where a box in flow frequently does not.
+        var used = BlockLayout.Layout(
+            box,
+            0,
+            0,
+            width,
+            fonts,
+            assigned,
+            assignedHeight: stretched,
+            containingHeight: height);
 
         // CSS 2.1 §10.3.7 and §10.6.4. With an offset at each end AND a definite size between them
         // the equation is over-constrained, and it is the auto margins that absorb the slack: both
