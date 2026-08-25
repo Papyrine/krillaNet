@@ -1,4 +1,4 @@
-# All scenarios (134)
+# All scenarios (135)
 
 The browser reference (left) beside the page Krilla.Html produced (right). `AE` is the fraction of pixels that differ and `SSIM` is structural similarity; neither is asserted. The worst offset is the largest positional disagreement in CSS pixels between the rendered element geometry and the browser's, and is the number to watch — it reaches zero exactly when the layout is right.
 
@@ -100,6 +100,7 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [page/table_footer](#page-table_footer)
 - [page/table_header](#page-table_header)
 - [page/tall_block](#page-tall_block)
+- [page/trailing_margin](#page-trailing_margin)
 - [position/absolute](#position-absolute)
 - [position/anchors](#position-anchors)
 - [position/auto_margins](#position-auto_margins)
@@ -3371,6 +3372,38 @@ was dropped.
 | <img src="page/tall_block/reference_0001.png" width="480"> | <img src="page/tall_block/result%23page_0001.verified.png" width="480"> |
 | **Page 2** | **Page 2. AE 0.0004 · SSIM 0.9999** |
 | <img src="page/tall_block/reference_0002.png" width="480"> | <img src="page/tall_block/result%23page_0002.verified.png" width="480"> |
+
+
+## page/trailing_margin
+
+# page/trailing_margin
+
+A document whose content stops short of the sheet under a box whose bottom margin reaches past it.
+It printed on two pages here and on one in the browser, the second holding nothing at all.
+
+The root element's margins never collapse (CSS 2.1 §8.3.1), so the bottom margin of whatever ended
+the document is trapped INSIDE the root's box rather than escaping it. `#tail`'s 60px therefore
+makes the root 1088px tall against a 1056px sheet, while nothing in the document reaches past 1028 —
+and pagination was measuring the root's own edge.
+
+It measures the deepest BOX now. A margin is the only thing that drops out: an empty box a thousand
+pixels tall is content and takes the pages it asks for, which is why the walk is over boxes rather
+than over ink, and why a declared height on the ROOT still counts — that being the one case where
+the root's own box is the deepest thing rather than an artefact of what it contains.
+`PaginationTests.ATrailingMarginAddsNoPage` keeps both halves, since a second page with nothing on
+it is not something a browser reference can express.
+
+**Residual**: SSIM 0.9996, sub-pixel glyph positioning on the two paragraphs.
+
+What to look at: the PAGE COUNT, which is the whole of what this measures. A second page is the
+margin being counted as content.
+
+**Boxes**: 4 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0024 · SSIM 0.9996** |
+| <img src="page/trailing_margin/reference_0001.png" width="480"> | <img src="page/trailing_margin/result%23page_0001.verified.png" width="480"> |
 
 
 ## position/absolute

@@ -201,6 +201,34 @@ public class PaginationTests
     /// <summary>
     /// The document body every case here shares: three 48px boxes, with the scenario's own CSS.
     /// </summary>
+    /// <summary>
+    /// A trailing margin takes no page, and a box that is merely EMPTY takes the pages it asks for.
+    /// </summary>
+    /// <remarks>
+    /// The two halves of one rule, and they have to be tested together because the obvious way to
+    /// drop the blank page — measuring ink instead of boxes — passes the first and fails the second.
+    /// The root element's margins never collapse (CSS 2.1 §8.3.1), so the bottom margin of whatever
+    /// ended the document is trapped inside the root's box and makes it taller than anything in it.
+    /// A margin is not content; an empty box is.
+    ///
+    /// <c>page/trailing_margin</c> measures the first half against Chromium. The second has no
+    /// browser reference worth having, since a scenario whose expected output is "a second page with
+    /// nothing on it" measures nothing a reference also lacking ink would catch.
+    /// </remarks>
+    [Test]
+    public async Task ATrailingMarginAddsNoPage()
+    {
+        const string content = """<div id="one">one</div>""";
+
+        await Assert.That(await PageCount(Document(content, "#one { height: 900px }"))).IsEqualTo(1);
+
+        await Assert.That(await PageCount(Document(content, "#one { height: 900px; margin-bottom: 400px }")))
+            .IsEqualTo(1);
+
+        await Assert.That(await PageCount(Document(content, "#one { height: 1400px }")))
+            .IsEqualTo(2);
+    }
+
     static string Three(string css) =>
         Document(
             """
