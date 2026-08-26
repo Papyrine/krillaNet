@@ -1,4 +1,4 @@
-/// <summary>
+﻿/// <summary>
 /// Renders produced documents through PDFium and snapshots the result.
 /// </summary>
 /// <remarks>
@@ -257,8 +257,8 @@ public class SnapshotTests
             {
                 foreach (var step in Enumerable.Range(0, 6))
                 {
-                    using (surface.PushTransform(Matrix.Translate(100, 100)))
-                    using (surface.PushTransform(Matrix.Rotate(step * 15)))
+                    using (surface.PushTransform(Matrix3x2.CreateTranslation(100, 100)))
+                    using (surface.PushTransform(Matrix3x2.CreateRotation(float.DegreesToRadians(step * 15))))
                     {
                         surface.FillRectangle(
                             new(-70, -10, 70, 10),

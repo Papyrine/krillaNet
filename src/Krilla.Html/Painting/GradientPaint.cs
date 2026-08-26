@@ -1,4 +1,4 @@
-/// <summary>
+﻿/// <summary>
 /// Turns a parsed <see cref="CssGradient"/> into a krilla <see cref="Krilla.Paint"/> for a given box.
 /// </summary>
 /// <remarks>
@@ -121,9 +121,8 @@ static class GradientPaint
             rx,
             stops,
             SpreadMethod.Pad,
-            // translate(0, cy) · scale(1, k) · translate(0, -cy), written out: the vertical axis
-            // scaled about the centre and nothing else touched.
-            new Matrix(1, 0, 0, scale, 0, cy * (1 - scale)));
+            // The vertical axis scaled about the centre, and nothing else touched.
+            Matrix3x2.CreateScale(1, scale, new(0, cy)));
     }
 
     /// <summary>

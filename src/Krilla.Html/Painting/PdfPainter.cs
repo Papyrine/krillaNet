@@ -1,4 +1,4 @@
-/// <summary>
+﻿/// <summary>
 /// Paints the laid-out box tree onto a krilla surface.
 /// </summary>
 /// <remarks>
@@ -70,7 +70,7 @@ static class PdfPainter
             paper,
             new(0, 0, 0, 0, null, _ => _, tags));
 
-        using var _ = surface.PushTransform(Matrix.Scale(scale, scale));
+        using var _ = surface.PushTransform(Matrix3x2.CreateScale(scale));
 
         PaintContent(surface, root, start, pageEnd, content, scale, links, tags);
 
@@ -141,7 +141,7 @@ static class PdfPainter
         // Shift the document so this page's slice lands at the page's content origin, below
         // whatever band the repeated headers take. One transform for the whole page beats
         // offsetting every coordinate at every call site.
-        using var __ = surface.PushTransform(Matrix.Translate(content.X, shift));
+        using var __ = surface.PushTransform(Matrix3x2.CreateTranslation(content.X, shift));
 
         var slice = new PageSlice(
             pageTop,
@@ -243,7 +243,7 @@ static class PdfPainter
             var band = group.Band;
             var dy = origin + stacked - band.Y;
 
-            using var moved = surface.PushTransform(Matrix.Translate(0, dy));
+            using var moved = surface.PushTransform(Matrix3x2.CreateTranslation(0, dy));
 
             // A whole artifact, and the slice carries no tags into it, which is what stops the
             // repeat from recording a SECOND span against the same cells. A screen reader meeting
@@ -388,7 +388,7 @@ static class PdfPainter
         {
             var dy = page.ToPageOrigin;
 
-            using var repeated = surface.PushTransform(Matrix.Translate(0, dy));
+            using var repeated = surface.PushTransform(Matrix3x2.CreateTranslation(0, dy));
 
             // The window is the whole page's content box rather than what the slice has left of
             // it: a fixed box is laid out against the page, so one anchored to the bottom edge

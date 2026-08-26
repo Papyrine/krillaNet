@@ -1,4 +1,4 @@
-/// <summary>
+﻿/// <summary>
 /// Behaviour of the document, page and surface lifecycle as seen from managed code.
 /// </summary>
 public class DocumentTests
@@ -154,7 +154,7 @@ public class DocumentTests
         var page = document.StartPage(100, 100);
 
         // Deliberately leaked: the layer is never disposed.
-        page.Surface.PushTransform(Matrix.Translate(10, 10));
+        page.Surface.PushTransform(Matrix3x2.CreateTranslation(10, 10));
 
         // Closing reports the imbalance rather than aborting.
         await Assert.That(page.Dispose).Throws<KrillaException>();

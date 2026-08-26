@@ -399,7 +399,7 @@ using (var page = document.StartPage(200, 200))
 
     // Each push is reverted when its layer is disposed, so the pairing krilla
     // requires is structural rather than something to remember.
-    using (surface.PushTransform(Matrix.Translate(100, 100)))
+    using (surface.PushTransform(Matrix3x2.CreateTranslation(100, 100)))
     using (surface.PushOpacity(0.5f))
     {
         surface.FillRectangle(new(-50, -50, 50, 50), Color.Rgb(0, 160, 90));
@@ -641,7 +641,7 @@ using (var page = document.StartPage(PageSettings.A4))
 
     foreach (var index in Enumerable.Range(0, 20))
     {
-        using (page.Surface.PushTransform(Matrix.Translate(72 + index * 20, 72)))
+        using (page.Surface.PushTransform(Matrix3x2.CreateTranslation(72 + index * 20, 72)))
         {
             page.Surface.DrawGraphic(stamp);
         }

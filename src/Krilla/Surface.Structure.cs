@@ -1,4 +1,4 @@
-namespace Krilla;
+﻿namespace Krilla;
 
 public sealed partial class Surface
 {
@@ -255,7 +255,7 @@ public sealed partial class Surface
         Action<Surface> draw,
         float width,
         float height,
-        Matrix? transform = null)
+        Matrix3x2? transform = null)
     {
         using var stream = Capture(draw);
 
@@ -263,7 +263,7 @@ public sealed partial class Surface
             KrillaNative.krilla_paint_new_pattern(
                 Handle,
                 stream.Handle,
-                (transform ?? Matrix.Identity).ToNative(),
+                (transform ?? Matrix3x2.Identity).ToNative(),
                 width,
                 height,
                 out var paint),
@@ -278,7 +278,7 @@ public sealed partial class Surface
     {
         ArgumentOutOfRangeException.ThrowIfNegative(pageIndex);
 
-        using (PushTransform(Matrix.Translate(bounds.Left, bounds.Top)))
+        using (PushTransform(Matrix3x2.CreateTranslation(bounds.Left, bounds.Top)))
         {
             Status.Check(
                 KrillaNative.krilla_surface_draw_pdf_page(

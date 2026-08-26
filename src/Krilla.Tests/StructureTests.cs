@@ -1,4 +1,4 @@
-/// <summary>
+﻿/// <summary>
 /// Metadata, conformance, outline, links, tagging, graphics and embedding.
 /// </summary>
 public class StructureTests
@@ -182,7 +182,7 @@ public class StructureTests
             {
                 for (var index = 0; index < 20; index++)
                 {
-                    using (page.Surface.PushTransform(Matrix.Translate(index * 10, index * 10)))
+                    using (page.Surface.PushTransform(Matrix3x2.CreateTranslation(index * 10, index * 10)))
                     {
                         page.Surface.DrawGraphic(graphic);
                     }
