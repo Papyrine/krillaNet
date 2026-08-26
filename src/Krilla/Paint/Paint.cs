@@ -31,9 +31,6 @@ public sealed class Paint :
         }
     }
 
-    /// <summary>
-    /// Creates a solid-colour paint.
-    /// </summary>
     public static Paint Solid(Color color)
     {
         KrillaNative.EnsureLoaded();
@@ -123,9 +120,6 @@ public sealed class Paint :
         return new(handle);
     }
 
-    /// <summary>
-    /// Creates a sweep gradient about a centre point.
-    /// </summary>
     /// <remarks>
     /// Angles are in degrees, starting from the right and increasing counter-clockwise.
     /// </remarks>

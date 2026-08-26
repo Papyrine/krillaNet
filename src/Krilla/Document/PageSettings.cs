@@ -6,14 +6,8 @@
 /// <remarks>
 /// Sizes are in points: 72 to the inch, so A4 is 595 x 842 and US Letter is 612 x 792.
 /// </remarks>
-public sealed class PageSettings
+public sealed class PageSettings(Size size)
 {
-    /// <summary>
-    /// Creates settings for a page of the given size.
-    /// </summary>
-    public PageSettings(Size size) =>
-        Size = size;
-
     /// <summary>
     /// A4, 595 x 842 points.
     /// </summary>
@@ -27,7 +21,7 @@ public sealed class PageSettings
     /// <summary>
     /// The size of the drawing surface.
     /// </summary>
-    public Size Size { get; }
+    public Size Size { get; } = size;
 
     /// <summary>
     /// The visible area. Defaults to the whole surface.

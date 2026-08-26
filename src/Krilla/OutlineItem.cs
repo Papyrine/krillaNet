@@ -7,32 +7,22 @@ namespace Krilla;
 /// <see cref="PageIndex"/> may name a page that has not been created yet: forward references
 /// are resolved when the document is finished.
 /// </remarks>
-public sealed class OutlineItem
+public sealed class OutlineItem(string title, int pageIndex, Point target = default)
 {
-    /// <summary>
-    /// Creates an entry pointing at a position on a page.
-    /// </summary>
-    public OutlineItem(string title, int pageIndex, Point target = default)
-    {
-        Title = title;
-        PageIndex = pageIndex;
-        Target = target;
-    }
-
     /// <summary>
     /// The text shown in the bookmark pane.
     /// </summary>
-    public string Title { get; }
+    public string Title { get; } = title;
 
     /// <summary>
     /// The zero-based page this entry jumps to.
     /// </summary>
-    public int PageIndex { get; }
+    public int PageIndex { get; } = pageIndex;
 
     /// <summary>
     /// The position on the page this entry jumps to.
     /// </summary>
-    public Point Target { get; }
+    public Point Target { get; } = target;
 
     /// <summary>
     /// Whether the entry starts expanded.

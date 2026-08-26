@@ -34,9 +34,6 @@ public sealed class Tag :
         }
     }
 
-    /// <summary>
-    /// Creates a tag of the given structural role.
-    /// </summary>
     public static Tag Create(TagKind kind)
     {
         KrillaNative.EnsureLoaded();
@@ -106,9 +103,6 @@ public sealed class Tag :
         return new(handle);
     }
 
-    /// <summary>
-    /// Creates a formula with alternative text.
-    /// </summary>
     public static Tag Formula(string? altText)
     {
         KrillaNative.EnsureLoaded();

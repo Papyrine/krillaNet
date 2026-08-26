@@ -9,9 +9,6 @@ public sealed class TagTree :
     IntPtr handle;
     readonly List<Tag> roots = [];
 
-    /// <summary>
-    /// Creates an empty tree.
-    /// </summary>
     public TagTree()
     {
         KrillaNative.EnsureLoaded();
