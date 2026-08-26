@@ -2288,6 +2288,10 @@ static class PdfPainter
         var innerTop = Snap(Math.Min(outer.Y + style.BorderTop, outer.Bottom));
         var innerBottom = Snap(Math.Max(outer.Bottom - style.BorderBottom, innerTop));
 
+        // Shared by the ring below and by every band: a band is the same ring taken between two
+        // nested rounded rectangles, so the radii are resolved against the border box once.
+        var radii = RoundedBox.Resolve(style, outer);
+
         if (UniformColor(style) is {} uniform && style.PaintsBorderAsRing)
         {
             PaintUniformBorder(
@@ -2349,6 +2353,22 @@ static class PdfPainter
             var (aLeft, aTop, aRight, aBottom) = Nested(from);
             var (bLeft, bTop, bRight, bBottom) = Nested(to);
 
+            // A rounded band is the same trapezium, curved. Rather than build the curve into each
+            // side's outline - which would mean splitting an arc at the corner diagonal and
+            // solving for where two edges of different widths hand over - the trapezium becomes a
+            // CLIP and the full ring is drawn through it in this side's colour. The diagonal that
+            // bounds the trapezium is exactly where a browser transitions between two adjacent
+            // colours, so the split comes out right for free, and the arc is drawn once by the same
+            // RoundedBox that draws a uniform border.
+            //
+            // Square borders keep the polygon path untouched, which is what leaves every existing
+            // scenario identical: the clip is only reached when a radius is actually asked for.
+            if (radii.IsRounded)
+            {
+                RoundedBand(color, alpha, from, to, side, (aLeft, aTop, aRight, aBottom), (bLeft, bTop, bRight, bBottom));
+                return;
+            }
+
             switch (side)
             {
                 case Side.Top:
@@ -2392,6 +2412,58 @@ static class PdfPainter
                         new(bRight, bTop));
                     return;
             }
+        }
+
+        void RoundedBand(
+            Color color,
+            float alpha,
+            float from,
+            float to,
+            Side side,
+            (float Left, float Top, float Right, float Bottom) a,
+            (float Left, float Top, float Right, float Bottom) b)
+        {
+            var wedge = side switch
+            {
+                Side.Top => new Point[] {new(a.Left, a.Top), new(a.Right, a.Top), new(b.Right, b.Top), new(b.Left, b.Top)},
+                Side.Bottom => [new(a.Right, a.Bottom), new(a.Left, a.Bottom), new(b.Left, b.Bottom), new(b.Right, b.Bottom)],
+                Side.Left => [new(a.Left, a.Bottom), new(a.Left, a.Top), new(b.Left, b.Top), new(b.Left, b.Bottom)],
+                _ => [new(a.Right, a.Top), new(a.Right, a.Bottom), new(b.Right, b.Bottom), new(b.Right, b.Top)]
+            };
+
+            using var clip = new PathBuilder();
+            clip.MoveTo(wedge[0]);
+            for (var index = 1; index < wedge.Length; index++)
+            {
+                clip.LineTo(wedge[index]);
+            }
+
+            clip.Close();
+
+            using var wedgePath = clip.Build();
+            using var _ = surface.PushClip(wedgePath);
+
+            using var builder = new PathBuilder();
+
+            var outerRect = new Rect(a.Left, a.Top, a.Right - a.Left, a.Bottom - a.Top);
+            var innerRect = new Rect(b.Left, b.Top, b.Right - b.Left, b.Bottom - b.Top);
+
+            radii
+                .Deflate(style.BorderTop * from, style.BorderRight * from, style.BorderBottom * from, style.BorderLeft * from)
+                .Trace(builder, outerRect, clockwise: true);
+
+            // Wound the other way so the non-zero rule cuts it out, and skipped once the band has
+            // closed on itself and there is nothing left to remove.
+            if (innerRect.Width > 0 && innerRect.Height > 0)
+            {
+                radii
+                    .Deflate(style.BorderTop * to, style.BorderRight * to, style.BorderBottom * to, style.BorderLeft * to)
+                    .Trace(builder, innerRect, clockwise: false);
+            }
+
+            using var path = builder.Build();
+            using var paint = Krilla.Paint.Solid(color);
+            surface.SetFill(new Fill(paint, alpha)).DrawPath(path);
         }
 
         // Clamped the same way the padding box above is, so a border thicker than the box it

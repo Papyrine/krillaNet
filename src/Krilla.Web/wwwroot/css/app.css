@@ -1,0 +1,362 @@
+/*
+    The whole app: shell (header, footer, theme toggle, boot spinner) and the converter's two
+    panes. Unlike Morph.Web there is no component package to theme through custom properties —
+    the converter is part of this app, so its rules live here beside the shell's.
+*/
+
+:root {
+    --primary-color: #2b579a;
+    --accent-color: #f0a500;
+    --success-color: #28a745;
+    --danger-color: #c0392b;
+    --background-color: #f8f9fa;
+    --surface-color: #ffffff;
+    --text-color: #333;
+    --muted-color: #6c757d;
+    --border-color: #dee2e6;
+}
+
+[data-theme="dark"] {
+    --primary-color: #5b8dd6;
+    --accent-color: #f0a500;
+    --success-color: #4caf50;
+    --danger-color: #e57368;
+    --background-color: #1e1e1e;
+    --surface-color: #2a2a2a;
+    --text-color: #e0e0e0;
+    --muted-color: #999999;
+    --border-color: #404040;
+}
+
+* {
+    box-sizing: border-box;
+}
+
+html, body {
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif;
+    background-color: var(--background-color);
+    color: var(--text-color);
+    margin: 0;
+    padding: 0;
+    min-height: 100vh;
+}
+
+/* -- Boot ------------------------------------------------------------------------------- */
+
+.loading {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100vh;
+    color: var(--primary-color);
+}
+
+.spinner {
+    width: 50px;
+    height: 50px;
+    border: 4px solid var(--border-color);
+    border-top-color: var(--primary-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}
+
+#blazor-error-ui {
+    background: #fff3cd;
+    color: #856404;
+    padding: 1rem;
+    text-align: center;
+    position: fixed;
+    bottom: 0;
+    left: 0;
+    right: 0;
+    z-index: 1000;
+    display: none;
+}
+
+/* -- Shell ------------------------------------------------------------------------------ */
+
+header {
+    background: var(--primary-color);
+    color: #fff;
+    padding: 1.2rem 1.5rem;
+    position: relative;
+    text-align: center;
+}
+
+header h1 {
+    margin: 0;
+    font-size: 1.6rem;
+    letter-spacing: .02em;
+}
+
+header p {
+    margin: .3rem 0 0;
+    opacity: .9;
+    font-size: .9rem;
+}
+
+.theme-toggle {
+    position: absolute;
+    top: 1.2rem;
+    right: 1.5rem;
+}
+
+.theme-toggle-btn {
+    background: rgba(255, 255, 255, .15);
+    color: #fff;
+    border: 1px solid rgba(255, 255, 255, .35);
+    border-radius: 20px;
+    padding: .35rem .8rem;
+    cursor: pointer;
+    font-size: .85rem;
+}
+
+.theme-toggle-btn:hover {
+    background: rgba(255, 255, 255, .28);
+}
+
+.container {
+    max-width: 1400px;
+    margin: 0 auto;
+    padding: 1.2rem;
+}
+
+footer {
+    text-align: center;
+    padding: 1rem;
+    color: var(--muted-color);
+    font-size: .8rem;
+    border-top: 1px solid var(--border-color);
+}
+
+footer a {
+    color: var(--primary-color);
+}
+
+.footer-version,
+.footer-size,
+.footer-ram {
+    display: inline-block;
+    margin-left: .8rem;
+    opacity: .75;
+}
+
+/* -- Converter -------------------------------------------------------------------------- */
+
+.converter {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.2rem;
+    align-items: start;
+}
+
+.source-panel,
+.result-panel {
+    background: var(--surface-color);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    padding: 1rem;
+    display: flex;
+    flex-direction: column;
+    min-width: 0;
+}
+
+.panel-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    margin-bottom: .7rem;
+    gap: .5rem;
+}
+
+.panel-head h2 {
+    margin: 0;
+    font-size: 1rem;
+    text-transform: uppercase;
+    letter-spacing: .06em;
+    color: var(--muted-color);
+}
+
+.source-actions {
+    display: flex;
+    gap: .4rem;
+}
+
+.file-btn,
+.sample-btn,
+.convert-btn,
+.download-btn {
+    border-radius: 5px;
+    padding: .4rem .8rem;
+    font-size: .85rem;
+    cursor: pointer;
+    border: 1px solid var(--border-color);
+    background: var(--background-color);
+    color: var(--text-color);
+}
+
+.file-btn:hover,
+.sample-btn:hover {
+    border-color: var(--primary-color);
+}
+
+/* The real <input type=file> is unstyleable, so the label is the button and the input is hidden
+   inside it. It stays in the DOM and keeps its id, which is what Playwright sets files on. */
+.file-btn input {
+    display: none;
+}
+
+.convert-btn,
+.download-btn {
+    background: var(--primary-color);
+    border-color: var(--primary-color);
+    color: #fff;
+    font-weight: 600;
+}
+
+.convert-btn:disabled {
+    opacity: .6;
+    cursor: default;
+}
+
+.source-text {
+    width: 100%;
+    height: 26rem;
+    resize: vertical;
+    font-family: 'Cascadia Mono', Consolas, 'Liberation Mono', monospace;
+    font-size: .8rem;
+    line-height: 1.5;
+    padding: .7rem;
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    background: var(--background-color);
+    color: var(--text-color);
+}
+
+.options {
+    display: flex;
+    align-items: end;
+    gap: .8rem;
+    margin-top: .8rem;
+    flex-wrap: wrap;
+}
+
+.options label {
+    display: flex;
+    flex-direction: column;
+    gap: .25rem;
+    font-size: .75rem;
+    color: var(--muted-color);
+    text-transform: uppercase;
+    letter-spacing: .05em;
+}
+
+.options select {
+    padding: .35rem .5rem;
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    background: var(--surface-color);
+    color: var(--text-color);
+    font-size: .85rem;
+}
+
+.options .convert-btn {
+    margin-left: auto;
+}
+
+.result-frame {
+    width: 100%;
+    height: 30rem;
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    background: #fff;
+}
+
+.result-empty {
+    height: 30rem;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border: 1px dashed var(--border-color);
+    border-radius: 5px;
+    color: var(--muted-color);
+    font-size: .9rem;
+}
+
+.result-note {
+    margin: .6rem 0 0;
+    font-size: .8rem;
+    color: var(--muted-color);
+}
+
+/* Nothing reported is the meaningful case, so it gets a positive colour rather than being an
+   absence the reader has to notice. */
+.diagnostics-clean {
+    margin: .4rem 0 0;
+    font-size: .8rem;
+    color: var(--success-color);
+}
+
+.diagnostics {
+    margin-top: .6rem;
+    font-size: .8rem;
+}
+
+.diagnostics summary {
+    cursor: pointer;
+    color: var(--accent-color);
+}
+
+.diagnostics ul {
+    margin: .5rem 0 0;
+    padding-left: 1.2rem;
+    max-height: 10rem;
+    overflow-y: auto;
+    color: var(--muted-color);
+}
+
+.diagnostics li {
+    margin: .2rem 0;
+    font-family: 'Cascadia Mono', Consolas, monospace;
+}
+
+.error-panel {
+    border: 1px solid var(--danger-color);
+    border-left-width: 4px;
+    border-radius: 5px;
+    padding: .8rem 1rem;
+    color: var(--danger-color);
+    background: var(--surface-color);
+}
+
+.error-panel p {
+    margin: .4rem 0 0;
+    color: var(--text-color);
+    font-size: .85rem;
+}
+
+/* -- Narrow ------------------------------------------------------------------------------ */
+
+@media (max-width: 1000px) {
+    .converter {
+        grid-template-columns: 1fr;
+    }
+
+    .source-text {
+        height: 16rem;
+    }
+
+    .result-frame,
+    .result-empty {
+        height: 22rem;
+    }
+
+    .footer-size {
+        display: none;
+    }
+}

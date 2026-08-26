@@ -1,0 +1,76 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project>
+
+  <!--
+    browser-wasm wiring, and the only build logic this package ships. WebAssembly has no
+    dynamic loader for a P/Invoke to search, so the native is a static archive that must be
+    LINKED into the consuming application's own .wasm module — which happens only if it reaches
+    the Emscripten link step as a NativeFileReference.
+
+    It is declared here rather than in Krilla.csproj because a NativeFileReference declared by a
+    referenced project or package does not reach the consuming app (dotnet/runtime#114724).
+    Imported into the app's own evaluation it is the app's own item, and that gap never applies.
+
+    A .targets and not a .props: $(RuntimeIdentifier) is settled by the WebAssembly SDK, after a
+    buildTransitive .props would already have been imported.
+
+    Why each rule below is what it is, and what measured it, is recorded in this repository's
+    claude.md under "Traps in the WebAssembly target".
+  -->
+
+  <PropertyGroup>
+    <_KrillaWasmNative>$(MSBuildThisFileDirectory)../runtimes/browser-wasm/native/krilla_capi.a</_KrillaWasmNative>
+  </PropertyGroup>
+
+  <ItemGroup Condition="'$(RuntimeIdentifier)' == 'browser-wasm' and Exists('$(_KrillaWasmNative)')">
+    <NativeFileReference Include="$(_KrillaWasmNative)" />
+
+    <!-- The post-link wasm-opt pass hardcodes simd, exception-handling and bulk-memory, and
+         rejects rustc's output without these five. Every one of them already appears in the
+         main link's own wasm-opt call. -->
+    <WasmOptConfigurationFlags Include="--enable-sign-ext" />
+    <WasmOptConfigurationFlags Include="--enable-nontrapping-float-to-int" />
+    <WasmOptConfigurationFlags Include="--enable-multivalue" />
+    <WasmOptConfigurationFlags Include="--enable-reference-types" />
+    <WasmOptConfigurationFlags Include="--enable-mutable-globals" />
+  </ItemGroup>
+
+  <!-- Both failures below are silent or unattributable without these checks: the first surfaces
+       as a missing symbol at run time, the second as a linker error naming neither this package
+       nor the property responsible. -->
+  <Target Name="KrillaCheckWasmPrerequisites"
+          BeforeTargets="PrepareForBuild"
+          Condition="'$(RuntimeIdentifier)' == 'browser-wasm'">
+
+    <Error Condition="!Exists('$(_KrillaWasmNative)')"
+           Text="Krilla: this package carries no browser-wasm native, so there is nothing for the WebAssembly link step to pull in. Use a package from nuget.org, or build the native with: cargo rustc -p krilla-capi --release --target wasm32-unknown-emscripten --crate-type staticlib" />
+
+    <Error Condition="'$(WasmEnableExceptionHandling)' == 'false'"
+           Text="Krilla: the browser-wasm native contains its panics with catch_unwind, which on this target needs WebAssembly exception handling — and this project has switched it off. Remove &lt;WasmEnableExceptionHandling&gt;false&lt;/WasmEnableExceptionHandling&gt;, or drop the Krilla package reference from the WebAssembly project. Without it the link fails on an undefined __cpp_exception symbol." />
+  </Target>
+
+  <!-- Keep the archive out of the application's output. Its bytes are inside the .wasm module
+       before anything is copied, so shipping it as well adds about ten megabytes that is
+       deployed and never read. Two targets, because the build list and the publish list are
+       settled at different times. -->
+  <Target Name="KrillaDropWasmArchiveFromBuildOutput"
+          AfterTargets="ResolveReferences"
+          Condition="'$(RuntimeIdentifier)' == 'browser-wasm'">
+    <ItemGroup>
+      <_KrillaWasmArchiveCopy Include="@(ReferenceCopyLocalPaths)"
+                              Condition="'%(Filename)%(Extension)' == 'krilla_capi.a'" />
+      <ReferenceCopyLocalPaths Remove="@(_KrillaWasmArchiveCopy)" />
+    </ItemGroup>
+  </Target>
+
+  <Target Name="KrillaDropWasmArchiveFromPublishOutput"
+          AfterTargets="ComputeResolvedFilesToPublishList"
+          Condition="'$(RuntimeIdentifier)' == 'browser-wasm'">
+    <ItemGroup>
+      <_KrillaWasmArchivePublish Include="@(ResolvedFileToPublish)"
+                                 Condition="'%(Filename)%(Extension)' == 'krilla_capi.a'" />
+      <ResolvedFileToPublish Remove="@(_KrillaWasmArchivePublish)" />
+    </ItemGroup>
+  </Target>
+
+</Project>

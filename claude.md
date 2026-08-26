@@ -63,8 +63,8 @@ Four workflows, each with a distinct job:
 
 - **`.github/workflows/build.yml`** — builds and tests the managed side on Linux, Windows and macOS. Deliberately lets `dotnet build` drive cargo through `KrillaBuildNative` rather than invoking it directly, so the MSBuild wiring itself gets exercised on all three platforms. Uploads `*.received.*` on failure, without which a snapshot mismatch on a platform nobody has locally is close to undebuggable.
 - **`.github/workflows/rust.yml`** — fmt, clippy (warnings are errors), tests, Miri, `cargo deny`, and a check that `THIRD-PARTY-NOTICES.md` is current. Runs on every push touching `rust/`. Also greps for `#[unsafe(no_mangle)]` outside `guard.rs`: a hand-written export would bypass the `catch_unwind` boundary and silently reintroduce process-abort-on-panic.
-- **`.github/workflows/native.yml`** — the eight-RID cross-compilation matrix, `workflow_call` only. Each leg statically verifies its own output; see the header comment for why each check exists.
-- **`.github/workflows/publish-nuget.yml`** — calls `native.yml`, packs all eight natives into one package, runs `IntegrationTests` against the real nupkg on four runners plus Alpine and Debian 12 containers, then publishes via nuget.org Trusted Publishing (OIDC). Needs the `NUGET_USER` variable and a trusted-publishing policy registered before the first tag.
+- **`.github/workflows/native.yml`** — the nine-RID cross-compilation matrix, `workflow_call` only. Each leg verifies its own output; eight do it statically, and `browser-wasm` cannot — being usable is a property of the LINK rather than of the file — so that leg builds a C driver against the archive and runs it under node. See the header comment for why each check exists.
+- **`.github/workflows/publish-nuget.yml`** — calls `native.yml`, packs all nine natives into one package, runs `IntegrationTests` against the real nupkg on four runners plus Alpine and Debian 12 containers, then publishes via nuget.org Trusted Publishing (OIDC). Needs the `NUGET_USER` variable and a trusted-publishing policy registered before the first tag.
 
 `IntegrationTests/` consumes the *packed* package rather than a project reference, which is the only way to test that `runtimes/<rid>/native/` resolves at all. Its `nuget.config` pins `Krilla` to the local `../nugets` feed via `packageSourceMapping` — without that, NuGet sees the same version in both feeds and reliably picks nuget.org on CI, testing the last release instead of the current build.
 
@@ -178,7 +178,7 @@ It records two independent measurements, and **asserts neither**:
 - **`reference.boxes.json`** — the browser's `getBoundingClientRect()` per element, against our box tree. Integer-exact, localising ("this paragraph is 14px low" is a defect report), and — the practical reason it leads — computable without the native library, so it works on a machine with no Rust toolchain.
 - **`reference_0001.png`** — pixels, via AbsoluteError and SSIM.
 
-**Box geometry currently sits at zero across all 151 scenarios, with nothing unmatched**, and 105
+**Box geometry currently sits at zero across all 152 scenarios, with nothing unmatched**, and 105
 read SSIM 1.0000. Several got there by finding a defect first, which is the argument for adding a
 scenario for anything the engine implements rather than only for what it implements well:
 `block/anonymous` found trailing inline content hoisted above a block sibling, `position/fixed`
@@ -1333,7 +1333,7 @@ it goes — which is where most of these live.
   comment beside the feature claimed it was the biggest contributor to the binary, and measuring
   said otherwise: turning it off saved 2,560 bytes, because with nothing calling in, LTO stripped
   the lot. Wiring it up made the claim true — 4,347,392 bytes to 6,118,912 on win-x64, about
-  1.7 MB on each of the eight RIDs. **A dependency's cost is a property of something calling it**,
+  1.7 MB on each of the eight native RIDs. **A dependency's cost is a property of something calling it**,
   which is worth knowing before trusting any size note written next to a feature flag.
 - **usvg's stock `<image href>` resolver READS FILES OFF DISK.** Its `resolve_string` joins a
   non-data href to `resources_dir` — the process's working directory when that is unset, as it is
@@ -1445,7 +1445,7 @@ The other thing the audit cannot see is a syntax the resolver does not PARSE. `c
 
 The presentational attributes left the table wholesale, which is the largest single removal it has had: `<table width>`, `cellpadding`, `cellspacing`, `border`, `bgcolor`, `align`, `valign`, `nowrap`, `<hr>`'s four, `<font>`'s three, `<img align/border/hspace/vspace>` and `type` on both kinds of list are all mapped onto CSS now. What is left in `UnsupportedAttributes` reaches no property at all — `rules` and `frame` on a table, and body's three link colours — and an attribute whose VALUE names nothing is reported by `PresentationalHints` itself.
 
-Still reported rather than implemented: `column-count` and `column-width`, `writing-mode`, `direction`, `unicode-bidi`, `font-variant`, `font-stretch`, `font-size-adjust`, `font-kerning`, `text-justify`, `line-break`, `text-wrap: balance` and `pretty`, `white-space-collapse: preserve-spaces`, `mix-blend-mode` and `background-blend-mode`, `isolation`, `background-attachment`, `border-image-source`, `mask-image`, `content-visibility`, `initial-letter`, `perspective` and `transform-style`, a wavy text decoration, `word-break: keep-all`, a blurred or spread shadow, automatic hyphenation, a `position: fixed` box with neither `top` nor `bottom` given, `visibility: collapse` on a table row, an unrecognised `list-style-type`, an unresolved `list-style-image`, a `content` value that names something unreadable, a non-inline `display` on a pseudo-element of an INLINE host, a named `@page` selector, and the INNER corner of a rounded inline element whose border edges disagree about a colour.
+Still reported rather than implemented: `column-count` and `column-width`, `writing-mode`, `direction`, `unicode-bidi`, `font-variant`, `font-stretch`, `font-size-adjust`, `font-kerning`, `text-justify`, `line-break`, `text-wrap: balance` and `pretty`, `white-space-collapse: preserve-spaces`, `mix-blend-mode` and `background-blend-mode`, `isolation`, `background-attachment`, `border-image-source`, `mask-image`, `content-visibility`, `initial-letter`, `perspective` and `transform-style`, a wavy text decoration, `word-break: keep-all`, a blurred or spread shadow, automatic hyphenation, a `position: fixed` box with neither `top` nor `bottom` given, `visibility: collapse` on a table row, an unrecognised `list-style-type`, an unresolved `list-style-image`, a `content` value that names something unreadable, a non-inline `display` on a pseudo-element of an INLINE host, a named `@page` selector, a rounded corner on a DASHED, DOTTED or DOUBLE border, and the INNER corner of a rounded inline element whose border edges disagree about a colour.
 
 The last of those is worth reading twice, because it narrowed rather than disappearing. An inline element's corners are rounded now; what is left is the inside of one, on the fragment that cannot be drawn as a ring. `white-space: break-spaces` came off the list the other way — not implemented, but found to be unreachable: AngleSharp drops it from both the shorthand and the longhand, so nothing can see it to report it.
 
@@ -1455,14 +1455,180 @@ Two entries came OFF that list by being measured rather than implemented, which 
 
 One difference is deliberately NOT reported: Chrome interrupts an underline around a descender (`text-decoration-skip-ink`, default `auto`), which needs glyph outlines rather than advances. It is a default rather than a declaration, so a report would fire on every underlined document ever converted. `text/decoration_style` records it as a named residual instead — which is the right home for a difference that no author asked for.
 
+## Traps in a rounded border whose edges disagree
+
+`block/border_radius_sides` measures these. The INLINE half of this problem is a separate piece of
+work with its own scenario and its own notes; what is left here is a block whose four edges are not
+one uniform ring.
+
+- **A radius was honoured on the fill and lost on the frame.** A border is painted as one rounded
+  ring only where every edge is solid and the same colour. Anything else fell back to four mitred
+  trapezia, which have square corners — so a callout with `border-left` and a radius came out with a
+  rounded background inside a square frame.
+- **It is drawn by CLIPPING, not by building the curve into each edge.** That would mean splitting
+  an arc at the corner and solving for where two edges of different widths hand over, per corner and
+  per band. Instead the trapezium a mitred edge already fills becomes the clip, and the whole
+  rounded ring is drawn through it in that side's colour.
+- **The clip's own diagonal is the answer to the hard part.** It runs from the outer corner to the
+  inner one, which is where a browser transitions between two adjacent colours — so the split comes
+  out right without being computed. `#widths` is the row that holds it: with edges of 3, 12, 6 and 9
+  pixels no corner splits at 45°.
+- **A band generalises for free.** A groove is two bands per side, and each is the same ring taken
+  between two nested rounded rectangles, so `Deflate` at the band's own fractions was the whole of
+  it.
+- **Square borders keep the polygon path untouched**, which is what leaves every existing scenario
+  identical: the clip is reached only when a radius is actually asked for.
+- **The corner transition is a pixel out, and that is why the report narrowed rather than
+  disappearing.** Chromium carries one colour a fraction further around the arc than the
+  outer-to-inner diagonal puts it, leaving a thin seam at each corner — SSIM 0.9988, the same
+  mechanism `block/bevelled_borders` records for two antialiased fills meeting on a diagonal. It is
+  the one rounded border in the corpus that is not exact. What is still reported is a **patterned**
+  edge: a dashed, dotted or double edge is stroked along its own centre line and deliberately runs
+  past the corner, so there is no corner there to curve at all.
+
+## Traps in the WebAssembly target
+
+`browser-wasm` is the ninth RID and the only one that is a different KIND of artifact rather
+than another platform. Every rule below was measured — against emcc 3.1.56, the version the
+.NET 10 wasm workload carries, and several of them against 6.0.2 as well. The ones worth
+reading twice are the four where the build SUCCEEDS and the result is wrong anyway.
+
+### Getting it linked at all
+
+- **It is LINKED, not loaded, and that decides everything else.** WebAssembly has no dynamic
+  loader for a P/Invoke to search, so the shim ships as a static archive that the consumer's
+  own Emscripten link step pulls into their `.wasm`. Hence the `.a` in the RID table, hence
+  `Static="true"` keeping it out of the copy-next-to-the-assembly path, and hence this being
+  the only RID for which the package ships build logic at all.
+- **The archive must be named for the P/Invoke MODULE, not by cargo's convention.** The
+  WebAssembly SDK derives the module name from the file name with `%(FileName)`: extension off,
+  `lib` prefix LEFT ON (`WasmApp.Common.targets`, and the same line is why .NET's own imports
+  are spelled `libSystem.Native`). Ship cargo's `libkrilla_capi.a` and the module registers as
+  `libkrilla_capi`, matches no `DllImport` in this package, and wasm-ld strips **every byte of
+  the archive as unreferenced**. Nothing fails: the build is green, the app publishes, and the
+  first P/Invoke dies. It was caught by SIZE and by nothing else — the relinked runtime came to
+  2,900,201 bytes without Krilla and 2,906,631 with it, where correctly named it is 18,483,830
+  before optimisation. **If a wasm build "works" and the module did not grow, nothing linked.**
+- **A `NativeFileReference` declared by a referenced project or package does NOT reach the
+  consuming app** (dotnet/runtime#114724, open). Declaring the item inside `Krilla.csproj`
+  compiles perfectly and links nothing, so it is declared in `buildTransitive/Krilla.targets`,
+  which NuGet imports into the CONSUMER's own evaluation, where it is their item and the gap
+  never applies.
+- **That file is a `.targets` and not a `.props`.** `$(RuntimeIdentifier)` is settled by the
+  WebAssembly SDK, and a `buildTransitive` `.props` is imported before that has happened, so
+  the condition would read an empty string.
+
+### Exceptions
+
+- **`panic = "unwind"` survives, which is the whole reason the target is viable.** rustc sets
+  `PanicStrategy::Unwind` for `wasm32-unknown-emscripten`, so `guard.rs`'s `catch_unwind`
+  boundary works unchanged. Had it been `abort`, supporting this target would have meant
+  shipping a build that kills the browser runtime on exactly the failures the shim exists to
+  contain.
+- **It is implemented with NATIVE wasm exception handling, and `-fexceptions` does not fix
+  it.** The archive references the `__cpp_exception` tag, so a default link fails with
+  `wasm-ld: error: undefined symbol: __cpp_exception`. The obvious remedy is the wrong one:
+  `-fexceptions` selects *Emscripten's* JS exceptions, a different scheme, and the link fails
+  identically. `-fwasm-exceptions` is what works. Both were measured, in that order.
+- **.NET links with wasm EH on by default, and its two branches line up exactly with that.**
+  `BrowserWasmApp.targets` defaults `WasmEnableExceptionHandling` to true and passes
+  `-fwasm-exceptions`; set it false and it passes `-fexceptions`. Those are two different
+  exception implementations rather than on and off, and only the first defines that tag, so
+  `buildTransitive/Krilla.targets` raises its own error first — the linker's message names
+  neither this package nor the property responsible.
+
+### Two wasm-opt calls, and neither is the other
+
+- **`wasm-opt` runs TWICE with different feature sets, and both had to be dealt with.** The
+  link-time call derives `--enable-<feature>` from the module's own `target_features`. The
+  post-link `_RunWasmOptPostLink`, which exists only to strip DWARF, HARDCODES
+  `--enable-simd --enable-exception-handling --enable-bulk-memory` and appends
+  `@(WasmOptConfigurationFlags)`. rustc's output also uses sign-ext, non-trapping float casts,
+  multivalue and reference types, so that second call rejected the module with a bare
+  `Fatal: error validating input` naming nothing whatsoever. The five missing flags are added
+  through `WasmOptConfigurationFlags`, the extension point the SDK provides for exactly this,
+  and every one of them already appears in the first call.
+- **The archive declares two features the consumer's binaryen may never have heard of.** rustc
+  emits `bulk-memory-opt` and `call-indirect-overlong`; the binaryen in Emscripten 3.1.56 —
+  .NET 9 and .NET 10 — knows neither name and exits with
+  `Unknown option '--enable-bulk-memory-opt'`. `.github/scripts/wasm-baseline-features.py`
+  drops those declarations after the build.
+- **No build flag can do that job.** Both features are implied by LLVM rather than chosen, so
+  `-C target-feature=-bulk-memory-opt` warns that the name is unknown and changes nothing, and
+  `-C target-cpu=mvp` leaves them on as well — and rustup's precompiled `std` and
+  `compiler_builtins` carry them however this crate is compiled. Verified by reading the
+  emitted `target_features` sections, not inferred from the flags.
+- **The declarations are REMOVED, not marked disallowed, and that difference is the whole
+  design.** The section's prefixes are `+` used, `-` disallowed, `=` required. Flipping to `-`
+  also fixes 3.1.56 — and then wasm-ld refuses to link the archive against Emscripten 6.0.2,
+  whose own objects use the feature: `Target feature 'bulk-memory-opt' used in ... is
+  disallowed by ...`. Removing the entry says nothing either way, so the old toolchain emits no
+  flag it cannot parse and the new one unions the feature in from its own objects. One archive,
+  both toolchains, measured on each.
+- **Removing the whole section is a third option and a wrong one.** `+bulk-memory` goes with it
+  and binaryen rejects the module with "Bulk memory operations require bulk memory".
+- **This is a .NET 9/10 problem, and it self-heals.** .NET 8 ships Emscripten 3.1.34, 9 and 10
+  ship 3.1.56, and .NET 11 ships 6.0.2, which needs none of it. Note which side of the boundary
+  that is on: the failing `wasm-opt` is the CONSUMER's, so moving this repository to a newer SDK
+  would fix nothing for anybody — it would only stop our own tests from seeing it.
+- **`-O2` in the archive's own check is load-bearing rather than thoroughness.** emcc skips
+  wasm-opt entirely at `-O0`, so the first version of that check linked cleanly and proved
+  nothing. The whole class of failure above is invisible below `-O2`.
+
+### The rest
+
+- **It is the only 32-bit target, and exactly ONE struct changes.** `KrillaStroke` is the only
+  `#[repr(C)]` struct carrying a pointer, so it goes from 40 bytes / align 8 to 32 / align 4.
+  Everything else is identical, `KrillaGlyph` included, whose `u64` keeps its 8-byte alignment
+  on wasm32 and so keeps the same 40-byte layout and the same tail padding.
+- **Nothing on the managed side needed changing, and that was worth checking rather than
+  assuming.** The mirrors already spell those two fields `IntPtr` and `nuint`, pointer-sized on
+  both widths. Verified: the linked archive reports `sizeof(KrillaStroke) == 32`, and
+  `AbiTests` compares that against `Unsafe.SizeOf<T>()` on whatever it is running on.
+- **A single blanket assertion was the entire compile blocker.** `assert!(size_of::<usize>() ==
+  8, "only 64-bit targets are shipped")` — every dependency in the tree compiled for wasm32
+  without complaint, `fontdb`, `memmap2`, `usvg` and `resvg` included, and the crate's own
+  one-line statement about the world was what stopped it. The pointer-bearing assertions are now
+  `#[cfg(target_pointer_width)]`-split so BOTH widths are pinned.
+- **`staticlib` is requested per invocation**, via `cargo rustc --crate-type staticlib`, and
+  deliberately not added to the crate's `crate-type` list — which would make all eight other legs
+  and every local `cargo build` link a second artifact under fat LTO for nothing.
+- **The `.a` must be kept OUT of the consumer's output.** NuGet's RID asset resolution copies
+  anything under `runtimes/<rid>/native/` beside the app, which is right for the eight loadable
+  RIDs and pointless here: the bytes are already inside the `.wasm`. Left alone it adds about ten
+  megabytes to every publish, deployed and never read. Removing it takes two targets rather than
+  one, because the build list and the publish list are settled at different times.
+- **`%(Static)` has to be QUALIFIED**, a second MSBuild rule alongside the MSB4190 one already
+  recorded for `%(Identity)`: only one row defines the metadata, and an unqualified reference
+  over a list where the others do not is MSB4096.
+- **The emscripten version is not ours to choose.** The consumer's link runs the workload's emcc
+  over our archive, so `native.yml` pins the version the workload carries and it must move in
+  step with it, from `sdk-manifests/<ver>/microsoft.net.workload.emscripten.current`.
+- **The wasm leg cannot verify itself statically, and that is the point.** Whether the archive is
+  usable is a property of the link, so `native.yml` builds a C driver against it, links it the
+  way .NET does, and runs it under node — which also makes it the only leg proving krilla WORKS
+  on its target rather than merely compiles for it, by serializing a document and checking the
+  PDF magic. `rust.yml` carries the cheap half on every push: `cargo check` needs no linker, so
+  the 32-bit ABI assertions are gated without emsdk.
+- **A browser-wasm project cannot even RESTORE without the `wasm-tools` workload.** NETSDK1147
+  comes from the SDK's own workload import, before anything in this package is reached, so any CI
+  leg touching `IntegrationTests/WasmConsumer` has to install it first — and that project is
+  deliberately absent from `IntegrationTests.slnx`, or `dotnet build IntegrationTests` in the
+  other smoke jobs would demand the workload on runners with no use for it.
+- **An SDK 11 preview restores that same project WITHOUT the workload, and it made a probe lie.**
+  The first probe of this feature ran in a scratch directory with no `global.json`, therefore
+  under the preview, and reported success for a configuration this repository does not use. A
+  probe that resolves its own SDK can be measuring a different product; copying `global.json`
+  next to it is the cheap fix.
+
 ## Things that will surprise you
 
-- **The RID table is duplicated in three places** and all three must stay in sync: `src/Krilla.Native.props` (the MSBuild table), `.github/workflows/native.yml` (the build matrix), and `readme.md` (documented support).
+- **The RID table is duplicated in three places** and all three must stay in sync: `src/Krilla.Native.props` (the MSBuild table), `.github/workflows/native.yml` (the build matrix), and `readme.md` (documented support). `publish-nuget.yml`'s package-contents check enumerates them a fourth time, and being a list of strings rather than a table it is the one that drifts silently — a missing RID there means the check passes over exactly the hole it exists to find.
 - **Every allocation crossing the ABI is freed by the side that made it.** The Windows natives build with `+crt-static` — required, or the DLL imports `VCRUNTIME140.dll`, which is not present on a clean Windows install — and that gives the library its own heap. Freeing a Rust allocation from managed code corrupts it.
 - **`.editorconfig` at the repo root is generated**, overwritten by ProjectDefaults on every build. Never hand-edit it. `rust/.editorconfig` sets `root = true` to keep it out of the Rust tree.
 - **`Krilla.Native.targets` must never be packed** into `build/` or `buildTransitive/`. It shells out to cargo, and packing it would make every consumer's restore require rustup.
 - **`%(Identity)` is illegal in a project-scope ItemGroup condition** (MSB4190), which is why `KrillaResolveHostNative` is a target rather than plain evaluation.
-- **`build.yml` produces a host-RID-only package** and must never publish it. The publishable one comes from `publish-nuget.yml`, built from the full eight-RID matrix.
+- **`build.yml` produces a host-RID-only package** and must never publish it. The publishable one comes from `publish-nuget.yml`, built from the full nine-RID matrix.
 - **SBOM under-reports.** `Microsoft.Sbom.Targets` sees no dependencies while ~110 Rust crates are statically linked; a separate Rust SBOM ships alongside.
 - **`CorpusLayout.cs` is compiled into two projects**, via a linked `<Compile>` in `Krilla.Html.RefGen.csproj`. It holds the page size and DPI that the browser producing a reference and the test comparing against it must agree on exactly. A disagreement does not fail loudly — it silently suppresses SSIM and skews the error metric, because the two images stop being the same size. It locates itself with `[CallerFilePath]` rather than ProjectDefaults' generated `ProjectFiles`, which would point at RefGen's directory in one of the two.
 - **The Liberation fonts in `src/Krilla.Html.Tests/Fonts` are load-bearing, not fixtures.** krilla has no font database, so both the converter and the reference browser load these exact files; without that, text reflows between machines and every recorded metric becomes noise. They are metric-compatible with Arial, which also means many glyphs have *identical* advances in regular and bold — a single-character width comparison between weights will fail against a perfectly correct font set.
