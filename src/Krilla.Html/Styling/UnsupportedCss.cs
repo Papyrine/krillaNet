@@ -653,17 +653,36 @@ static class UnsupportedCss
     /// <c>border-radius</c> into them, and reading both would report one authored declaration five
     /// times over. Reports once per element for the same reason.
     /// </remarks>
+    /// <summary>
+    /// Whether any edge is drawn as a pattern rather than as a mitred band.
+    /// </summary>
+    /// <remarks>
+    /// A dashed, dotted or double edge is stroked along its own centre line and deliberately runs
+    /// past the corner — a browser does not mitre them either — so there is no corner for a radius
+    /// to curve, and that is the one case still reported.
+    /// </remarks>
+    static bool HasPatternedEdge(ComputedStyle style) =>
+        Patterned(style.BorderTopStyle, style.BorderTop) ||
+        Patterned(style.BorderRightStyle, style.BorderRight) ||
+        Patterned(style.BorderBottomStyle, style.BorderBottom) ||
+        Patterned(style.BorderLeftStyle, style.BorderLeft);
+
+    static bool Patterned(BorderStyleKind kind, float width) =>
+        width > 0 &&
+        kind is BorderStyleKind.Dashed or BorderStyleKind.Dotted or BorderStyleKind.Double;
+
     static void Radius(
         ICssStyleDeclaration declaration,
         string element,
         ComputedStyle style,
         Action<HtmlDiagnostic> sink)
     {
-        // Honoured for the background always, and for a border only where the border is painted as
-        // one ring — which needs every edge solid and every edge the same colour. Anything else
-        // falls back to four mitred trapezia, which have square corners, so the radius is honoured
-        // on the fill underneath and lost on the frame over it.
-        if (!style.HasBorder || style.PaintsBorderAsRing)
+        // Honoured for the background always, and now for a border of any shape: a mitred edge is
+        // clipped to its own trapezium and the rounded ring is drawn through it, so two colours
+        // still hand over on the corner diagonal and the corner is curved. What is left is the
+        // patterned styles, whose dashes and dots run along a straight centre line past the corner
+        // and are not mitred at all.
+        if (!style.HasBorder || !HasPatternedEdge(style))
         {
             return;
         }
@@ -679,7 +698,7 @@ static class UnsupportedCss
                     element,
                     corner,
                     value,
-                    "the border is painted with square corners");
+                    "a dashed, dotted or double border is painted with square corners");
                 return;
             }
         }

@@ -154,7 +154,7 @@ It records two independent measurements, and **asserts neither**:
 - **`reference.boxes.json`** — the browser's `getBoundingClientRect()` per element, against our box tree. Integer-exact, localising ("this paragraph is 14px low" is a defect report), and — the practical reason it leads — computable without the native library, so it works on a machine with no Rust toolchain.
 - **`reference_0001.png`** — pixels, via AbsoluteError and SSIM.
 
-**Box geometry currently sits at zero across all 133 scenarios, with nothing unmatched**, and 97
+**Box geometry currently sits at zero across all 135 scenarios, with nothing unmatched**, and 97
 read SSIM 1.0000. Several got there by finding a defect first, which is the argument for adding a
 scenario for anything the engine implements rather than only for what it implements well:
 `block/anonymous` found trailing inline content hoisted above a block sibling, `position/fixed`
@@ -1116,13 +1116,46 @@ Both are now reported, and the lesson generalises: a value-by-value fallback wit
 
 The other thing the audit cannot see is a syntax the resolver does not PARSE. `calc()` was the case: it fell through to the unparseable fallback, the property took its default, and no diagnostic could fire because nothing recognised the value as one the engine was getting wrong. **A value nothing recognises is a value nothing can report.**
 
-Still reported rather than implemented: `column-count`, `writing-mode`, `direction`, `font-variant`, `font-stretch`, a wavy text decoration, `word-break: keep-all`, a blurred or spread shadow, automatic hyphenation, a `position: fixed` box with neither `top` nor `bottom` given, `visibility: collapse` on a table row, an unrecognised `list-style-type`, `white-space: break-spaces`, an unresolved `list-style-image`, a `content` value that names something unreadable, a non-inline `display` on a pseudo-element of an INLINE host, a named `@page` selector, rounded corners on an inline element, and a gradient as an inline element's background.
+Still reported rather than implemented: `column-count`, `writing-mode`, `direction`, `font-variant`, `font-stretch`, a wavy text decoration, `word-break: keep-all`, a blurred or spread shadow, automatic hyphenation, a `position: fixed` box with neither `top` nor `bottom` given, `visibility: collapse` on a table row, an unrecognised `list-style-type`, `white-space: break-spaces`, an unresolved `list-style-image`, a `content` value that names something unreadable, a non-inline `display` on a pseudo-element of an INLINE host, a named `@page` selector, a rounded corner on a DASHED, DOTTED or DOUBLE border, rounded corners on a bordered inline element, and a gradient as an inline element's background.
 
 `border-style` came off it entirely, which is the first property to leave the table by having every value it takes honoured rather than by having one value reasoned about — the four bevelled styles were the last four, and `hr`'s by-name exemption went with them. `break-before` and `break-after` followed, and their test is now an assertion of ABSENCE: every value either takes is honoured, so the case that used to prove the report fires proves it does not.
 
 Two entries came OFF that list by being measured rather than implemented, which is its own kind of result. `border-style: hidden` inside a collapsed table was documented as unimplementable — the width was folded to zero before anything could tell it from an absent border — and became a two-line change once `hidden` was kept as a style of its own; `table/collapse` is pixel-identical with it. And `visibility: collapse` on a table row was written, measured, and reverted: Chrome disagrees with ITSELF, its screen layout zeroing the row's track while its printed page puts everything after it twenty pixels further down, so no engine behaviour can be exact on both of the corpus's measurements.
 
 One difference is deliberately NOT reported: Chrome interrupts an underline around a descender (`text-decoration-skip-ink`, default `auto`), which needs glyph outlines rather than advances. It is a default rather than a declaration, so a report would fire on every underlined document ever converted. `text/decoration_style` records it as a named residual instead — which is the right home for a difference that no author asked for.
+
+## Traps in border-radius on the awkward cases
+
+`inline/background_radius` and `block/border_radius_sides` measure these. The first is exact; the
+second is the one rounded border in the corpus that is not, and its residual is named below.
+
+- **An inline element's background is not one rectangle, so it cannot be rounded one piece at a
+  time.** A line fragment is the opening edge's strip, then each run's own fill, then the closing
+  edge's strip, abutting — round those individually and the corners land in the MIDDLE of the
+  element. They are unioned per line and filled once instead.
+- **The union is taken from the SNAPPED pieces, not snapped afterwards.** That is what left all 281
+  existing scenarios byte-identical: an element with no radius is painted by exactly the arithmetic
+  it was before, and the rounded path is never reached.
+- **Which ends to round cannot come from the element's edge tokens**, which is the obvious source
+  and carries `Leading`/`Trailing` for exactly this shape of question. They are emitted only when
+  the element has a padding or border to put in one (`BoxBuilder`, gated on `HasSurround`), so they
+  answer for a padded code span and are ABSENT for a plain highlight — squaring every unpadded one
+  at both ends. Which lines the element occupies answers both, so `InlineSpans` records that.
+- **A wrapped fragment is square at the ends the element did not reach**, which is what makes a
+  wrapped highlight read as one continuous run of colour rather than three pills.
+- **A rounded non-uniform border is drawn by CLIPPING, not by building the curve into each edge.**
+  The trapezium a mitred edge already fills becomes the clip and the whole rounded ring is drawn
+  through it in that side's colour. The diagonal bounding that trapezium is where a browser hands
+  over between two adjacent colours, so the split comes out right without computing it — and with
+  edges of different widths it is not 45°, which `#widths` is there to hold.
+- **A band generalises for free.** A groove is two bands per side, and each is the same ring taken
+  between two nested rounded rectangles, so `Deflate` at the band's fractions was the whole of it.
+- **The corner transition is a pixel out, and it is the reason the report narrowed rather than
+  disappearing.** Chromium carries one colour a fraction further around the arc than the
+  outer-to-inner diagonal puts it, which leaves a thin seam at each corner — SSIM 0.9988, the same
+  mechanism `block/bevelled_borders` records for two antialiased fills meeting on a diagonal. What
+  is still reported is a **patterned** edge: a dashed, dotted or double edge is stroked along its
+  own centre line and deliberately runs past the corner, so there is no corner there to curve.
 
 ## Traps in the WebAssembly target
 
