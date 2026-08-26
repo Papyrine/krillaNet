@@ -224,6 +224,59 @@ static class BoxBuilder
             return;
         }
 
+        PlaceImage(element, style, parentStyle, image, blocks, inlines, floats, positioned, link);
+    }
+
+    /// <summary>
+    /// An inline <c>&lt;svg&gt;</c>: a replaced element whose content is the markup itself.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Serialised and handed to the same SVG path an <c>&lt;img src="x.svg"&gt;</c> takes, which is
+    /// what makes it a replaced element rather than a subtree of boxes. Without this its children
+    /// went through ordinary block layout, so a drawing became a stack of empty boxes and the
+    /// picture never appeared.
+    /// </para>
+    /// <para>
+    /// It returns before <c>AddChildren</c>, which is the point: nothing inside an
+    /// <c>&lt;svg&gt;</c> is laid out by CSS here, and a <c>&lt;text&gt;</c> inside one is drawn by
+    /// usvg rather than by this engine.
+    /// </para>
+    /// </remarks>
+    static void AddInlineSvg(
+        IElement element,
+        ComputedStyle style,
+        ComputedStyle parentStyle,
+        DocumentContext context,
+        List<LayoutBox> blocks,
+        List<InlineItem> inlines,
+        List<FloatChild> floats,
+        List<FloatChild> positioned,
+        string? link)
+    {
+        if (context.Images.Inline(element) is not {} image)
+        {
+            Diagnostic.Image(context.OnDiagnostic, element.LocalName, null, "could not be read as a drawing");
+            return;
+        }
+
+        PlaceImage(element, style, parentStyle, image, blocks, inlines, floats, positioned, link);
+    }
+
+    /// <summary>
+    /// Puts a resolved replaced element where its display asks for.
+    /// </summary>
+    static void PlaceImage(
+        IElement element,
+        ComputedStyle style,
+        ComputedStyle parentStyle,
+        ImageData image,
+        List<LayoutBox> blocks,
+        List<InlineItem> inlines,
+        List<FloatChild> floats,
+        List<FloatChild> positioned,
+        string? link)
+    {
         var sized = WithAttributeSize(element, style);
         var selector = SelectorPath.For(element);
 
@@ -471,6 +524,13 @@ static class BoxBuilder
         if (element.LocalName.Equals("img", StringComparison.OrdinalIgnoreCase))
         {
             AddImage(element, style, parentStyle, context, blocks, inlines, floats, positioned, link);
+            return;
+        }
+
+        if (element.NamespaceUri == NamespaceNames.SvgUri &&
+            element.LocalName.Equals("svg", StringComparison.OrdinalIgnoreCase))
+        {
+            AddInlineSvg(element, style, parentStyle, context, blocks, inlines, floats, positioned, link);
             return;
         }
 

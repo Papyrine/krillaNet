@@ -21,6 +21,15 @@ sealed class ImageStore(
     : IDisposable
 {
     readonly Dictionary<string, ImageData?> cache = new(StringComparer.Ordinal);
+
+    /// <summary>
+    /// The drawings inline <c>&lt;svg&gt;</c> elements were read as, keyed by the element itself.
+    /// </summary>
+    /// <remarks>
+    /// A second cache rather than a second key into the first, because these have no source string
+    /// to be keyed by and two identical drawings in one document are still two elements.
+    /// </remarks>
+    readonly Dictionary<IElement, ImageData?> inline = [];
     SvgOptions? svgOptions;
     bool svgOptionsBuilt;
 
@@ -71,6 +80,56 @@ sealed class ImageStore(
 
             return svgOptions;
         }
+    }
+
+    /// <summary>
+    /// The drawing an inline <c>&lt;svg&gt;</c> element is, or null when it cannot be read.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Ungated by the image policy, and for the same reason a <c>data:</c> URI is: the bytes are
+    /// already in the document, so there is nothing to fetch and nothing to refuse. Cached against
+    /// the element rather than a source string, there being no source.
+    /// </para>
+    /// <para>
+    /// The namespace declaration is added when the markup does not carry one, which is nearly
+    /// always: an HTML parser puts an <c>&lt;svg&gt;</c> in the SVG namespace by position rather
+    /// than by declaration, so a document almost never writes the <c>xmlns</c> that a standalone
+    /// SVG parser then requires.
+    /// </para>
+    /// </remarks>
+    public ImageData? Inline(IElement element)
+    {
+        if (inline.TryGetValue(element, out var cached))
+        {
+            return cached;
+        }
+
+        ImageData? image = null;
+
+        try
+        {
+            var markup = element.OuterHtml;
+
+            if (!markup.Contains("xmlns", StringComparison.OrdinalIgnoreCase))
+            {
+                markup = markup.Insert(4, " xmlns=\"http://www.w3.org/2000/svg\"");
+            }
+
+            image = ImageData.Read(Encoding.UTF8.GetBytes(markup));
+
+            if (image is {IsVector: true})
+            {
+                image.SvgOptions = SvgOptions;
+            }
+        }
+        catch (Exception exception) when (exception is FormatException or ArgumentException)
+        {
+            image = null;
+        }
+
+        inline[element] = image;
+        return image;
     }
 
     /// <summary>
@@ -269,7 +328,13 @@ sealed class ImageStore(
             image?.Dispose();
         }
 
+        foreach (var image in inline.Values)
+        {
+            image?.Dispose();
+        }
+
         cache.Clear();
+        inline.Clear();
 
         // After the images, which hold parsed SVGs that were built against it.
         svgOptions?.Dispose();

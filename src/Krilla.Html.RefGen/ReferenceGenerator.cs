@@ -212,6 +212,11 @@ public class ReferenceGenerator
                 if (style.display === 'none') continue;
                 if (element.localName === 'style' || element.localName === 'script') continue;
 
+                // Everything INSIDE an <svg> is drawn by krilla-svg rather than laid out here, so
+                // it has no box on this side to compare against. The <svg> element itself is a
+                // replaced box and stays.
+                if (element.ownerSVGElement) continue;
+
                 const rect = element.getBoundingClientRect();
                 boxes.push({
                   selector: path(element),

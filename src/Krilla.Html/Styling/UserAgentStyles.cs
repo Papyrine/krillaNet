@@ -143,7 +143,8 @@ static class UserAgentStyles
         with(StringComparer.OrdinalIgnoreCase),
         "a", "abbr", "acronym", "b", "bdi", "bdo", "big", "br", "cite", "code", "data", "dfn",
         "em", "font", "i", "img", "kbd", "label", "mark", "nobr", "q", "rp", "rt", "ruby", "s",
-        "samp", "small", "span", "strike", "strong", "sub", "sup", "time", "tt", "u", "var", "wbr"
+        "samp", "small", "span", "strike", "strong", "sub", "sup", "svg", "time", "tt", "u", "var",
+        "wbr"
     ];
 
     /// <summary>
