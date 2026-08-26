@@ -253,56 +253,150 @@ public class PageMarginBoxTests
     }
 
     /// <summary>
-    /// A named page is reported and applies to nothing.
+    /// A NAMED page selects the sheets its elements occupy.
     /// </summary>
     /// <remarks>
-    /// It selects the elements carrying <c>page: cover</c>, which this engine does not read.
-    /// Applying it to every page instead would put a cover sheet's header on all of them, which is
-    /// worse than the header being absent and much harder to attribute.
+    /// <para>
+    /// <c>page: cover</c> on an element and <c>@page cover</c> in the stylesheet, which is how a
+    /// document gives its cover a different header from its body. Both halves are recovered from
+    /// the stylesheet's own source — AngleSharp drops the property, and the selector was never in
+    /// the object model to begin with.
+    /// </para>
+    /// <para>
+    /// Matched by EXTENT rather than by assignment, which is what gives it CSS's inheritance
+    /// without any of its own: the middle sheet belongs to the named page because the named box is
+    /// what it begins inside, and the sheets either side of it do not.
+    /// </para>
     /// </remarks>
     [Test]
-    public async Task ANamedPageIsReportedAndSelectsNothing()
+    public async Task ANamedPageSelectsTheSheetsItsElementsOccupy()
     {
-        var html = Document(
-            """@page cover { @top-center { content: "header"; color: #00c000 } }""",
-            pages: 1);
+        var html = Sections("""
+                            .whole { page: cover }
+                            @page { @top-center { content: "body" } }
+                            @page cover { @top-center { content: "cover" } }
+                            """);
 
-        var reports = new List<HtmlDiagnostic>();
-
-        var options = Options(margin);
-        options.OnDiagnostic = reports.Add;
-
-        await HtmlConverter.ConvertAsync(html, options);
-
-        await Assert.That(reports.Select(_ => _.Value)).Contains("cover");
-        await Assert.That(await Marked(html, 0)).IsNull();
+        await Assert.That(await Text(html, 0)).Contains("body");
+        await Assert.That(await Text(html, 1)).Contains("cover");
+        await Assert.That(await Text(html, 2)).Contains("body");
     }
 
     /// <summary>
-    /// <c>string()</c> reaches nothing, because AngleSharp drops the declaration carrying it.
+    /// A name outranks every pseudo-class, and an unnamed rule still applies underneath it.
     /// </summary>
     /// <remarks>
-    /// CSS's own running-header mechanism, paired with <c>string-set</c> on the document's
-    /// headings. It is not implemented here — but that is not why it cannot be reported: the
-    /// cascaded <c>content</c> comes back EMPTY, indistinguishable from a margin box that declared
-    /// none, so there is no value to report and no gap this side can see. The same shape as
-    /// <c>revert</c> and <c>text-overflow</c>, and this test is what stops the limitation being
-    /// rediscovered as a defect.
+    /// CSS Paged Media's own order. The two rules fill DIFFERENT slots here, which is the case that
+    /// separates "the named rule wins the slot" from "the named rule replaces the page" — a bare
+    /// <c>@page</c> rule still reaches a named sheet, and only a rule for the same slot is beaten.
     /// </remarks>
     [Test]
-    public async Task StringIsDroppedByTheCascadeAndCannotBeReported()
+    public async Task ANamedPageDoesNotDisplaceTheRulesBesideIt()
     {
-        var reports = new List<HtmlDiagnostic>();
+        var html = Sections("""
+                            h2 { page: cover }
+                            @page { @top-center { content: "header" } @bottom-center { content: "footer" } }
+                            @page cover { @top-center { content: "titled" } }
+                            """);
 
-        var options = Options(margin);
-        options.OnDiagnostic = reports.Add;
-
-        await HtmlConverter.ConvertAsync(
-            Document("@page { @top-center { content: string(title); color: #00c000 } }", pages: 1),
-            options);
-
-        await Assert.That(reports.Select(_ => _.Name)).DoesNotContain("content");
+        await Assert.That(await Text(html, 0)).Contains("titled");
+        await Assert.That(await Text(html, 0)).Contains("footer");
+        await Assert.That(await Text(html, 0)).DoesNotContain("header");
     }
+
+    /// <summary>
+    /// <c>string-set</c> and <c>string()</c>: a running header that names the section it is on.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// CSS's own running-header mechanism, and the reason most documents have an <c>@page</c> rule
+    /// at all. Both halves are recovered from the stylesheet's own SOURCE, because AngleSharp drops
+    /// the declarations: <c>string-set: title content()</c> comes back empty and indistinguishable
+    /// from one nobody wrote, and so does <c>content: string(title)</c> outside the <c>@page</c>
+    /// scan.
+    /// </para>
+    /// <para>
+    /// The rule is <c>first</c>, which is the property's default: the value assigned by the first
+    /// element on the page that sets it, and otherwise whatever was carried forward. Page two is
+    /// what says so — it holds no heading of its own and keeps page one's.
+    /// </para>
+    /// </remarks>
+    [Test]
+    public async Task ANamedStringFollowsTheSectionItIsOn()
+    {
+        var html = Sections("""
+                            h2 { string-set: title content() }
+                            @page { @top-center { content: "[" string(title) "]" } }
+                            """);
+
+        await Assert.That(await Text(html, 0)).Contains("[Materials]");
+        await Assert.That(await Text(html, 1)).Contains("[Materials]");
+        await Assert.That(await Text(html, 2)).Contains("[Method]");
+    }
+
+    /// <summary>
+    /// A named string a document never sets reads as nothing, and takes the box with it.
+    /// </summary>
+    /// <remarks>
+    /// <c>content</c> decides whether a margin box EXISTS, so a header whose only content is an
+    /// unset string is not drawn at all rather than drawn empty — which matters, because an empty
+    /// box would still paint its own border and background.
+    /// </remarks>
+    [Test]
+    public async Task AnUnsetNamedStringDrawsNothing()
+    {
+        var html = Sections("@page { @top-center { content: string(missing) } }");
+
+        await Assert.That(await Text(html, 0)).IsEqualTo("Materials");
+    }
+
+    /// <summary>
+    /// <c>string-set</c> takes the whole <c>content</c> grammar, not just <c>content()</c>.
+    /// </summary>
+    /// <remarks>
+    /// Several values concatenate, which is what lets a running header carry the section's number
+    /// as well as its name — and the counter is read where the ELEMENT is, not where the page is,
+    /// so it holds the value that heading had rather than the one in force at the end.
+    /// </remarks>
+    [Test]
+    public async Task ANamedStringConcatenatesItsValues()
+    {
+        var html = Sections("""
+                            body { counter-reset: part }
+                            h2 { counter-increment: part; string-set: title "Part " counter(part) ": " content() }
+                            @page { @top-center { content: string(title) } }
+                            """);
+
+        await Assert.That(await Text(html, 0)).Contains("Part 1: Materials");
+        await Assert.That(await Text(html, 2)).Contains("Part 2: Method");
+    }
+
+    /// <summary>
+    /// Three pages: a heading, a page of filler, and a second heading.
+    /// </summary>
+    /// <remarks>
+    /// The middle page is the one that matters. It carries no heading of its own, so what its
+    /// running header says is entirely a question of what was carried forward — and an
+    /// implementation that read the LAST assignment in the document, or the nearest one in either
+    /// direction, gets it wrong while getting both other pages right.
+    /// </remarks>
+    static string Sections(string css) =>
+        $$"""
+          <!doctype html>
+          <html><head><style>
+            html, body, div, h2 { margin: 0; padding: 0 }
+            body { font-family: "Liberation Sans"; font-size: 16px; line-height: 24px }
+            h2 { font-size: 16px; line-height: 24px }
+            .filler { height: {{CorpusLayout.PageHeight - 2 * margin - 24}}px }
+            .whole { height: {{CorpusLayout.PageHeight - 2 * margin}}px }
+            {{css}}
+          </style></head>
+          <body>
+            <h2>Materials</h2><div class="filler"></div>
+            <div class="whole"></div>
+            <h2>Method</h2><div class="filler"></div>
+          </body></html>
+          """;
 
     /// <summary>
     /// A <c>url()</c> in a margin box resolves through the document's own image store.

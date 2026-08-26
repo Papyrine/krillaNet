@@ -59,7 +59,9 @@ per line — and a background may be a raster image, with `background-repeat`, `
 A `list-style-image` marker is drawn from an image and falls back to the counter style when the
 source does not resolve.
 
-An `<img src>` or a CSS `url()` naming an SVG is rendered as vector art rather than rasterised, and
+An `<svg>` written into the document is drawn rather than laid out: its markup goes to the same
+renderer a referenced SVG does, so an icon beside a word or a chart in a report comes out as vector
+art. An `<img src>` or a CSS `url()` naming an SVG is rendered the same way, and
 sizes the way a browser sizes one: a document declaring `width` and `height` has an intrinsic size,
 while one carrying only a `viewBox` has an aspect ratio and no size — SVG defaults those attributes
 to `100%` — so it fills its containing block and takes its height from the ratio. Text inside an SVG
@@ -102,8 +104,13 @@ A document's `@page` rules decide the paper — size, orientation and margins �
 `counter(page)` and `counter(pages)` are resolved per sheet, the page selectors `:first`, `:left`,
 `:right` and `:blank` all select, and a margin box takes its own declarations rather than
 inheriting from the document. No browser implements any of this, so it is one of the few places
-this converter does more than the reference it is measured against. `string()` and `string-set`
-are the part still missing, and a named page — `@page cover` — selects nothing and is reported.
+this converter does more than the reference it is measured against.
+
+`string-set` and `string()` work too, which is CSS's own way of putting a section's heading into a
+running header — `h2 { string-set: title content() }` beside
+`@top-center { content: string(title) }` heads every page with the section it starts in. So does
+`page: cover` and the `@page cover` rules it selects, for a document whose front matter wants a
+different header from its body.
 
 `orphans` and `widows` constrain where a page breaks, on by default because a browser honours them
 too: a paragraph whose natural break would strand a single line moves whole to the next sheet, and
@@ -118,6 +125,10 @@ Generated content works: `::before` and `::after` with strings, `attr()`, `count
 than joining its host's line, so `content: ""; display: block; clear: both` makes a container
 enclose its floats the way it always has.
 
+The logical box properties are read — `margin-inline`, `padding-block`, `inline-size` and the
+rest — as is `word-wrap`, the spelling `overflow-wrap` had for a decade before it was renamed and
+the one most documents still carry.
+
 Also `aspect-ratio`, `rgba()` on every colour property — text, backgrounds, borders, outlines,
 decorations and a collapsed table's rules — text and box shadows as offsets including `inset`,
 `text-decoration-thickness` and `text-underline-offset`, a percentage `height`, `min-height` or
@@ -130,10 +141,27 @@ specifies nothing about. The `ex` and `ch` units resolve against the face rather
 approximate half an em, and an absolutely positioned box with an offset at each end and auto margins
 is centred between them.
 
+HTML's presentational attributes are mapped onto CSS, which AngleSharp does not do: `<table width>`,
+`cellpadding`, `cellspacing`, `border`, `bgcolor`, `align`, `valign` and `nowrap`, `<hr>`'s `width`,
+`size`, `color`, `noshade` and `align`, `<font>`'s `color`, `size` and `face`, `<body bgcolor>` and
+`text`, an image's `align`, `border`, `hspace` and `vspace`, and `type` on both kinds of list. They
+are hints rather than inline styles, so any author rule beats them. Documents converted to PDF come
+disproportionately from reporting tools and mail merges, which lay themselves out with exactly this
+markup.
+
+A `<wbr>` offers a line break without forcing one, which is how a document says a long URL or a
+generated identifier may be split.
+
 The PDF gets structure the page cannot show. Headings become a bookmark tree, nested by level and
 bounded by `HtmlOptions.OutlineDepth`; every `id` becomes a named destination, so
 `report.pdf#introduction` opens at that heading; and the document's `<title>` and `lang` fill the
 PDF's title and language when the caller has not set them.
+
+`HtmlOptions.Tagged` adds a logical structure tree, which is what a screen reader navigates and what
+PDF/UA requires. HTML carries the semantics it wants, so headings, paragraphs, lists, tables, figures
+and their alternative text arrive with no extra markup — and everything that is not content is
+marked as an artifact, so a background, a border, a list marker or a repeated table header is never
+read out as if it were. It is off by default because it changes the bytes of every document.
 
 Images resolve from `data:` URIs and from files relative to `BaseUrl`. Nothing is fetched over the
 network by default — converting an untrusted document would otherwise issue requests to whatever
@@ -163,7 +191,7 @@ options.OnDiagnostic = diagnostic => Console.WriteLine(diagnostic);
 
 // <div> display: flex — laid out as a block
 // <div> column-count: 2 — laid out in one column
-// <p> align: left — not applied, because presentational attributes are not mapped onto the cascade
+// <table> rules: all — not applied, because presentational attributes are not mapped onto CSS
 // <img> src: logo.png — did not resolve to an image, so no box was generated
 ```
 <sup><a href='/src/Krilla.Html.Tests/Samples.cs#L75-L84' title='Snippet source file'>snippet source</a> | <a href='#snippet-Diagnostics' title='Start of snippet'>anchor</a></sup>
@@ -175,11 +203,11 @@ subscribing to: a conversion that reports nothing laid out every construct the w
 
 Two limits worth knowing before reaching for it:
 
-- Text is shaped through krilla's own shaper, so kerning and ligatures are applied. Bidirectional
-  resolution, font fallback and complex-script shaping are still missing, so a run is shaped with
-  one font and one script.
-- Lines break at spaces, at hyphens and dashes, and either side of an image or inline-block. There
-  is no hyphenation dictionary, no soft-hyphen support, and no Unicode line breaking algorithm
+- Text is shaped through krilla's own shaper, so kerning and ligatures are applied, and a character
+  the resolved face lacks is drawn in a registered face that covers it. Bidirectional resolution and
+  complex-script shaping are still missing, so a run is shaped in one direction and one script.
+- Lines break at spaces, at hyphens and dashes, at a soft hyphen or a `<wbr>`, and either side of an
+  image or inline-block. There is no hyphenation dictionary and no Unicode line breaking algorithm
   beyond that — so scripts that wrap without spaces overflow rather than wrapping.
 - AngleSharp compares CSS specificity across cascade origins, where the specification resolves
   origin first. A reset relying on `* { margin: 0 }` will not clear the default margins on `body`
@@ -271,7 +299,7 @@ using (var page = document.StartPage(300, 200))
 
 var pdf = document.Finish();
 ```
-<sup><a href='/src/Krilla.Tests/Samples.cs#L43-L64' title='Snippet source file'>snippet source</a> | <a href='#snippet-DrawAPath' title='Start of snippet'>anchor</a></sup>
+<sup><a href='/src/Krilla.Tests/Samples.cs#L55-L76' title='Snippet source file'>snippet source</a> | <a href='#snippet-DrawAPath' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
 
@@ -305,7 +333,7 @@ using (var page = document.StartPage(200, 200))
 
 var pdf = document.Finish();
 ```
-<sup><a href='/src/Krilla.Tests/Samples.cs#L72-L91' title='Snippet source file'>snippet source</a> | <a href='#snippet-FillAndStroke' title='Start of snippet'>anchor</a></sup>
+<sup><a href='/src/Krilla.Tests/Samples.cs#L96-L115' title='Snippet source file'>snippet source</a> | <a href='#snippet-FillAndStroke' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
 
@@ -336,7 +364,7 @@ using (var page = document.StartPage(300, 150))
 
 var pdf = document.Finish();
 ```
-<sup><a href='/src/Krilla.Tests/Samples.cs#L99-L117' title='Snippet source file'>snippet source</a> | <a href='#snippet-GradientFill' title='Start of snippet'>anchor</a></sup>
+<sup><a href='/src/Krilla.Tests/Samples.cs#L135-L153' title='Snippet source file'>snippet source</a> | <a href='#snippet-GradientFill' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
 All stops in a gradient must share one colour space. A mismatch is reported when the document is finished, not when the gradient is created.
@@ -372,7 +400,7 @@ using (var page = document.StartPage(200, 200))
 
 var pdf = document.Finish();
 ```
-<sup><a href='/src/Krilla.Tests/Samples.cs#L125-L144' title='Snippet source file'>snippet source</a> | <a href='#snippet-TransformsAndOpacity' title='Start of snippet'>anchor</a></sup>
+<sup><a href='/src/Krilla.Tests/Samples.cs#L173-L192' title='Snippet source file'>snippet source</a> | <a href='#snippet-TransformsAndOpacity' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
 
@@ -399,7 +427,7 @@ foreach (var index in Enumerable.Range(0, 3))
 
 document.Save("report.pdf");
 ```
-<sup><a href='/src/Krilla.Tests/Samples.cs#L152-L166' title='Snippet source file'>snippet source</a> | <a href='#snippet-MultiplePages' title='Start of snippet'>anchor</a></sup>
+<sup><a href='/src/Krilla.Tests/Samples.cs#L212-L226' title='Snippet source file'>snippet source</a> | <a href='#snippet-MultiplePages' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
 
@@ -442,7 +470,7 @@ using (var page = document.StartPage(120, 120))
 
 var pdf = document.Finish();
 ```
-<sup><a href='/src/Krilla.Tests/Samples.cs#L174-L204' title='Snippet source file'>snippet source</a> | <a href='#snippet-DrawAnImage' title='Start of snippet'>anchor</a></sup>
+<sup><a href='/src/Krilla.Tests/Samples.cs#L234-L264' title='Snippet source file'>snippet source</a> | <a href='#snippet-DrawAnImage' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
 
@@ -476,7 +504,7 @@ using (var page = document.StartPage(PageSettings.A4))
 
 var pdf = document.Finish();
 ```
-<sup><a href='/src/Krilla.Tests/Samples.cs#L212-L233' title='Snippet source file'>snippet source</a> | <a href='#snippet-Metadata' title='Start of snippet'>anchor</a></sup>
+<sup><a href='/src/Krilla.Tests/Samples.cs#L284-L305' title='Snippet source file'>snippet source</a> | <a href='#snippet-Metadata' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
 
@@ -511,7 +539,7 @@ document.SetOutline(chapter, new OutlineItem("Chapter Two", pageIndex: 2));
 
 var pdf = document.Finish();
 ```
-<sup><a href='/src/Krilla.Tests/Samples.cs#L241-L263' title='Snippet source file'>snippet source</a> | <a href='#snippet-Bookmarks' title='Start of snippet'>anchor</a></sup>
+<sup><a href='/src/Krilla.Tests/Samples.cs#L313-L335' title='Snippet source file'>snippet source</a> | <a href='#snippet-Bookmarks' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
 
@@ -547,7 +575,7 @@ using (document.StartPage(PageSettings.A4))
 
 var pdf = document.Finish();
 ```
-<sup><a href='/src/Krilla.Tests/Samples.cs#L271-L294' title='Snippet source file'>snippet source</a> | <a href='#snippet-Links' title='Start of snippet'>anchor</a></sup>
+<sup><a href='/src/Krilla.Tests/Samples.cs#L343-L366' title='Snippet source file'>snippet source</a> | <a href='#snippet-Links' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
 
@@ -578,7 +606,7 @@ document.EmbedFile(
 
 var pdf = document.Finish();
 ```
-<sup><a href='/src/Krilla.Tests/Samples.cs#L420-L438' title='Snippet source file'>snippet source</a> | <a href='#snippet-Attachments' title='Start of snippet'>anchor</a></sup>
+<sup><a href='/src/Krilla.Tests/Samples.cs#L504-L522' title='Snippet source file'>snippet source</a> | <a href='#snippet-Attachments' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
 
@@ -614,7 +642,7 @@ using (var page = document.StartPage(PageSettings.A4))
 
 var pdf = document.Finish();
 ```
-<sup><a href='/src/Krilla.Tests/Samples.cs#L391-L412' title='Snippet source file'>snippet source</a> | <a href='#snippet-ReusableGraphic' title='Start of snippet'>anchor</a></sup>
+<sup><a href='/src/Krilla.Tests/Samples.cs#L463-L484' title='Snippet source file'>snippet source</a> | <a href='#snippet-ReusableGraphic' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
 
@@ -653,7 +681,7 @@ using (var page = document.StartPage(PageSettings.A4))
 // the offending content was added.
 var pdf = document.Finish();
 ```
-<sup><a href='/src/Krilla.Tests/Samples.cs#L302-L328' title='Snippet source file'>snippet source</a> | <a href='#snippet-ArchivalPdf' title='Start of snippet'>anchor</a></sup>
+<sup><a href='/src/Krilla.Tests/Samples.cs#L374-L400' title='Snippet source file'>snippet source</a> | <a href='#snippet-ArchivalPdf' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
 
@@ -715,7 +743,7 @@ document.SetOutline(new OutlineItem("Introduction", pageIndex: 0));
 
 var pdf = document.Finish();
 ```
-<sup><a href='/src/Krilla.Tests/Samples.cs#L336-L383' title='Snippet source file'>snippet source</a> | <a href='#snippet-AccessibleDocument' title='Start of snippet'>anchor</a></sup>
+<sup><a href='/src/Krilla.Tests/Samples.cs#L408-L455' title='Snippet source file'>snippet source</a> | <a href='#snippet-AccessibleDocument' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
 Content that is decoration rather than meaning — running heads, page numbers, rules — should be marked with `BeginArtifact` instead, which keeps it out of the tree entirely.

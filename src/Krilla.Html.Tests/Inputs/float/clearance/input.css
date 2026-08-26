@@ -1,0 +1,31 @@
+.frame { width: 400px; margin-bottom: 12px; background-color: #eef1f5; }
+.fl { float: left; width: 90px; height: 100px; background-color: #b06060; }
+.fl.short { height: 40px; }
+
+p { font-size: 16px; line-height: 24px; margin: 0; background-color: #cfd8e8; }
+
+/* The previous sibling's bottom margin and the cleared box's top margin, which collapse to 40
+   where nothing clears — the question is what happens when clearance is introduced between them. */
+.before { margin-bottom: 40px; }
+.cleared { clear: left; margin-top: 20px; }
+
+/* Already past the float on its own margin, so there is no clearance to introduce. */
+.far { margin-top: 150px; }
+
+.after { margin-top: 30px; }
+
+/* A cleared box with no content, whose own two margins would otherwise collapse together. */
+.empty { margin-bottom: 50px; }
+
+/*
+  Two wrappers whose FIRST child is cleared. CSS 2.1 8.3.1 collapses a box's top margin with its
+  first child's only when that child has NO clearance, so #wrapper keeps its own top edge where the
+  outer padding put it and #loose does not: the second clears nothing, so the collapse happens as
+  usual and the two rows differ by exactly the child's margin.
+
+  The padding on .outer is load-bearing. It stops the outer box's own top margin escaping, which is
+  what puts the float in the context before the wrapper's leading margin is asked for.
+*/
+.outer { padding: 1px 0; margin-bottom: 12px; background-color: #e8e2d8; }
+
+#wrapper, #loose { background-color: #dbe7db; }

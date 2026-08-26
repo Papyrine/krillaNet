@@ -66,38 +66,63 @@ sealed record CssTransform(
     CssLength OriginY)
 {
     /// <summary>
-    /// Parses a <c>transform</c> value, or returns null when it is <c>none</c> or holds a function
-    /// this engine does not apply.
+    /// Parses <c>transform</c> together with the three individual transform properties, or returns
+    /// null when none of them is set or one of them is a function this engine does not apply.
     /// </summary>
     /// <remarks>
+    /// <para>
+    /// The three individual properties are not shorthands for <c>transform</c> and do not reach it:
+    /// CSS Transforms 2 §3 composes them ahead of it, in the fixed order <c>translate</c>,
+    /// <c>rotate</c>, <c>scale</c>, whatever order they were written in — so they are a PREFIX on
+    /// the function list rather than a second matrix. Everything downstream, the origin included,
+    /// then applies to the composite without knowing they exist.
+    /// </para>
+    /// <para>
     /// The three-dimensional functions and <c>perspective</c> are deliberately absent. Applying
     /// their two-dimensional shadow would be wrong in a way nothing would report, so they are left
-    /// unparsed and <see cref="UnsupportedCss"/> says the transform was not applied.
+    /// unparsed and <see cref="UnsupportedCss"/> says the transform was not applied. The individual
+    /// properties have three-dimensional forms of their own — a third length on <c>translate</c>, an
+    /// axis on <c>rotate</c>, a third factor on <c>scale</c> — and they are refused the same way.
+    /// </para>
     /// </remarks>
     public static CssTransform? Parse(
         string transform,
+        string translate,
+        string rotate,
+        string scale,
         string origin,
         CssFont fontSize,
         CssRoot root)
     {
-        var text = transform.Trim();
+        var functions = new List<TransformFunction>();
 
-        if (text.Length == 0 ||
-            text.Equals("none", StringComparison.OrdinalIgnoreCase))
+        if (!Individual(translate, rotate, scale, functions, fontSize, root))
         {
             return null;
         }
 
-        var functions = new List<TransformFunction>();
+        var text = transform.Trim();
 
-        foreach (var (name, arguments) in Calls(text))
+        if (text.Length > 0 && !text.Equals("none", StringComparison.OrdinalIgnoreCase))
         {
-            if (Function(name, arguments, fontSize, root) is not {} function)
+            var listed = new List<TransformFunction>();
+
+            foreach (var (name, arguments) in Calls(text))
+            {
+                if (Function(name, arguments, fontSize, root) is not {} function)
+                {
+                    return null;
+                }
+
+                listed.Add(function);
+            }
+
+            if (listed.Count == 0)
             {
                 return null;
             }
 
-            functions.Add(function);
+            functions.AddRange(listed);
         }
 
         if (functions.Count == 0)
@@ -107,6 +132,141 @@ sealed record CssTransform(
 
         var (x, y) = Origin(origin, fontSize, root);
         return new(functions, x, y);
+    }
+
+    /// <summary>
+    /// Appends the three individual transform properties, in the order CSS composes them.
+    /// </summary>
+    /// <remarks>
+    /// False when one of them is set to something this engine cannot apply, which drops the whole
+    /// composite — the same answer a three-dimensional function in <c>transform</c> gets, and for
+    /// the same reason: half a transform puts the box somewhere plausible and wrong.
+    /// </remarks>
+    static bool Individual(
+        string translate,
+        string rotate,
+        string scale,
+        List<TransformFunction> functions,
+        CssFont fontSize,
+        CssRoot root)
+    {
+        if (Words(translate) is {} moved)
+        {
+            // One value leaves the vertical alone, which is not what a one-argument
+            // `translate()` function does either — both default the second to zero.
+            if (moved.Length > 2)
+            {
+                return false;
+            }
+
+            var x = CssValues.ParseLength(moved[0], fontSize, root, CssLength.None);
+            var y = moved.Length > 1
+                ? CssValues.ParseLength(moved[1], fontSize, root, CssLength.None)
+                : CssLength.Zero;
+
+            if (x.Kind == LengthKind.None || y.Kind == LengthKind.None)
+            {
+                return false;
+            }
+
+            functions.Add(new(TransformKind.Translate, x, y, 0));
+        }
+
+        if (Words(rotate) is {} turned)
+        {
+            // `[ x | y | z | <number>{3} ] && <angle>`, in either order. Only the z axis has a
+            // two-dimensional meaning, and naming it is the same as naming nothing.
+            var angle = (float?) null;
+            var axis = false;
+
+            foreach (var word in turned)
+            {
+                if (CssValues.ParseAngle(word) is {} degrees && angle is null)
+                {
+                    angle = degrees;
+                    continue;
+                }
+
+                if (!axis && word.Equals("z", StringComparison.OrdinalIgnoreCase))
+                {
+                    axis = true;
+                    continue;
+                }
+
+                return false;
+            }
+
+            if (angle is not {} value)
+            {
+                return false;
+            }
+
+            functions.Add(new(TransformKind.Rotate, CssLength.Zero, CssLength.Zero, value));
+        }
+
+        if (Words(scale) is {} sized)
+        {
+            // One value scales both axes, where a missing `translate` component is zero. The two
+            // properties differ here because the identity differs: no movement is zero and no
+            // scaling is one.
+            if (sized.Length > 2)
+            {
+                return false;
+            }
+
+            if (Factor(sized[0]) is not {} x)
+            {
+                return false;
+            }
+
+            var y = x;
+
+            if (sized.Length > 1)
+            {
+                if (Factor(sized[1]) is not {} second)
+                {
+                    return false;
+                }
+
+                y = second;
+            }
+
+            functions.Add(new(TransformKind.Scale, CssLength.Zero, CssLength.Zero, x, y));
+        }
+
+        return true;
+
+        static string[]? Words(string value)
+        {
+            var text = value.Trim();
+
+            if (text.Length == 0 || text.Equals("none", StringComparison.OrdinalIgnoreCase))
+            {
+                return null;
+            }
+
+            return text.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+        }
+
+        // A percentage is a scale factor here, unlike everywhere else in CSS, where it is a
+        // fraction of something. `scale: 150%` and `scale: 1.5` are the same declaration.
+        static float? Factor(string word)
+        {
+            var text = word;
+            var percent = text.EndsWith('%');
+
+            if (percent)
+            {
+                text = text[..^1];
+            }
+
+            if (!float.TryParse(text, NumberStyles.Float, CultureInfo.InvariantCulture, out var value))
+            {
+                return null;
+            }
+
+            return percent ? value / 100f : value;
+        }
     }
 
     /// <summary>

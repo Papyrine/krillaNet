@@ -1,0 +1,6 @@
+p { font-size: 20px; line-height: 32px; margin: 0 0 16px; width: 500px; }
+
+/* Taller than the 1056px sheet, so no page can hold it and the only question is which page it
+   starts on. A browser moves it whole to a fresh one and lets it overflow from there; slicing it
+   where the page happened to end draws its top on the sheet before and its middle on the next. */
+#picture { display: inline; width: 300px; }

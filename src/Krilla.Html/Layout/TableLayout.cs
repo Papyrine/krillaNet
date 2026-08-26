@@ -103,7 +103,7 @@ static class TableLayout
         var top = 0f;
 
         if (grid.Caption is {} caption &&
-            style.CaptionSide == CaptionSideKind.Top)
+            caption.Style.CaptionSide == CaptionSideKind.Top)
         {
             top = BlockLayout.Layout(caption, contentX, contentY, contentWidth, fonts);
         }
@@ -124,7 +124,7 @@ static class TableLayout
         // against Chrome, where a bottom caption sits exactly as far under the last row as a top
         // one sits above the first.
         if (grid.Caption is {} below &&
-            style.CaptionSide == CaptionSideKind.Bottom)
+            below.Style.CaptionSide == CaptionSideKind.Bottom)
         {
             contentHeight += BlockLayout.Layout(
                 below,
@@ -264,11 +264,18 @@ static class TableLayout
         {
             var (min, max) = IntrinsicWidths.Measure(cell.Box, fonts);
             var column = cell.Column;
-
-            sizes.Min[column] = Math.Max(sizes.Min[column], min);
-            sizes.Max[column] = Math.Max(sizes.Max[column], max);
-
             var width = cell.Box.Style.Width;
+
+            // A declared width pins the column and does NOT raise its minimum, which is what lets
+            // a table squeeze it: measured, a cell asking for 700px in a table declaring 300px
+            // comes out at 232. `Measure` returns the declaration for both, so the minimum has to
+            // be asked for separately — otherwise the declaration reaches `ContentMinTotal`, and
+            // that total is precisely the floor a declared width is not.
+            sizes.Min[column] = Math.Max(
+                sizes.Min[column],
+                width.Kind == LengthKind.Absolute ? IntrinsicWidths.ContentMinimum(cell.Box, fonts) : min);
+
+            sizes.Max[column] = Math.Max(sizes.Max[column], max);
 
             if (width.Kind == LengthKind.Absolute)
             {
@@ -553,6 +560,7 @@ static class TableLayout
         var count = columns.Min.Length;
         var widths = new float[count];
         var free = new List<int>();
+        var held = new List<int>();
         var remaining = available;
 
         for (var index = 0; index < count; index++)
@@ -565,6 +573,7 @@ static class TableLayout
             {
                 widths[index] = Math.Max(width, columns.Min[index]);
                 remaining -= widths[index];
+                held.Add(index);
                 continue;
             }
 
@@ -589,6 +598,26 @@ static class TableLayout
 
         var minTotal = free.Sum(_ => columns.Min[_]);
         var maxTotal = free.Sum(_ => columns.Max[_]);
+
+        // A declared width is a PREFERENCE rather than a floor, so a table with no room for it
+        // takes the shortfall out of the pinned columns before it lets anything overflow — in
+        // proportion to what each can give up, which is the same rule `Reconcile` follows when
+        // every column is pinned. Measured: a cell asking for 700px in a table declaring 300px
+        // comes out at 232, with the column beside it at its own min-content and the table exactly
+        // as wide as it asked to be.
+        if (remaining < minTotal && held.Count > 0)
+        {
+            var shortfall = minTotal - remaining;
+            var room = held.Sum(_ => widths[_] - columns.Min[_]);
+
+            foreach (var index in held)
+            {
+                var given = room > 0 ? shortfall * (widths[index] - columns.Min[index]) / room : 0;
+                widths[index] = Math.Max(columns.Min[index], widths[index] - given);
+            }
+
+            remaining = available - held.Sum(_ => widths[_]);
+        }
 
         if (remaining <= minTotal)
         {

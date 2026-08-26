@@ -29,8 +29,8 @@ toolchain. Zero means the box tree agrees with Chrome exactly.
 
 **Pixels** are AbsoluteError and SSIM against the printed reference.
 
-Boxes sit at zero across the whole corpus: all 133 scenarios match Chrome's geometry exactly. Pixels
-are close behind — 97 read SSIM 1.0000 and 69 are identical outright.
+Boxes sit at zero across the whole corpus: all 151 scenarios match Chrome's geometry exactly. Pixels
+are close behind — 105 read SSIM 1.0000 and 74 are identical outright.
 
 Several defects reached that state rather than starting there, each found by the scenario named for
 it: `block/anonymous` hoisted trailing inline content above a block sibling, `position/fixed`
@@ -42,13 +42,17 @@ long word to a fresh line and then never offered it for splitting, and `position
 absolute box inside a stacking context twice. Each scenario's `notes.md` records what it found and
 what changed.
 
-The thirty-six below 1.0000 come down to named causes. Two of them are the BROWSER's:
+The forty-six below 1.0000 come down to named causes. Four of them are the BROWSER's:
 `table/cell_baseline` (0.9926), where Chromium's printer reserves the taller row that cell baseline
-alignment demands and then leaves the content against the top of it — disagreeing with the same
-browser's own `getBoundingClientRect()` — and `block/translucent`'s high `AE`, which is a one-unit
-rounding difference in alpha compositing. The rest are sub-pixel glyph positioning, which
-`text/kerning` exists to measure, box edges landing on fractional pixels, which `position/absolute`
-and `image/inline_flow` measure, and a vertical dotted border edge in `block/border_styles`. SSIM
+alignment demands and then leaves the content against the top of it; `page/tall_image` (0.9750),
+where it drops the margin above the paragraph after an overflowing picture;
+`block/background_repeat` (0.9842), where it draws a spaced background through a filtered shader and
+smears every tile edge across two pixels; and
+`block/translucent`'s high `AE`, which is a one-unit rounding difference in alpha compositing. In
+all four the box comparison is exact, which is what says the disagreement is with the printer
+rather than with the layout. The rest are sub-pixel glyph positioning, which `text/kerning` exists
+to measure, box edges landing on fractional pixels, which `position/absolute` and
+`image/inline_flow` measure, and a vertical dotted border edge in `block/border_styles`. SSIM
 1.0000 is not quite the same as pixel-identical, which is what the `AE` column is there to show.
 Each scenario's `notes.md` names its own residual.
 
@@ -57,6 +61,11 @@ both sides are rasterised by PDFium. A screenshot would put Skia on one side and
 other, and two rasterisers disagree about glyph edges however correct the layout is — a floor
 somewhere around 0.90–0.97 on any page of text. That is the trade the printed reference buys, and
 it is why a regression here is unambiguous rather than lost in noise.
+
+Two kinds of element are left out of the harvest, and both for the same reason: they generate no box
+here, so counting them would count an absence as a failure. An element with `display: none` is one;
+everything INSIDE an `<svg>` is the other, since the whole subtree is drawn by krilla-svg and the
+browser reports a rectangle for every shape in it.
 
 ## Adding a scenario
 

@@ -1,0 +1,7 @@
+ol { margin: 0 0 10px; padding-left: 40px; font-size: 16px; line-height: 24px; background-color: #eef1f5; }
+li { background-color: #dde4ee; }
+
+#greek { list-style-type: lower-greek; }
+#string { list-style-type: "\2192  "; }
+#roman { list-style-type: upper-roman; }
+#inside { list-style-type: lower-greek; list-style-position: inside; }

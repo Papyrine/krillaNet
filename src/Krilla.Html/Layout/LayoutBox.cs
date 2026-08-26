@@ -176,6 +176,17 @@ sealed class LayoutBox
     /// <see cref="Children"/> and would otherwise be invisible to every caller here: the box dump
     /// would report no geometry for one, and a fragment link inside one would resolve to nothing.
     /// </remarks>
+    /// <summary>
+    /// The named strings this box's element sets, from <c>string-set</c>, or null.
+    /// </summary>
+    /// <remarks>
+    /// Resolved when the box is built rather than when a page asks, because the value is a function
+    /// of the ELEMENT — its text, or one of its attributes — while WHICH page sees it is a function
+    /// of where the box landed. The two are settled in different passes, and this is where they
+    /// meet.
+    /// </remarks>
+    public IReadOnlyList<(string Name, string Value)>? Strings { get; set; }
+
     public IEnumerable<LayoutBox> Descendants()
     {
         yield return this;

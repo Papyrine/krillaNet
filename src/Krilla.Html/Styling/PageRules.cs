@@ -122,7 +122,7 @@ sealed class PageRules
             // source. See `Blocks`.
             foreach (var block in Blocks(sheet))
             {
-                var selector = rules.Selector(block.Selector);
+                var (selector, name) = rules.Selector(block.Selector);
 
                 foreach (var declared in Sizes(block.Body))
                 {
@@ -140,7 +140,7 @@ sealed class PageRules
 
                 foreach (var (slot, declarations) in rules.Margins(block.Body))
                 {
-                    rules.MarginBoxes.Add(new(selector, rules.MarginBoxes.Count, slot, declarations));
+                    rules.MarginBoxes.Add(new(selector, rules.MarginBoxes.Count, slot, declarations, name));
                 }
             }
         }
@@ -352,17 +352,27 @@ sealed class PageRules
     /// The pages a selector names, and a report for anything in it that is not read.
     /// </summary>
     /// <remarks>
-    /// The four pseudo-classes CSS Paged Media defines. A NAMED page — <c>@page cover</c> — is not
-    /// read: it selects the elements that carry <c>page: cover</c>, which is a property this engine
-    /// does not honour, so a rule naming one would apply to every page and put a cover's header on
-    /// all of them.
+    /// The four pseudo-classes CSS Paged Media defines, and a NAME. A named page — <c>@page
+    /// cover</c> — selects the sheets that the boxes carrying <c>page: cover</c> occupy, which is
+    /// why the name has to survive to where the pages are known rather than being resolved here.
     /// </remarks>
-    PageSelector Selector(string text)
+    (PageSelector Selector, string? Name) Selector(string text)
     {
         var selector = PageSelector.All;
+        var trimmed = text.Trim();
 
-        foreach (var part in text.Split(':', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        // Whatever stands before the first colon is the page's name. An empty prefix is the
+        // ordinary `@page` and `@page :first` case.
+        var colon = trimmed.IndexOf(':');
+        var name = (colon < 0 ? trimmed : trimmed[..colon]).Trim();
+
+        foreach (var part in trimmed.Split(':', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
         {
+            if (part.Equals(name, StringComparison.Ordinal))
+            {
+                continue;
+            }
+
             switch (part.ToLowerInvariant())
             {
                 case "first":
@@ -381,12 +391,12 @@ sealed class PageRules
                     Unsupported.Add((
                         "@page",
                         text,
-                        "a named page selects the elements carrying `page`, which is not read, so this rule would apply to every page"));
-                    return PageSelector.Never;
+                        "this page selector is not read, so the rule is dropped rather than applied to every page"));
+                    return (PageSelector.Never, null);
             }
         }
 
-        return selector;
+        return (selector, name.Length == 0 ? null : name);
     }
 
     void Read(ICssPageRule rule, CssRoot root, float rootFontSize)

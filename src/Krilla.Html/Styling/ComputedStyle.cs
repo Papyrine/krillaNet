@@ -378,6 +378,32 @@ enum BackgroundSizing
     Explicit
 }
 
+/// <summary>How a background image is repeated along one axis.</summary>
+/// <remarks>
+/// The initial value is <see cref="Repeat"/> on both axes, which is why a background image reaches
+/// past the element that declared it far more often than authors expect. The other three each
+/// answer the same question — what to do with the room a whole number of tiles does not fill —
+/// differently: <see cref="NoRepeat"/> leaves it empty, <see cref="Repeat"/> fills it with a
+/// clipped tile, <see cref="Round"/> rescales the tile so there is none, and <see cref="Space"/>
+/// shares it out between whole tiles.
+/// </remarks>
+enum BackgroundRepeatKind
+{
+    /// <summary>Tiled from the position, clipping the last tile.</summary>
+    Repeat,
+
+    /// <summary>Drawn once, at the position.</summary>
+    NoRepeat,
+
+    /// <summary>Rescaled so a whole number of tiles fills the positioning area exactly.</summary>
+    Round,
+
+    /// <summary>
+    /// As many whole tiles as fit, pinned to both edges with the remainder shared evenly between.
+    /// </summary>
+    Space
+}
+
 /// <summary>How white space and line breaking are handled.</summary>
 enum WhiteSpaceKind
 {
@@ -499,7 +525,26 @@ enum ListStyleKind
     LowerRoman,
 
     /// <summary>I, II, III.</summary>
-    UpperRoman
+    UpperRoman,
+
+    /// <summary>
+    /// α, β, γ — the classical Greek alphabet, alphabetic like <see cref="LowerAlpha"/>.
+    /// </summary>
+    /// <remarks>
+    /// Twenty-four letters and no final sigma, which is what CSS's own definition says: the style
+    /// counts in bijective base 24, so the twenty-fifth item is αα.
+    /// </remarks>
+    LowerGreek,
+
+    /// <summary>
+    /// A literal string, from <c>list-style-type: "→"</c>.
+    /// </summary>
+    /// <remarks>
+    /// The one counter style with no numbering in it: every item shows the same text. It takes no
+    /// SUFFIX either — measured, and unlike every numeric style, which is written with the trailing
+    /// <c>". "</c> that right-aligns it.
+    /// </remarks>
+    String
 }
 
 /// <summary>What a declared <c>width</c> or <c>height</c> measures.</summary>
@@ -691,6 +736,18 @@ sealed record ComputedStyle
     public float OutlineWidth { get; init; }
 
     /// <summary>Colour of the outline, or null when it is not painted.</summary>
+    /// <summary>
+    /// The named page this box belongs to, from <c>page</c>, or null.
+    /// </summary>
+    /// <remarks>
+    /// Recovered from the stylesheet's own source, because AngleSharp drops the declaration — the
+    /// same route <c>string-set</c> takes, and for the same reason. Not inherited here: a page's
+    /// name is matched against a box's EXTENT rather than against the box that declared it, so a
+    /// descendant is on named pages for as long as its named ancestor lasts without carrying the
+    /// property itself.
+    /// </remarks>
+    public string? PageName { get; init; }
+
     public Color? OutlineColor { get; init; }
 
     /// <summary>How opaque the outline is, from <c>rgba()</c>.</summary>
@@ -808,11 +865,11 @@ sealed record ComputedStyle
     /// </remarks>
     public BoxArea BackgroundOrigin { get; init; } = BoxArea.Padding;
 
-    /// <summary>Whether the background image repeats horizontally.</summary>
-    public bool BackgroundRepeatX { get; init; } = true;
+    /// <summary>How the background image repeats horizontally.</summary>
+    public BackgroundRepeatKind BackgroundRepeatX { get; init; } = BackgroundRepeatKind.Repeat;
 
-    /// <summary>Whether it repeats vertically.</summary>
-    public bool BackgroundRepeatY { get; init; } = true;
+    /// <summary>How it repeats vertically.</summary>
+    public BackgroundRepeatKind BackgroundRepeatY { get; init; } = BackgroundRepeatKind.Repeat;
 
     /// <summary>
     /// Where the first tile sits horizontally within the positioning area.
@@ -1180,6 +1237,16 @@ sealed record ComputedStyle
     /// <summary>What marker a list item shows.</summary>
     public ListStyleKind ListStyle { get; init; } = ListStyleKind.Disc;
 
+    /// <summary>
+    /// The literal a <see cref="ListStyleKind.String"/> marker shows, or null.
+    /// </summary>
+    /// <remarks>
+    /// Beside the kind rather than in it, because the kind is an enum a counter is looked up by and
+    /// this is the one style whose value is not enumerable. Inherited with the kind, since the two
+    /// are one declaration and the nesting defaults are declared on the list rather than the item.
+    /// </remarks>
+    public string? ListStyleText { get; init; }
+
     /// <summary>Horizontal gap between cells, in CSS pixels.</summary>
     /// <remarks>
     /// Inherited, which is not a quirk: <c>border-spacing</c> is set on the table and read by the
@@ -1535,6 +1602,28 @@ sealed record ComputedStyle
     /// <summary>Whether this marker is a shape rather than a counter.</summary>
     public bool HasSymbolMarker =>
         ListStyle is ListStyleKind.Disc or ListStyleKind.Circle or ListStyleKind.Square;
+
+    /// <summary>
+    /// How the LAST line of a block is aligned, or null for <c>auto</c>.
+    /// </summary>
+    /// <remarks>
+    /// Null is not the same as <see cref="TextAlign"/>'s value: <c>auto</c> means "whatever
+    /// <c>text-align</c> says, with the last line of a justified block aligned to the start edge
+    /// rather than stretched", and that carve-out is CSS's own. A declared value replaces the whole
+    /// of it, which is what lets <c>text-align-last: justify</c> stretch the line the default rule
+    /// exempts.
+    /// </remarks>
+    public TextAlignKind? TextAlignLast { get; init; }
+
+    /// <summary>
+    /// The counters this element sets, and to what. Not inherited.
+    /// </summary>
+    /// <remarks>
+    /// Applied after <see cref="CounterReset"/> and <see cref="CounterIncrement"/>, which is CSS's
+    /// own order and observable: an element doing all three to one counter ends on the value it
+    /// SET rather than on the one it counted to.
+    /// </remarks>
+    public (string Name, int Value)[] CounterSet { get; init; } = [];
 
     /// <summary>Whether this style preserves white space rather than collapsing it.</summary>
     public bool PreservesSpaces =>

@@ -9,6 +9,7 @@ public static class ModuleInitializer
         // will accept.
         VerifierSettings.UseStrictJson();
 
+        VerifierSettings.Inline(maxLines: 10, applyMaxLinesToExisting: true);
         VerifierSettings.InitializePlugins();
 
         // Pixel comparison rather than byte equality for the page baselines. Rasterisation is

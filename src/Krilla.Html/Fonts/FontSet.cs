@@ -23,6 +23,16 @@ public sealed class FontSet :
     readonly List<FontFace> owned = [];
 
     /// <summary>
+    /// The family names in registration order, which is the order a coverage search walks them in.
+    /// </summary>
+    /// <remarks>
+    /// Kept alongside the dictionary rather than read out of it, because a dictionary's order is
+    /// an implementation detail and the answer to "which face draws this character" has to be the
+    /// same on two machines or the corpus stops meaning anything.
+    /// </remarks>
+    readonly List<string> order = [];
+
+    /// <summary>
     /// The face used when nothing else matches. Defaults to the first face registered.
     /// </summary>
     public FontFace? Fallback { get; set; }
@@ -69,6 +79,7 @@ public sealed class FontSet :
         {
             faces = [];
             families[face.Family] = faces;
+            order.Add(face.Family);
         }
 
         faces.Add(face);
@@ -126,6 +137,67 @@ public sealed class FontSet :
                throw new InvalidOperationException(
                    "No fonts are registered. Krilla has no font database, so a FontSet must be " +
                    "populated before HTML can be converted.");
+    }
+
+    /// <summary>
+    /// A face covering <paramref name="codepoint"/>, preferring <paramref name="primary"/>.
+    /// </summary>
+    /// <param name="familyList">Families in preference order, as <c>font-family</c> lists them.</param>
+    /// <param name="weight">The desired weight, 1-1000.</param>
+    /// <param name="italic">Whether an italic face is wanted.</param>
+    /// <param name="codepoint">The character that has to be drawn.</param>
+    /// <param name="primary">The face family resolution already chose.</param>
+    /// <remarks>
+    /// <para>
+    /// <see cref="Resolve"/> answers a font-family list and nothing else, so a character the
+    /// resolved face lacks used to be drawn as <c>.notdef</c> — a document in Greek set in a face
+    /// with no Greek came out as a row of boxes with nothing to say why. This is the coverage half
+    /// of the same question, asked per character rather than per element.
+    /// </para>
+    /// <para>
+    /// The rest of the element's OWN family list is searched first, which is what a font stack is
+    /// for: an author naming three families has said, in order, which face should answer for a
+    /// character the first one lacks. Only then does it fall through to everything registered,
+    /// in registration order, so that two machines with the same set answer alike.
+    /// </para>
+    /// <para>
+    /// The primary comes back when nothing covers it, which keeps the <c>.notdef</c> in the face
+    /// the document asked for rather than in whichever face happened to be looked at last.
+    /// </para>
+    /// </remarks>
+    public FontFace Covering(
+        IReadOnlyList<string> familyList,
+        int weight,
+        bool italic,
+        int codepoint,
+        FontFace primary)
+    {
+        if (primary.Covers(codepoint))
+        {
+            return primary;
+        }
+
+        foreach (var requested in familyList)
+        {
+            if (ResolveGeneric(requested) is {} family &&
+                families.TryGetValue(family, out var faces) &&
+                Select(faces, weight, italic) is {} candidate &&
+                candidate.Covers(codepoint))
+            {
+                return candidate;
+            }
+        }
+
+        foreach (var family in order)
+        {
+            if (Select(families[family], weight, italic) is {} candidate &&
+                candidate.Covers(codepoint))
+            {
+                return candidate;
+            }
+        }
+
+        return primary;
     }
 
     string? ResolveGeneric(string family) =>
@@ -224,6 +296,7 @@ public sealed class FontSet :
 
         owned.Clear();
         families.Clear();
+        order.Clear();
         Fallback = null;
     }
 }

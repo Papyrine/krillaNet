@@ -1,3 +1,4 @@
+global using System.IO.Compression;
 global using System.Runtime.CompilerServices;
 global using System.Text;
 global using System.Text.Json;
@@ -8,3 +9,4 @@ global using Krilla.Html.Fonts;
 global using Morph.PDFium;
 global using VerifyTests;
 global using static VerifyTUnit.Verifier;
+global using System.Text.RegularExpressions;

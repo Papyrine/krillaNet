@@ -25,15 +25,49 @@
 static class UnsupportedCss
 {
     /// <summary>
-    /// Properties that are not read at all, each with the value that makes ignoring it correct.
+    /// Properties that are not read at all, each with the values that make ignoring it correct.
     /// </summary>
-    static readonly (string Property, string NoOp, string Reason)[] ignored =
+    /// <remarks>
+    /// <para>
+    /// A LIST of no-ops per property rather than one, because several of these have more than one
+    /// value the engine happens to agree with — and one has a value no author writes. AngleSharp's
+    /// own default stylesheet puts <c>unicode-bidi: embed</c> on every element in every document,
+    /// so a table with one no-op apiece would report the whole corpus.
+    /// </para>
+    /// <para>
+    /// Most of this table came out of one audit, run the way <c>CLAUDE.md</c> describes it: every
+    /// property the cascade hands back, against every property <see cref="StyleResolver"/> reads
+    /// and every string this file mentions. Nothing failed to produce it — which is the point of
+    /// running it — and every entry is a construct a document can use today and be wrong about in
+    /// silence. The three individual transform properties are the ones to notice:
+    /// <c>translate</c>, <c>rotate</c> and <c>scale</c> are not shorthands for <c>transform</c> and
+    /// do not reach it, so a document using the modern spelling moved nothing and was told nothing.
+    /// </para>
+    /// </remarks>
+    static readonly (string Property, string[] NoOps, string Reason)[] ignored =
     [
-        ("font-variant", "normal", "the regular face is used"),
-        ("font-stretch", "normal", "the regular face is used"),
-        ("writing-mode", "horizontal-tb", "laid out horizontally"),
-        ("direction", "ltr", "laid out left to right"),
-        ("column-count", "auto", "laid out in one column")
+        ("font-variant", ["normal"], "the regular face is used"),
+        ("font-stretch", ["normal"], "the regular face is used"),
+        ("font-size-adjust", ["none"], "the face is used at its declared size"),
+        ("font-kerning", ["auto", "normal"], "the text is shaped with the font's kerning"),
+        ("writing-mode", ["horizontal-tb"], "laid out horizontally"),
+        ("direction", ["ltr"], "laid out left to right"),
+        ("unicode-bidi", ["normal", "embed", "isolate"], "laid out in one direction"),
+        ("column-count", ["auto"], "laid out in one column"),
+        ("column-width", ["auto"], "laid out in one column"),
+        ("text-justify", ["auto", "inter-word"], "justified between words"),
+        ("line-break", ["auto"], "lines break between words as usual"),
+        ("text-wrap", ["auto", "wrap", "nowrap"], "lines break at the last opportunity that fits"),
+        ("mix-blend-mode", ["normal"], "painted over what is under it"),
+        ("background-blend-mode", ["normal"], "the layers are painted over one another"),
+        ("isolation", ["auto"], "no group is isolated"),
+        ("background-attachment", ["scroll", "local"], "positioned against the box"),
+        ("border-image-source", ["none"], "the border is painted from its own colour and style"),
+        ("mask-image", ["none"], "nothing is masked"),
+        ("content-visibility", ["visible"], "laid out and painted"),
+        ("initial-letter", ["normal"], "the first letter is set like the rest"),
+        ("perspective", ["none"], "painted flat"),
+        ("transform-style", ["flat"], "painted flat")
     ];
 
     /// <summary>
@@ -56,6 +90,15 @@ static class UnsupportedCss
 
     /// <summary>The two properties whose value is a position, read as two components.</summary>
     static readonly string[] positions = ["background-position", "object-position"];
+
+    /// <summary>
+    /// The four properties that compose into one transform matrix.
+    /// </summary>
+    /// <remarks>
+    /// The three individual ones are not shorthands for <c>transform</c> and reach no longhand of
+    /// it, so a document written in the modern spelling used to move nothing and be told nothing.
+    /// </remarks>
+    static readonly string[] matrices = ["transform", "translate", "rotate", "scale"];
 
     /// <summary>
     /// The <c>text-transform</c> values that are applied. Everything else falls through to the
@@ -82,7 +125,8 @@ static class UnsupportedCss
     static readonly string[] counters =
     [
         "none", "disc", "circle", "square", "decimal", "decimal-leading-zero",
-        "lower-alpha", "lower-latin", "upper-alpha", "upper-latin", "lower-roman", "upper-roman"
+        "lower-alpha", "lower-latin", "upper-alpha", "upper-latin", "lower-roman", "upper-roman",
+        "lower-greek"
     ];
 
     /// <summary>
@@ -90,6 +134,19 @@ static class UnsupportedCss
     /// which is what gets reported.
     /// </summary>
     static readonly string[] whiteSpaces = ["normal", "pre", "pre-wrap", "pre-line", "nowrap"];
+
+    /// <summary>
+    /// The <c>white-space-collapse</c> values that fold onto one of those. Everything else lands on
+    /// the nearest, which is what gets reported.
+    /// </summary>
+    /// <remarks>
+    /// <c>preserve-spaces</c> is the one that is left: it keeps spaces and tabs while collapsing a
+    /// newline into a space, and this folds it onto <c>preserve</c>, which honours the newline too.
+    /// <c>break-spaces</c> would be here as well and is not reachable at all — AngleSharp drops it
+    /// from both spellings, which is the same blind spot <c>revert</c> and <c>text-overflow</c> sit
+    /// in.
+    /// </remarks>
+    static readonly string[] collapses = ["collapse", "preserve", "preserve-breaks"];
 
     /// <summary>
     /// The <c>display</c> values that reach a layout mode of their own. Everything else falls
@@ -126,10 +183,10 @@ static class UnsupportedCss
 
         Display(declaration, name, sink);
 
-        foreach (var (property, noOp, reason) in ignored)
+        foreach (var (property, noOps, reason) in ignored)
         {
             if (Set(declaration, property) is {} value &&
-                value != noOp &&
+                !noOps.Contains(value) &&
                 !IsInitial(value))
             {
                 Diagnostic.Property(sink, name, property, value, reason);
@@ -145,12 +202,12 @@ static class UnsupportedCss
         Positions(declaration, name, sink);
         Counters(declaration, name, sink);
         Spaces(declaration, name, sink);
+        Collapsing(declaration, name, sink);
         Collapse(declaration, name, sink);
         Outline(declaration, name, sink);
         Background(declaration, name, style, sink);
         Transform(declaration, name, style, sink);
         Casing(declaration, name, sink);
-        InlineSurround(declaration, name, style, sink);
         Fixed(declaration, name, sink);
         Radius(declaration, name, style, sink);
     }
@@ -186,13 +243,19 @@ static class UnsupportedCss
     }
 
     /// <summary>
-    /// A <c>transform</c> carrying a function this engine does not apply.
+    /// A transform carrying something this engine does not apply.
     /// </summary>
     /// <remarks>
     /// Asked of the resolved style, so the report follows exactly what the painter can do. What is
     /// left is the three-dimensional functions and <c>perspective</c>: applying their
     /// two-dimensional shadow would put the box somewhere plausible and wrong, so the whole
     /// transform is dropped and said to be dropped.
+    ///
+    /// All four properties, because they compose into ONE matrix: a three-dimensional
+    /// <c>rotate</c> drops the <c>translate</c> beside it as surely as a <c>rotate3d()</c> inside
+    /// <c>transform</c> drops the <c>scale()</c> beside that. So each declared property reports,
+    /// which is what says the whole composite was lost rather than the one function naming a third
+    /// axis.
     /// </remarks>
     static void Transform(
         ICssStyleDeclaration declaration,
@@ -205,11 +268,14 @@ static class UnsupportedCss
             return;
         }
 
-        if (Set(declaration, "transform") is {} value &&
-            value != "none" &&
-            !IsInitial(value))
+        foreach (var property in matrices)
         {
-            Diagnostic.Property(sink, element, "transform", value, "painted untransformed");
+            if (Set(declaration, property) is {} value &&
+                value != "none" &&
+                !IsInitial(value))
+            {
+                Diagnostic.Property(sink, element, property, value, "painted untransformed");
+            }
         }
     }
 
@@ -274,6 +340,24 @@ static class UnsupportedCss
     }
 
     /// <summary>
+    /// A <c>white-space-collapse</c> value that folds onto a coarser one.
+    /// </summary>
+    static void Collapsing(ICssStyleDeclaration declaration, string element, Action<HtmlDiagnostic> sink)
+    {
+        if (Set(declaration, "white-space-collapse") is {} value &&
+            !collapses.Contains(value) &&
+            !IsInitial(value))
+        {
+            Diagnostic.Property(
+                sink,
+                element,
+                "white-space-collapse",
+                value,
+                "white space is preserved and a newline is honoured with it");
+        }
+    }
+
+    /// <summary>
     /// A <c>text-transform</c> that is not a casing operation.
     /// </summary>
     static void Casing(ICssStyleDeclaration declaration, string element, Action<HtmlDiagnostic> sink)
@@ -283,74 +367,6 @@ static class UnsupportedCss
             !IsInitial(value))
         {
             Diagnostic.Property(sink, element, "text-transform", value, "the text is drawn as written");
-        }
-    }
-
-    /// <summary>
-    /// The parts of an inline element's box that are still not drawn.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// Most of the inline box model IS honoured — the background, the padding, the border and the
-    /// horizontal margins, each per line fragment — so what is left is two decorations that a real
-    /// box gets and a fragment does not.
-    /// </para>
-    /// <para>
-    /// A rounded corner cannot be reported through <see cref="Radius"/>, which asks whether the
-    /// border is painted as one ring and answers yes for the uniform solid case. An inline border
-    /// is never a ring: it is up to four rectangles, because a fragment has no corners to mitre at
-    /// the end where the line broke. The BACKGROUND under it is rounded — unioned across the
-    /// fragment and filled once — so the report is narrowed to elements that actually have a
-    /// border, which are the only ones left with square corners to complain about.
-    /// </para>
-    /// <para>
-    /// Vertical margins are silent, and correctly so: CSS drops them on an inline element, so
-    /// ignoring them is what a browser does rather than something left undone.
-    /// </para>
-    /// </remarks>
-    static void InlineSurround(
-        ICssStyleDeclaration declaration,
-        string element,
-        ComputedStyle style,
-        Action<HtmlDiagnostic> sink)
-    {
-        if (style.Display != DisplayKind.Inline)
-        {
-            return;
-        }
-
-        if (style.BackgroundImage is not null)
-        {
-            Diagnostic.Property(
-                sink,
-                element,
-                "background-image",
-                Set(declaration, "background-image") ?? "set",
-                "only the background colour is painted on an inline element");
-        }
-
-        // Only where there is a border. The fill beneath one is rounded now, so an inline element
-        // with a background and no border — a code span, which is most of them — is drawn exactly
-        // as a browser draws it and has nothing to report.
-        if (!style.HasBorder)
-        {
-            return;
-        }
-
-        foreach (var corner in corners)
-        {
-            if (Set(declaration, corner) is {} value &&
-                !IsZero(value) &&
-                !IsInitial(value))
-            {
-                Diagnostic.Property(
-                    sink,
-                    element,
-                    corner,
-                    value,
-                    "an inline element's border is painted with square corners");
-                return;
-            }
         }
     }
 
@@ -561,6 +577,8 @@ static class UnsupportedCss
     {
         if (Set(declaration, "list-style-type") is {} value &&
             !counters.Contains(value) &&
+            // A quoted literal is a counter style of its own, and every item shows it.
+            value is not (['"', ..] or ['\'', ..]) &&
             !IsInitial(value))
         {
             Diagnostic.Property(sink, element, "list-style-type", value, "the items are marked with a disc");
@@ -659,7 +677,7 @@ static class UnsupportedCss
     /// <remarks>
     /// A dashed, dotted or double edge is stroked along its own centre line and deliberately runs
     /// past the corner — a browser does not mitre them either — so there is no corner for a radius
-    /// to curve, and that is the one case still reported.
+    /// to curve, and that is the one case a block border still reports.
     /// </remarks>
     static bool HasPatternedEdge(ComputedStyle style) =>
         Patterned(style.BorderTopStyle, style.BorderTop) ||
@@ -677,14 +695,41 @@ static class UnsupportedCss
         ComputedStyle style,
         Action<HtmlDiagnostic> sink)
     {
-        // Honoured for the background always, and now for a border of any shape: a mitred edge is
-        // clipped to its own trapezium and the rounded ring is drawn through it, so two colours
-        // still hand over on the corner diagonal and the corner is curved. What is left is the
-        // patterned styles, whose dashes and dots run along a straight centre line past the corner
-        // and are not mitred at all.
-        if (!style.HasBorder || !HasPatternedEdge(style))
+        // Honoured for the background always, and for a border only where the border is painted as
+        // one ring — which needs every edge solid and every edge the same colour. Anything else
+        // falls back to four mitred trapezia, which have square corners, so the radius is honoured
+        // on the fill underneath and lost on the frame over it.
+        if (!style.HasBorder)
         {
             return;
+        }
+
+        var reason = "the border is painted with square corners";
+
+        if (style.Display == DisplayKind.Inline)
+        {
+            // An inline element's border is never mitred: a fragment has no corner to mitre at the
+            // end where the line broke, so it is a ring where the edges agree on a colour and four
+            // rectangles cut to the rounded outline where they do not. What a radius loses there is
+            // the INSIDE of the corner rather than the corner itself.
+            if (SameColor(style))
+            {
+                return;
+            }
+
+            reason = "an inline element's border is painted with a square inner corner";
+        }
+        else if (!HasPatternedEdge(style))
+        {
+            // A mitred edge is clipped to its own trapezium and the rounded ring drawn through it,
+            // so two colours still hand over on the corner diagonal and the corner is curved -
+            // whatever the edges disagree about. What is left is the patterned styles, whose dashes
+            // and dots run along a straight centre line past the corner and are not mitred at all.
+            return;
+        }
+        else
+        {
+            reason = "a dashed, dotted or double border is painted with square corners";
         }
 
         foreach (var corner in corners)
@@ -693,15 +738,55 @@ static class UnsupportedCss
                 !IsZero(value) &&
                 !IsInitial(value))
             {
-                Diagnostic.Property(
-                    sink,
-                    element,
-                    corner,
-                    value,
-                    "a dashed, dotted or double border is painted with square corners");
+                Diagnostic.Property(sink, element, corner, value, reason);
                 return;
             }
         }
+    }
+
+    /// <summary>
+    /// Whether every border edge with a width agrees on its colour and opacity.
+    /// </summary>
+    /// <remarks>
+    /// The test <see cref="ComputedStyle.PaintsBorderAsRing"/> makes, less the requirement that all
+    /// four edges be present and solid. Neither applies to an inline element: a wrapped fragment
+    /// has no left or right border at all, and the styles are not drawn there anyway.
+    /// </remarks>
+    static bool SameColor(ComputedStyle style)
+    {
+        (float Width, Color? Color, float Alpha)[] sides =
+        [
+            (style.BorderTop, style.BorderTopColor, style.BorderTopAlpha),
+            (style.BorderRight, style.BorderRightColor, style.BorderRightAlpha),
+            (style.BorderBottom, style.BorderBottomColor, style.BorderBottomAlpha),
+            (style.BorderLeft, style.BorderLeftColor, style.BorderLeftAlpha)
+        ];
+
+        Color? found = null;
+        var alpha = 1f;
+
+        foreach (var (width, color, sideAlpha) in sides)
+        {
+            if (width <= 0)
+            {
+                continue;
+            }
+
+            if (color is not {} painted)
+            {
+                return false;
+            }
+
+            if (found is {} already && (already != painted || alpha != sideAlpha))
+            {
+                return false;
+            }
+
+            found = painted;
+            alpha = sideAlpha;
+        }
+
+        return true;
     }
 
     /// <summary>

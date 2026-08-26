@@ -1,0 +1,42 @@
+<div class="frame" id="collapsed">
+  <div class="fl"></div>
+  <p class="before">before</p>
+  <p class="cleared" id="a">cleared</p>
+</div>
+<div class="frame" id="unaided">
+  <div class="fl"></div>
+  <p class="before">before</p>
+  <p class="cleared far" id="b">cleared by its own margin</p>
+</div>
+<div class="frame" id="through">
+  <div class="fl short"></div>
+  <p class="before">before</p>
+  <p class="cleared" id="c">cleared</p>
+  <p class="after" id="d">after</p>
+</div>
+<div class="frame" id="nofloat">
+  <p class="before">before</p>
+  <p class="cleared" id="e">nothing to clear</p>
+</div>
+<div class="frame" id="selfcollapsing">
+  <div class="fl short"></div>
+  <p class="before">before</p>
+  <div class="cleared empty" id="g"></div>
+  <p class="after" id="h">after an empty cleared box</p>
+</div>
+<div class="frame" id="plain">
+  <p class="before">before</p>
+  <div class="empty" id="i"></div>
+  <p class="after" id="j">after an empty box that never cleared anything</p>
+</div>
+<div class="outer">
+  <div class="fl"></div>
+  <div class="frame" id="wrapper">
+    <p class="cleared" id="k">a cleared FIRST child</p>
+  </div>
+</div>
+<div class="outer">
+  <div class="frame" id="loose">
+    <p class="cleared" id="l">a first child that clears nothing</p>
+  </div>
+</div>

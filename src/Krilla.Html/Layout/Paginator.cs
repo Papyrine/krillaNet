@@ -48,9 +48,7 @@ static class Paginator
         var positions = forced.Select(_ => _.Position).ToList();
         var (headers, footers) = RepeatedGroups(root);
 
-        var documentHeight = Math.Max(
-            root.BorderBox.Bottom,
-            units.Count == 0 ? 0 : units.Max(_ => _.Bounds.Bottom));
+        var documentHeight = DocumentHeight(root, units);
 
         var top = 0f;
 
@@ -105,6 +103,45 @@ static class Paginator
             pages.Add(new(top, repeated.Sum(_ => _.Band.Height), repeated, 0, []));
             available = pageHeight - pages[^1].Reserved;
         }
+    }
+
+    /// <summary>
+    /// How far down the document reaches, which is how many pages it takes.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The deepest BOX rather than the root's own edge, and the difference is a trailing margin.
+    /// The root's margins do not collapse (CSS 2.1 §8.3.1), so the bottom margin of whatever ended
+    /// the document is trapped inside the root's box — <c>body { margin-bottom: 30px }</c> makes
+    /// the root thirty pixels taller than anything in it. Measured: a document whose content ends
+    /// four pixels short of the sheet and whose root reaches past it prints on ONE page in
+    /// Chromium, and used to produce a second, blank one here.
+    /// </para>
+    /// <para>
+    /// A margin is the only thing this drops. An empty box a thousand pixels tall is content and
+    /// takes the pages it asks for, which is why the walk is over boxes rather than over ink — and
+    /// why a DECLARED height on the root counts, that being the one case where the root's own box
+    /// is the deepest thing rather than an artefact of what it contains.
+    /// </para>
+    /// </remarks>
+    static float DocumentHeight(LayoutBox root, List<PageUnit> units)
+    {
+        var deepest = root.Style.Height.Kind == LengthKind.Absolute ? root.BorderBox.Bottom : 0;
+
+        foreach (var box in root.Descendants())
+        {
+            if (!ReferenceEquals(box, root))
+            {
+                deepest = Math.Max(deepest, box.BorderBox.Bottom);
+            }
+        }
+
+        foreach (var unit in units)
+        {
+            deepest = Math.Max(deepest, unit.Bounds.Bottom);
+        }
+
+        return deepest;
     }
 
     /// <summary>
@@ -597,10 +634,13 @@ static class Paginator
                 break;
             }
 
-            // A unit taller than the page has nowhere better to go — moving it to the top of the
-            // next page would leave it still not fitting, and it would move again forever. Let it
-            // overflow and keep looking for one that can actually be moved.
-            if (bounds.Height > pageHeight)
+            // A unit taller than the page is moved to the top of the next one and allowed to
+            // overflow from there, which is what a browser does with a picture or a table row that
+            // cannot fit on any sheet. Moving it is safe because it starts BELOW this page's top —
+            // the loop advances — and a unit already at the top has nowhere better to go, so that
+            // one is stepped over and the search continues past it. Without that second half it
+            // would move to the top of the next page forever.
+            if (bounds.Height > pageHeight && bounds.Y <= top)
             {
                 continue;
             }

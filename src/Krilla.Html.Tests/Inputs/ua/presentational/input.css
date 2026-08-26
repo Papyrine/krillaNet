@@ -1,0 +1,25 @@
+/*
+  A presentational attribute is a declaration in an origin BELOW every author rule, so this is
+  what proves the hint is a hint and not an inline style: the width and the background are both
+  declared on the element as attributes, and both lose.
+*/
+#beaten {
+  width: 160px;
+  background-color: #d8e8d8;
+}
+
+/*
+  The `border` attribute maps onto a width and a bevelled STYLE, and not onto a colour — so a
+  colour is declared here to keep the scenario measuring the mapping rather than the shading.
+  Chromium's shades for a table whose border colour is left to the user agent are #a8a8a8 over
+  #545454, which is neither the derivation from `gray` nor the pair a plain `<hr>` gets; that
+  disagreement is recorded in todo.md and is a separate question from this one.
+*/
+#framed {
+  border-color: #3366cc;
+}
+
+#framed td,
+#framed th {
+  border-color: #cc6633;
+}

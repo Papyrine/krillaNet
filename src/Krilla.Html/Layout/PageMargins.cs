@@ -38,6 +38,14 @@ static class PageMargins
     /// <param name="number">This page's number, from one.</param>
     /// <param name="count">How many pages the document has, for <c>counter(pages)</c>.</param>
     /// <param name="blank">Whether a forced break left this page empty, for <c>:blank</c>.</param>
+    /// <param name="name">
+    /// The named page this sheet belongs to, from <c>page</c>, or null. What <c>@page cover</c>
+    /// matches against.
+    /// </param>
+    /// <param name="strings">
+    /// The named strings as they stand on THIS page, for <c>string()</c>. Empty by default, which
+    /// is what a document declaring no <c>string-set</c> gets.
+    /// </param>
     /// <param name="families">
     /// The root element's font families, which a margin box declaring none of its own falls back
     /// to. Not inheritance — the page context has no font of its own, and the only alternative is
@@ -54,7 +62,9 @@ static class PageMargins
         IReadOnlyList<string> families,
         int number,
         int count,
-        bool blank)
+        bool blank,
+        PageStrings strings = default,
+        string? name = null)
     {
         var boxes = new List<LayoutBox>();
 
@@ -65,12 +75,12 @@ static class PageMargins
 
         foreach (var slot in Enum.GetValues<PageMarginSlot>())
         {
-            if (Declarations(rules, slot, number, blank) is not {} declarations)
+            if (Declarations(rules, slot, number, blank, name) is not {} declarations)
             {
                 continue;
             }
 
-            if (Box(declarations, slot, options, document, context, fonts, families, number, count) is {} box)
+            if (Box(declarations, slot, options, document, context, fonts, families, number, count, strings) is {} box)
             {
                 boxes.Add(box);
             }
@@ -88,10 +98,15 @@ static class PageMargins
     /// earlier ones, so joining the blocks and parsing the result once gives exactly the cascade,
     /// and gives it for shorthands too — which merging by property name would have to reimplement.
     /// </remarks>
-    static string? Declarations(PageRules rules, PageMarginSlot slot, int number, bool blank)
+    static string? Declarations(
+        PageRules rules,
+        PageMarginSlot slot,
+        int number,
+        bool blank,
+        string? name)
     {
         var matching = rules.MarginBoxes
-            .Where(_ => _.Slot == slot && _.Matches(number, blank))
+            .Where(_ => _.Slot == slot && _.Matches(number, blank, name))
             .OrderBy(_ => _.Specificity)
             .ThenBy(_ => _.Order)
             .ToList();
@@ -121,7 +136,8 @@ static class PageMargins
         FontSet fonts,
         IReadOnlyList<string> families,
         int number,
-        int count)
+        int count,
+        PageStrings strings)
     {
         var area = PageMarginSlots.Area(slot, options);
 
@@ -138,7 +154,12 @@ static class PageMargins
 
         var declaration = element.GetStyle();
 
-        var declared = declaration.GetPropertyValue("content");
+        // From the declaration TEXT when the parser rejected it, which `string()` makes it do:
+        // AngleSharp drops the whole `content` declaration over one function it does not know, so
+        // the literals around the string would go with it.
+        var declared = declaration.GetPropertyValue("content") is {Length: > 0} parsed
+            ? parsed
+            : CssSource.Declaration(declarations, "content") ?? "";
 
         if (CssContent.Parse(declared) is not {} content)
         {
@@ -185,7 +206,7 @@ static class PageMargins
             Style = style
         };
 
-        Fill(box, content, style, context, number, count);
+        Fill(box, content, style, context, number, count, strings);
 
         if (box.Inlines.Count == 0)
         {
@@ -227,10 +248,11 @@ static class PageMargins
     /// </summary>
     /// <remarks>
     /// <para>
-    /// <c>counter(page)</c> and <c>counter(pages)</c> are the two that only exist here — the page
-    /// number and the page count, which are the reason most authors reach for a margin box. Both
-    /// go through the counter styles a list marker uses, so <c>counter(page, upper-roman)</c>
-    /// numbers a preface the way a preface is numbered.
+    /// <c>counter(page)</c>, <c>counter(pages)</c> and <c>string()</c> are the three that only
+    /// exist here — the page number, the page count and a named string as it stands on this sheet,
+    /// which between them are the reason most authors reach for a margin box. The two counters go
+    /// through the counter styles a list marker uses, so <c>counter(page, upper-roman)</c> numbers
+    /// a preface the way a preface is numbered.
     /// </para>
     /// <para>
     /// Everything else in the grammar is either the same as it is on a pseudo-element or has no
@@ -245,7 +267,8 @@ static class PageMargins
         ComputedStyle style,
         DocumentContext context,
         int number,
-        int count)
+        int count,
+        PageStrings strings)
     {
         var text = new StringBuilder();
 
@@ -272,6 +295,16 @@ static class PageMargins
 
                 case ContentKind.Attribute:
                     Report("content", $"attr({item.Text})", "a page margin box has no element to read an attribute from");
+                    break;
+
+                // The value the named string holds on THIS page, which is the whole point of the
+                // mechanism: the same declaration reads differently on every sheet.
+                case ContentKind.String:
+                    text.Append(strings.Value(item.Text));
+                    break;
+
+                case ContentKind.Element:
+                    Report("content", "content()", "a page margin box has no element of its own to take text from");
                     break;
 
                 case ContentKind.Quote:

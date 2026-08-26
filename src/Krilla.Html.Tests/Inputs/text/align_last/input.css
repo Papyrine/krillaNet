@@ -1,0 +1,24 @@
+/*
+  `text-align-last` aligns the last line of a block, and the line before a forced break, separately
+  from the rest. Its `auto` is a value in its own right rather than a synonym for `text-align`: it
+  hands the decision back with the carve-out CSS makes for it, that the last line of a justified
+  block aligns to the start edge rather than being stretched.
+*/
+p { width: 300px; margin-bottom: 10px; background-color: #f0f0f0; }
+
+#right { text-align-last: right; }
+#centred { text-align-last: center; }
+
+/* A declared value replaces the whole of the `auto` rule, which is what lets this stretch the one
+   line the default exempts. */
+#justified { text-align: justify; text-align-last: justify; }
+#exempt { text-align: justify; }
+
+/* It works in the other direction too: the last line pulled back where the rest is not. */
+#start { text-align: right; text-align-last: left; }
+
+/* The line before a forced break is a last line as well. */
+#broken { text-align-last: right; }
+
+/* A block of one line is that line. */
+#single { text-align-last: center; }

@@ -1,0 +1,60 @@
+/*
+  border-radius on an INLINE element. The rectangle it rounds is the element's fragment on one
+  line, which is not the same thing as a run: a span holding a <b> is three runs, and rounding each
+  of them would notch the fill at every element boundary inside the phrase.
+*/
+p { width: 300px; margin-bottom: 6px; line-height: 22px; }
+
+/* Background only, so nothing but the fill's own corners are in play. */
+.pill {
+  background: #dde6f2;
+  padding: 2px 8px;
+  border-radius: 8px;
+}
+
+/* A uniform border, which is drawn as a ring: the inner corner is the outer radius less the edge
+   running along it, which is what makes a thick rounded border read as a ring rather than a tube. */
+.ring {
+  background: #dde6f2;
+  padding: 2px 8px;
+  border: 3px solid #204080;
+  border-radius: 9px;
+}
+
+/* Three runs — text, bold, text — inside one rounded element. */
+.nested { background: #c8dcc0; }
+
+/* Two corners on each of two lines. A break is not an edge of the element, so the corners there
+   are square and no side border is drawn at them. */
+
+/* Two radii per corner rather than one, which is the slash form. */
+.elliptic {
+  background: #f0dcc0;
+  padding: 1px 6px;
+  border-radius: 18px / 6px;
+}
+
+/* Over-large, so every radius scales by one factor and the result is a pill rather than a
+   rectangle with two circular ends. */
+.clamped {
+  background: #e8d0e0;
+  padding: 1px 6px;
+  border-radius: 999px;
+}
+
+/* The ramp's box is the element's whole advance, and the rounded fill shows one slice of it. */
+.ramped {
+  background-image: linear-gradient(to right, #c04020, #2040c0);
+  padding: 2px 8px;
+  border-radius: 10px;
+}
+
+/* Edges that disagree, so there is no one ring to draw: the four rectangles are cut to the rounded
+   outline instead, which rounds the outer corner and leaves the inner one square. */
+.two-tone {
+  background: #dde6f2;
+  padding: 2px 8px;
+  border: 4px solid #204080;
+  border-right-color: #c04020;
+  border-radius: 10px;
+}

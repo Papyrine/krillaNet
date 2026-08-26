@@ -66,7 +66,13 @@ public static class HtmlConverter
         var root = layout.Root;
         var fonts = RequireFonts(options);
 
-        using var pdf = new KrillaDocument();
+        // Tagging has to be asked for at construction: krilla refuses a tag tree on a document
+        // that was not built to carry one.
+        var tags = options.Tagged ? new DocumentTags() : null;
+
+        using var pdf = tags is null
+            ? new KrillaDocument()
+            : new KrillaDocument(new() {EnableTagging = true});
 
         if (Metadata(document, options) is {} metadata)
         {
@@ -85,6 +91,15 @@ public static class HtmlConverter
         // After pagination, because a fragment names an element while a PDF internal link names a
         // page and a point on it — and which page an element landed on is what pagination decides.
         var links = LinkTargets.Build(root, pages, content, scale);
+
+        // After pagination, because a named string's value is a function of where the boundaries
+        // fell: the same heading sets it on every page it precedes, and which of those pages is
+        // asking decides the answer.
+        var strings = RunningStrings.Build(root);
+
+        // And which named page each sheet belongs to, for the same reason: `page: cover` names an
+        // element, and which sheets that element occupies is a pagination result.
+        var names = PageNames.Build(root);
 
         // Both of these are addressed by page and point, so both wait for pagination too.
         if (DocumentOutline.Build(root, pages, content, scale, options.OutlineDepth) is {Count: > 0} outline)
@@ -135,7 +150,20 @@ public static class HtmlConverter
                     root.Style.FontFamilies,
                     index + 1,
                     pages.Count,
-                    blank));
+                    blank,
+                    new(strings, pages[index].Top, end),
+                    names.Value(pages[index].Top)),
+                tags);
+        }
+
+        // After every page has closed, which is when the spans painted on them resolve — and the
+        // tree is built from the DOM rather than from what was painted, because the painter emits
+        // content in Appendix E's phases and a reader follows document order.
+        using var tree = tags?.Build(document, Text(document.DocumentElement.GetAttribute("lang")));
+
+        if (tree is not null)
+        {
+            pdf.SetTagTree(tree);
         }
 
         return pdf.Finish();

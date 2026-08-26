@@ -17,6 +17,9 @@ sealed class DocumentContext :
 
     List<((string Prefix, string Pseudo) Selector, DisplayKind Display)>? displays;
 
+    readonly Dictionary<string, List<(string Selector, string Value)>> dropped =
+        new(StringComparer.OrdinalIgnoreCase);
+
     DocumentContext(
         IDocument document,
         IStyleCollection styles,
@@ -235,6 +238,76 @@ sealed class DocumentContext :
     }
 
     /// <summary>
+    /// A property the cascade DROPS, taken from the document's own style rules.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// AngleSharp parses a declaration it does not recognise into nothing at all, so a property it
+    /// has never heard of comes back empty and is indistinguishable from one nobody wrote.
+    /// <c>string-set</c> and <c>page</c> are both in that position — the two CSS Paged Media
+    /// properties that live on ordinary ELEMENTS rather than inside <c>@page</c>, which is why they
+    /// cannot be recovered by the brace scan that rescues the rest of that at-rule.
+    /// </para>
+    /// <para>
+    /// The same limitations the pseudo-element scan carries, and for the same reason: cascade order
+    /// is document order, specificity is not compared, media queries are not evaluated, and an
+    /// inline <c>style</c> attribute is not seen. A document declaring one property twice for one
+    /// element takes the later rule.
+    /// </para>
+    /// </remarks>
+    public string? Declared(IElement element, string property)
+    {
+        string? found = null;
+
+        foreach (var (selector, value) in Rules(property))
+        {
+            if (Matches(element, selector))
+            {
+                found = value;
+            }
+        }
+
+        return found;
+    }
+
+    /// <summary>Every declaration of one property, with the selector that carried it.</summary>
+    List<(string Selector, string Value)> Rules(string property)
+    {
+        if (dropped.TryGetValue(property, out var cached))
+        {
+            return cached;
+        }
+
+        var found = new List<(string, string)>();
+        dropped[property] = found;
+
+        foreach (var sheet in document.StyleSheets.OfType<ICssStyleSheet>())
+        {
+            if (sheet.OwnerNode is not {} owner)
+            {
+                continue;
+            }
+
+            foreach (var (selectors, value) in CssSource.Declarations(owner.TextContent, property))
+            {
+                foreach (var selector in selectors.Split(','))
+                {
+                    var text = selector.Trim();
+
+                    // A pseudo-element carries neither of these, and `Matches` throws on the
+                    // double-colon form — so a rule naming one is skipped rather than guessed at.
+                    if (text.Length > 0 && !text.Contains("::"))
+                    {
+                        found.Add((text, value));
+                    }
+                }
+            }
+        }
+
+        return found;
+    }
+
+    /// <summary>
     /// Every <c>display</c> declared on a pseudo-element rule, in document order.
     /// </summary>
     /// <remarks>
@@ -250,43 +323,55 @@ sealed class DocumentContext :
 
         displays = [];
 
-        // The DOCUMENT's sheets rather than the matched collection, which does not expose the rules
-        // it matched against. Media queries are therefore not evaluated — see above.
-        foreach (var sheet in document.StyleSheets.OfType<ICssStyleSheet>())
+        Walk(rule =>
         {
-            Walk(sheet.Rules);
-        }
+            var declared = rule.Style.GetPropertyValue("display");
+
+            if (string.IsNullOrWhiteSpace(declared))
+            {
+                return;
+            }
+
+            foreach (var selector in rule.SelectorText.Split(','))
+            {
+                if (Split(selector) is {} split)
+                {
+                    displays.Add((split, StyleResolver.PseudoDisplay(declared)));
+                }
+            }
+        });
 
         return displays;
+    }
 
-        void Walk(ICssRuleList rules)
+    /// <summary>
+    /// Visits every style rule in the document's own stylesheets, in document order.
+    /// </summary>
+    /// <remarks>
+    /// The DOCUMENT's sheets rather than the matched collection, which does not expose the rules it
+    /// matched against — so a grouping rule is descended into without its condition being
+    /// evaluated, which is what the callers' remarks about media queries refer to.
+    /// </remarks>
+    void Walk(Action<ICssStyleRule> visit)
+    {
+        foreach (var sheet in document.StyleSheets.OfType<ICssStyleSheet>())
+        {
+            Descend(sheet.Rules);
+        }
+
+        void Descend(ICssRuleList rules)
         {
             foreach (var rule in rules)
             {
                 if (rule is ICssGroupingRule group)
                 {
-                    Walk(group.Rules);
+                    Descend(group.Rules);
                     continue;
                 }
 
-                if (rule is not ICssStyleRule style)
+                if (rule is ICssStyleRule style)
                 {
-                    continue;
-                }
-
-                var declared = style.Style.GetPropertyValue("display");
-
-                if (string.IsNullOrWhiteSpace(declared))
-                {
-                    continue;
-                }
-
-                foreach (var selector in style.SelectorText.Split(','))
-                {
-                    if (Split(selector) is {} split)
-                    {
-                        displays.Add((split, StyleResolver.PseudoDisplay(declared)));
-                    }
+                    visit(style);
                 }
             }
         }

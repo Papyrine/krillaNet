@@ -15,6 +15,7 @@ public static class ModuleInitializer
             VerifyPDFium.Initialize(dpi: 72);
         }
 
+        VerifierSettings.Inline(maxLines: 10, applyMaxLinesToExisting: true);
         VerifierSettings.InitializePlugins();
 
         // Pixel comparison rather than byte equality. Rasterisation is deterministic for a

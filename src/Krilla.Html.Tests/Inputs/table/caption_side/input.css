@@ -6,3 +6,11 @@ caption { background-color: #e0efdc; }
 #top { caption-side: top; }
 
 #bottom { caption-side: bottom; }
+
+/*
+  The property applies to the caption box and inherits, so it can be written in either place. This
+  is the half that reached nothing: the side was read off the TABLE's style alone, which made a
+  declaration on the caption itself — and therefore `<caption align="bottom">`, which is exactly
+  that declaration — silently a no-op.
+*/
+#own { caption-side: bottom; }

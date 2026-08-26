@@ -1,0 +1,20 @@
+/* The logical box properties, which name a box's edges by their relation to the writing direction
+   rather than by the page. This engine has one writing mode and one direction — both are reported
+   when a document asks for another — so every one of these has a fixed physical equivalent. */
+.frame { width: 360px; margin-bottom: 8px; background-color: #eceff3; }
+.box { background-color: #b8c8dc; font-size: 16px; line-height: 24px; }
+
+/* Two values: the start edge then the end edge of each axis. */
+#margins { margin-inline: 20px 60px; margin-block: 6px 18px; }
+
+/* The longhands, which beat the shorthand and are what most stylesheets write. */
+#edges { margin-inline-start: 40px; margin-inline-end: 10px; margin-block-start: 12px; }
+
+/* One value applies to both edges of the axis. */
+#padded { padding-inline: 24px; padding-block: 10px; }
+
+#sized { inline-size: 200px; block-size: 50px; }
+#clamped { inline-size: 400px; max-inline-size: 150px; min-block-size: 60px; }
+
+.anchor { position: relative; height: 60px; }
+#inset { position: absolute; inset-block-start: 12px; inset-inline-start: 30px; inline-size: 120px; }

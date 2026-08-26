@@ -78,7 +78,7 @@ public class Samples
 
         // <div> display: flex — laid out as a block
         // <div> column-count: 2 — laid out in one column
-        // <p> align: left — not applied, because presentational attributes are not mapped onto the cascade
+        // <table> rules: all — not applied, because presentational attributes are not mapped onto CSS
         // <img> src: logo.png — did not resolve to an image, so no box was generated
 
         #endregion
@@ -93,7 +93,7 @@ public class Samples
             """
             <div style="display: flex">Flexed</div>
             <div style="column-count: 2">Columned</div>
-            <p align="left">Aligned</p>
+            <table rules="all"><tr><td>Ruled</td></tr></table>
             <img src="logo.png">
             """,
             options);
@@ -102,7 +102,7 @@ public class Samples
         [
             "<div> display: flex — laid out as a block",
             "<div> column-count: 2 — laid out in one column",
-            "<p> align: left — not applied, because presentational attributes are not mapped onto the cascade",
+            "<table> rules: all — not applied, because presentational attributes are not mapped onto CSS",
             "<img> src: logo.png — did not resolve to an image, so no box was generated"
         ]);
     }

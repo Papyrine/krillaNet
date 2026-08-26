@@ -39,6 +39,9 @@ static class PdfPainter
     /// The page's <c>@page</c> margin boxes, already laid out in the page's own coordinates, or null
     /// when the document declares none.
     /// </param>
+    /// <param name="tags">
+    /// Where each span of tagged content is recorded, or null for no structure tree.
+    /// </param>
     /// <remarks>
     /// <paramref name="pageEnd"/> is not the same as the bottom of the page box, and the
     /// difference is the whole reason it is a parameter. A line that straddles the page boundary
@@ -55,23 +58,28 @@ static class PdfPainter
         Size paper,
         float scale,
         LinkTargets? links = null,
-        List<LayoutBox>? margins = null)
+        List<LayoutBox>? margins = null,
+        DocumentTags? tags = null)
     {
         // The canvas, before anything else and outside the transform stack below, because it is
         // measured in page points rather than layout units and covers the margins as well as the
         // content.
-        PaintCanvas(surface, root, paper);
+        PaintCanvas(
+            surface,
+            root,
+            paper,
+            new(0, 0, 0, 0, null, _ => _, tags));
 
         using var _ = surface.PushTransform(Matrix.Scale(scale, scale));
 
-        PaintContent(surface, root, start, pageEnd, content, scale, links);
+        PaintContent(surface, root, start, pageEnd, content, scale, links, tags);
 
         // OUTSIDE the clip the content is painted through, which is the whole point of a margin
         // box: it sits in the page margin, where nothing in the document can reach. After the
         // content rather than before it, so a running header is never buried by a box that
         // overflows its way — it cannot, being clipped, but the ordering costs nothing and the
         // alternative would have to be reasoned about.
-        PaintMargins(surface, margins, scale);
+        PaintMargins(surface, margins, scale, tags);
     }
 
     /// <summary>
@@ -84,7 +92,8 @@ static class PdfPainter
         float pageEnd,
         Rect content,
         float scale,
-        LinkTargets? links)
+        LinkTargets? links,
+        DocumentTags? tags)
     {
         var pageTop = start.Top;
         var reserved = start.Reserved;
@@ -140,7 +149,8 @@ static class PdfPainter
             pageEnd,
             reserved,
             links,
-            toPage);
+            toPage,
+            tags);
 
         // A footer band is placed against `End`, which is infinite on the last page — and a page
         // holding no more of a table than its own end has no footer to repeat, so the two never
@@ -165,7 +175,7 @@ static class PdfPainter
     /// which strip of the margin it sits in. Its slice is its own extent, which culls nothing and
     /// is what lets the ordinary painting machinery draw it.
     /// </remarks>
-    static void PaintMargins(Surface surface, List<LayoutBox>? margins, float scale)
+    static void PaintMargins(Surface surface, List<LayoutBox>? margins, float scale, DocumentTags? tags)
     {
         if (margins is not {Count: > 0} boxes)
         {
@@ -186,9 +196,15 @@ static class PdfPainter
                 float.PositiveInfinity,
                 0,
                 null,
-                toPage);
+                toPage,
+                tags);
 
-            PaintStack(surface, box, slice, collects: true);
+            // A running header is an artifact by definition: it is not in the document, and its
+            // page number differs on every sheet. `Tags` is carried so the artifact span opens at
+            // all, and the whole box is inside one so nothing under it records a span of its own.
+            using var artifact = Artifact(surface, slice, ArtifactKind.Header);
+
+            PaintStack(surface, box, slice with {Tags = null}, collects: true);
         }
     }
 
@@ -217,7 +233,8 @@ static class PdfPainter
         Surface surface,
         List<RepeatedRows> groups,
         PageSlice page,
-        float origin)
+        float origin,
+        ArtifactKind kind)
     {
         var stacked = 0f;
 
@@ -228,7 +245,15 @@ static class PdfPainter
 
             using var moved = surface.PushTransform(Matrix.Translate(0, dy));
 
-            PaintStack(surface, group.Group, page.Repeated(dy, band.Y, band.Bottom), collects: true);
+            // A whole artifact, and the slice carries no tags into it, which is what stops the
+            // repeat from recording a SECOND span against the same cells. A screen reader meeting
+            // both would read the header once per page it continued onto, where the point of the
+            // structure tree is that it is read once.
+            using var repeated = Artifact(surface, page, kind);
+
+            var slice = page.Repeated(dy, band.Y, band.Bottom) with {Tags = null};
+
+            PaintStack(surface, group.Group, slice, collects: true);
             PaintHeaderLines(surface, group.Table, band);
 
             stacked += band.Height;
@@ -298,12 +323,12 @@ static class PdfPainter
 
         if (repeats is {} start)
         {
-            PaintRepeats(surface, start.Headers, page, page.ToPageOrigin);
+            PaintRepeats(surface, start.Headers, page, page.ToPageOrigin, ArtifactKind.Header);
 
             // Where the page's content ended, in the document coordinates everything here is drawn
             // in. `End` is the next page's top, so the footer's band begins exactly where the last
             // row on this page left off.
-            PaintRepeats(surface, start.Footers, page, page.End);
+            PaintRepeats(surface, start.Footers, page, page.End, ArtifactKind.Footer);
         }
 
         for (var i = above; i < contexts.Count; i++)
@@ -509,17 +534,21 @@ static class PdfPainter
     /// the root white and the page under it was white already. Acid1 found it in one render.
     /// </para>
     /// </remarks>
-    static void PaintCanvas(Surface surface, LayoutBox root, Size page)
+    static void PaintCanvas(Surface surface, LayoutBox root, Size page, PageSlice slice)
     {
         if (CanvasBackground(root) is not {} color)
         {
             return;
         }
 
+        var bounds = Rectangle.FromSize(0, 0, page.Width, page.Height);
+
+        using var _ = Artifact(surface, slice, ArtifactKind.Page, bounds);
+
         // The root box then paints this colour again over its own area, which is left alone: a
         // Color here is opaque by construction — Rgb, Gray and Cmyk, with no alpha — so the second
         // fill is provably identical to the first rather than merely close to it.
-        surface.FillRectangle(Rectangle.FromSize(0, 0, page.Width, page.Height), color);
+        surface.FillRectangle(bounds, color);
     }
 
     /// <summary>
@@ -633,6 +662,8 @@ static class PdfPainter
             return;
         }
 
+        using var _ = Artifact(surface, page);
+
         PaintBackground(surface, box);
         PaintBorders(surface, box);
         PaintOutline(surface, box);
@@ -657,6 +688,8 @@ static class PdfPainter
         {
             return;
         }
+
+        using var _ = Artifact(surface, page);
 
         foreach (var line in lines)
         {
@@ -805,28 +838,13 @@ static class PdfPainter
     static void PaintInlineBackground(
         Surface surface,
         TextRun run,
-        Dictionary<string, InlineFill>? rounded)
+        IReadOnlyList<InlineFragment>? fragments)
     {
         if (run.Backdrops is {} backdrops)
         {
-            // An ancestor's own path is a prefix of this run's, which is what lets a backdrop be
-            // matched against the rounded fills already painted for this line without carrying a
-            // selector of its own.
-            var paths = new string?[backdrops.Count];
-            var path = run.Selector;
-            for (var index = backdrops.Count - 1; index >= 0; index--)
+            foreach (var backdrop in backdrops)
             {
-                path = Enclosing(path);
-                paths[index] = path;
-            }
-
-            // Outermost first, so a highlight nested inside another still comes out on top.
-            for (var index = 0; index < backdrops.Count; index++)
-            {
-                if (paths[index] is not {} enclosing || rounded?.ContainsKey(enclosing) != true)
-                {
-                    Fill(surface, backdrops[index].Style, backdrops[index].Face, run);
-                }
+                Owner(surface, backdrop.Style, backdrop.Face, run, backdrop.Style, fragments);
             }
         }
 
@@ -840,10 +858,34 @@ static class PdfPainter
         // reference identity `InlineLayout.InlineAlign` uses — is wrong for a run inside an
         // ANONYMOUS block: that block's style is a fresh instance while the text keeps its parent's,
         // so every anonymous run would paint its parent's background a second time.
-        if ((run.Selector is not null || run.Generated) &&
-            (run.Selector is null || rounded?.ContainsKey(run.Selector) != true))
+        if (run.Selector is not null || run.Generated)
         {
-            Fill(surface, run.Style, run.Face, run);
+            Owner(surface, run.Style, run.Face, run, (object?) run.Selector ?? run.Style, fragments);
+        }
+
+        // A grouped element — one that is rounded, or carries a gradient — is painted as a whole
+        // fragment instead, at the first run inside it. That is exactly where this fill would have
+        // happened, so grouping does not move the element in the paint order.
+        static void Owner(
+            Surface surface,
+            ComputedStyle style,
+            FontFace face,
+            TextRun run,
+            object identity,
+            IReadOnlyList<InlineFragment>? fragments)
+        {
+            if (Grouped(fragments, identity) is {} fragment)
+            {
+                if (fragment.First is {} first && first.X == run.X && first.Y == run.Y)
+                {
+                    PaintInlineFragment(surface, fragment);
+                }
+
+                return;
+            }
+
+
+            Fill(surface, style, face, run);
         }
 
         static void Fill(Surface surface, ComputedStyle style, FontFace face, TextRun run)
@@ -864,8 +906,283 @@ static class PdfPainter
 
             var bounds = new Rect(left, top, Snap(run.X + run.Width) - left, bottom - top);
 
-            PaintInlineSurface(surface, style, bounds, InlineEdgeKind.None, skipBackground: false);
+            PaintInlineSurface(surface, style, bounds, InlineEdgeKind.None);
         }
+    }
+
+    /// <summary>The rounded fragment for <paramref name="identity"/> on this line, if any.</summary>
+    static InlineFragment? Grouped(IReadOnlyList<InlineFragment>? fragments, object identity)
+    {
+        if (fragments is null)
+        {
+            return null;
+        }
+
+        foreach (var fragment in fragments)
+        {
+            if (Equals(fragment.Identity, identity))
+            {
+                return fragment;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Paints one line's worth of a rounded inline element as a single box.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A radius is what forces the grouping: the ordinary path fills a background per RUN, and
+    /// three abutting rounded rectangles are not one rounded rectangle. Everything else here is the
+    /// block path applied to a rectangle that is not a box — the same <see cref="RoundedBox"/>
+    /// outline, and the same ring cut out of it.
+    /// </para>
+    /// <para>
+    /// A fragment that does not carry the element's opening edge loses its two LEFT corners and its
+    /// left border, and one that does not carry the closing edge loses the two on the right. That
+    /// is what a browser draws, and it is the same rule the square path already followed for the
+    /// side borders: the element did not end where the line did, so nothing is drawn there.
+    /// </para>
+    /// </remarks>
+    static void PaintInlineFragment(Surface surface, InlineFragment fragment)
+    {
+        var style = fragment.Style;
+
+        if (!fragment.Opening)
+        {
+            style = style with
+            {
+                BorderLeft = 0,
+                RadiusTopLeft = default,
+                RadiusBottomLeft = default
+            };
+        }
+
+        if (!fragment.Closing)
+        {
+            style = style with
+            {
+                BorderRight = 0,
+                RadiusTopRight = default,
+                RadiusBottomRight = default
+            };
+        }
+
+        // Snapped horizontally exactly as the per-run fill is, and left fractional vertically for
+        // the same reason: the extent comes from the font's whole-pixel ascent and descent already.
+        var left = Snap(fragment.Bounds.X);
+        var rect = fragment.Bounds with {X = left, Width = Snap(fragment.Bounds.Right) - left};
+
+        if (rect.Width <= 0 || rect.Height <= 0)
+        {
+            return;
+        }
+
+        var radii = RoundedBox.Resolve(style, rect);
+
+        if (style.BackgroundColor is {} background)
+        {
+            Fill(Krilla.Paint.Solid(background), style.BackgroundAlpha);
+        }
+
+        // The gradient's box is the element's whole advance laid end to end, of which this fragment
+        // shows one slice. Measured off the fragments rather than off `InlineRamps`, which counts
+        // RUNS: a fragment reaches past its first and last run by the element's own padding and
+        // border, and anchoring the ramp on the run puts it that far along.
+        if (style.BackgroundImage is {} gradient)
+        {
+            Fill(
+                GradientPaint.Create(
+                    gradient,
+                    rect with {X = rect.X - fragment.Before, Width = fragment.Total},
+                    tiles: false));
+        }
+
+        PaintInlineBorder(surface, style, rect);
+
+        void Fill(Paint paint, float opacity = 1f)
+        {
+            using var owned = paint;
+            using var builder = new PathBuilder();
+
+            if (radii.IsRounded)
+            {
+                radii.Trace(builder, rect, clockwise: true);
+            }
+            else
+            {
+                AddRectangle(builder, rect.X, rect.Y, rect.Right, rect.Bottom, clockwise: true);
+            }
+
+            using var path = builder.Build();
+            surface.SetFill(new Fill(owned, opacity)).DrawPath(path);
+        }
+    }
+
+    /// <summary>
+    /// The border around a rounded inline fragment: one ring where the edges share a colour, and
+    /// four rectangles cut to the outline where they do not.
+    /// </summary>
+    /// <remarks>
+    /// The ring is the same construction a block's uniform border takes, and it is what makes a
+    /// thick rounded border read as a ring rather than a tube — the inner corners are the outer
+    /// radii less the edge running along them. The fallback keeps the square path's four
+    /// rectangles and clips them to the rounded outline instead, which rounds the OUTER corner and
+    /// leaves the inner one square. Visible only where a thick border changes colour part way
+    /// round, which nothing in the corpus does and no document sensibly asks for.
+    /// </remarks>
+    /// <summary>
+    /// An atomic inline image: its background, its border, and the picture inside both.
+    /// </summary>
+    /// <remarks>
+    /// The surround is the whole reason this is not a bare <see cref="PaintImage"/> call. An
+    /// <c>&lt;img&gt;</c> in a paragraph is inline-level and takes its full box model, so it can
+    /// carry a border the way <c>&lt;img border&gt;</c> asks for one — and the picture then goes
+    /// inside that rather than filling the rectangle the line reserved.
+    /// </remarks>
+    static void PaintInlineImage(Surface surface, InlineImage image)
+    {
+        var style = image.Style;
+
+        if (!image.Decorated)
+        {
+            PaintImage(surface, image.Image, image.Content);
+            return;
+        }
+
+        // Snapped at each EDGE, like every other rectangle this fills, because an inline image
+        // lands at a fractional position as a matter of course: it starts wherever the words
+        // before it ended.
+        var left = Snap(image.Bounds.X);
+        var top = Snap(image.Bounds.Y);
+        var border = new Rect(left, top, Snap(image.Bounds.Right) - left, Snap(image.Bounds.Bottom) - top);
+
+        if (style.BackgroundColor is {} background)
+        {
+            using var builder = new PathBuilder();
+            AddRectangle(builder, border.X, border.Y, border.Right, border.Bottom, clockwise: true);
+
+            using var path = builder.Build();
+            using var paint = Krilla.Paint.Solid(background);
+            surface.SetFill(new Fill(paint, style.BackgroundAlpha)).DrawPath(path);
+        }
+
+        PaintInlineBorder(surface, style, border);
+        PaintImage(surface, image.Image, image.Content);
+    }
+
+    static void PaintInlineBorder(Surface surface, ComputedStyle style, Rect rect)
+    {
+        if (!style.HasBorder)
+        {
+            return;
+        }
+
+        var innerLeft = Snap(Math.Min(rect.X + style.BorderLeft, rect.Right));
+        var innerRight = Snap(Math.Max(rect.Right - style.BorderRight, innerLeft));
+        var innerTop = Math.Min(rect.Y + style.BorderTop, rect.Bottom);
+        var innerBottom = Math.Max(rect.Bottom - style.BorderBottom, innerTop);
+
+        if (RingColor(style) is {} ring)
+        {
+            PaintUniformBorder(
+                surface,
+                style,
+                ring.Color,
+                ring.Alpha,
+                rect,
+                innerLeft,
+                innerTop,
+                innerRight,
+                innerBottom);
+
+            return;
+        }
+
+        using var builder = new PathBuilder();
+        RoundedBox.Resolve(style, rect).Trace(builder, rect, clockwise: true);
+
+        using var outline = builder.Build();
+        using var clip = surface.PushClip(outline);
+
+        Edge(style.BorderTopColor, style.BorderTopAlpha, rect.X, rect.Y, rect.Width, style.BorderTop);
+        Edge(
+            style.BorderBottomColor,
+            style.BorderBottomAlpha,
+            rect.X,
+            rect.Bottom - style.BorderBottom,
+            rect.Width,
+            style.BorderBottom);
+
+        Edge(style.BorderLeftColor, style.BorderLeftAlpha, rect.X, rect.Y, style.BorderLeft, rect.Height);
+        Edge(
+            style.BorderRightColor,
+            style.BorderRightAlpha,
+            rect.Right - style.BorderRight,
+            rect.Y,
+            style.BorderRight,
+            rect.Height);
+
+        void Edge(Color? color, float alpha, float x, float y, float w, float h)
+        {
+            if (color is not {} painted || w <= 0 || h <= 0)
+            {
+                return;
+            }
+
+            using var path = PdfPath.Rectangle(Rectangle.FromSize(x, y, w, h));
+            using var paint = Krilla.Paint.Solid(painted);
+            surface.SetFill(new Fill(paint, alpha)).DrawPath(path);
+        }
+    }
+
+    /// <summary>
+    /// The colour and opacity an inline fragment's border ring takes, or null when its edges
+    /// disagree.
+    /// </summary>
+    /// <remarks>
+    /// Not <see cref="UniformColor"/>, which requires all four edges to be present: a fragment in
+    /// the middle of a wrapped element has no left or right border at all, and that is the ordinary
+    /// case here rather than a corner one. The sides with no width are skipped instead of failing
+    /// the test.
+    /// </remarks>
+    static (Color Color, float Alpha)? RingColor(ComputedStyle style)
+    {
+        (float Width, Color? Color, float Alpha)[] sides =
+        [
+            (style.BorderTop, style.BorderTopColor, style.BorderTopAlpha),
+            (style.BorderRight, style.BorderRightColor, style.BorderRightAlpha),
+            (style.BorderBottom, style.BorderBottomColor, style.BorderBottomAlpha),
+            (style.BorderLeft, style.BorderLeftColor, style.BorderLeftAlpha)
+        ];
+
+        Color? found = null;
+        var alpha = 1f;
+
+        foreach (var (width, color, sideAlpha) in sides)
+        {
+            if (width <= 0)
+            {
+                continue;
+            }
+
+            if (color is not {} painted)
+            {
+                return null;
+            }
+
+            if (found is {} already && (already != painted || alpha != sideAlpha))
+            {
+                return null;
+            }
+
+            found = painted;
+            alpha = sideAlpha;
+        }
+
+        return found is {} result ? (result, alpha) : null;
     }
 
     /// <summary>
@@ -889,18 +1206,14 @@ static class PdfPainter
         Surface surface,
         ComputedStyle style,
         Rect bounds,
-        InlineEdgeKind kind,
-        bool skipBackground)
+        InlineEdgeKind kind)
     {
         if (bounds.Width <= 0 || bounds.Height <= 0)
         {
             return;
         }
 
-        // Skipped when this element's fill was already laid down for the whole line fragment as one
-        // rounded path. The border edges below still run, because they are drawn per piece either
-        // way - the top and bottom rules span every fragment and owe nothing to the corners.
-        if (!skipBackground && style.BackgroundColor is {} background)
+        if (style.BackgroundColor is {} background)
         {
             using var path = PdfPath.Rectangle(
                 Rectangle.FromSize(bounds.X, bounds.Y, bounds.Width, bounds.Height));
@@ -964,268 +1277,6 @@ static class PdfPainter
         }
     }
 
-
-    /// <summary>
-    /// One inline element's background on one line: everything it covers there, and which ends of
-    /// it are the element's own rather than a line break.
-    /// </summary>
-    readonly record struct InlineFill(
-        ComputedStyle Style,
-        Rect Bounds,
-        bool Opens,
-        bool Closes);
-
-    /// <summary>
-    /// The enclosing element's selector path, or null at the outermost.
-    /// </summary>
-    /// <remarks>
-    /// A selector path is its own ancestry, so every prefix of it names an enclosing element. The
-    /// same trick the box dump uses to report an inline element's extent, and the reason
-    /// a backdrop needs no selector of its own.
-    /// </remarks>
-    static string? Enclosing(string? selector)
-    {
-        if (selector is null)
-        {
-            return null;
-        }
-
-        var cut = selector.LastIndexOf(" > ", StringComparison.Ordinal);
-
-        return cut < 0 ? null : selector[..cut];
-    }
-
-    /// <summary>
-    /// The rounded fills this line owes, one per inline element that asks for a corner radius.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// An inline element's background is not one rectangle. It is the opening edge's strip, then
-    /// each run's own fill, then the closing edge's strip, each painted separately and abutting -
-    /// which is invisible while the corners are square and wrong the moment they are not, since
-    /// rounding the pieces individually puts corners in the MIDDLE of the element. So the pieces
-    /// are unioned per line here and the fill is laid down once, and the per-piece path skips the
-    /// background for anything that appears in this map.
-    /// </para>
-    /// <para>
-    /// Unioned from the SNAPPED pieces rather than snapped afterwards, so an element with no
-    /// radius is painted by exactly the arithmetic it was before - which is what keeps every
-    /// existing scenario identical, since none of them rounds an inline.
-    /// </para>
-    /// <para>
-    /// A fragment is rounded only at the ends the ELEMENT owns: a wrapped inline is open where the
-    /// line broke, because the element did not end there. Those ends are known without any
-    /// bookkeeping, because an opening and closing edge token is emitted for every inline element
-    /// whether or not it has padding to put in one.
-    /// </para>
-    /// </remarks>
-    static Dictionary<string, InlineFill>? RoundedInlines(
-        LineBox line,
-        int index,
-        Dictionary<string, (int First, int Last)> spans)
-    {
-        Dictionary<string, InlineFill>? fills = null;
-
-        foreach (var edge in line.Edges)
-        {
-            if (edge.Style.Visibility != VisibilityKind.Visible)
-            {
-                continue;
-            }
-
-            var bounds = edge.Bounds with
-            {
-                X = Snap(edge.Bounds.X),
-                Width = Snap(edge.Bounds.Width)
-            };
-
-            Add(edge.Selector, edge.Style, bounds);
-
-            Ancestors(edge.Selector, edge.Ancestors, bounds, edge.Baseline);
-        }
-
-        foreach (var run in line.Runs)
-        {
-            if (run.Style.Visibility != VisibilityKind.Visible || run.Width <= 0)
-            {
-                continue;
-            }
-
-            var left = Snap(run.X);
-            var (top, bottom) = InlineMetrics.Extent(run.Style, run.Face, run.Y);
-            var bounds = new Rect(left, top, Snap(run.X + run.Width) - left, bottom - top);
-
-            // Generated content has no element and so no selector to key on; it keeps the square
-            // fill, and the diagnostic keeps reporting it.
-            if (run.Selector is not null)
-            {
-                Add(run.Selector, run.Style, bounds);
-            }
-
-            Ancestors(run.Selector, run.Backdrops, bounds, run.Y);
-        }
-
-        if (fills is null)
-        {
-            return null;
-        }
-
-        // Resolved against the finished union, because a percentage radius reads the box it is on
-        // and the overlap clamp needs the real width. An element whose radius rounds to nothing is
-        // dropped, so the per-piece path keeps painting it and nothing changes.
-        foreach (var (key, fill) in fills.ToList())
-        {
-            if (!RoundedBox.Resolve(fill.Style, fill.Bounds).IsRounded)
-            {
-                fills.Remove(key);
-            }
-        }
-
-        return fills.Count == 0 ? null : fills;
-
-        void Ancestors(
-            string? selector,
-            IReadOnlyList<InlineBackdrop>? ancestors,
-            Rect bounds,
-            float baseline)
-        {
-            if (ancestors is null)
-            {
-                return;
-            }
-
-            var path = selector;
-
-            for (var index = ancestors.Count - 1; index >= 0; index--)
-            {
-                path = Enclosing(path);
-                if (path is null)
-                {
-                    return;
-                }
-
-                // At its OWN height, not at the height of whatever is nested inside it - the same
-                // rule the per-run fill follows, measuring each backdrop against its own face.
-                var (top, bottom) = InlineMetrics.Extent(
-                    ancestors[index].Style,
-                    ancestors[index].Face,
-                    baseline);
-
-                Add(
-                    path,
-                    ancestors[index].Style,
-                    bounds with {Y = top, Height = bottom - top});
-            }
-        }
-
-        void Add(string? selector, ComputedStyle style, Rect bounds)
-        {
-            if (selector is null || style.BackgroundColor is null || bounds.Width <= 0)
-            {
-                return;
-            }
-
-            fills ??= [];
-
-            // Which ends the element owns comes from the lines it occupies, not from its edge
-            // tokens: those are emitted only when there is padding or a border to put in one, so an
-            // ordinary highlight has none and asking them would square every such element at both
-            // ends. The line span answers it for every case with the same arithmetic.
-            var span = spans.GetValueOrDefault(selector, (First: index, Last: index));
-
-            fills[selector] = fills.TryGetValue(selector, out var existing)
-                ? existing with {Bounds = Span(existing.Bounds, bounds)}
-                : new(style, bounds, index == span.First, index == span.Last);
-        }
-    }
-
-    /// <summary>
-    /// The first and last line each inline element appears on, over a whole block.
-    /// </summary>
-    /// <remarks>
-    /// A fragment is rounded only at the ends the element itself reaches — a wrapped inline is
-    /// square where the line broke, because it did not end there. Its edge tokens would say so, but
-    /// they exist only when it has a padding or border to carry, so they answer for a code span and
-    /// not for a plain highlight. Which lines it occupies answers for both.
-    /// </remarks>
-    static Dictionary<string, (int First, int Last)> InlineSpans(LayoutBox box)
-    {
-        var spans = new Dictionary<string, (int First, int Last)>(StringComparer.Ordinal);
-
-        for (var index = 0; index < box.Lines.Count; index++)
-        {
-            foreach (var run in box.Lines[index].Runs)
-            {
-                Note(run.Selector, index);
-            }
-
-            foreach (var edge in box.Lines[index].Edges)
-            {
-                Note(edge.Selector, index);
-            }
-        }
-
-        return spans;
-
-        // Every prefix of a selector path names an enclosing element, so one walk records the
-        // element and its whole inline ancestry at once.
-        void Note(string? selector, int index)
-        {
-            for (var path = selector; path is not null; path = Enclosing(path))
-            {
-                spans[path] = spans.TryGetValue(path, out var existing)
-                    ? (Math.Min(existing.First, index), Math.Max(existing.Last, index))
-                    : (index, index);
-            }
-        }
-    }
-
-    /// <summary>The smallest rectangle containing both.</summary>
-    static Rect Span(Rect first, Rect second)
-    {
-        var x = MathF.Min(first.X, second.X);
-        var y = MathF.Min(first.Y, second.Y);
-
-        return new(
-            x,
-            y,
-            MathF.Max(first.Right, second.Right) - x,
-            MathF.Max(first.Bottom, second.Bottom) - y);
-    }
-
-    /// <summary>
-    /// Fills one inline element's line fragment, rounded at the ends it owns.
-    /// </summary>
-    static void PaintRoundedInline(Surface surface, InlineFill fill)
-    {
-        if (fill.Style.BackgroundColor is not {} background)
-        {
-            return;
-        }
-
-        var radii = RoundedBox.Resolve(fill.Style, fill.Bounds);
-
-        // Square where the line broke. A browser draws no corner at an end the element did not
-        // reach, which is what makes a wrapped inline read as one continuous highlight.
-        if (!fill.Opens)
-        {
-            radii = radii with {TopLeft = (0, 0), BottomLeft = (0, 0)};
-        }
-
-        if (!fill.Closes)
-        {
-            radii = radii with {TopRight = (0, 0), BottomRight = (0, 0)};
-        }
-
-        using var builder = new PathBuilder();
-        radii.Trace(builder, fill.Bounds, clockwise: true);
-
-        using var path = builder.Build();
-
-        using var paint = Krilla.Paint.Solid(background);
-        surface.SetFill(new Fill(paint, fill.Style.BackgroundAlpha)).DrawPath(path);
-    }
-
     /// <summary>
     /// Rounds to the nearest whole pixel, halves upward.
     /// </summary>
@@ -1234,6 +1285,71 @@ static class PdfPainter
     /// banker's rounding — which would send exactly one edge in a thousand the other way from the
     /// browser and leave a column of colour nobody could account for.
     /// </remarks>
+    /// <summary>
+    /// Opens a marked-content span for <paramref name="selector"/>, to be closed by disposing the
+    /// result.
+    /// </summary>
+    /// <remarks>
+    /// Nothing at all when the caller asked for no structure tree, or when the content has no
+    /// element to belong to — generated content and an anonymous box both reach here with no
+    /// selector, and neither is something a reader is meant to meet.
+    /// </remarks>
+    static TagSpan Mark(Surface surface, PageSlice page, string? selector, bool text) =>
+        page.Tags is {} tags && selector is {} named
+            ? new(surface, tags, named, text ? surface.BeginText() : surface.BeginContent())
+            : default;
+
+    /// <summary>
+    /// Opens an ARTIFACT span, to be closed by disposing the result.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Everything a reader is not meant to meet: a background, a border, an outline, a collapsed
+    /// table's grid lines, a list marker, a text shadow, and a repeated table header — which is
+    /// content, but content already read once on the page before.
+    /// </para>
+    /// <para>
+    /// PDF/UA asks for every operator to be either inside a structure element or inside one of
+    /// these, and the difference is not cosmetic: content in neither is content a reader may read
+    /// out at a position nobody chose. It is also why the spans are so many and so small — krilla's
+    /// marked content does not nest, so a phase that interleaves text with decoration has to open
+    /// and close one per piece.
+    /// </para>
+    /// </remarks>
+    static TagSpan Artifact(
+        Surface surface,
+        PageSlice page,
+        ArtifactKind kind = ArtifactKind.Other,
+        Rectangle? bounds = null) =>
+        page.Tags is null ? default : new(surface, null, null, surface.BeginArtifact(kind, bounds));
+
+    /// <summary>One open marked-content span, or nothing.</summary>
+    /// <remarks>
+    /// A struct so the common case — no tagging — allocates nothing and the <c>using</c> at each
+    /// call site costs a branch.
+    /// </remarks>
+    readonly struct TagSpan(
+        Surface? surface,
+        DocumentTags? tags,
+        string? selector,
+        TagIdentifier identifier) :
+        IDisposable
+    {
+        public void Dispose()
+        {
+            if (surface is null)
+            {
+                return;
+            }
+
+            surface.EndTagged();
+
+            // An artifact has no element to belong to and no place in the tree — which is the
+            // whole of what makes it an artifact, so its identifier is deliberately dropped.
+            tags?.Record(selector!, identifier);
+        }
+    }
+
     static float Snap(float value) =>
         MathF.Floor(value + 0.5f);
 
@@ -1316,12 +1432,17 @@ static class PdfPainter
     /// hanging out of a short box sits over a later sibling for the same reason that box's text
     /// does.
     /// </remarks>
-    static void Inlines(Surface surface, LayoutBox box, PageSlice page)
+    static void Inlines(Surface surface, LayoutBox box, PageSlice page, string? owner = null)
     {
         if (page.Skip(box))
         {
             return;
         }
+
+        // A run carries the selector of the innermost INLINE element it sits in, and null when it
+        // is the block’s own text, so the block is what a structure tag hangs off. An anonymous
+        // block has no element of its own, and its text belongs to whichever ancestor generated it.
+        owner = box.Selector ?? owner;
 
         using var _ = Clip(surface, box);
 
@@ -1329,23 +1450,26 @@ static class PdfPainter
             box.BorderBox.Y < page.End &&
             box.Style.Visibility == VisibilityKind.Visible)
         {
+            using var image = Mark(surface, page, box.Selector ?? owner, text: false);
+
             PaintReplaced(surface, replaced, box.ContentBox, box.Style);
         }
 
         if (box.Style.Visibility == VisibilityKind.Visible)
         {
-            PaintMarker(surface, box, page.Top, page.End);
+            PaintMarker(surface, box, page.Top, page.End, page);
         }
 
-        // Over every line, not only the ones on this page: which line an element starts and ends on
-        // is a property of the element, and culling first would round a fragment that is merely the
-        // first one visible here.
-        var spans = InlineSpans(box);
+        // Built before the lines are walked rather than during, because both of the things it
+        // answers are properties of a whole element rather than of a run: where a rounded corner
+        // goes, and how far along a gradient's ramp a fragment sits. The painter reaches the lines
+        // one page at a time, so a fragment on the second page of a long paragraph still has to
+        // know what stood before it on the first. Null for a box whose inline content declares
+        // neither, which is almost every box.
+        var grouped = InlineFragments.For(box);
 
-        for (var index = 0; index < box.Lines.Count; index++)
+        foreach (var line in box.Lines)
         {
-            var line = box.Lines[index];
-
             // Bounded by where the next page starts, not by the paper. A line at or past the break
             // belongs overleaf and must not be drawn here even though it overlaps this sheet.
             if (line.Bounds.Bottom < page.Top || line.Bounds.Y >= page.End)
@@ -1353,18 +1477,7 @@ static class PdfPainter
                 continue;
             }
 
-            // Ahead of every run, because these ARE the runs' backgrounds - unioned across the
-            // fragment so the corners land on the element's ends rather than inside it. Outermost
-            // first (an ancestor's path is a strict prefix, so it is the shorter string), which
-            // keeps a highlight nested inside another on top of it.
-            var rounded = RoundedInlines(line, index, spans);
-            if (rounded is not null)
-            {
-                foreach (var fill in rounded.OrderBy(_ => _.Key.Length).Select(_ => _.Value))
-                {
-                    PaintRoundedInline(surface, fill);
-                }
-            }
+            var fragments = grouped?.On(line);
 
             foreach (var run in line.Runs)
             {
@@ -1374,28 +1487,39 @@ static class PdfPainter
                 // hiding the text does not hide the rectangle in a browser either.
                 if (run.Style.Visibility == VisibilityKind.Visible)
                 {
-                    PaintInlineBackground(surface, run, rounded);
-
-                    // Behind the text and in front of its background, which is where CSS puts a
-                    // text shadow — over the element's own background and under its glyphs.
-                    foreach (var shadow in run.Style.TextShadows)
+                    using (Artifact(surface, page))
                     {
-                        PaintRun(
-                            surface,
-                            run with
-                            {
-                                X = run.X + shadow.OffsetX,
-                                Y = run.Y + shadow.OffsetY,
-                                Style = run.Style with
-                                {
-                                    Color = shadow.Color,
-                                    TextShadows = [],
-                                    Decorations = TextDecorations.None
-                                }
-                            });
+                        PaintInlineBackground(surface, run, fragments);
                     }
 
-                    PaintRun(surface, run);
+                    // Behind the text and in front of its background, which is where CSS puts a
+                    // text shadow — over the element's own background and under its glyphs. An
+                    // artifact rather than content: it is the same words a second time, and a
+                    // reader that read them twice would be reading the shadow.
+                    using (Artifact(surface, page))
+                    {
+                        foreach (var shadow in run.Style.TextShadows)
+                        {
+                            PaintRun(
+                                surface,
+                                run with
+                                {
+                                    X = run.X + shadow.OffsetX,
+                                    Y = run.Y + shadow.OffsetY,
+                                    Style = run.Style with
+                                    {
+                                        Color = shadow.Color,
+                                        TextShadows = [],
+                                        Decorations = TextDecorations.None
+                                    }
+                                });
+                        }
+                    }
+
+                    using (Mark(surface, page, run.Selector ?? owner, text: true))
+                    {
+                        PaintRun(surface, run);
+                    }
                 }
 
 
@@ -1404,23 +1528,46 @@ static class PdfPainter
 
             // Ahead of the images and the atomic inlines, and after the runs, because an edge is
             // part of the same inline content step and nothing on a line overlaps it.
-            foreach (var edge in line.Edges)
+            using (Artifact(surface, page))
             {
-                if (edge.Style.Visibility == VisibilityKind.Visible)
+                foreach (var edge in line.Edges)
                 {
+                    if (edge.Style.Visibility != VisibilityKind.Visible)
+                    {
+                        continue;
+                    }
+
+                    if (Grouped(fragments, (object?) edge.Selector ?? edge.Style) is {} fragment)
+                    {
+                        // Drawn with the runs it encloses, so it lands where the per-run fill it
+                        // replaces would have. A fragment with no run inside it — an empty element
+                        // carrying nothing but padding — has no earlier place to go and is drawn
+                        // here.
+                        if (fragment.First is null)
+                        {
+                            PaintInlineFragment(surface, fragment);
+                        }
+
+                        continue;
+                    }
+
                     PaintInlineSurface(
                         surface,
                         edge.Style,
                         edge.Bounds with {X = Snap(edge.Bounds.X), Width = Snap(edge.Bounds.Width)},
-                        edge.Kind,
-                        skipBackground: edge.Selector is {} selector &&
-                                        rounded?.ContainsKey(selector) == true);
+                        edge.Kind);
                 }
             }
 
             foreach (var image in line.Images)
             {
-                PaintImage(surface, image.Image, image.Bounds);
+                // A marker image is decoration rather than content: it stands in for a bullet, and
+                // the list's own tag already says the item is one.
+                using var span = image.Decorated
+                    ? Mark(surface, page, image.Selector ?? owner, text: false)
+                    : Artifact(surface, page);
+
+                PaintInlineImage(surface, image);
             }
 
             // Appendix E step 7.2.1: an inline-block paints as though it established a stacking
@@ -1436,7 +1583,7 @@ static class PdfPainter
 
         foreach (var child in InFlow(box))
         {
-            Inlines(surface, child, page);
+            Inlines(surface, child, page, owner);
         }
     }
 
@@ -1497,13 +1644,19 @@ static class PdfPainter
     /// </param>
     /// <param name="Links">Where each fragment identifier resolves to, or null.</param>
     /// <param name="ToPage">Layout units to page points, for annotations.</param>
+    /// <param name="Tags">
+    /// Where each span of tagged content is recorded, or null when the caller asked for no
+    /// structure tree. Nothing here builds the tree; it only notes which element each span came
+    /// from, because the order the painter emits content in is not reading order.
+    /// </param>
     readonly record struct PageSlice(
         float Top,
         float Bottom,
         float End,
         float Reserved,
         LinkTargets? Links,
-        Func<Rect, Rect> ToPage)
+        Func<Rect, Rect> ToPage,
+        DocumentTags? Tags = null)
     {
         /// <summary>
         /// How far a box has to move to go from its position in the document to the same position
@@ -1705,38 +1858,30 @@ static class PdfPainter
             return;
         }
 
-        var (width, height) = TileSize(style, origin, image);
+        var (width, height) = Rounded(style, origin, image);
 
         if (width <= 0 || height <= 0)
         {
             return;
         }
 
-        // Snapped, because the browser snaps: `75%` of the 38px left over is 28.5, and Chrome
-        // starts the tile on row 29 rather than straddling two rows at half coverage. The same
-        // construction argument the inline background fill records.
-        var x = Snap(Place(style.BackgroundPositionX, origin.Width, width) + origin.X);
-        var y = Snap(Place(style.BackgroundPositionY, origin.Height, height) + origin.Y);
+        var across = Tiles(
+            style.BackgroundRepeatX,
+            style.BackgroundPositionX,
+            origin.X,
+            origin.Width,
+            painted.X,
+            painted.Right,
+            width);
 
-        // Back up to the last tile that still reaches into the painted area, so a repeated
-        // background is continuous across the border rather than starting at the positioned tile.
-        if (style.BackgroundRepeatX)
-        {
-            x -= MathF.Ceiling((x - painted.X) / width) * width;
-        }
-
-        if (style.BackgroundRepeatY)
-        {
-            y -= MathF.Ceiling((y - painted.Y) / height) * height;
-        }
-
-        var columns = style.BackgroundRepeatX
-            ? (int) MathF.Ceiling((painted.Right - x) / width)
-            : 1;
-
-        var rows = style.BackgroundRepeatY
-            ? (int) MathF.Ceiling((painted.Bottom - y) / height)
-            : 1;
+        var down = Tiles(
+            style.BackgroundRepeatY,
+            style.BackgroundPositionY,
+            origin.Y,
+            origin.Height,
+            painted.Y,
+            painted.Bottom,
+            height);
 
         const int most = 512;
 
@@ -1744,16 +1889,148 @@ static class PdfPainter
             Rectangle.FromSize(painted.X, painted.Y, painted.Width, painted.Height));
         using var clip = surface.PushClip(clipPath);
 
-        for (var row = 0; row < Math.Min(rows, most); row++)
+        for (var row = 0; row < Math.Min(down.Count, most); row++)
         {
-            for (var column = 0; column < Math.Min(columns, most); column++)
+            for (var column = 0; column < Math.Min(across.Count, most); column++)
             {
                 PaintImage(
                     surface,
                     image,
-                    new(x + column * width, y + row * height, width, height));
+                    new(
+                        across.Start + column * across.Step,
+                        down.Start + row * down.Step,
+                        width,
+                        height));
             }
         }
+    }
+
+    /// <summary>
+    /// Where the tiles along one axis start, how far apart they sit, and how many there are.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The three repeating values differ only in the step and in where the first tile sits, which
+    /// is what lets one walk paint all of them. <c>repeat</c> and <c>round</c> step by the tile and
+    /// take their phase from <c>background-position</c>; <c>space</c> steps by the tile plus the
+    /// gap it shares out and starts on the positioning area's own edge, the position being ignored
+    /// on an axis whose first and last tiles are pinned to the edges.
+    /// </para>
+    /// <para>
+    /// <c>space</c> falls back to <c>no-repeat</c> when fewer than two whole tiles fit, which is
+    /// the specification's own rule and Chromium's: with one tile there is no gap to share out, so
+    /// the position is honoured again. A tile larger than the area is what makes it visible, and
+    /// that is the common case — <c>space</c> is usually written for an image nobody measured
+    /// against the box.
+    /// </para>
+    /// <para>
+    /// Each repeating axis is backed up to the last tile that still reaches into the painted area,
+    /// so the strip under a border carries the tail of the previous tile rather than starting the
+    /// first one there.
+    /// </para>
+    /// </remarks>
+    static (float Start, float Step, int Count) Tiles(
+        BackgroundRepeatKind repeat,
+        CssLength position,
+        float areaStart,
+        float areaSize,
+        float paintedStart,
+        float paintedEnd,
+        float tile)
+    {
+        if (repeat == BackgroundRepeatKind.Space)
+        {
+            var whole = (int) MathF.Floor(areaSize / tile);
+
+            if (whole > 1)
+            {
+                var step = tile + (areaSize - whole * tile) / (whole - 1);
+                return Repeating(Snap(areaStart), step, paintedStart, paintedEnd);
+            }
+
+            repeat = BackgroundRepeatKind.NoRepeat;
+        }
+
+        // Snapped, because the browser snaps: `75%` of the 38px left over is 28.5, and Chrome
+        // starts the tile on row 29 rather than straddling two rows at half coverage. The same
+        // construction argument the inline background fill records.
+        var start = Snap(Place(position, areaSize, tile) + areaStart);
+
+        if (repeat == BackgroundRepeatKind.NoRepeat)
+        {
+            return (start, tile, 1);
+        }
+
+        return Repeating(start, tile, paintedStart, paintedEnd);
+    }
+
+    static (float Start, float Step, int Count) Repeating(
+        float start,
+        float step,
+        float paintedStart,
+        float paintedEnd)
+    {
+        start -= MathF.Ceiling((start - paintedStart) / step) * step;
+        return (start, step, (int) MathF.Ceiling((paintedEnd - start) / step));
+    }
+
+    /// <summary>
+    /// The size <see cref="TileSize"/> gives, rescaled by whichever axes asked to be rounded.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>round</c> is the one repeat value that changes the image's SIZE rather than only where
+    /// its copies go: the tile is scaled so that a whole number of them fills the positioning area
+    /// exactly, leaving nothing clipped at the far edge. The count is the NEAREST whole number
+    /// rather than the largest that fits, so a tile is as often stretched as squeezed, and it never
+    /// falls below one.
+    /// </para>
+    /// <para>
+    /// Rounding ONE axis of an image whose other axis is <c>auto</c> rescales that other axis to
+    /// restore the proportions, which is CSS Backgrounds 3 §3.6's third step. Without it a rounded
+    /// axis distorts the picture, which is the one thing <c>round</c> is not meant to do while it
+    /// has a free axis to spend.
+    /// </para>
+    /// </remarks>
+    static (float Width, float Height) Rounded(ComputedStyle style, Rect origin, ImageData image)
+    {
+        var (width, height) = TileSize(style, origin, image);
+
+        if (width <= 0 || height <= 0)
+        {
+            return (width, height);
+        }
+
+        var roundX = style.BackgroundRepeatX == BackgroundRepeatKind.Round;
+        var roundY = style.BackgroundRepeatY == BackgroundRepeatKind.Round;
+
+        if (!roundX && !roundY)
+        {
+            return (width, height);
+        }
+
+        var ratio = height / width;
+
+        if (roundX)
+        {
+            width = origin.Width / MathF.Max(1, MathF.Round(origin.Width / width));
+        }
+
+        if (roundY)
+        {
+            height = origin.Height / MathF.Max(1, MathF.Round(origin.Height / height));
+        }
+
+        if (roundX && !roundY && style.BackgroundSizeY.Kind == LengthKind.Auto)
+        {
+            height = width * ratio;
+        }
+        else if (roundY && !roundX && style.BackgroundSizeX.Kind == LengthKind.Auto)
+        {
+            width = height / ratio;
+        }
+
+        return (width, height);
     }
 
     /// <summary>
@@ -2177,7 +2454,7 @@ static class PdfPainter
 
             // Wound the other way so the non-zero rule cuts it out, and skipped once the band has
             // closed on itself and there is nothing left to remove.
-            if (innerRect is {Width: > 0, Height: > 0})
+            if (innerRect.Width > 0 && innerRect.Height > 0)
             {
                 radii
                     .Deflate(style.BorderTop * to, style.BorderRight * to, style.BorderBottom * to, style.BorderLeft * to)
@@ -2588,7 +2865,7 @@ static class PdfPainter
     /// <see cref="PaintRun"/> and is drawn with the very glyphs it was measured with.
     /// </para>
     /// </remarks>
-    static void PaintMarker(Surface surface, LayoutBox box, float top, float pageEnd)
+    static void PaintMarker(Surface surface, LayoutBox box, float top, float pageEnd, PageSlice page)
     {
         if (box.Marker is not {} marker ||
             marker.Bounds.Bottom < top ||
@@ -2596,6 +2873,11 @@ static class PdfPainter
         {
             return;
         }
+
+        // The marker is an artifact whatever shape it takes. A numbered one is real glyphs, and a
+        // reader announcing “1.” before every item would be announcing what the list tag already
+        // says, which is why CSS calls it a marker and PDF puts it outside the tree.
+        using var _ = Artifact(surface, page);
 
         if (marker.Run is {} run)
         {

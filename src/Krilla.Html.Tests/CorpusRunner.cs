@@ -87,7 +87,7 @@ static class CorpusRunner
     /// every glyph edge and every fractional box edge would go from "smoothed slightly
     /// differently" to "smoothed versus not smoothed at all".
     /// </remarks>
-    static List<byte[]> RenderPages(byte[] pdf)
+    public static List<byte[]> RenderPages(byte[] pdf)
     {
         using var document = PdfiumDocument.Load(pdf);
 

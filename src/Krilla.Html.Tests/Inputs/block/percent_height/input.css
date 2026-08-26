@@ -15,3 +15,15 @@ body { font-size: 16px; line-height: 20px; }
 
 .anchor { position: relative; }
 .pinned { position: absolute; top: 0; left: 0; width: 120px; height: 50%; background-color: #b8c8dc; }
+
+/* An inline-block with a definite height, and a percentage inside it. */
+.ib { display: inline-block; width: 150px; height: 120px; background-color: #dfe6f0; }
+#k { display: block; }
+
+/* A table cell with a definite height. */
+#tbl { border-collapse: collapse; }
+.cell { height: 120px; width: 150px; padding: 0; background-color: #dfe6f0; vertical-align: top; }
+
+/* A percentage height on the INLINE-BLOCK itself, and on a float. */
+#m { width: 150px; height: 50%; }
+.fl { float: left; width: 150px; background-color: #b8c8dc; }

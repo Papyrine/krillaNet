@@ -1,0 +1,8 @@
+div { font-size: 20px; line-height: 32px; margin: 0; }
+
+#body { height: 900px; padding: 12px 20px; background-color: #eef1f5; }
+
+/* The margin reaches to 1116, which is past the 1056 sheet. Nothing is drawn in it, so a browser
+   prints one page — and the root element's box is 60px taller than anything in the document,
+   because the root's own margins never collapse. */
+#tail { height: 80px; padding: 12px 20px; background-color: #dde4ee; margin-bottom: 60px; }

@@ -43,7 +43,13 @@ public class DiagnosticTests
         // the counter style. The fallback is exactly what a browser does, so the RENDER is right
         // and the report is still wanted: from the resolved style, an image the policy refused and
         // an image that is simply absent are the same null, and the first is worth hearing about.
-        "block/list_image"
+        "block/list_image",
+
+        // A row whose four border edges disagree on a colour, which is the one arrangement left
+        // where a rounded inline element differs from a browser: with no single ring to draw, the
+        // four rectangles are cut to the rounded outline instead, so the OUTER corner rounds and
+        // the inner one stays square. Everything else in the scenario is silent.
+        "inline/border_radius"
     ];
 
     /// <summary>
@@ -166,6 +172,10 @@ public class DiagnosticTests
     /// in, so every value <c>border-style</c> takes is now honoured and the whole entry came off the
     /// table. What is left of the borders here is a RADIUS on an edge that is not solid, which is a
     /// different gap — the corner is painted square.
+    ///
+    /// The second row is the inline half of the same entry, and it narrowed rather than
+    /// disappearing: an inline element's corners are rounded now, and what is left is the INSIDE of
+    /// one, on the fragment whose edges disagree about a colour and so cannot be drawn as a ring.
     /// </remarks>
     [Test]
     public async Task UnsupportedPaintingIsReported() =>
@@ -173,6 +183,7 @@ public class DiagnosticTests
             await Collect(
                 """
                 <div style="border-radius: 4px; border: 2px dashed red">b</div>
+                <p><span style="border: 4px solid red; border-right-color: blue; border-radius: 8px">c</span></p>
                 <div style="text-transform: full-width">f</div>
                 <div style="visibility: collapse">g</div>
                 <div style="transform: rotate3d(1, 1, 0, 45deg)">t</div>
@@ -239,18 +250,51 @@ public class DiagnosticTests
         await Assert.That(reports.Select(_ => _.Name)).Contains("widows");
     }
 
+    /// <summary>
+    /// The attributes that reach no CSS property at all, and an attribute that reaches one whose
+    /// VALUE names nothing.
+    /// </summary>
+    /// <remarks>
+    /// The second kind is the one worth having a test for. <c>align="char"</c> is a real value of
+    /// a real attribute and it aligns a column on a decimal point, which nothing here does — so it
+    /// has to survive the change that stopped reporting <c>align="right"</c> beside it.
+    /// </remarks>
     [Test]
     public async Task PresentationalAttributesAreReported() =>
         await Verify(
             await Collect(
                 """
-                <table width="300" cellpadding="8" bgcolor="silver">
-                  <tr height="40"><td align="right" valign="bottom" nowrap>a</td></tr>
+                <body link="blue" vlink="purple" alink="red">
+                <table rules="all" frame="box">
+                  <tr><td align="char" bgcolor="chucknorris">a</td></tr>
                 </table>
-                <ol type="a"><li>b</li></ol>
-                <p align="center">c</p>
-                <font color="red" size="6">d</font>
+                <ol type="q"><li>b</li></ol>
+                <hr size="thick">
+                <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" align="middleish">
                 """));
+
+    /// <summary>
+    /// The attributes that now reach the cascade say nothing, which is the invariant this change
+    /// had to keep: an attribute stops being reported exactly when it starts being applied.
+    /// </summary>
+    [Test]
+    public async Task AppliedPresentationalAttributesAreSilent() =>
+        await Assert.That(
+                await Collect(
+                    """
+                    <table width="300" cellpadding="8" cellspacing="0" border="1" bgcolor="silver">
+                      <caption align="bottom">c</caption>
+                      <tr height="40" valign="top"><td align="right" nowrap bgcolor="#eee">a</td></tr>
+                    </table>
+                    <p align="center">c</p>
+                    <h2 align="right">h</h2>
+                    <hr size="4" noshade width="200" align="left">
+                    <ol type="a"><li type="I">b</li></ol>
+                    <ul type="square"><li>c</li></ul>
+                    <font color="red" size="6" face="Liberation Serif">d</font>
+                    <body bgcolor="silver" text="#333">
+                    """))
+            .IsEmpty();
 
     [Test]
     public async Task ColumnsAndUnresolvedImagesAreReported() =>
@@ -262,7 +306,19 @@ public class DiagnosticTests
                   <tr><td>a</td><td>b</td></tr>
                 </table>
                 <img src="does-not-exist.png" alt="missing">
-                """));
+                """))
+                .Snapshot(
+                    """
+                    [
+                      {
+                        "Kind": "UnresolvedImage",
+                        "Element": "img",
+                        "Name": "src",
+                        "Value": "does-not-exist.png",
+                        "Reason": "did not resolve to an image, so no box was generated"
+                      }
+                    ]
+                    """);
 
     /// <summary>
     /// A font-size keyword resolves to a real size, and says nothing about it.
@@ -313,6 +369,110 @@ public class DiagnosticTests
         var reports = await Collect("<p style=\"font-size: inherit\">Text</p>");
 
         await Assert.That(reports).IsEmpty();
+    }
+
+    /// <summary>
+    /// The properties the most recent audit found: read by nothing and listed by nothing.
+    /// </summary>
+    /// <remarks>
+    /// Each one arrives from the cascade, changes what a browser draws, and said nothing at all
+    /// until this — which is the failure mode the table exists to prevent and the reason the audit
+    /// has to be re-run rather than trusted. Nothing failed to produce them; the list is the
+    /// difference between what AngleSharp hands back and what this engine reads.
+    ///
+    /// The three individual transform properties were found by the same pass and are not here,
+    /// because they were implemented rather than reported: <c>translate</c>, <c>rotate</c> and
+    /// <c>scale</c> are not shorthands for <c>transform</c> and do not reach it, so a document using
+    /// the modern spelling moved nothing and was told nothing. They report only where a
+    /// three-dimensional form drops the whole composite, which the test below covers.
+    /// </remarks>
+    [Test]
+    public async Task ThePropertiesTheAuditFoundAreReported() =>
+        await Verify(
+            await Collect(
+                """
+                <div style="mix-blend-mode: multiply">a</div>
+                <div style="background-blend-mode: multiply">b</div>
+                <div style="isolation: isolate">c</div>
+                <div style="border-image-source: linear-gradient(red, blue)">d</div>
+                <div style="mask-image: url(m.png)">e</div>
+                <div style="column-width: 100px">f</div>
+                <div style="font-size-adjust: 0.5">g</div>
+                <div style="font-kerning: none">h</div>
+                <div style="text-justify: distribute">i</div>
+                <div style="line-break: strict">j</div>
+                <div style="unicode-bidi: bidi-override">l</div>
+                <div style="transform-style: preserve-3d">m</div>
+                <div style="perspective: 400px">n</div>
+                <div style="background-attachment: fixed">o</div>
+                <div style="text-wrap: balance">p</div>
+                <div style="content-visibility: hidden">u</div>
+                <div style="initial-letter: 2">v</div>
+                """));
+
+    /// <summary>
+    /// The same properties at the values this engine happens to agree with, which stay silent.
+    /// </summary>
+    /// <remarks>
+    /// The half of the table that is easy to get wrong, and the half a corpus cannot check: these
+    /// are values nothing in the corpus writes. <c>unicode-bidi: embed</c> is the one that would
+    /// have reported every element of every document — AngleSharp's own default stylesheet puts it
+    /// there — which is why the table carries a list of no-ops per property rather than one.
+    /// </remarks>
+    [Test]
+    public async Task TheirNoOpValuesAreSilent()
+    {
+        var reports = await Collect(
+            """
+            <div style="mix-blend-mode: normal">a</div>
+            <div style="isolation: auto">b</div>
+            <div style="font-kerning: auto">c</div>
+            <div style="text-justify: inter-word">d</div>
+            <div style="text-wrap: wrap">e</div>
+            <div style="white-space-collapse: preserve; text-wrap: nowrap">f</div>
+            <div style="background-attachment: local">g</div>
+            <div style="unicode-bidi: embed">h</div>
+            <div style="translate: none; rotate: none; scale: none">i</div>
+            <div style="transform-style: flat; perspective: none">j</div>
+            """);
+
+        await Assert.That(reports).IsEmpty();
+    }
+
+    /// <summary>
+    /// A three-dimensional individual transform, which drops the whole composite.
+    /// </summary>
+    /// <remarks>
+    /// The four properties compose into ONE matrix, so a <c>rotate</c> naming a third axis loses
+    /// the <c>translate</c> beside it as surely as a <c>rotate3d()</c> inside <c>transform</c> loses
+    /// the <c>scale()</c> beside that. Every declared property reports for that reason: the report
+    /// is about the composite, not about the one function that could not be applied.
+    /// </remarks>
+    [Test]
+    public async Task AThreeDimensionalIndividualTransformIsReported() =>
+        await Verify(
+            await Collect(
+                """
+                <div style="rotate: x 45deg; translate: 10px">a</div>
+                <div style="scale: 1 2 3">b</div>
+                <div style="translate: 1px 2px 3px">c</div>
+                """));
+
+    /// <summary>
+    /// The one <c>white-space-collapse</c> value that does not fold onto a value of the shorthand.
+    /// </summary>
+    /// <remarks>
+    /// <c>preserve-spaces</c> keeps spaces and tabs while collapsing a newline into a space, and
+    /// this folds it onto <c>preserve</c>, which honours the newline too. <c>break-spaces</c> would
+    /// belong here as well and cannot: AngleSharp drops it from BOTH spellings, which is the same
+    /// blind spot <c>revert</c> and <c>text-overflow</c> sit in.
+    /// </remarks>
+    [Test]
+    public async Task APreservedNewlineThatShouldCollapseIsReported()
+    {
+        var reports = await Collect("<div style=\"white-space-collapse: preserve-spaces\">a b</div>");
+
+        await Assert.That(reports.Single().Name).IsEqualTo("white-space-collapse");
     }
 
     [Test]
@@ -374,8 +534,15 @@ public class DiagnosticTests
             <div style="transform: rotate(15deg) scale(1.2); transform-origin: top left">turned</div>
             <div style="border: 2px solid rgba(0, 0, 0, 0.4); outline: 1px solid rgba(0, 0, 0, 0.2)">faint</div>
             <div style="box-shadow: inset 4px 4px #000">pressed in</div>
+            <ul style="list-style-type: lower-greek"><li>counted in Greek</li></ul>
+            <p><span style="background-image: linear-gradient(to right, red, blue)">a ramp on a span</span></p>
+            <p style="margin-inline: 4px; inline-size: 100px">logically sized</p>
+            <p style="word-wrap: break-word">breakable</p>
+            <ul style="list-style-type: '→'"><li>marked with a literal</li></ul>
             <p style="text-decoration: underline; text-decoration-color: rgba(0, 0, 0, 0.3)">faintly ruled</p>
             <p style="height: 40px"><span style="height: 50%">a share of a definite height</span></p>
+            <p>A <span style="background: silver; padding: 2px 6px; border-radius: 8px">rounded badge</span>.</p>
+            <p>A <span style="border: 2px solid red; border-radius: 8px">rounded frame</span>.</p>
             <div style="break-before: avoid; break-after: avoid">kept with its neighbours</div>
             <table><tr><td style="vertical-align: baseline">on the row's baseline</td></tr></table>
             """);
@@ -409,7 +576,7 @@ public class DiagnosticTests
             """
             <div style="box-shadow: 0 0 4px #000">a blurred shadow</div>
             <div style="column-count: 2">two columns</div>
-            <div style="list-style-type: lower-greek">an unimplemented counter style</div>
+            <div style="list-style-type: armenian">an unimplemented counter style</div>
             """);
 
         var lines = reports.Select(_ => _.ToString()).ToList();

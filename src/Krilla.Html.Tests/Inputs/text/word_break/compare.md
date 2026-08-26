@@ -14,6 +14,13 @@ than which property asked for it. The two permissions differ, and the scenario s
   width at all.
 - `#all` has `word-break: break-all`, which breaks anywhere whether or not the word would overflow.
   On a single long word the two are indistinguishable, which is why the fourth row exists.
+- `#legacy` writes `word-wrap: break-word`, which is the same property under the spelling it had for
+  a decade before `overflow-wrap` existed and is still what reporting tools and mail merges emit.
+  The cascade does not alias the two — it hands `word-wrap` back under its own name and leaves
+  `overflow-wrap` empty, exactly as it does with the two break-property spellings — so a document
+  written this way broke nothing and reported nothing at all. Without the row the scenario is exact
+  either way; with it, and with only the modern spelling read, the word overflows and the page is a
+  line short.
 - `#mixed` is the row that told them apart, and it found a real defect. With ordinary words before
   the long one, the long word is first MOVED to a line of its own by the ordinary break rule, and
   the code that did so added it to the new line directly, so nothing afterwards ever asked whether
@@ -31,7 +38,7 @@ a browser draws nothing there, which is what separates this from `text/soft_hyph
 What to look at: the second line of `#mixed`. If the long word is intact and hanging out of the box,
 the split is being bypassed by the ordinary break.
 
-**Boxes**: 20 matched, worst offset 0.00px, worst size 0.00px.
+**Boxes**: 22 matched, worst offset 0.00px, worst size 0.00px.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |

@@ -1,4 +1,4 @@
-# All scenarios (135)
+# All scenarios (152)
 
 The browser reference (left) beside the page Krilla.Html produced (right). `AE` is the fraction of pixels that differ and `SSIM` is structural similarity; neither is asserted. The worst offset is the largest positional disagreement in CSS pixels between the rendered element geometry and the browser's, and is the number to watch — it reaches zero exactly when the layout is right.
 
@@ -11,6 +11,7 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [block/auto_width](#block-auto_width)
 - [block/background_color](#block-background_color)
 - [block/background_image](#block-background_image)
+- [block/background_repeat](#block-background_repeat)
 - [block/bevelled_borders](#block-bevelled_borders)
 - [block/borders](#block-borders)
 - [block/border_radius](#block-border_radius)
@@ -20,11 +21,14 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [block/box_sizing](#block-box_sizing)
 - [block/calc](#block-calc)
 - [block/counters](#block-counters)
+- [block/counter_styles](#block-counter_styles)
 - [block/generated](#block-generated)
 - [block/gradients](#block-gradients)
+- [block/individual_transforms](#block-individual_transforms)
 - [block/inset_shadow](#block-inset_shadow)
 - [block/list_image](#block-list_image)
 - [block/list_position](#block-list_position)
+- [block/logical](#block-logical)
 - [block/margin_collapse](#block-margin_collapse)
 - [block/margin_collapse_blocked](#block-margin_collapse_blocked)
 - [block/margin_collapse_parent](#block-margin_collapse_parent)
@@ -46,6 +50,7 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [block/visibility](#block-visibility)
 - [float/basic](#float-basic)
 - [float/clear](#float-clear)
+- [float/clearance](#float-clearance)
 - [float/margins](#float-margins)
 - [float/mid_line](#float-mid_line)
 - [float/overflow_bfc](#float-overflow_bfc)
@@ -54,6 +59,8 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [image/block_centred](#image-block_centred)
 - [image/data_uri](#image-data_uri)
 - [image/inline_flow](#image-inline_flow)
+- [image/inline_surround](#image-inline_surround)
+- [image/inline_svg](#image-inline_svg)
 - [image/intrinsic](#image-intrinsic)
 - [image/max_width](#image-max_width)
 - [image/object_fit](#image-object_fit)
@@ -62,10 +69,11 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [image/sized](#image-sized)
 - [image/svg](#image-svg)
 - [inline/backgrounds](#inline-backgrounds)
-- [inline/background_radius](#inline-background_radius)
+- [inline/border_radius](#inline-border_radius)
 - [inline/font_size_em](#inline-font_size_em)
 - [inline/font_style](#inline-font_style)
 - [inline/font_weight](#inline-font_weight)
+- [inline/gradient](#inline-gradient)
 - [inline/hyphen_breaks](#inline-hyphen_breaks)
 - [inline/inline_block](#inline-inline_block)
 - [inline/inline_block_sizing](#inline-inline_block_sizing)
@@ -73,6 +81,7 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [inline/line_height](#inline-line_height)
 - [inline/line_height_normal](#inline-line_height_normal)
 - [inline/nested_inline](#inline-nested_inline)
+- [inline/nowrap](#inline-nowrap)
 - [inline/padded](#inline-padded)
 - [inline/simple_text](#inline-simple_text)
 - [inline/text_align](#inline-text_align)
@@ -101,6 +110,8 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [page/table_footer](#page-table_footer)
 - [page/table_header](#page-table_header)
 - [page/tall_block](#page-tall_block)
+- [page/tall_image](#page-tall_image)
+- [page/trailing_margin](#page-trailing_margin)
 - [position/absolute](#position-absolute)
 - [position/anchors](#position-anchors)
 - [position/auto_margins](#position-auto_margins)
@@ -113,6 +124,7 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [table/cell_baseline](#table-cell_baseline)
 - [table/collapse](#table-collapse)
 - [table/columns](#table-columns)
+- [table/declared_cell_widths](#table-declared_cell_widths)
 - [table/empty](#table-empty)
 - [table/empty_cells](#table-empty_cells)
 - [table/fixed_layout](#table-fixed_layout)
@@ -120,6 +132,7 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [table/sections](#table-sections)
 - [table/spacing_borders](#table-spacing_borders)
 - [table/spans](#table-spans)
+- [text/align_last](#text-align_last)
 - [text/decorations](#text-decorations)
 - [text/decoration_style](#text-decoration_style)
 - [text/ex_ch](#text-ex_ch)
@@ -131,7 +144,9 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [text/tabs](#text-tabs)
 - [text/text_transform](#text-text_transform)
 - [text/underline_offset](#text-underline_offset)
+- [text/white_space_longhands](#text-white_space_longhands)
 - [text/word_break](#text-word_break)
+- [text/word_break_opportunity](#text-word_break_opportunity)
 - [text/word_spacing](#text-word_spacing)
 - [ua/acid1](#ua-acid1)
 - [ua/blockquote_pre](#ua-blockquote_pre)
@@ -140,6 +155,8 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [ua/lists](#ua-lists)
 - [ua/list_markers](#ua-list_markers)
 - [ua/paragraphs](#ua-paragraphs)
+- [ua/presentational](#ua-presentational)
+- [ua/presentational_text](#ua-presentational_text)
 
 </details>
 
@@ -331,6 +348,72 @@ image looks cut or moved. Moved means the origin is being clipped along with the
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
 | <img src="block/background_image/reference_0001.png" width="480"> | <img src="block/background_image/result%23page_0001.verified.png" width="480"> |
+
+
+## block/background_repeat
+
+# block/background_repeat
+
+`round` and `space` were parsed as `repeat` and reported by nothing, so a document asking for either
+got a clipped tile at the far edge where it had asked for the one thing that value exists to avoid.
+
+They are the two repeat values that do something other than "tile it or don't", and they answer the
+same question — what to do with the room a whole number of tiles does not fill — from opposite ends:
+`round` rescales the tile so there is no room left, and `space` keeps the tile and shares the room
+out between whole copies.
+
+The swatch is 64x32 and every box is 210px wide, which is awkward on purpose: three tiles need 192
+and four need 256, so `round` has to choose and `space` has 18px to distribute.
+
+- `#round` rounds both axes. 210/64 is 3.28, which rounds to 3, so the tile becomes 70 wide; 70/32
+  is 2.19, which rounds to 2, so it becomes 35 tall. The count is the NEAREST whole number and not
+  the largest that fits, so the tile here is stretched rather than squeezed.
+- `#roundx` and `#roundy` round one axis with the other left alone. The one that is not rounded is
+  `auto`, so it rescales to restore the picture's proportions — CSS Backgrounds 3 §3.6's third step,
+  and without it a rounded axis distorts the image, which is the one thing `round` is not for.
+- `#roundsized` pins the free axis with a `background-size`, which stops the rounding dragging it
+  along. It is what separates the third step from the second.
+- `#space` fits three tiles across and two down and shares the leftovers between them. The first and
+  last touch the edges of the positioning area, which is why `background-position` is ignored on a
+  spaced axis — `#spacex` declares one and only the vertical half of it has any effect.
+- `#spacetoobig` is the case that makes the fallback visible: a 100px box fits one 64px tile, and
+  with one tile there is no gap to share, so the axis behaves as `no-repeat` and the position is
+  honoured again. That is the specification's own rule and Chromium's, and it is the common case in
+  practice — `space` is usually written for an image nobody measured against its box.
+- `#mixed` takes one of each, which is what says the two are independent rather than two spellings
+  of one thing.
+- `#spacepadded` measures the spacing over the POSITIONING area rather than the painted one: the
+  gaps are computed inside the padding box and the pattern then continues under the border, so the
+  strip there carries the tail rather than the head of the pattern. The same asymmetry
+  `block/background_image`'s `#padded` records for `repeat`.
+
+The two-value form needed a change of its own. AngleSharp splits `background-repeat` into
+`background-repeat-x` and `background-repeat-y` and reserialises the shorthand, so `repeat no-repeat`
+comes back as `repeat-x` — but that folding only covers the pairs with a single-keyword spelling,
+and `round no-repeat` has none. The longhands are read first for that reason, with the shorthand
+used only when they say nothing.
+
+## The residual
+
+Geometry is exact on all nine rows and the four rounded ones are pixel-identical. The five spaced
+ones are not, at SSIM 0.9842, and the cause is the BROWSER's: Chromium's printer draws a spaced
+background through a filtered shader rather than as separate tile draws, so every tile edge in the
+reference is smeared across two pixels where ours is crisp. The tile POSITIONS agree exactly —
+quantise both images onto the swatch's own five colours and the runs line up to the pixel — so what
+differs is the rasterisation and not the layout.
+
+It was measured rather than assumed. A probe scenario 192px wide fits three 64px tiles with NO gap
+to share out, and Chromium renders that one crisply; widening it to 200px, which leaves a 4px gap at
+integer positions, blurs every edge. So the trigger is the spacing itself putting the paint on a
+different code path, not a fractional position — which also means nothing this engine can do would
+close it.
+
+**Boxes**: 11 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0167 · SSIM 0.9842** |
+| <img src="block/background_repeat/reference_0001.png" width="480"> | <img src="block/background_repeat/result%23page_0001.verified.png" width="480"> |
 
 
 ## block/bevelled_borders
@@ -743,12 +826,64 @@ below came out 8px high.
 What to look at: the `1.1` and `1.2` prefixes. A flat `1` there is `counters()` reading only the
 innermost scope; nothing at all is the comma being lost in the argument split.
 
-**Boxes**: 14 matched, worst offset 0.00px, worst size 0.00px.
+## counter-set
+
+Added later, with the property. `counter-set` was read by nothing, so a document numbering a run and
+then correcting it mid-way carried on from wherever the increment had reached.
+
+It differs from `counter-reset` in the half that is not the value: it creates no SCOPE. `#set` is
+inside a `#scoped` div that resets the counter, and reads `[7]` rather than `[3.7]` — one level,
+where a reset would have nested a second inside the first. That is the whole of the difference and
+the reason the two do not share a branch.
+
+`#ordered` puts all three on one element. CSS's order is reset, then increment, then set, and it is
+observable: reset to 1, increment by 5, set to 9 ends on 9 rather than on 6, and any other order
+gives a different number. `#flat` is what the property is actually for — a run of paragraphs
+numbered 1, 20, 21, with the middle one setting the counter it also incremented.
+
+**Boxes**: 21 matched, worst offset 0.00px, worst size 0.00px.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |
-| **Page 1** | **Page 1. AE 0.0005 · SSIM 0.9999** |
+| **Page 1** | **Page 1. AE 0.0013 · SSIM 0.9997** |
 | <img src="block/counters/reference_0001.png" width="480"> | <img src="block/counters/result%23page_0001.verified.png" width="480"> |
+
+
+## block/counter_styles
+
+# block/counter_styles
+
+Two counter styles that were recognised, reported, and drawn as a disc: `lower-greek`, and a
+literal string.
+
+An unimplemented counter style still marks its items rather than losing them, on the reasoning that
+a wrong marker is visible and a missing one is not — but the marker IS wrong, and a numbered list
+coming out as bullets is a whole-document difference.
+
+## The rows
+
+- **`#greek`** counts in the classical alphabet: α, β, γ. Twenty-four letters and no final sigma,
+  which is CSS's own list — the style is a counting alphabet rather than a transcription, and a
+  numbered item is never at the end of a word. It counts bijectively like `lower-alpha`, so the
+  twenty-fifth item is αα rather than the twenty-fifth code point.
+- **`#string`** is `list-style-type: "→  "`, where every item shows the same text and there is
+  nothing to count. It takes no SUFFIX either — measured: a numeric style is drawn as `N. ` with
+  the trailing space that right-aligns it, and an arrow style draws the arrow and nothing else.
+- **`#roman`** is the control, a style that already worked, so a change to the shared alignment
+  arithmetic has somewhere to show.
+- **`#inside`** puts a Greek marker in the line rather than beside it, which is the one place the
+  marker's advance is measurable from an element's own rectangle rather than from its ink.
+
+Pixel-identical to Chrome and exact on all 28 boxes — which is the point of the `<span>` in every
+item: a marker generates no box a browser reports, so what the geometry comparison measures is where
+the marker left the text.
+
+**Boxes**: 28 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| <img src="block/counter_styles/reference_0001.png" width="480"> | <img src="block/counter_styles/result%23page_0001.verified.png" width="480"> |
 
 
 ## block/generated
@@ -873,6 +1008,41 @@ border strips of `#padded`, which are where the tiling does.
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0500 · SSIM 0.9999** |
 | <img src="block/gradients/reference_0001.png" width="480"> | <img src="block/gradients/result%23page_0001.verified.png" width="480"> |
+
+
+## block/individual_transforms
+
+# block/individual_transforms
+
+`translate`, `rotate` and `scale` are not shorthands for `transform` and reach no longhand of it, so
+a document written in the modern spelling moved nothing — and, until the audit that found them, was
+told nothing either.
+
+CSS Transforms 2 §3 composes them ahead of `transform` in a fixed order — translate, then rotate,
+then scale, whatever order the declarations were written in — which makes them a PREFIX on the
+function list rather than a second matrix. Everything downstream then applies to the composite
+without knowing they exist, `transform-origin` included, which is what `#origin` pins.
+
+- `#moved`, `#turned` and `#sized` are the three on their own.
+- `#movedone` leaves its vertical component out, which is zero, and `#sizedpercent` writes its
+  factor as a percentage — a scale factor rather than a fraction of anything, so it is `scale: 1.5`
+  spelled differently.
+- `#turnedz` names the z axis, the only one with a two-dimensional meaning. Naming it is the same as
+  naming none; naming x or y, or giving three numbers, is three-dimensional and drops the whole
+  composite the way `rotate3d()` inside `transform` does.
+- `#composed` is the row the fixed order exists for. It is written scale-first and composed
+  translate-first, so the 20px movement is NOT scaled; `#written` is the same three functions inside
+  `transform`, which composes left to right, and comes out somewhere else. Two rows that would be
+  identical under either reading if the order were the same, and are not.
+- `#beside` puts one of each on a box, which is the arrangement that says the individual properties
+  come first rather than being appended.
+
+**Boxes**: 24 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| <img src="block/individual_transforms/reference_0001.png" width="480"> | <img src="block/individual_transforms/result%23page_0001.verified.png" width="480"> |
 
 
 ## block/inset_shadow
@@ -1016,6 +1186,60 @@ What to look at: where the text starts on each first line, and where the second 
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0002 · SSIM 1.0000** |
 | <img src="block/list_position/reference_0001.png" width="480"> | <img src="block/list_position/result%23page_0001.verified.png" width="480"> |
+
+
+## block/logical
+
+# block/logical
+
+The logical box properties, which name a box's edges by their relation to the writing direction
+rather than to the page: `margin-inline-start` is the margin at the start of a line, which in a
+left-to-right horizontal document is the left one.
+
+They were honoured by nothing and reported by nothing. AngleSharp keeps them under their own names
+and expands none of them onto the physical properties, which put them exactly where `word-wrap`
+was — and unlike `word-wrap`, they are what NEW stylesheets are increasingly written in rather than
+old ones.
+
+This engine has one writing mode and one direction, and reports a document asking for another, so
+every mapping here is fixed rather than conditional. Reading them costs a lookup.
+
+## The rows
+
+- **`#margins`** uses the two-value shorthands, read positionally: `margin-inline: 20px 60px` is the
+  start edge then the end edge, which is the left and the right.
+- **`#edges`** uses the longhands, which most stylesheets write and which beat the shorthand.
+- **`#padded`** gives each shorthand ONE value, which applies to both edges of its axis.
+- **`#sized`** is `inline-size` and `block-size`, the logical `width` and `height`.
+- **`#clamped`** adds `max-inline-size` and `min-block-size`, which clamp the same way their
+  physical spellings do and are resolved in the same place.
+- **`#inset`** is an absolutely positioned box placed by `inset-block-start` and
+  `inset-inline-start`. The `inset` shorthand itself needed nothing — AngleSharp expands that one
+  onto `top` and `left` already, which is worth knowing before assuming the whole family is dropped.
+
+Pixel-identical to Chrome and exact on all 14 boxes.
+
+## The one approximation
+
+A LOGICAL declaration wins over a physical one, whatever order they were written in. That is not the
+cascade's rule, and nothing here can implement the cascade's rule: the two spellings never reach a
+common slot, so there is no way to ask which came later.
+
+It is the right way round all the same. A physical value is present on practically every element of
+every document — `* { margin: 0 }` is how a stylesheet begins, and the corpus's own `flatten.css`
+does exactly that — so preferring the physical value would make every logical declaration inert,
+which is the state this scenario was written to leave. Preferring the logical one is wrong only for
+a document that declares the same edge twice in two spellings.
+
+What to look at: whether each box is where the logical declaration asks. A box flush against its
+frame is the property not being read at all.
+
+**Boxes**: 14 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| <img src="block/logical/reference_0001.png" width="480"> | <img src="block/logical/result%23page_0001.verified.png" width="480"> |
 
 
 ## block/margin_collapse
@@ -1364,20 +1588,24 @@ CSS 2.1 §10.5 makes the percentage resolve against the containing block's heigh
   height on one always has a basis. Its frame declares 200 here, but the rule does not depend on
   that.
 
+- **`#atomic`** and **`#celled`** put the percentage inside an inline-block and inside a table cell,
+  both with a definite height of their own. Neither needed anything: a box with a DECLARED height
+  settles its own before its subtree is laid out, so what it passes down does not depend on what was
+  passed to it.
+- **`#atomic-half`** and **`#floated`** are the two that did. An inline-block and a float each resolve
+  their OWN percentage height against the block that holds them, and both are laid out through paths
+  that threaded no containing height — so both came out one line tall where 100px belongs. They are
+  the reason the height goes down alongside the width in `InlineLayout` and `PlaceFloat` rather than
+  only through `LayoutChildren`.
+
 The answer has to exist BEFORE the subtree is laid out, which is the whole shape of the change: a
 definite height is one the box was told — declared, resolved against its own containing block, or
 handed down by an absolute box's offsets — rather than one its content came to, so it can be settled
 early and passed down.
 
-Exact on all 19 boxes, and both pages are pixel-identical.
+Exact on all 32 boxes, and all three pages are pixel-identical.
 
-## What is still not done
-
-An inline-block's contents see no containing height. It is laid out through `InlineLayout` rather
-than through the block path that threads one, so a percentage height inside one still behaves as
-`auto`. So does one inside a table cell.
-
-**Boxes**: 19 matched, worst offset 0.00px, worst size 0.00px.
+**Boxes**: 32 matched, worst offset 0.00px, worst size 0.00px.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |
@@ -1385,6 +1613,8 @@ than through the block path that threads one, so a percentage height inside one 
 | <img src="block/percent_height/reference_0001.png" width="480"> | <img src="block/percent_height/result%23page_0001.verified.png" width="480"> |
 | **Page 2** | **Page 2. AE 0.0000 · SSIM 1.0000** |
 | <img src="block/percent_height/reference_0002.png" width="480"> | <img src="block/percent_height/result%23page_0002.verified.png" width="480"> |
+| **Page 3** | **Page 3. AE 0.0000 · SSIM 1.0000** |
+| <img src="block/percent_height/reference_0003.png" width="480"> | <img src="block/percent_height/result%23page_0003.verified.png" width="480"> |
 
 
 ## block/pseudo_block
@@ -1741,6 +1971,93 @@ when the cleared box has a margin big enough to clear the float unaided; `src/to
 | <img src="float/clear/reference_0001.png" width="480"> | <img src="float/clear/result%23page_0001.verified.png" width="480"> |
 
 
+## float/clearance
+
+# float/clearance
+
+`clear` in the arrangements where clearance and margin collapsing interact, and the defect one of
+them found — which turned out not to be about `clear` at all.
+
+`float/clear` measures where a cleared box lands. This measures what happens to the MARGINS around
+it, which CSS 2.1 §9.5.2 and §8.3.1 settle between them.
+
+## The rows
+
+- **`#collapsed`** is the ordinary case: a 40px bottom margin and a 20px top margin collapse to 40,
+  which would put the box 64px down, and the float's bottom at 100 wins. Clearance is the 36px
+  difference and the border edge lands exactly on the float's bottom edge — the collapsed margin is
+  absorbed rather than added to it.
+- **`#unaided`** is the row the engine was suspected of getting wrong: a cleared box whose own
+  150px top margin already carries it past the float. Clearance is then ZERO and the margin stands
+  in full, so the box sits at 174 rather than being pulled back to the float's bottom at 100.
+  Measured, and it already agreed — which is the useful half of the result.
+- **`#through`** has a float short enough that the collapsed margin clears it unaided, so nothing is
+  introduced and the box after it collapses normally.
+- **`#nofloat`** is the control with nothing to clear at all.
+- **`#selfcollapsing`** and **`#plain`** are the two that found something, and only the second
+  mentions `clear`.
+
+## What they found
+
+An EMPTY box between two boxes with margins had its margins applied TWICE. With a 40px margin above
+it and a 50px margin of its own, everything after it sat 90px down where 50 belongs.
+
+CSS 2.1 §8.3.1 calls this collapsing *through*: a box with no height, no border and no padding does
+not SEPARATE the margin above it from the margin below, so the two join one collapsed set that is
+applied once. The box itself keeps the position the partial collapse gave it — which is what a
+browser reports for it, and what `#plain`'s middle row pins at 64 — and the flow position returns to
+where the margin started, so the box after it lands at 74 rather than 114.
+
+`#selfcollapsing` is the same box carrying `clear`, which matters because **clearance takes a box
+out of that rule**: §8.3.1's own wording is that two margins are adjoining only when no clearance
+separates them, so a box that took any keeps its margins apart the way a box with a border does.
+Here the float is short enough that no clearance is introduced, so it collapses through like any
+other empty box — and an implementation that keyed the rule on the DECLARATION rather than on the
+clearance actually taken would get this row wrong.
+
+Nothing in the corpus held an empty box between two boxes with margins until this scenario did,
+which is why a defect this plain survived: it needs a box with nothing in it, and every scenario
+written before this one had something in every box.
+
+
+
+## A cleared FIRST child
+
+`#wrapper` and `#loose` are the last pair, and they measure the half of §8.3.1 this used to get
+wrong: "the top margin of an in-flow block element collapses with its first in-flow block-level
+child's top margin if the element has no top border, no top padding, **and the child has no
+clearance**". The child's 20px margin escaped through the wrapper's top edge whatever the clearance
+was, so the wrapper sat 20px low and came out 20px short. `#loose` is the same arrangement with
+nothing to clear, where the collapse is correct — the two rows differ by exactly that margin, which
+is what makes either of them attributable.
+
+The padding on `.outer` is load-bearing rather than decoration. It stops the outer box's own top
+margin escaping, which is what puts the float into the context BEFORE the wrapper's leading margin
+is asked for — and the ordering is the whole difficulty here.
+
+Whether a child has clearance depends on where the floats end, and a float declared in the same
+parent is placed while that parent is laid out, which is after the parent's own position was
+settled by the very margin this rule changes. §9.5.2 is written in terms of a *hypothetical*
+position for exactly that reason. So the question is only asked where the answer cannot change
+underneath it: while a margin is still escaping through the parent's top edge, a float declared at
+or before the child in that same parent turns the test off, because the ancestor asked the same
+question without it. Once the escaping run has ended the context is fully up to date and the full
+answer is used.
+
+The case that remains is a wrapper whose FIRST child clears a float declared in that same wrapper's
+parent ahead of it. Both passes disagree about whether the float exists, and reconciling them needs
+the second pass §9.5.2's hypothetical position exists to avoid.
+
+Exact on all 34 boxes and pixel-identical.
+
+**Boxes**: 34 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0001 · SSIM 1.0000** |
+| <img src="float/clearance/reference_0001.png" width="480"> | <img src="float/clearance/result%23page_0001.verified.png" width="480"> |
+
+
 ## float/margins
 
 # float/margins
@@ -1946,6 +2263,102 @@ replaced element.
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0006 · SSIM 0.9999** |
 | <img src="image/inline_flow/reference_0001.png" width="480"> | <img src="image/inline_flow/result%23page_0001.verified.png" width="480"> |
+
+
+## image/inline_surround
+
+# image/inline_surround
+
+Pixel-identical to Chrome and exact on all 14 boxes.
+
+An `<img>` in a paragraph is an atomic inline, and an atomic inline is the one inline-level box that
+takes its WHOLE box model. A run of text takes the horizontal half of it — vertical padding on a
+`<span>` overflows the line rather than growing it — and a replaced element takes all of it: its
+margin box is what sits on the line, and the bottom of that box is what rests on the baseline.
+
+None of it was applied. An inline image's advance was its CONTENT width and the rectangle recorded
+for it was its content box, so a border reserved no space, was never drawn, and was invisible to the
+box comparison as well — the geometry matched, because both the reference and this engine were
+reporting a box that agreed by accident whenever there was no surround to disagree about. Every
+image in the corpus before this had none.
+
+The rows, each adding one part of the box model to the same picture:
+
+- `#bare` — the control, and the row that says the change cost nothing where there is no surround.
+- `#framed` — a 4px border. Eight pixels of advance and eight of height.
+- `#inset` — asymmetric padding, plus a background, so the padding is visible rather than merely
+  reserved.
+- `#apart` — horizontal margins, which the line has to leave outside the border box.
+- `#raised` — vertical margins, which is the half that separates a replaced element from a run of
+  text: the line grows by both of them, where a `<span>`'s vertical margins do nothing at all.
+- `#everything` — all four at once, which is what catches an inset applied to the wrong rectangle.
+
+## What to look at when it moves
+
+Text after the image starting too far left is the advance back on the content box. The picture
+drawn over its own border is the content rectangle not being deflated — it is carried on the box
+rather than derived in the painter, because a list marker image shares the LIST ITEM's style and
+must not be deflated by it. A soft edge down one side of `#framed` is the border rectangle no longer
+being snapped to whole pixels, which an inline image needs more than most: it starts wherever the
+words before it ended, so a fractional position is the normal case rather than a corner one.
+
+**Boxes**: 14 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| <img src="image/inline_surround/reference_0001.png" width="480"> | <img src="image/inline_surround/result%23page_0001.verified.png" width="480"> |
+
+
+## image/inline_svg
+
+# image/inline_svg
+
+An `<svg>` written into the document rather than referenced through an `<img src>`. Exact on all 8
+boxes and SSIM 1.0000, with a handful of antialiased pixels along the shapes' edges.
+
+It laid out as a block full of blocks before this. `<rect>` and `<circle>` have no CSS `display`,
+so each became a block box with no content, and a drawing rendered as a stack of empty rectangles
+with the picture nowhere on the page. The element is a replaced one: its markup is serialised and
+handed to the same krilla-svg path an `<img src="x.svg">` takes, and nothing inside it is laid out
+here at all.
+
+- `#sized` — `width` and `height` on the element, in a line of text, which is where inline SVG is
+  usually written: an icon beside a word.
+- `#ratio` — a `viewBox` and no size. SVG's own specification defaults the root `width` and
+  `height` to `100%`, so what looks like an absent size is a percentage that resolves against the
+  containing block: 200px wide in a 200px frame, and 100 tall by the ratio. Reading the viewBox
+  extent as a size instead gives 40, and CSS 2.1's rule for a replaced element with no intrinsic
+  width gives 300 — both plausible, both wrong.
+- `#scaled` — a CSS `width` and `height` that disagree with the element's own, which is what
+  proves the picture is scaled into the box rather than drawn at its declared size.
+
+## The namespace declaration
+
+An HTML parser puts an `<svg>` into the SVG namespace by POSITION rather than by declaration, so a
+document almost never writes the `xmlns` that a standalone SVG parser then requires. It is added
+during serialisation when the markup does not carry one.
+
+## The reference harvest skips what is inside
+
+`getBoundingClientRect()` answers for an `<rect>` as readily as for a `<div>`, so the browser
+reports a box for every shape in the drawing — and there is nothing on this side to compare them
+against, the whole subtree being drawn by usvg. The generator skips any element with an
+`ownerSVGElement`, which is the same argument it already makes for `display: none`: an element with
+no box here should not be counted as one this engine failed to produce.
+
+## What to look at when it moves
+
+Empty rectangles where the picture belongs is the element back to ordinary block layout. `#ratio`
+at 40px wide is the viewBox being read as an intrinsic size. And a picture drawn at 24px inside
+`#scaled`'s 40px box is the CSS size no longer reaching the destination rectangle.
+
+**Boxes**: 8 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0001 · SSIM 1.0000** |
+| <img src="image/inline_svg/reference_0001.png" width="480"> | <img src="image/inline_svg/result%23page_0001.verified.png" width="480"> |
 
 
 ## image/intrinsic
@@ -2210,68 +2623,50 @@ paragraph edge in `#leading`.
 | <img src="inline/backgrounds/reference_0001.png" width="480"> | <img src="inline/backgrounds/result%23page_0001.verified.png" width="480"> |
 
 
-## inline/background_radius
+## inline/border_radius
 
-# inline/background_radius
+# inline/border_radius
 
-`border-radius` on an inline element, which was read and not honoured — so every `<code>` chip in
-every document came out with square corners, and the diagnostic said so rather than the painter
-drawing it. The scenario measures the case that made it worth doing: a code span with a background
-and a radius is the most common rounded inline there is.
+`border-radius` on an inline element painted square, and said so. The rounding itself was never the
+difficulty — `RoundedBox` has drawn a block's corners since `block/border_radius` — the difficulty
+was that an inline element's background is painted per RUN, and a corner belongs to the FRAGMENT
+those runs make up.
 
-## Why it is not one rectangle
+`#three` is the row that makes the difference visible: a span holding a `<b>` is three runs, and
+rounding each of them would notch the fill at every element boundary inside the phrase. So the
+grouping is the whole of what the property needed, and `InlineFragments` is it — one rectangle per
+element per line, spanning from the element's opening edge, or its first run where it has no
+surround, to its closing edge.
 
-An inline element's background is painted **per line fragment**, and a fragment is not one
-rectangle. It is the opening edge's strip, then each run's own fill, then the closing edge's strip,
-each painted separately and abutting. Rounding those individually puts corners in the **middle** of
-the element, where two pieces meet. So the pieces are unioned per line and the fill goes down once.
+- `#one` is a background alone, the common case: a badge.
+- `#two` adds a uniform border, drawn as a ring — the inner corner is the outer radius less the edge
+  running along it, which is what makes a thick rounded border read as a ring rather than a tube.
+  The same construction a block's uniform border already takes.
+- `#four` wraps. A break is not an edge of the element, so the fragment on the first line keeps its
+  two LEFT corners and the one on the second its two right; neither rounds where the line ended, and
+  neither draws a side border there. That is the same rule the square path already followed for the
+  side borders, extended to the corners.
+- `#five` measures the two shapes a radius can take: the slash form's ellipse quadrant, and an
+  over-large radius, where CSS Backgrounds 3 §5.5 scales every radius on the box by one factor —
+  giving a pill rather than a rectangle with two circular ends.
+- `#six` is a gradient under a rounded fill. The ramp's box is the element's whole advance laid end
+  to end, which the rounding does not change: the fragment shows the same slice it showed before.
+- `#seven` is the case with no single ring to draw. Its four edges disagree, so they are painted as
+  four rectangles cut to the rounded outline — which rounds the OUTER corner and leaves the inner
+  one square. That is the one thing left, and it is what still reports.
 
-The union is taken from the SNAPPED pieces rather than snapped after the fact. That is what keeps
-every other scenario byte-identical: an element with no radius is still painted by exactly the
-arithmetic it was before.
+Painting a fragment as a unit had to leave the paint ORDER alone, and does: a fragment is drawn at
+the first run inside it, which is exactly where the per-run fill it replaces would have happened. So
+a rounded element sits in the same place among its neighbours' backgrounds as an unrounded one, and
+the pre-pass is built at all only for a box whose inline content is rounded — every other document
+keeps the painting path it had, which is what the rest of the corpus staying identical says.
 
-## Which ends are rounded
-
-Only the ends the element itself reaches. `#wrapped` is the row that shows it: the highlight breaks
-across three lines, and the middle fragment is square at **both** ends because the element neither
-began nor finished there. A browser does the same, which is what makes a wrapped highlight read as
-one continuous run of colour rather than three separate pills.
-
-The obvious signal for this is the element's edge tokens, which carry `Leading` and `Trailing`. It
-is the wrong one: those are emitted only when the element has a padding or border to put in one
-(`BoxBuilder.HasSurround`), so they answer for `#chip` and are absent for `#bare`. Asking them
-squares every unpadded highlight at both ends — which is what the first version did, and what the
-`#bare` and `#wrapped` rows caught. Which lines the element occupies answers for both, so that is
-what `InlineSpans` records.
-
-## The rows
-
-| | |
-|---|---|
-| `#chip` | Padding and a radius: the ordinary code span, rounded at both ends |
-| `#bare` | A radius with **no padding**, so there is no edge strip to carry the corner |
-| `#wrapped` | Three fragments — rounded, square, square, rounded — around two line breaks |
-| `#nested` | A rounded element inside another, each filled at its own height |
-| `#pill` | `999px`, which CSS clamps by scaling every radius until each side fits |
-
-## What is still reported
-
-A radius on an inline element that also has a **border**. The fill beneath one is rounded now, but
-the border itself is still up to four rectangles — a fragment has no corners to mitre at the end
-where the line broke — so those corners stay square and `UnsupportedCss.InlineSurround` reports
-them. That is why the report narrowed to `HasBorder` rather than disappearing.
-
-## Residual
-
-SSIM 1.0000, AE 0.0004. Every differing pixel is sub-pixel glyph antialiasing at a line start, the
-same residual several `text/` and `inline/` scenarios carry; none of it is on a corner arc.
-
-**Boxes**: 13 matched, worst offset 0.00px, worst size 0.00px.
+**Boxes**: 18 matched, worst offset 0.00px, worst size 0.00px.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |
-| **Page 1** | **Page 1. AE 0.0004 · SSIM 1.0000** |
-| <img src="inline/background_radius/reference_0001.png" width="480"> | <img src="inline/background_radius/result%23page_0001.verified.png" width="480"> |
+| **Page 1** | **Page 1. AE 0.0018 · SSIM 0.9999** |
+| <img src="inline/border_radius/reference_0001.png" width="480"> | <img src="inline/border_radius/result%23page_0001.verified.png" width="480"> |
 
 
 ## inline/font_size_em
@@ -2313,6 +2708,63 @@ the difference only accumulates over a sentence.
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
 | <img src="inline/font_weight/reference_0001.png" width="480"> | <img src="inline/font_weight/result%23page_0001.verified.png" width="480"> |
+
+
+## inline/gradient
+
+# inline/gradient
+
+A gradient as an inline element's background. Only the background COLOUR was painted on an inline
+element; a gradient was recognised and reported.
+
+The interesting half is what the gradient's box is.
+
+**Measured: a span that wraps continues the ramp where the previous line left off.** So the box is
+the element's fragments laid END TO END — 149px of first line and 278px of second make one 427px
+ramp — and each fragment shows its own slice of it. Restarting per fragment is the obvious reading
+and puts a full red-to-blue ramp on every line, which is what `#wrapped` is here to tell apart.
+
+That is why the offsets are computed in a pre-pass over the box's lines rather than accumulated
+while painting: the painter reaches a page at a time, and a fragment on the second page still has
+to know what stood before it on the first.
+
+Filling is then free. A PDF shading is positioned in user space, so filling the fragment's own
+rectangle with a paint built over the larger box samples exactly the part of the ramp that belongs
+to it — no clipping and no second paint per fragment.
+
+## The rows
+
+- **`#badge`** is one fragment, the case every author writes.
+- **`#wrapped`** is the same span across two lines, and the only row that distinguishes the two
+  readings of the box.
+- **`#radial`** is a radial ramp, which is sized `farthest-corner` against the same box.
+- **`#over`** puts a translucent ramp over a background COLOUR, which are two layers rather than
+  alternatives — the colour goes down first and shows through.
+
+**Residual**: SSIM 0.9999. Two causes, both named elsewhere: the ramp is quantised a shade
+differently from Chrome's, which `block/gradients` records and which is why the `AE` is high and
+means nothing, and the black text around each span differs on glyph edges. No pixel of any gradient
+differs by more than one of 255.
+
+## The padding
+
+`#padded` and `#framed` were added later, and each found the same gap. The ramp's box is the
+element's PADDING box laid end to end, not its runs — so the strip under the padding is part of the
+gradient rather than a hole in it, and leaving it out made the ramp that much shorter than the
+browser's everywhere else as well. It was invisible while every span here had no padding, which is
+what an inline gradient in a real document never looks like.
+
+The fix was to measure the ramp off the same fragments `border-radius` needed, rather than off a
+running total of run widths — which is why `InlineRamps` is gone and `InlineFragments` answers both
+questions. A fragment reaches past its first and last run by whatever surround the element carries,
+so the box it gives is the one the browser uses.
+
+**Boxes**: 14 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0111 · SSIM 0.9999** |
+| <img src="inline/gradient/reference_0001.png" width="480"> | <img src="inline/gradient/result%23page_0001.verified.png" width="480"> |
 
 
 ## inline/hyphen_breaks
@@ -2483,6 +2935,42 @@ elements carry no styling of their own until a scenario gives them some.
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
 | <img src="inline/nested_inline/reference_0001.png" width="480"> | <img src="inline/nested_inline/result%23page_0001.verified.png" width="480"> |
+
+
+## inline/nowrap
+
+# inline/nowrap
+
+`white-space: nowrap` on an inline element suppressed nothing. The line breaker read the BLOCK's
+value — one `var wraps = box.Style.Wraps` at the top of the fill loop — so the property worked only
+when it was set on the paragraph itself, which is the rarer half of how it is written. A held phrase
+inside a sentence is the common reason anyone reaches for it, and that case did nothing.
+
+The property inherits and applies to the element, so the answer has to come from the token AT the
+opportunity: from the pending space where a space offers the break, and from the token itself where
+it offers one of its own. That is what the intrinsic-width pass already did — it read
+`token.Style.Wraps` while the layout pass read the block's — so the two halves of the engine
+disagreed about where a line could break, and only the one nothing measured was right.
+
+- `#moved` is the plain case: the phrase does not fit in the room left, and moves down whole.
+- `#overflows` is a phrase too long for any line, which overflows rather than descending forever —
+  the same answer a single long word gets.
+- `#around` says the suppression is local: the words either side still break as usual.
+- `#nested` sets it back on a descendant, which wraps again.
+- `#cut` puts `overflow-wrap: break-word` on a held word. The two do not interfere: a held phrase is
+  not a word, and the cut still happens inside the word.
+
+`UnbreakableWidths` had to follow. It measures the run that has to move together, and it ended a run
+at every space — which is right only where a space is an opportunity. Inside a `nowrap` element a
+space is content like any other, and a run that stopped there was measured short of the group it was
+meant to hold.
+
+**Boxes**: 13 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0010 · SSIM 0.9999** |
+| <img src="inline/nowrap/reference_0001.png" width="480"> | <img src="inline/nowrap/result%23page_0001.verified.png" width="480"> |
 
 
 ## inline/padded
@@ -3423,6 +3911,81 @@ was dropped.
 | <img src="page/tall_block/reference_0002.png" width="480"> | <img src="page/tall_block/result%23page_0002.verified.png" width="480"> |
 
 
+## page/tall_image
+
+# page/tall_image
+
+A picture too tall for any sheet, in the middle of a LINE rather than on a block of its own. It
+cannot be made to fit, so where it goes is a choice between two wrong answers, and the two are far
+apart.
+
+The block-level case was already right: `Paginator.Unbreakable` lists a replaced element alongside a
+table row, so a block image moves whole. An inline one is not a `LayoutBox` at all — it hangs off
+the line — so it reached pagination as a LINE, and a line taller than the page was stepped over on
+the reasoning that moving it would leave it still not fitting and it would move again forever.
+
+That reasoning is half right. A unit already at the page's top has nowhere better to go and must be
+stepped over; one starting BELOW the top can be moved, and moving it advances the loop, so it
+terminates. Chromium does exactly that: the picture starts on a fresh sheet and overflows onto the
+next, leaving page one holding the paragraph above it. Sliced where the page happened to end it
+would have drawn its top on page one and its middle on page two instead.
+
+Three sheets: the intro alone, then 1056px of picture, then its last 144px. The first two are
+pixel-identical.
+
+**Residual**: page three, where the paragraph after the picture sits 16px lower here than in the
+reference — exactly the paragraph's own top margin, which the printed page drops and the browser's
+own `getBoundingClientRect()` keeps. The box comparison is exact on all six boxes, so this engine
+agrees with Chromium's layout and differs from Chromium's printer, which is the same shape
+`table/cell_baseline` records.
+
+What to look at: the page COUNT and which sheet the picture starts on. A picture beginning on page
+one is the unit being sliced; four pages is it being moved twice.
+
+**Boxes**: 6 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0002 · SSIM 1.0000** |
+| <img src="page/tall_image/reference_0001.png" width="480"> | <img src="page/tall_image/result%23page_0001.verified.png" width="480"> |
+| **Page 2** | **Page 2. AE 0.0000 · SSIM 1.0000** |
+| <img src="page/tall_image/reference_0002.png" width="480"> | <img src="page/tall_image/result%23page_0002.verified.png" width="480"> |
+| **Page 3** | **Page 3. AE 0.0122 · SSIM 0.9750** |
+| <img src="page/tall_image/reference_0003.png" width="480"> | <img src="page/tall_image/result%23page_0003.verified.png" width="480"> |
+
+
+## page/trailing_margin
+
+# page/trailing_margin
+
+A document whose content stops short of the sheet under a box whose bottom margin reaches past it.
+It printed on two pages here and on one in the browser, the second holding nothing at all.
+
+The root element's margins never collapse (CSS 2.1 §8.3.1), so the bottom margin of whatever ended
+the document is trapped INSIDE the root's box rather than escaping it. `#tail`'s 60px therefore
+makes the root 1088px tall against a 1056px sheet, while nothing in the document reaches past 1028 —
+and pagination was measuring the root's own edge.
+
+It measures the deepest BOX now. A margin is the only thing that drops out: an empty box a thousand
+pixels tall is content and takes the pages it asks for, which is why the walk is over boxes rather
+than over ink, and why a declared height on the ROOT still counts — that being the one case where
+the root's own box is the deepest thing rather than an artefact of what it contains.
+`PaginationTests.ATrailingMarginAddsNoPage` keeps both halves, since a second page with nothing on
+it is not something a browser reference can express.
+
+**Residual**: SSIM 0.9996, sub-pixel glyph positioning on the two paragraphs.
+
+What to look at: the PAGE COUNT, which is the whole of what this measures. A second page is the
+margin being counted as content.
+
+**Boxes**: 4 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0024 · SSIM 0.9996** |
+| <img src="page/trailing_margin/reference_0001.png" width="480"> | <img src="page/trailing_margin/result%23page_0001.verified.png" width="480"> |
+
+
 ## position/absolute
 
 Absolute positioning against a nearest positioned ancestor.
@@ -3696,8 +4259,8 @@ word in each cell is the longest.
 
 # table/caption_side
 
-Pixel-identical to Chrome. Two tables differing in one declaration, so what is measured is the
-property rather than the look of a caption.
+Pixel-identical to Chrome. Three tables, the first two differing in one declaration, so what is
+measured is the property rather than the look of a caption.
 
 A caption is a block laid out at the table's own width, above or below the grid, inside the table's
 box. The measurement that matters is the gap: Chrome puts a bottom caption exactly as far under the
@@ -3708,10 +4271,17 @@ spacing, which the grid had already added — the alternative, adding a gap of i
 `#top` states the default explicitly. It is there so the two rows differ in exactly one
 declaration, which is what makes a difference between them attributable.
 
-What to look at: the 2px band between the caption and the grid in each table. Four pixels in either
-one is the edge spacing being applied twice.
+`#declared` writes the property in the other place CSS allows: on the CAPTION rather than on the
+table. That half reached nothing — the side was read off the table's style alone — and it is not a
+spelling nobody uses, because `<caption align="bottom">` maps onto exactly that declaration. The
+property is inherited now and read off the caption's own box, which is what makes both spellings
+work for the same reason.
 
-**Boxes**: 14 matched, worst offset 0.00px, worst size 0.00px.
+What to look at: the 2px band between the caption and the grid in each table. Four pixels in any of
+them is the edge spacing being applied twice, and `#declared`'s caption back above its grid is the
+property being read off the table again.
+
+**Boxes**: 20 matched, worst offset 0.00px, worst size 0.00px.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |
@@ -3899,6 +4469,48 @@ the three is the width it asked for.
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
 | <img src="table/columns/reference_0001.png" width="480"> | <img src="table/columns/result%23page_0001.verified.png" width="480"> |
+
+
+## table/declared_cell_widths
+
+# table/declared_cell_widths
+
+Pixel-identical to Chrome and exact on all 28 boxes.
+
+A width declared on a CELL is a preference, not a floor. It pins the column when there is room and
+is squeezed when there is not, and the column still may never go below what its content needs. Both
+halves were wrong: the declaration reached the column's MINIMUM, which made the table itself grow to
+hold it, and the distribution handed the pinned column its declared width whatever was left.
+
+Found while applying `<td width>` as a presentational hint, which is where a document is most likely
+to declare one — a reporting tool sizing a table by hand asks for widths that do not add up far more
+often than a stylesheet does.
+
+- `#capped` — the case both readings agree on, and the control: the declared 120px fits inside the
+  table's 300px, so the column keeps it and the other takes the rest.
+- `#roomy` — the same table with room to spare. The surplus goes entirely to the column that
+  declared nothing, which is the rule for a table with some columns pinned and some not; a
+  proportional share would widen the declared column too.
+- `#shrunk` — no declared table width, where the declaration DOES raise the floor. A table with no
+  width of its own is at least as wide as its columns asked to be, which is the distinction
+  `ColumnSizes.MinTotal` and `ContentMinTotal` exist to keep.
+- `#over` — the discriminating row. A cell asking for 700px in a table declaring 300px comes out at
+  232.41, with the column beside it at its own min-content of 67.59 and the table exactly 300 wide.
+  Before this the table was 783.59 and overflowed the page.
+
+## What to look at when it moves
+
+A table wider than it declared is the declaration back in the minimum. A cell at its full declared
+width with the table clipped around it is the shortfall no longer coming out of the pinned columns.
+And `#shrunk` narrower than 203.59 is the opposite mistake — the floor removed from the case that
+needs it, which is what `table/spans` caught the last time this was touched.
+
+**Boxes**: 28 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| <img src="table/declared_cell_widths/reference_0001.png" width="480"> | <img src="table/declared_cell_widths/result%23page_0001.verified.png" width="480"> |
 
 
 ## table/empty
@@ -4094,6 +4706,38 @@ Cells covering more than one slot, which is what makes a table a grid rather tha
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
 | <img src="table/spans/reference_0001.png" width="480"> | <img src="table/spans/result%23page_0001.verified.png" width="480"> |
+
+
+## text/align_last
+
+# text/align_last
+
+`text-align-last` was read by nothing. It arrives from the cascade, and a document using it — a
+justified column whose last line should be stretched, a heading whose closing line sits right —
+aligned that line like every other and said nothing.
+
+The line it names is the last line of the block AND the line before a forced break, which the line
+breaker already marks: `Flush`'s `forced` flag is exactly that set, so honouring the property cost
+one branch rather than a pass.
+
+`auto` is the part worth getting right. It is a value in its own right rather than a synonym for
+`text-align`: it hands the decision back with the carve-out CSS makes for it — the last line of a
+justified block aligns to the start edge instead of being stretched — and a declared value replaces
+the whole of that rule. `#justified` and `#exempt` are the pair that separates them, identical but
+for the declaration, and `#justified` is the only row in the corpus where a last line is stretched.
+
+- `#right` and `#centred` move the last line where the rest is left-aligned.
+- `#start` moves it the other way, back to the start edge of a right-aligned block, which is what
+  says the property replaces the alignment rather than adding to it.
+- `#broken` ends on a `<br>`, so the line above it is a last line too.
+- `#single` is a block of one line, which is its own last line.
+
+**Boxes**: 10 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0013 · SSIM 0.9998** |
+| <img src="text/align_last/reference_0001.png" width="480"> | <img src="text/align_last/result%23page_0001.verified.png" width="480"> |
 
 
 ## text/decorations
@@ -4542,6 +5186,39 @@ What to look at: the rows each rule occupies. `#thin` is one row, `#plain` two, 
 | <img src="text/underline_offset/reference_0001.png" width="480"> | <img src="text/underline_offset/result%23page_0001.verified.png" width="480"> |
 
 
+## text/white_space_longhands
+
+# text/white_space_longhands
+
+`white-space` is a shorthand for `white-space-collapse` and `text-wrap` in CSS Text 4, and the two
+spellings do not meet in AngleSharp: it expands neither into the other, so the longhands come back
+empty for a document that writes the shorthand and the shorthand comes back empty for one that
+writes the longhands. A document written in the modern spelling therefore collapsed every space it
+had asked to keep — the same shape as `word-wrap` beside `overflow-wrap`, and as
+`page-break-before` beside `break-before`.
+
+Both are read now, the shorthand first because a document writing it means it. The five values of
+the shorthand are the five combinations this engine distinguishes, which is what lets the longhands
+fold onto the same answer rather than needing an axis of their own — the first four rows here are
+`pre`, `pre-wrap`, `pre-line` and `nowrap` written the long way.
+
+`#inherited` is the row that decides how an absent longhand is read. It has to fall back to what the
+element INHERITED rather than to the property's own initial value: the inner block turns wrapping off and
+keeps the preserving that came from its parent, where a fallback to `collapse` would silently undo
+the half nobody mentioned.
+
+`break-spaces` is still out of reach from either spelling. AngleSharp drops it from `white-space`,
+and `white-space-collapse: break-spaces` is folded onto `preserve` and reported — it differs only in
+that a run of trailing spaces may itself be broken.
+
+**Boxes**: 8 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0002 · SSIM 1.0000** |
+| <img src="text/white_space_longhands/reference_0001.png" width="480"> | <img src="text/white_space_longhands/result%23page_0001.verified.png" width="480"> |
+
+
 ## text/word_break
 
 # text/word_break
@@ -4558,6 +5235,13 @@ than which property asked for it. The two permissions differ, and the scenario s
   width at all.
 - `#all` has `word-break: break-all`, which breaks anywhere whether or not the word would overflow.
   On a single long word the two are indistinguishable, which is why the fourth row exists.
+- `#legacy` writes `word-wrap: break-word`, which is the same property under the spelling it had for
+  a decade before `overflow-wrap` existed and is still what reporting tools and mail merges emit.
+  The cascade does not alias the two — it hands `word-wrap` back under its own name and leaves
+  `overflow-wrap` empty, exactly as it does with the two break-property spellings — so a document
+  written this way broke nothing and reported nothing at all. Without the row the scenario is exact
+  either way; with it, and with only the modern spelling read, the word overflows and the page is a
+  line short.
 - `#mixed` is the row that told them apart, and it found a real defect. With ordinary words before
   the long one, the long word is first MOVED to a line of its own by the ordinary break rule, and
   the code that did so added it to the new line directly, so nothing afterwards ever asked whether
@@ -4575,12 +5259,57 @@ a browser draws nothing there, which is what separates this from `text/soft_hyph
 What to look at: the second line of `#mixed`. If the long word is intact and hanging out of the box,
 the split is being bypassed by the ordinary break.
 
-**Boxes**: 20 matched, worst offset 0.00px, worst size 0.00px.
+**Boxes**: 22 matched, worst offset 0.00px, worst size 0.00px.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
 | <img src="text/word_break/reference_0001.png" width="480"> | <img src="text/word_break/result%23page_0001.verified.png" width="480"> |
+
+
+## text/word_break_opportunity
+
+# text/word_break_opportunity
+
+`<wbr>`, exact on all 16 boxes at SSIM 0.9999.
+
+It is the only thing HTML has for saying "this word may be split here", which is why a document
+holding a long URL or a generated identifier reaches for it. It was in the inline set already and
+did nothing at all: it carries no characters, so it reached the tokeniser as an empty run and was
+dropped, and a document using it wrapped exactly as one without it.
+
+The frame is 190px so that a word with no opportunity in it OVERFLOWS. That is what makes each pair
+differ by a whole line rather than by where a line happens to break, and a scenario measuring the
+second is a scenario that passes with the feature unimplemented — the first attempt at this one did
+exactly that, with `#none` and `#offered` both two lines tall.
+
+- `#none` and `#offered` — the same twenty-six letters, one of them with a `<wbr>` in the middle.
+  Two lines against three.
+- `#joined` and `#split` — a URL, which a browser does NOT break at its solidi. One line against
+  two.
+- `#spaced` — a `<wbr>` immediately after a space, where the opportunity is already there. One
+  line, and the row exists to pin that it costs nothing: an implementation emitting a token for the
+  element would add its width here.
+
+## The empty rectangle
+
+`getBoundingClientRect()` returns 0,0,0,0 for a `<wbr>` — not a zero-width box where the element
+sits, but no box at all. So the box dump reports the same, from the INLINE ITEMS rather than from a
+line, because a `<wbr>` produces no token to hang off one. Without that every document containing
+one has an element `BaselineHealthTests.EveryElementIsMeasured` counts as unmatched.
+
+## What to look at when it moves
+
+`#offered` back to two lines is the opportunity gone. `#spaced` growing a line is a `<wbr>` that has
+started taking advance. And a difference in `#joined` is not this feature at all — it would mean
+the solidus had become a break opportunity, which Chrome does not treat as one.
+
+**Boxes**: 16 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0002 · SSIM 0.9999** |
+| <img src="text/word_break_opportunity/reference_0001.png" width="480"> | <img src="text/word_break_opportunity/result%23page_0001.verified.png" width="480"> |
 
 
 ## text/word_spacing
@@ -4688,19 +5417,27 @@ level below h1, so this scenario is the whole reason UserAgentStyles.Corrections
 # ua/hr
 
 `<hr>` appeared nowhere in the corpus, despite having two pieces of machinery of its own:
-`UserAgentStyles.Corrections` gives it `margin: 0.5em auto`, and `UnsupportedCss.BorderStyles`
-exempts it by name from border-style reporting, because AngleSharp's default sheet makes every
-plain `<hr>` `inset` and a page carrying no CSS at all would otherwise report four times.
+`UserAgentStyles.Corrections` gives it `margin: 0.5em auto`, and `UnsupportedCss` used to exempt it
+BY NAME from border-style reporting, because AngleSharp's default sheet makes every plain `<hr>`
+`inset` and a page carrying no CSS at all would otherwise have reported four times.
 
-Both were unmeasured. This scenario measures the first two directly — the half-em margins above
-and below, and the automatic horizontal margins centring `#narrow` — and the third by having an
-`<hr>` in the corpus at all, since `DiagnosticTests.TheCorpusReportsNothing` runs over every
-scenario and would report a border style if the exemption were removed.
+Both were unmeasured. This scenario measures the first directly — the half-em margins above and
+below, and the automatic horizontal margins centring `#narrow` — and measured the second by having
+an `<hr>` in the corpus at all, since `DiagnosticTests.TheCorpusReportsNothing` runs over every
+scenario. The exemption is gone: implementing the four bevelled border styles removed the entry that
+would have fired, which is the general lesson it left behind — **an exemption by element name is a
+sign the property is unimplemented, not a sign the report is wrong.**
+
+`ua/presentational_text` measures the rest of what an `<hr>` can be told to do, its four
+presentational attributes being where a legacy document says it.
 
 The rule itself is a zero-height box drawn entirely by its border, which is why it is visible at
-all. This engine paints every border style solid, and the geometry of all seven boxes is exact, so
-the 0.9911 is the shading of Chrome's `inset` against a solid line and nothing else. It is the
-residual to expect here rather than a regression.
+all. It is pixel-identical now, and was not always: the notes here recorded 0.9911 as "the shading
+of Chrome's `inset` against a solid line", which was a guess with a plausible cause and the wrong
+one. Reading the actual pixels out of the two PNGs found that the rule was not drawn AT ALL:
+`border: 1px inset` sets `border-color: initial`, `initial` was not read as `currentColor`, and
+`HasBorder` went false. **A residual with a stated cause is still a guess until something measures
+the cause.**
 
 What to look at when it moves: `#narrow` against the left edge is `margin: auto` not resolving on
 an `hr`. A rule touching the paragraphs above and below it is the half-em margins missing. A
@@ -4791,5 +5528,132 @@ before the corrections every gap in an unstyled document was 12% too large.
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
 | <img src="ua/paragraphs/reference_0001.png" width="480"> | <img src="ua/paragraphs/result%23page_0001.verified.png" width="480"> |
+
+
+## ua/presentational
+
+# ua/presentational
+
+The presentational content attributes, which HTML maps onto CSS in an origin of their own —
+above the user-agent sheet, below every author rule — and which AngleSharp maps not at all. Before
+this they reached the cascade as nothing and were merely reported.
+
+It is a `ua/` scenario because it has to be. `flatten.css` writes `* { margin: 0; padding: 0 }` and
+a `table, td, th` rule beside it, which are author declarations and therefore beat a hint outright
+— correctly, and identically in both engines, which is exactly why a flattened scenario could
+measure nothing here.
+
+What each row is for:
+
+- `#sized` — `width`, `cellpadding`, `cellspacing` and `bgcolor` on the table, `height` and
+  `valign` on a row, `align`, `bgcolor` and `nowrap` on the cells. `#held` and `#loose` hold the
+  same phrase and only one of them may wrap, which is what makes `nowrap` visible in the row's
+  height rather than only in its width.
+- `#framed` — `border="2"`, which is the one attribute mapping onto three properties at once and
+  the only one that reaches an element it was not written on: the table gets a 2px `outset` and
+  every cell inside it a 1px `inset`. `cellspacing="6"` separates them so both are measurable.
+  A `border-color` is declared for both in `input.css`, deliberately — see below.
+- `#captioned` — `<caption align="bottom">`, which is `caption-side` and nothing else. It found
+  that the property was read off the TABLE's style alone, so a declaration on the caption itself —
+  which is what this attribute is — reached nothing at all. It is inherited now and read off the
+  caption, so the usual spelling on the table still works.
+- `#centred`, `#ragged` — `align` on a paragraph and a heading, where the same attribute means
+  `text-align` rather than `float`.
+- `#beaten` — the point of the whole design. Both a `width` and a `bgcolor` attribute, both beaten
+  by an author rule of the lowest possible specificity. A hint applied as an inline style would
+  win here, and that is the mistake this row exists to catch.
+
+## The declared border colour
+
+`border="2"` maps onto a width and a bevelled style and NOT onto a colour, so what colour the
+bevel is derived from is a user-agent question rather than an attribute one. Chromium shades such
+a table `#a8a8a8` over `#545454`, which is neither the derivation from `gray` that `Bevel` produces
+nor the `#eeeeee` over `#9a9a9a` pair a plain `<hr>` gets — so it is a third rule this engine does
+not know, and a separate question from the mapping. `input.css` declares a colour for the table and
+its cells to keep the two engines on the derivation both already agree about; the disagreement is
+recorded in `todo.md` rather than hidden here.
+
+## Residuals
+
+Geometry is exact on all 26 boxes. The pixels differ in two places and neither is this feature:
+twelve pixels on `#framed`'s corners, where two antialiased trapezia meet on a mitre, and the
+right-aligned heading, which is sub-pixel glyph positioning. Both are general residuals recorded in
+`todo.md`.
+
+## What to look at when it moves
+
+A table at its shrink-to-fit width rather than 300 is the `width` hint not applying, most likely
+because something in the cascade now declares `width` for a table and the value test in
+`PresentationalHints.defaults` no longer recognises it. Cells two pixels narrower than expected is
+`cellpadding` losing to the user-agent's own `td { padding: 1px }` the same way. `#beaten` at 300px
+wide is the reverse mistake: a hint that has stopped being a hint.
+
+**Boxes**: 26 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0016 · SSIM 0.9999** |
+| <img src="ua/presentational/reference_0001.png" width="480"> | <img src="ua/presentational/result%23page_0001.verified.png" width="480"> |
+
+
+## ua/presentational_text
+
+# ua/presentational_text
+
+The presentational attributes that are not a table's: `<font>`, `<hr>`, a list's `type`, and an
+image's spacing and border. Exact on all 29 boxes, at SSIM 0.9999.
+
+The sibling scenario `ua/presentational` covers the table attributes and carries the design note
+about why these have to be `ua/` scenarios at all — `flatten.css` writes author declarations that
+beat a hint outright, correctly and in both engines.
+
+What each row is for:
+
+- The `<font>` paragraph — the size levels, which are a table of seven keywords rather than a
+  length, and the two relative forms, which count from 3 rather than from the parent. Measured
+  against Chrome at every one: `size="1"` is `x-small`, `size="6"` is `xx-large`, `size="+2"` is
+  `x-large` and `size="-1"` is `small`. `size="7"` needed `xxx-large`, which the keyword table did
+  not have — nobody writes it in a stylesheet, and this attribute is where documents ask for it.
+  `color` and `face` are here too, the latter because a bare family name has to be quoted before
+  CSS will take it.
+- `#plain` — the control: a rule with no attributes, drawn by its 1px `inset` border.
+- `#thick` — `size="9"`. A rule is a zero-height box drawn entirely by its border, so `size` asks
+  for a thicker BOX and the two border pixels come out of it. Nine pixels tall, not eleven.
+- `#solid` — `noshade`, which turns the carved rule into a flat one. It is a solid GREY bar,
+  measured: not the element's colour, and not the shades a carved rule derives. The fill is the
+  half that a reading of HTML's own wording misses — without it the rule is a nine-pixel white bar
+  with a hairline around it.
+- `#painted` — `color` and `width`, which is the same flat rule with the colour named.
+- `#short` — `align="left"`, which is a margin pair rather than `text-align`, and `width`, which
+  the border is added to: 182px for a `width="180"`.
+- The four lists — `type` in both spellings and on an `<li>` rather than its list. `#mixed` is the
+  one that matters: the item's own `type` has to beat the marker its list already gave it, which
+  is a value the user-agent sheet supplies rather than an absent one.
+- `#wrapped` — `hspace`, `vspace` and `border` on an inline image, which reach the box model an
+  atomic inline was not being given at all. `image/inline_surround` measures that half in CSS.
+- `#around` — `align="right"`, which FLOATS a picture where the same attribute on a paragraph
+  aligns its text.
+
+## Residuals
+
+543 pixels differ and none of them is this feature: twelve on the rules' bevelled corners, forty on
+the two list markers' antialiased circles, and the rest sub-pixel glyph positioning — most of it in
+the `<font>` paragraph, which carries six sizes on three lines and so has more glyph edges than
+anything else in the corpus of its size.
+
+## What to look at when it moves
+
+Six `<font>` runs on six separate lines is the element back to block-level: it has no `display` in
+AngleSharp's sheet, and `UserAgentStyles` is what supplies one. A rule two pixels too tall is the
+`size` subtraction gone; a hollow one is `noshade` no longer filling. A bullet where a letter
+belongs is `type` losing to the user-agent's own `list-style-type`, which it is allowed to beat and
+an author rule is not.
+
+**Boxes**: 29 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0006 · SSIM 0.9999** |
+| <img src="ua/presentational_text/reference_0001.png" width="480"> | <img src="ua/presentational_text/result%23page_0001.verified.png" width="480"> |
 
 

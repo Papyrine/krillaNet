@@ -2,8 +2,8 @@
 
 # table/caption_side
 
-Pixel-identical to Chrome. Two tables differing in one declaration, so what is measured is the
-property rather than the look of a caption.
+Pixel-identical to Chrome. Three tables, the first two differing in one declaration, so what is
+measured is the property rather than the look of a caption.
 
 A caption is a block laid out at the table's own width, above or below the grid, inside the table's
 box. The measurement that matters is the gap: Chrome puts a bottom caption exactly as far under the
@@ -14,10 +14,17 @@ spacing, which the grid had already added — the alternative, adding a gap of i
 `#top` states the default explicitly. It is there so the two rows differ in exactly one
 declaration, which is what makes a difference between them attributable.
 
-What to look at: the 2px band between the caption and the grid in each table. Four pixels in either
-one is the edge spacing being applied twice.
+`#declared` writes the property in the other place CSS allows: on the CAPTION rather than on the
+table. That half reached nothing — the side was read off the table's style alone — and it is not a
+spelling nobody uses, because `<caption align="bottom">` maps onto exactly that declaration. The
+property is inherited now and read off the caption's own box, which is what makes both spellings
+work for the same reason.
 
-**Boxes**: 14 matched, worst offset 0.00px, worst size 0.00px.
+What to look at: the 2px band between the caption and the grid in each table. Four pixels in any of
+them is the edge spacing being applied twice, and `#declared`'s caption back above its grid is the
+property being read off the table again.
+
+**Boxes**: 20 matched, worst offset 0.00px, worst size 0.00px.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |

@@ -1,0 +1,104 @@
+﻿[
+  {
+    "Element": "div",
+    "Name": "mix-blend-mode",
+    "Value": "multiply",
+    "Reason": "painted over what is under it"
+  },
+  {
+    "Element": "div",
+    "Name": "background-blend-mode",
+    "Value": "multiply",
+    "Reason": "the layers are painted over one another"
+  },
+  {
+    "Element": "div",
+    "Name": "isolation",
+    "Value": "isolate",
+    "Reason": "no group is isolated"
+  },
+  {
+    "Element": "div",
+    "Name": "border-image-source",
+    "Value": "linear-gradient(rgba(255, 0, 0, 1), rgba(0, 0, 255, 1))",
+    "Reason": "the border is painted from its own colour and style"
+  },
+  {
+    "Element": "div",
+    "Name": "mask-image",
+    "Value": "url(\"m.png\")",
+    "Reason": "nothing is masked"
+  },
+  {
+    "Element": "div",
+    "Name": "column-width",
+    "Value": "100px",
+    "Reason": "laid out in one column"
+  },
+  {
+    "Element": "div",
+    "Name": "font-size-adjust",
+    "Value": "0.5",
+    "Reason": "the face is used at its declared size"
+  },
+  {
+    "Element": "div",
+    "Name": "font-kerning",
+    "Value": "none",
+    "Reason": "the text is shaped with the font's kerning"
+  },
+  {
+    "Element": "div",
+    "Name": "text-justify",
+    "Value": "distribute",
+    "Reason": "justified between words"
+  },
+  {
+    "Element": "div",
+    "Name": "line-break",
+    "Value": "strict",
+    "Reason": "lines break between words as usual"
+  },
+  {
+    "Element": "div",
+    "Name": "unicode-bidi",
+    "Value": "bidi-override",
+    "Reason": "laid out in one direction"
+  },
+  {
+    "Element": "div",
+    "Name": "transform-style",
+    "Value": "preserve-3d",
+    "Reason": "painted flat"
+  },
+  {
+    "Element": "div",
+    "Name": "perspective",
+    "Value": "400px",
+    "Reason": "painted flat"
+  },
+  {
+    "Element": "div",
+    "Name": "background-attachment",
+    "Value": "fixed",
+    "Reason": "positioned against the box"
+  },
+  {
+    "Element": "div",
+    "Name": "text-wrap",
+    "Value": "balance",
+    "Reason": "lines break at the last opportunity that fits"
+  },
+  {
+    "Element": "div",
+    "Name": "content-visibility",
+    "Value": "hidden",
+    "Reason": "laid out and painted"
+  },
+  {
+    "Element": "div",
+    "Name": "initial-letter",
+    "Value": "2",
+    "Reason": "the first letter is set like the rest"
+  }
+]

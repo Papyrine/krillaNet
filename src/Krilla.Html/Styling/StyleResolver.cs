@@ -31,8 +31,20 @@ static class StyleResolver
     /// <summary>
     /// Resolves <paramref name="element"/>'s style against its <paramref name="parent"/>.
     /// </summary>
-    public static ComputedStyle Resolve(IElement element, ComputedStyle parent, DocumentContext context) =>
-        Resolve(element, context.Cascade(element), parent, context, pseudo: false);
+    /// <remarks>
+    /// The presentational attributes are folded in here rather than anywhere the cascade is read,
+    /// because this is the only route that produces an element's own style. A pseudo-element's
+    /// cascade deliberately does not get them: its host's declarations already leak into it, and a
+    /// hint arriving through that leak would be indistinguishable from one the pseudo declared.
+    /// </remarks>
+    public static ComputedStyle Resolve(IElement element, ComputedStyle parent, DocumentContext context)
+    {
+        var declaration = context.Cascade(element);
+
+        PresentationalHints.Apply(element, declaration);
+
+        return Resolve(element, declaration, parent, context, pseudo: false);
+    }
 
     /// <summary>
     /// Resolves a page margin box's own declarations against the page context.
@@ -278,6 +290,7 @@ static class StyleResolver
             RadiusBottomRight = Radius(declaration, "bottom-right", font, root),
             RadiusBottomLeft = Radius(declaration, "bottom-left", font, root),
             OutlineWidth = OutlineWidth(declaration, font, root),
+            PageName = pseudo ? null : context.Declared(element, "page"),
             OutlineColor = CssValues.ParseColor(declaration.GetPropertyValue("outline-color")) ?? color,
             OutlineAlpha = ColorAlpha(declaration, "outline-color", alpha),
             OutlineOffset = Length(declaration, "outline-offset", font, root).Resolve(0),
@@ -286,11 +299,13 @@ static class StyleResolver
                 .Equals("collapse", StringComparison.OrdinalIgnoreCase)
                 ? BorderCollapseKind.Collapse
                 : parent.BorderCollapse,
-            CaptionSide = declaration.GetPropertyValue("caption-side")
-                .Trim()
-                .Equals("bottom", StringComparison.OrdinalIgnoreCase)
-                ? CaptionSideKind.Bottom
-                : CaptionSideKind.Top,
+            // Inherited, because CSS says so and because that is the only way a declaration on the
+            // TABLE reaches the caption it is written for. It is read off the caption's own box,
+            // so `caption { caption-side: bottom }` and `<caption align="bottom">` — which is
+            // exactly that declaration — work as well as the usual spelling on the table.
+            CaptionSide = ParseCaptionSide(
+                declaration.GetPropertyValue("caption-side"),
+                parent.CaptionSide),
             ListStylePosition = ParseListPosition(
                 declaration.GetPropertyValue("list-style-position"),
                 parent.ListStylePosition),
@@ -357,6 +372,7 @@ static class StyleResolver
             UnderlineOffset = Thickness(declaration, "text-underline-offset", font, root),
             CounterReset = Counters(declaration, "counter-reset", 0),
             CounterIncrement = Counters(declaration, "counter-increment", 1),
+            CounterSet = Counters(declaration, "counter-set", 0),
             Quotes = ParseQuotes(declaration.GetPropertyValue("quotes"), parent.Quotes),
             Orphans = Count(declaration, "orphans", parent.Orphans),
             Widows = Count(declaration, "widows", parent.Widows),
@@ -366,6 +382,7 @@ static class StyleResolver
             DecorationAlpha = DecorationOpacity(declaration, parent, alpha),
             DecorationStyle = DecorationRule(declaration, parent),
             ListStyle = ParseListStyle(declaration.GetPropertyValue("list-style-type"), parent.ListStyle),
+            ListStyleText = ListLiteral(declaration.GetPropertyValue("list-style-type"), parent.ListStyleText),
             BorderSpacingX = Spacing(declaration, "border-spacing", font, root, first: true)
                              ?? parent.BorderSpacingX,
             BorderSpacingY = Spacing(declaration, "border-spacing", font, root, first: false)
@@ -384,7 +401,10 @@ static class StyleResolver
             VerticalAlignDeclared =
                 !string.IsNullOrWhiteSpace(declaration.GetPropertyValue("vertical-align")),
             TextAlign = ParseTextAlign(declaration.GetPropertyValue("text-align"), parent.TextAlign),
-            WhiteSpace = ParseWhiteSpace(declaration.GetPropertyValue("white-space"), parent.WhiteSpace),
+            TextAlignLast = ParseTextAlignLast(
+                declaration.GetPropertyValue("text-align-last"),
+                parent.TextAlignLast),
+            WhiteSpace = ParseWhiteSpace(declaration, parent.WhiteSpace),
             Float = ParseFloat(declaration.GetPropertyValue("float")),
             Clear = ParseClear(declaration.GetPropertyValue("clear")),
             BreakBefore = ParseBreak(declaration, "break-before"),
@@ -394,6 +414,9 @@ static class StyleResolver
             Opacity = ParseOpacity(declaration.GetPropertyValue("opacity")),
             Transform = CssTransform.Parse(
                 declaration.GetPropertyValue("transform"),
+                declaration.GetPropertyValue("translate"),
+                declaration.GetPropertyValue("rotate"),
+                declaration.GetPropertyValue("scale"),
                 declaration.GetPropertyValue("transform-origin"),
                 font,
                 root),
@@ -431,6 +454,14 @@ static class StyleResolver
     /// is measured and painted — font, colour, alignment, white space — is inherited. So the
     /// parent's resolved style is not an approximation here, it is the answer.
     /// </remarks>
+    static CaptionSideKind ParseCaptionSide(string value, CaptionSideKind inherited) =>
+        value.Trim().ToLowerInvariant() switch
+        {
+            "bottom" => CaptionSideKind.Bottom,
+            "top" => CaptionSideKind.Top,
+            _ => inherited
+        };
+
     public static ComputedStyle ForText(ComputedStyle parent) =>
         parent;
 
@@ -521,6 +552,9 @@ static class StyleResolver
             "large" => defaultFontSize * 18 / 16f,
             "x-large" => defaultFontSize * 24 / 16f,
             "xx-large" => defaultFontSize * 32 / 16f,
+            // Reached from `<font size="7">` rather than from a stylesheet, which is why it was
+            // missing: the keyword is CSS Fonts 4 and the attribute is where documents write it.
+            "xxx-large" => defaultFontSize * 48 / 16f,
             "smaller" => parentSize / 1.2f,
             "larger" => parentSize * 1.2f,
             _ => null
@@ -542,10 +576,90 @@ static class StyleResolver
         CssRoot root,
         CssLength? fallback = null) =>
         CssValues.ParseLength(
-            declaration.GetPropertyValue(property),
+            Physical(declaration, property),
             fontSize,
             root,
             fallback ?? CssLength.Zero);
+
+    /// <summary>
+    /// A physical property's declared value, from its own name or from a LOGICAL one that means the
+    /// same thing here.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// CSS's logical properties name a box's edges by their relation to the writing direction
+    /// rather than by the page: <c>margin-inline-start</c> is the margin at the start of a line,
+    /// which in a left-to-right horizontal document is the left one. This engine has one writing
+    /// mode and one direction — both are reported when a document asks for another — so the mapping
+    /// is fixed, and reading them costs a lookup rather than a layout pass.
+    /// </para>
+    /// <para>
+    /// AngleSharp keeps them under their own names and expands none of them onto the physical
+    /// properties, which puts them where <c>word-wrap</c> was: honoured by nothing, reported by
+    /// nothing, and increasingly what modern stylesheets are written in.
+    /// </para>
+    /// <para>
+    /// The two-value shorthands are read positionally — <c>margin-inline: 4px 8px</c> is the start
+    /// then the end — and one value applies to both, which is the shorthand rule everywhere in CSS.
+    /// </para>
+    /// <para>
+    /// A LOGICAL declaration wins over a physical one, which is not the cascade's rule and is the
+    /// one approximation here: the two never reach a common slot, so nothing can say which was
+    /// written later. It is the right way round all the same. A physical value is present on
+    /// practically every element of every document — <c>* { margin: 0 }</c> is how a stylesheet
+    /// begins — so preferring it would make every logical declaration inert, where preferring the
+    /// logical one is wrong only for a document that declares both edges of the same box twice.
+    /// </para>
+    /// </remarks>
+    static string Physical(ICssStyleDeclaration declaration, string property)
+    {
+        if (logical.TryGetValue(property, out var mapping))
+        {
+            if (declaration.GetPropertyValue(mapping.Longhand) is {Length: > 0} longhand)
+            {
+                return longhand;
+            }
+
+            if (mapping.Shorthand is not null &&
+                declaration.GetPropertyValue(mapping.Shorthand).Trim() is {Length: > 0} pair)
+            {
+                var parts = pair.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                return parts.Length > 1 && mapping.Second ? parts[1] : parts[0];
+            }
+        }
+
+        return declaration.GetPropertyValue(property);
+    }
+
+    /// <summary>
+    /// Each physical property, and the logical spellings that reach it.
+    /// </summary>
+    /// <remarks>
+    /// <c>Second</c> says which half of a two-value shorthand the property takes — the END edge of
+    /// each axis, which is the right and the bottom in this writing mode.
+    /// </remarks>
+    static readonly Dictionary<string, (string Longhand, string? Shorthand, bool Second)> logical =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["margin-left"] = ("margin-inline-start", "margin-inline", false),
+            ["margin-right"] = ("margin-inline-end", "margin-inline", true),
+            ["margin-top"] = ("margin-block-start", "margin-block", false),
+            ["margin-bottom"] = ("margin-block-end", "margin-block", true),
+            ["padding-left"] = ("padding-inline-start", "padding-inline", false),
+            ["padding-right"] = ("padding-inline-end", "padding-inline", true),
+            ["padding-top"] = ("padding-block-start", "padding-block", false),
+            ["padding-bottom"] = ("padding-block-end", "padding-block", true),
+            ["left"] = ("inset-inline-start", "inset-inline", false),
+            ["right"] = ("inset-inline-end", "inset-inline", true),
+            ["top"] = ("inset-block-start", "inset-block", false),
+            ["bottom"] = ("inset-block-end", "inset-block", true),
+            ["width"] = ("inline-size", null, false),
+            ["height"] = ("block-size", null, false),
+            ["min-width"] = ("min-inline-size", null, false),
+            ["min-height"] = ("min-block-size", null, false),
+            ["max-width"] = ("max-inline-size", null, false),
+            ["max-height"] = ("max-block-size", null, false)
+        };
 
     /// <summary>
     /// A border edge's width, which is zero whenever its style is <c>none</c> or <c>hidden</c>
@@ -847,18 +961,48 @@ static class StyleResolver
             _ => fallback
         };
 
-    /// <summary>Whether the background repeats along one axis.</summary>
+    /// <summary>How the background repeats along one axis.</summary>
     /// <remarks>
+    /// <para>
     /// The initial value is <c>repeat</c> on both, which is why a background image reaches past the
     /// element that declared it far more often than authors expect.
+    /// </para>
+    /// <para>
+    /// The two-value form does not arrive as written: AngleSharp splits it into
+    /// <c>background-repeat-x</c> and <c>background-repeat-y</c> and reserialises the shorthand, so
+    /// <c>repeat no-repeat</c> comes back as <c>repeat-x</c>. That folding only covers the pairs
+    /// that have a single-keyword spelling, though — <c>round no-repeat</c> has none — so the
+    /// longhands are read first and the shorthand only used when they say nothing.
+    /// </para>
     /// </remarks>
-    static bool Repeats(ICssStyleDeclaration declaration, bool horizontal) =>
-        declaration.GetPropertyValue("background-repeat").Trim().ToLowerInvariant() switch
+    static BackgroundRepeatKind Repeats(ICssStyleDeclaration declaration, bool horizontal)
+    {
+        var axis = declaration
+            .GetPropertyValue(horizontal ? "background-repeat-x" : "background-repeat-y")
+            .Trim()
+            .ToLowerInvariant();
+
+        if (axis.Length > 0)
         {
-            "no-repeat" => false,
-            "repeat-x" => horizontal,
-            "repeat-y" => !horizontal,
-            _ => true
+            return Repeat(axis);
+        }
+
+        return declaration.GetPropertyValue("background-repeat").Trim().ToLowerInvariant() switch
+        {
+            "no-repeat" => BackgroundRepeatKind.NoRepeat,
+            "repeat-x" => horizontal ? BackgroundRepeatKind.Repeat : BackgroundRepeatKind.NoRepeat,
+            "repeat-y" => horizontal ? BackgroundRepeatKind.NoRepeat : BackgroundRepeatKind.Repeat,
+            var value => Repeat(value)
+        };
+    }
+
+    static BackgroundRepeatKind Repeat(string value) =>
+        value switch
+        {
+            "no-repeat" => BackgroundRepeatKind.NoRepeat,
+            "round" => BackgroundRepeatKind.Round,
+            "space" => BackgroundRepeatKind.Space,
+            _ => BackgroundRepeatKind.Repeat
         };
 
     /// <summary>
@@ -1179,6 +1323,32 @@ static class StyleResolver
     /// are declared on <c>ul</c> and <c>ol</c> rather than on <c>li</c>, so a marker that does not
     /// inherit is a marker that never reaches the item drawing it.
     /// </remarks>
+    /// <summary>
+    /// The literal a string counter style shows, or the inherited one when nothing was declared.
+    /// </summary>
+    /// <remarks>
+    /// Inherited alongside the kind rather than separately, because the two are one declaration:
+    /// <c>ul { list-style-type: "→" }</c> has to reach the <c>li</c> that draws it, and the kind
+    /// already travels that way.
+    /// </remarks>
+    static string? ListLiteral(string value, string? inherited)
+    {
+        var text = value.Trim();
+
+        if (text.Length == 0)
+        {
+            return inherited;
+        }
+
+        if (text.Length >= 2 &&
+            ((text[0] == '"' && text[^1] == '"') || (text[0] == '\'' && text[^1] == '\'')))
+        {
+            return CssContent.Unescape(text[1..^1]);
+        }
+
+        return null;
+    }
+
     static ListStyleKind ParseListStyle(string value, ListStyleKind inherited) =>
         value.Trim().ToLowerInvariant() switch
         {
@@ -1193,6 +1363,10 @@ static class StyleResolver
             "upper-alpha" or "upper-latin" => ListStyleKind.UpperAlpha,
             "lower-roman" => ListStyleKind.LowerRoman,
             "upper-roman" => ListStyleKind.UpperRoman,
+            "lower-greek" => ListStyleKind.LowerGreek,
+            // A quoted literal, which CSS Counter Styles allows in place of a named style. Every
+            // item then shows the same text, so there is nothing to count and nothing to suffix.
+            ['"', _, ..] or ['\'', _, ..] => ListStyleKind.String,
             // An unimplemented counter style still marks its items rather than losing them, on the
             // same reasoning as an unimplemented `display`: a wrong marker is visible and a missing
             // one is not.
@@ -1845,10 +2019,20 @@ static class StyleResolver
     /// Whether a line may break inside a word, from either of the two properties that say so.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <c>word-break</c> is read first because <c>break-all</c> is the stronger permission: it
     /// breaks whether or not the word would overflow, where <c>overflow-wrap: break-word</c> breaks
     /// only a word that fits on no line at all. The values not listed — <c>keep-all</c> and
     /// <c>break-word</c> as a <c>word-break</c> value — are reported rather than approximated.
+    /// </para>
+    /// <para>
+    /// BOTH spellings of the second property are read, and the cascade does not alias them: a
+    /// <c>word-wrap</c> declaration comes back under that name and leaves <c>overflow-wrap</c>
+    /// empty, exactly as the two break-property spellings do. Reading only the modern one is a
+    /// defect that leaves every test written in it passing while the documents that matter — the
+    /// legacy spelling predates the modern one by a decade and is what reporting tools and mail
+    /// merges emit — break nothing and report nothing.
+    /// </para>
     /// </remarks>
     static WordBreaking ParseWordBreaking(ICssStyleDeclaration declaration, WordBreaking inherited)
     {
@@ -1857,13 +2041,30 @@ static class StyleResolver
             return WordBreaking.Always;
         }
 
-        return declaration.GetPropertyValue("overflow-wrap").Trim().ToLowerInvariant() switch
+        return Wrapping(declaration) switch
         {
             "anywhere" => WordBreaking.Always,
             "break-word" => WordBreaking.OnOverflow,
             "normal" => WordBreaking.Normal,
             _ => inherited
         };
+    }
+
+    /// <summary>
+    /// The declared <c>overflow-wrap</c>, under whichever of its two spellings carries it.
+    /// </summary>
+    /// <remarks>
+    /// The modern one is preferred and the legacy one is the fallback, which is the same precedence
+    /// the break properties take.
+    /// </remarks>
+    static string Wrapping(ICssStyleDeclaration declaration)
+    {
+        if (declaration.GetPropertyValue("overflow-wrap").Trim().ToLowerInvariant() is {Length: > 0} modern)
+        {
+            return modern;
+        }
+
+        return declaration.GetPropertyValue("word-wrap").Trim().ToLowerInvariant();
     }
 
     static TextDecorations ParseDecorations(ICssStyleDeclaration declaration, TextDecorations inherited)
@@ -1923,14 +2124,106 @@ static class StyleResolver
             _ => inherited
         };
 
-    static WhiteSpaceKind ParseWhiteSpace(string value, WhiteSpaceKind inherited) =>
+    /// <summary>
+    /// How white space and wrapping are handled, from either spelling.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>white-space</c> is a shorthand for <c>white-space-collapse</c> and <c>text-wrap</c> in CSS
+    /// Text 4, and AngleSharp does not expand it — the two longhands come back empty for a document
+    /// that writes the shorthand, and the shorthand comes back empty for one that writes the
+    /// longhands. So both are read, exactly as <c>overflow-wrap</c> and <c>word-wrap</c> are, and
+    /// the shorthand is read first because a document writing it means it.
+    /// </para>
+    /// <para>
+    /// The five values of the shorthand are the five combinations this engine distinguishes, which
+    /// is what lets the longhands fold onto the same enum rather than needing a second axis.
+    /// <c>break-spaces</c> is the sixth and is not reachable from either spelling: AngleSharp drops
+    /// it from <c>white-space</c>, and <c>white-space-collapse: break-spaces</c> is folded onto
+    /// <c>preserve</c> here and reported.
+    /// </para>
+    /// </remarks>
+    /// <summary>
+    /// How the last line of a block is aligned, or null for <c>auto</c>. Inherited.
+    /// </summary>
+    /// <remarks>
+    /// <c>auto</c> is a value in its own right rather than a synonym for the inherited one: it
+    /// hands the decision back to <c>text-align</c>, which is not the same as taking whatever the
+    /// parent's <c>text-align-last</c> was.
+    /// </remarks>
+    static TextAlignKind? ParseTextAlignLast(string value, TextAlignKind? inherited) =>
         value.Trim().ToLowerInvariant() switch
         {
-            "pre" => WhiteSpaceKind.Pre,
-            "pre-wrap" => WhiteSpaceKind.PreWrap,
-            "pre-line" => WhiteSpaceKind.PreLine,
-            "nowrap" => WhiteSpaceKind.NoWrap,
-            "normal" => WhiteSpaceKind.Normal,
+            "auto" => null,
+            "center" => TextAlignKind.Center,
+            "right" or "end" => TextAlignKind.Right,
+            "justify" => TextAlignKind.Justify,
+            "left" or "start" => TextAlignKind.Left,
             _ => inherited
         };
+
+    static WhiteSpaceKind ParseWhiteSpace(ICssStyleDeclaration declaration, WhiteSpaceKind inherited)
+    {
+        var shorthand = declaration.GetPropertyValue("white-space").Trim().ToLowerInvariant();
+
+        switch (shorthand)
+        {
+            case "pre":
+                return WhiteSpaceKind.Pre;
+            case "pre-wrap":
+                return WhiteSpaceKind.PreWrap;
+            case "pre-line":
+                return WhiteSpaceKind.PreLine;
+            case "nowrap":
+                return WhiteSpaceKind.NoWrap;
+            case "normal":
+                return WhiteSpaceKind.Normal;
+        }
+
+        var collapse = declaration.GetPropertyValue("white-space-collapse").Trim().ToLowerInvariant();
+        var wrap = declaration.GetPropertyValue("text-wrap").Trim().ToLowerInvariant();
+
+        if (collapse.Length == 0 && wrap.Length == 0)
+        {
+            return inherited;
+        }
+
+        // Each longhand falls back to what the element INHERITED rather than to its initial value,
+        // so `text-wrap: nowrap` inside a `pre` block keeps the preserving half of it. Reading the
+        // absent one as its initial value would silently reset the other half.
+        var preserves = collapse switch
+        {
+            // `break-spaces` differs from `preserve` only in that a run of trailing spaces may
+            // itself be broken, which is what `UnsupportedCss` reports.
+            "preserve" or "break-spaces" or "preserve-spaces" => true,
+            "preserve-breaks" => false,
+            "collapse" => false,
+            _ => inherited is WhiteSpaceKind.Pre or WhiteSpaceKind.PreWrap
+        };
+
+        var breaks = collapse switch
+        {
+            "preserve-breaks" => true,
+            _ => preserves || inherited == WhiteSpaceKind.PreLine
+        };
+
+        var wraps = wrap switch
+        {
+            "nowrap" => false,
+            "" => inherited is not (WhiteSpaceKind.Pre or WhiteSpaceKind.NoWrap),
+            _ => true
+        };
+
+        if (preserves)
+        {
+            return wraps ? WhiteSpaceKind.PreWrap : WhiteSpaceKind.Pre;
+        }
+
+        if (breaks)
+        {
+            return WhiteSpaceKind.PreLine;
+        }
+
+        return wraps ? WhiteSpaceKind.Normal : WhiteSpaceKind.NoWrap;
+    }
 }

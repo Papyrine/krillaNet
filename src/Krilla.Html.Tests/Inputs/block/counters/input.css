@@ -4,7 +4,7 @@
   matches — the trap `Inputs/flatten.css` works around by enumerating names. An id outranks it in
   both engines.
 */
-#outer, #outer ol, #headings { margin: 0 0 8px 0; padding-left: 0; list-style-type: none; }
+#outer, #outer ol, #headings, #flat { margin: 0 0 8px 0; padding-left: 0; list-style-type: none; }
 li, h3, p { font-size: 16px; line-height: 24px; margin: 0; background-color: #eef2f8; }
 h3 { font-weight: normal; }
 
@@ -26,3 +26,22 @@ h3 { font-weight: normal; }
 
 /* A counter never reset and never incremented reads zero, which CSS requires. */
 #absent::before { content: "[" counter(missing) "]"; }
+
+/* `counter-set` creates no SCOPE, which is the whole of what separates it from `counter-reset`:
+   setting a counter that is already in scope changes the one that is there, so `counters()` reads
+   one level where a reset would nest a second inside it. */
+#scoped { counter-reset: part 3; margin: 0 0 8px 0; }
+#set { counter-set: part 7; }
+#set::before { content: "[" counters(part, ".") "]"; }
+
+/* All three on one element, in CSS's order: reset, then increment, then set — so the element ends
+   on the value it SET rather than on the one it counted to. */
+#ordered { counter-reset: mark 1; counter-increment: mark 5; counter-set: mark 9; }
+#ordered::before { content: "[" counter(mark) "] "; }
+
+/* Setting a counter part way through a run, which is what the property is for: the paragraphs
+   after it carry on from the new value. */
+#flat { counter-reset: line; }
+#flat p { counter-increment: line; }
+#flat p.restart { counter-set: line 20; }
+#flat p::before { content: counter(line) ". "; }

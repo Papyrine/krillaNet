@@ -1,0 +1,39 @@
+/*
+  translate, rotate and scale are properties in their own right rather than shorthands for
+  transform: they reach no longhand of it, and CSS Transforms 2 §3 composes them AHEAD of it in a
+  fixed order — translate, then rotate, then scale — whatever order they were written in.
+*/
+.frame { height: 72px; background-color: #f2f2f2; margin-bottom: 4px; }
+.tile { width: 60px; height: 32px; margin: 20px; background-color: #c04040; }
+
+#moved { translate: 20px 10px; }
+
+/* One value leaves the vertical alone. */
+#movedone { translate: 24px; }
+
+#turned { rotate: 30deg; }
+
+/* Naming the z axis is the same as naming none: it is the only one with a two-dimensional
+   meaning, and either order is legal. */
+#turnedz { rotate: z 30deg; }
+
+#sized { scale: 1.5; }
+#sizedpair { scale: 1.5 0.75; }
+
+/* A percentage here is a scale FACTOR rather than a fraction of anything, so this is `scale: 1.5`
+   written the other way. */
+#sizedpercent { scale: 150%; }
+
+/* The fixed order is what this measures: written scale-first, composed translate-first, so the
+   movement is not scaled. */
+#composed { scale: 1.5; translate: 20px 0; rotate: 20deg; }
+
+/* The same three functions written into `transform` instead, which composes left to right — a
+   different matrix from the row above, and the point of having both. */
+#written { transform: scale(1.5) translate(20px, 0) rotate(20deg); }
+
+/* The individual properties compose BEFORE transform, never after. */
+#beside { translate: 20px 0; transform: rotate(20deg); }
+
+/* transform-origin applies to the composite, not to `transform` alone. */
+#origin { rotate: 30deg; transform-origin: top left; }

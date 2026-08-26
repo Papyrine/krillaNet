@@ -1,0 +1,17 @@
+/*
+  `white-space` inherits and applies to the element, so an inline element inside a wrapping
+  paragraph can turn wrapping off for its own text alone. The line breaker asked the BLOCK, so a
+  `nowrap` span suppressed nothing at all — and the block is the rarer case: a whole paragraph that
+  never wraps is unusual where a held phrase is the common reason anyone writes the property.
+*/
+p { width: 280px; margin-bottom: 10px; }
+
+.keep { white-space: nowrap; background-color: #dde6f2; }
+
+/* A descendant setting it back wraps again, which is what says the suppression follows the text
+   rather than the paragraph. */
+.loose { white-space: normal; background-color: #f2e6dd; }
+
+/* `overflow-wrap` cuts a word that fits on no line — and a held phrase is not a word, so the two
+   properties do not interfere: the cut still happens inside the word. */
+.breakable { overflow-wrap: break-word; }

@@ -6,8 +6,8 @@
 /// <para>
 /// HTML maps these onto CSS as presentational hints, at a specificity below every author rule.
 /// AngleSharp does not apply that mapping, so an attribute here reaches the cascade as nothing at
-/// all: a <c>&lt;table width="300"&gt;</c> lays out shrink-to-fit, and a
-/// <c>&lt;td bgcolor="red"&gt;</c> paints no background.
+/// all. <see cref="PresentationalHints"/> now performs the mapping for the attributes that have a
+/// property to map onto; what is left here is the ones that do not.
 /// </para>
 /// <para>
 /// They are worth reporting rather than dismissing as legacy. Documents converted to PDF are
@@ -17,39 +17,29 @@
 /// </para>
 /// <para>
 /// <c>width</c> and <c>height</c> on <c>&lt;img&gt;</c> are deliberately absent: those two ARE
-/// applied, in <c>BoxBuilder.WithAttributeSize</c>.
+/// applied, in <c>BoxBuilder.WithAttributeSize</c>. So is everything
+/// <see cref="PresentationalHints"/> now maps — an attribute leaves this table on the commit that
+/// starts honouring it, which is the only thing keeping the diagnostic invariant true.
 /// </para>
 /// </remarks>
 static class UnsupportedAttributes
 {
-    const string notApplied = "not applied, because presentational attributes are not mapped onto the cascade";
+    const string notApplied = "not applied, because presentational attributes are not mapped onto CSS";
 
     static readonly Dictionary<string, string[]> byElement = new(StringComparer.Ordinal)
     {
-        ["table"] = ["width", "height", "border", "cellpadding", "cellspacing", "align", "bgcolor", "rules", "frame"],
-        ["td"] = ["width", "height", "align", "valign", "bgcolor", "nowrap"],
-        ["th"] = ["width", "height", "align", "valign", "bgcolor", "nowrap"],
-        ["tr"] = ["height", "align", "valign", "bgcolor"],
-        ["caption"] = ["align"],
-        ["ol"] = ["type"],
-        ["ul"] = ["type"],
-        ["li"] = ["type"],
-        ["p"] = ["align"],
-        ["div"] = ["align"],
-        ["h1"] = ["align"],
-        ["h2"] = ["align"],
-        ["h3"] = ["align"],
-        ["h4"] = ["align"],
-        ["h5"] = ["align"],
-        ["h6"] = ["align"],
-        ["hr"] = ["width", "size", "align", "color", "noshade"],
-        ["font"] = ["color", "size", "face"],
-        ["body"] = ["bgcolor", "text", "link", "vlink", "alink"],
-        ["img"] = ["align", "border", "hspace", "vspace"]
+        ["table"] = ["rules", "frame"],
+
+        // The three colours a document gives its links, which need a `:link`, `:visited` and
+        // `:active` of their own to land on. Nothing here reads a pseudo-class, so unlike every
+        // other attribute on this element they have nowhere to go.
+        ["body"] = ["link", "vlink", "alink"]
     };
 
     public static void Report(IElement element, Action<HtmlDiagnostic> sink)
     {
+        PresentationalHints.Report(element, sink);
+
         if (!byElement.TryGetValue(element.LocalName, out var attributes))
         {
             return;

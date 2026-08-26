@@ -51,6 +51,12 @@ static class BoxBuilder
         // ::before content is generated, so `counter()` there reads the incremented value.
         var pushed = context.Counters.Enter(style);
 
+        // After the counters this element resets and increments, and before its children, which is
+        // the only moment `string-set: title counter(part) content()` reads the value the heading
+        // itself carries: before the enter it is the previous section's, and after the subtree it
+        // is whatever the subtree left behind.
+        box.Strings = NamedStrings(element, context);
+
         // A table inside a cell has its own column definitions, so the outer table's are set aside
         // for the duration rather than shared — the alternative is one table's <col> widths sizing
         // another's columns.
@@ -218,6 +224,59 @@ static class BoxBuilder
             return;
         }
 
+        PlaceImage(element, style, parentStyle, image, blocks, inlines, floats, positioned, link);
+    }
+
+    /// <summary>
+    /// An inline <c>&lt;svg&gt;</c>: a replaced element whose content is the markup itself.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Serialised and handed to the same SVG path an <c>&lt;img src="x.svg"&gt;</c> takes, which is
+    /// what makes it a replaced element rather than a subtree of boxes. Without this its children
+    /// went through ordinary block layout, so a drawing became a stack of empty boxes and the
+    /// picture never appeared.
+    /// </para>
+    /// <para>
+    /// It returns before <c>AddChildren</c>, which is the point: nothing inside an
+    /// <c>&lt;svg&gt;</c> is laid out by CSS here, and a <c>&lt;text&gt;</c> inside one is drawn by
+    /// usvg rather than by this engine.
+    /// </para>
+    /// </remarks>
+    static void AddInlineSvg(
+        IElement element,
+        ComputedStyle style,
+        ComputedStyle parentStyle,
+        DocumentContext context,
+        List<LayoutBox> blocks,
+        List<InlineItem> inlines,
+        List<FloatChild> floats,
+        List<FloatChild> positioned,
+        string? link)
+    {
+        if (context.Images.Inline(element) is not {} image)
+        {
+            Diagnostic.Image(context.OnDiagnostic, element.LocalName, null, "could not be read as a drawing");
+            return;
+        }
+
+        PlaceImage(element, style, parentStyle, image, blocks, inlines, floats, positioned, link);
+    }
+
+    /// <summary>
+    /// Puts a resolved replaced element where its display asks for.
+    /// </summary>
+    static void PlaceImage(
+        IElement element,
+        ComputedStyle style,
+        ComputedStyle parentStyle,
+        ImageData image,
+        List<LayoutBox> blocks,
+        List<InlineItem> inlines,
+        List<FloatChild> floats,
+        List<FloatChild> positioned,
+        string? link)
+    {
         var sized = WithAttributeSize(element, style);
         var selector = SelectorPath.For(element);
 
@@ -454,9 +513,24 @@ static class BoxBuilder
             return;
         }
 
+        // A break OPPORTUNITY, handled beside the forced break for the same reason: it carries no
+        // characters, so the white-space processing below would see an empty run and drop it.
+        if (UserAgentStyles.IsWordBreak(element.LocalName))
+        {
+            inlines.Add(new("", style, SelectorPath.For(element), SoftBreak: true));
+            return;
+        }
+
         if (element.LocalName.Equals("img", StringComparison.OrdinalIgnoreCase))
         {
             AddImage(element, style, parentStyle, context, blocks, inlines, floats, positioned, link);
+            return;
+        }
+
+        if (element.NamespaceUri == NamespaceNames.SvgUri &&
+            element.LocalName.Equals("svg", StringComparison.OrdinalIgnoreCase))
+        {
+            AddInlineSvg(element, style, parentStyle, context, blocks, inlines, floats, positioned, link);
             return;
         }
 
@@ -981,6 +1055,117 @@ static class BoxBuilder
         {
             context.PendingColumns.Add(style.Width);
         }
+    }
+
+    /// <summary>
+    /// The named strings this element sets, from <c>string-set</c>, or null when it sets none.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The value is resolved HERE rather than when a page asks for it, because it is a function of
+    /// the element — its own text, or one of its attributes — and the element is what this walk
+    /// has. Which page sees it is settled after layout, by <see cref="RunningStrings"/>.
+    /// </para>
+    /// <para>
+    /// The property is read from the stylesheet's own source, because AngleSharp drops it: a
+    /// declaration it cannot parse is gone from the rule and from the rule's text alike, so
+    /// <c>string-set: title content()</c> comes back indistinguishable from one nobody wrote. See
+    /// <see cref="CssSource"/>.
+    /// </para>
+    /// <para>
+    /// The grammar is a comma-separated list of <c>name value…</c> pairs, and the values are the
+    /// <c>content</c> grammar: a literal string, <c>attr()</c>, <c>counter()</c>, and
+    /// <c>content()</c> for the element's own text. Several values concatenate, which is what makes
+    /// <c>string-set: title counter(chapter) ". " content()</c> read as a numbered heading.
+    /// </para>
+    /// </remarks>
+    static IReadOnlyList<(string Name, string Value)>? NamedStrings(IElement element, DocumentContext context)
+    {
+        if (context.Declared(element, "string-set") is not {Length: > 0} declared ||
+            declared.Equals("none", StringComparison.OrdinalIgnoreCase))
+        {
+            return null;
+        }
+
+        var strings = new List<(string, string)>();
+
+        foreach (var entry in CssValues.SplitLayers(declared))
+        {
+            var trimmed = entry.Trim();
+            var space = trimmed.IndexOf(' ');
+
+            if (space <= 0)
+            {
+                continue;
+            }
+
+            if (CssContent.Parse(trimmed[(space + 1)..]) is not {} content)
+            {
+                continue;
+            }
+
+            var text = new StringBuilder();
+
+            foreach (var item in content)
+            {
+                switch (item.Kind)
+                {
+                    case ContentKind.Text:
+                        text.Append(item.Text);
+                        break;
+
+                    case ContentKind.Element:
+                        text.Append(element.TextContent);
+                        break;
+
+                    case ContentKind.Attribute:
+                        text.Append(element.GetAttribute(item.Text) ?? "");
+                        break;
+
+                    case ContentKind.Counter:
+                        text.Append(ListMarkers.Counter(item.Style, context.Counters.Value(item.Text)));
+                        break;
+                }
+            }
+
+            strings.Add((trimmed[..space].Trim(), Collapsed(text.ToString())));
+        }
+
+        return strings.Count == 0 ? null : strings;
+    }
+
+    /// <summary>
+    /// One named string's text, with its white space collapsed the way a browser collapses an
+    /// element's own.
+    /// </summary>
+    /// <remarks>
+    /// <c>content()</c> takes the element's <c>textContent</c>, which carries the newlines and
+    /// indentation the markup was written with — a heading spread over three lines of source would
+    /// otherwise arrive in the running header with all of it.
+    /// </remarks>
+    static string Collapsed(string text)
+    {
+        var collapsed = new StringBuilder(text.Length);
+        var space = false;
+
+        foreach (var character in text)
+        {
+            if (char.IsWhiteSpace(character))
+            {
+                space = collapsed.Length > 0;
+                continue;
+            }
+
+            if (space)
+            {
+                collapsed.Append(' ');
+                space = false;
+            }
+
+            collapsed.Append(character);
+        }
+
+        return collapsed.ToString();
     }
 
     /// <summary>
