@@ -75,6 +75,7 @@ inline/justify                   matched  3  offset    0.00  size    0.00  diffe
 inline/line_height               matched  4  offset    0.00  size    0.00  differing  0  unmatched 0
 inline/line_height_normal        matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
 inline/nested_inline             matched  7  offset    0.00  size    0.00  differing  0  unmatched 0
+inline/nowrap                    matched 13  offset    0.00  size    0.00  differing  0  unmatched 0
 inline/padded                    matched 15  offset    0.00  size    0.00  differing  0  unmatched 0
 inline/simple_text               matched  3  offset    0.00  size    0.00  differing  0  unmatched 0
 inline/text_align                matched  5  offset    0.00  size    0.00  differing  0  unmatched 0

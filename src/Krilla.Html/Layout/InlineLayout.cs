@@ -49,7 +49,6 @@ static class InlineLayout
             return 0;
         }
 
-        var wraps = box.Style.Wraps;
         var y = 0f;
         var current = new List<Token>();
         var currentWidth = 0f;
@@ -142,7 +141,15 @@ static class InlineLayout
             // offer one itself. Without this second half a line breaks between any two adjacent
             // tokens, which puts a break inside a word split across two inline elements — measured
             // against Chrome, which overflows the line instead.
-            var breakable = pendingSpace is not null || token.BreaksBefore;
+            //
+            // Asked of the TOKEN at the opportunity rather than of the block, because `white-space`
+            // inherits and an element inside a wrapping paragraph can turn wrapping off for its own
+            // text alone. Reading the block's suppressed nothing on `<span style="white-space:
+            // nowrap">`, which is how the property is nearly always written — a whole block that
+            // never wraps is the rarer case.
+            var breakable =
+                (pendingSpace is {} opportunity && opportunity.Style.Wraps) ||
+                (token.BreaksBefore && token.Style.Wraps);
 
             // Measured over the whole UNBREAKABLE RUN starting here, not over this token alone.
             // The two differ whenever a break opportunity is followed by tokens that offer none —
@@ -150,8 +157,7 @@ static class InlineLayout
             // with no space between them. Measuring the first token alone lets it onto the line
             // and then appends the rest with nowhere left to break, so the line overruns its band
             // instead of moving the group down whole.
-            if (wraps &&
-                breakable &&
+            if (breakable &&
                 current.Count > 0 &&
                 currentWidth + spaceWidth + unbreakable[index] > band.Width)
             {
@@ -184,7 +190,7 @@ static class InlineLayout
             // `word-break` and `overflow-wrap` let a line break INSIDE a word, which every rule
             // above forbids. The loop runs because one cut is rarely enough: a word wider than
             // several lines is cut once per line it crosses.
-            while (wraps &&
+            while (token.Style.Wraps &&
                    Splittable(token, band.Width) &&
                    currentWidth + token.Width > band.Width &&
                    Split(token, band.Width - currentWidth, current.Count > 0) is var (head, tail))
@@ -412,10 +418,7 @@ static class InlineLayout
 
         for (var index = tokens.Count - 1; index >= 0; index--)
         {
-            // A space, a tab or a forced break is not content and ends the run rather than
-            // joining it. A tab in particular must not be summed: its width field holds the stop
-            // spacing rather than an advance, and adding that to a fit test measures nothing.
-            if (tokens[index].Kind is TokenKind.Space or TokenKind.Break or TokenKind.Tab)
+            if (Ends(tokens[index]))
             {
                 continue;
             }
@@ -423,14 +426,26 @@ static class InlineLayout
             widths[index] = tokens[index].Width;
 
             if (index + 1 < tokens.Count &&
-                tokens[index + 1].Kind is not (TokenKind.Space or TokenKind.Break or TokenKind.Tab) &&
-                !tokens[index + 1].BreaksBefore)
+                !Ends(tokens[index + 1]) &&
+                !Offers(tokens[index + 1]))
             {
                 widths[index] += widths[index + 1];
             }
         }
 
         return widths;
+
+        // A tab or a forced break is not content and ends the run rather than joining it. A tab in
+        // particular must not be summed: its width field holds the stop spacing rather than an
+        // advance, and adding that to a fit test measures nothing. A SPACE ends the run only where
+        // it is an opportunity — inside a `nowrap` element it is content like any other, and a run
+        // that stopped there would be measured short of the group that has to move together.
+        static bool Ends(Token token) =>
+            token.Kind is TokenKind.Break or TokenKind.Tab ||
+            (token.Kind == TokenKind.Space && token.Style.Wraps);
+
+        static bool Offers(Token token) =>
+            token.BreaksBefore && token.Style.Wraps;
     }
 
     /// <summary>
