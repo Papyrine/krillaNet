@@ -710,12 +710,11 @@ static class InlineLayout
 
             // Shaped once for the whole item, then sliced. Shaping each word separately would
             // also lose the kerning between a word and the punctuation attached to it.
-            var shaped = ShapedText.Create(
-                face,
-                text,
-                item.Style.FontSize,
-                item.Style.LetterSpacing,
-                item.Style.WordSpacing);
+            //
+            // One run per FACE, which is one run over the whole item for every document whose
+            // text the resolved face covers — which is nearly all of them, and is exactly what
+            // this was before coverage was consulted at all.
+            var runs = ShapedRuns(text, item.Style, face, fonts);
             var index = 0;
 
             while (index < text.Length)
@@ -746,17 +745,19 @@ static class InlineLayout
                 {
                     index++;
 
+                    var stop = At(runs, start);
+
                     tokens.Add(new(
                         item.Style,
-                        face,
+                        stop.Face,
                         item.Style.TabStop ?? item.Style.TabSize * face.Advance(' ', item.Style.FontSize),
                         TokenKind.Tab,
                         Link: item.Link,
                         Selector: item.Selector,
                         Backdrops: backdrops,
-                        Shaped: shaped,
-                        TextStart: start,
-                        TextEnd: index));
+                        Shaped: stop.Shaped,
+                        TextStart: start - stop.Start,
+                        TextEnd: index - stop.Start));
 
                     // A break opportunity, exactly as a space is, which is what lets `pre-wrap`
                     // wrap a tabulated line.
@@ -775,18 +776,19 @@ static class InlineLayout
                     // the page. Collapsed white space arrives here already reduced to one, so the
                     // range is one character wide either way.
                     var end = item.Style.PreservesSpaces ? index : start + 1;
+                    var spaces = At(runs, start);
 
                     tokens.Add(new(
                         item.Style,
-                        face,
-                        shaped.Width(start, end),
+                        spaces.Face,
+                        spaces.Shaped.Width(start - spaces.Start, end - spaces.Start),
                         TokenKind.Space,
                         Link: item.Link,
                         Selector: item.Selector,
                         Backdrops: backdrops,
-                        Shaped: shaped,
-                        TextStart: start,
-                        TextEnd: end,
+                        Shaped: spaces.Shaped,
+                        TextStart: start - spaces.Start,
+                        TextEnd: end - spaces.Start,
                         Generated: item.Generated));
                     breakable = true;
                     continue;
@@ -826,20 +828,39 @@ static class InlineLayout
 
                 void Word(int from, int to, bool hyphenates)
                 {
-                    tokens.Add(new(
-                        item.Style,
-                        face,
-                        shaped.Width(from, to),
-                        TokenKind.Word,
-                        Link: item.Link,
-                        Selector: item.Selector,
-                        Shaped: shaped,
-                        TextStart: from,
-                        TextEnd: to,
-                        BreaksBefore: breakable,
-                        Backdrops: backdrops,
-                        HyphenAfter: hyphenates,
-                        Generated: item.Generated));
+                    // One token per face the segment crosses, glued together: a change of face is
+                    // not a break opportunity, so only the first carries `BreaksBefore` and only
+                    // the last can hyphenate. With one run — every document whose text its own
+                    // face covers — this is one token, exactly as it was.
+                    var first = true;
+
+                    foreach (var run in runs)
+                    {
+                        var head = Math.Max(from, run.Start);
+                        var tail = Math.Min(to, run.End);
+
+                        if (head >= tail)
+                        {
+                            continue;
+                        }
+
+                        tokens.Add(new(
+                            item.Style,
+                            run.Face,
+                            run.Shaped.Width(head - run.Start, tail - run.Start),
+                            TokenKind.Word,
+                            Link: item.Link,
+                            Selector: item.Selector,
+                            Shaped: run.Shaped,
+                            TextStart: head - run.Start,
+                            TextEnd: tail - run.Start,
+                            BreaksBefore: first && breakable,
+                            Backdrops: backdrops,
+                            HyphenAfter: hyphenates && tail == to,
+                            Generated: item.Generated));
+
+                        first = false;
+                    }
 
                     // A run of dashes therefore offers a break after each one, and greedy line
                     // breaking takes the last that fits — which is how `a--b` keeps both dashes on
@@ -850,6 +871,135 @@ static class InlineLayout
         }
 
         return tokens;
+    }
+
+    /// <summary>One stretch of an item's text that one face draws, shaped on its own.</summary>
+    /// <param name="Start">Where it begins in the item's text.</param>
+    /// <param name="End">Where it ends, exclusive.</param>
+    /// <param name="Face">The face covering it.</param>
+    /// <param name="Shaped">That stretch shaped, indexed from its own start.</param>
+    readonly record struct ShapedRun(int Start, int End, FontFace Face, ShapedText Shaped);
+
+    /// <summary>
+    /// Splits an item's text where the resolved face stops covering it, and shapes each piece.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <see cref="FontSet.Resolve"/> answers a font-family list and nothing else, so a character
+    /// the resolved face lacks was drawn as <c>.notdef</c>: a document in Greek set in a face with
+    /// no Greek came out as a row of boxes, silently, with the family resolution having done
+    /// exactly what it was asked. Coverage is the other half of the question and it is asked per
+    /// CHARACTER, so the answer is a list of runs rather than one face.
+    /// </para>
+    /// <para>
+    /// Each run is shaped over its OWN substring rather than sliced out of one shaping of the
+    /// whole. It has to be: a shaper works in one face, and the kerning it would find across a
+    /// boundary where the face changes is not kerning any face defines. The cost is that a
+    /// document needing fallback shapes once per run, which is the price of drawing the character
+    /// at all.
+    /// </para>
+    /// <para>
+    /// The common case is one run over the whole item — every document whose text its own face
+    /// covers — and it is the same single shaping this did before coverage was consulted. That
+    /// matters more than it sounds: it is what says the corpus, which is entirely Latin, cannot
+    /// have moved.
+    /// </para>
+    /// </remarks>
+    static List<ShapedRun> ShapedRuns(
+        string text,
+        ComputedStyle style,
+        FontFace primary,
+        FontSet fonts)
+    {
+        FontFace[]? chosen = null;
+
+        for (var index = 0; index < text.Length; index++)
+        {
+            var codepoint = char.ConvertToUtf32(text, index);
+            var length = char.IsSurrogatePair(text, index) ? 2 : 1;
+
+            if (!primary.Covers(codepoint))
+            {
+                if (chosen is null)
+                {
+                    chosen = new FontFace[text.Length];
+                    Array.Fill(chosen, primary, 0, index);
+                }
+
+                var face = fonts.Covering(
+                    style.FontFamilies,
+                    style.FontWeight,
+                    style.Italic,
+                    codepoint,
+                    primary);
+
+                for (var offset = 0; offset < length; offset++)
+                {
+                    chosen[index + offset] = face;
+                }
+            }
+            else if (chosen is not null)
+            {
+                for (var offset = 0; offset < length; offset++)
+                {
+                    chosen[index + offset] = primary;
+                }
+            }
+
+            index += length - 1;
+        }
+
+        if (chosen is null)
+        {
+            return [new(0, text.Length, primary, Shape(primary, text, style))];
+        }
+
+        var runs = new List<ShapedRun>();
+        var start = 0;
+
+        for (var index = 1; index <= text.Length; index++)
+        {
+            if (index < text.Length && ReferenceEquals(chosen[index], chosen[start]))
+            {
+                continue;
+            }
+
+            runs.Add(new(
+                start,
+                index,
+                chosen[start],
+                Shape(chosen[start], text[start..index], style)));
+
+            start = index;
+        }
+
+        return runs;
+
+        static ShapedText Shape(FontFace face, string run, ComputedStyle style) =>
+            ShapedText.Create(
+                face,
+                run,
+                style.FontSize,
+                style.LetterSpacing,
+                style.WordSpacing);
+    }
+
+    /// <summary>The run holding <paramref name="position"/>.</summary>
+    /// <remarks>
+    /// A linear walk, because the list is one entry for every document that needs no fallback and
+    /// a handful for one that does.
+    /// </remarks>
+    static ShapedRun At(List<ShapedRun> runs, int position)
+    {
+        foreach (var run in runs)
+        {
+            if (position < run.End)
+            {
+                return run;
+            }
+        }
+
+        return runs[^1];
     }
 
     /// <summary>
