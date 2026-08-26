@@ -178,6 +178,26 @@ public sealed class HtmlOptions
     /// </remarks>
     public bool NamedDestinations { get; set; } = true;
 
+    /// <summary>
+    /// Whether the PDF carries a logical structure tree built from the document's own semantics.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A tagged PDF is what makes a document navigable by a screen reader and extractable in
+    /// reading order, and it is what PDF/UA and PDF/A level A require. HTML carries exactly the
+    /// semantics such a tree wants — headings, lists, tables, figures, alternative text — so this
+    /// costs nothing to produce beyond the marked-content spans it puts around the text.
+    /// </para>
+    /// <para>
+    /// OFF by default, which is a statement about how far it has got rather than about its value.
+    /// The text and the pictures are tagged; the backgrounds, borders and list markers are left
+    /// outside the tree rather than marked as artifacts, and a PDF/UA validator wants both. It
+    /// also changes the bytes of every document it is enabled for, so it is a decision a caller
+    /// should take rather than one that arrives with an upgrade.
+    /// </para>
+    /// </remarks>
+    public bool Tagged { get; set; }
+
     /// <summary>Metadata written into the PDF.</summary>
     public DocumentMetadata? Metadata { get; set; }
 
@@ -246,6 +266,7 @@ public sealed class HtmlOptions
             HonourOrphansAndWidows = HonourOrphansAndWidows,
             OutlineDepth = OutlineDepth,
             NamedDestinations = NamedDestinations,
+            Tagged = Tagged,
             Metadata = Metadata,
             OnDiagnostic = OnDiagnostic
         };

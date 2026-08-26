@@ -8,3 +8,4 @@ global using Krilla.Html.Fonts;
 global using Morph.PDFium;
 global using VerifyTests;
 global using static VerifyTUnit.Verifier;
+global using System.Text.RegularExpressions;

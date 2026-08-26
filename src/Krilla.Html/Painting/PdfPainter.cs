@@ -39,6 +39,9 @@ static class PdfPainter
     /// The page's <c>@page</c> margin boxes, already laid out in the page's own coordinates, or null
     /// when the document declares none.
     /// </param>
+    /// <param name="tags">
+    /// Where each span of tagged content is recorded, or null for no structure tree.
+    /// </param>
     /// <remarks>
     /// <paramref name="pageEnd"/> is not the same as the bottom of the page box, and the
     /// difference is the whole reason it is a parameter. A line that straddles the page boundary
@@ -55,7 +58,8 @@ static class PdfPainter
         Size paper,
         float scale,
         LinkTargets? links = null,
-        List<LayoutBox>? margins = null)
+        List<LayoutBox>? margins = null,
+        DocumentTags? tags = null)
     {
         // The canvas, before anything else and outside the transform stack below, because it is
         // measured in page points rather than layout units and covers the margins as well as the
@@ -64,7 +68,7 @@ static class PdfPainter
 
         using var _ = surface.PushTransform(Matrix.Scale(scale, scale));
 
-        PaintContent(surface, root, start, pageEnd, content, scale, links);
+        PaintContent(surface, root, start, pageEnd, content, scale, links, tags);
 
         // OUTSIDE the clip the content is painted through, which is the whole point of a margin
         // box: it sits in the page margin, where nothing in the document can reach. After the
@@ -84,7 +88,8 @@ static class PdfPainter
         float pageEnd,
         Rect content,
         float scale,
-        LinkTargets? links)
+        LinkTargets? links,
+        DocumentTags? tags)
     {
         var pageTop = start.Top;
         var reserved = start.Reserved;
@@ -140,7 +145,8 @@ static class PdfPainter
             pageEnd,
             reserved,
             links,
-            toPage);
+            toPage,
+            tags);
 
         // A footer band is placed against `End`, which is infinite on the last page — and a page
         // holding no more of a table than its own end has no footer to repeat, so the two never
@@ -1252,6 +1258,44 @@ static class PdfPainter
     /// banker's rounding — which would send exactly one edge in a thousand the other way from the
     /// browser and leave a column of colour nobody could account for.
     /// </remarks>
+    /// <summary>
+    /// Opens a marked-content span for <paramref name="selector"/>, to be closed by disposing the
+    /// result.
+    /// </summary>
+    /// <remarks>
+    /// Nothing at all when the caller asked for no structure tree, or when the content has no
+    /// element to belong to — generated content and an anonymous box both reach here with no
+    /// selector, and neither is something a reader is meant to meet.
+    /// </remarks>
+    static TagSpan Mark(Surface surface, PageSlice page, string? selector, bool text) =>
+        page.Tags is {} tags && selector is {} named
+            ? new(surface, tags, named, text ? surface.BeginText() : surface.BeginContent())
+            : default;
+
+    /// <summary>One open marked-content span, or nothing.</summary>
+    /// <remarks>
+    /// A struct so the common case — no tagging — allocates nothing and the <c>using</c> at each
+    /// call site costs a branch.
+    /// </remarks>
+    readonly struct TagSpan(
+        Surface? surface,
+        DocumentTags? tags,
+        string? selector,
+        TagIdentifier identifier) :
+        IDisposable
+    {
+        public void Dispose()
+        {
+            if (surface is null)
+            {
+                return;
+            }
+
+            surface.EndTagged();
+            tags!.Record(selector!, identifier);
+        }
+    }
+
     static float Snap(float value) =>
         MathF.Floor(value + 0.5f);
 
@@ -1334,12 +1378,17 @@ static class PdfPainter
     /// hanging out of a short box sits over a later sibling for the same reason that box's text
     /// does.
     /// </remarks>
-    static void Inlines(Surface surface, LayoutBox box, PageSlice page)
+    static void Inlines(Surface surface, LayoutBox box, PageSlice page, string? owner = null)
     {
         if (page.Skip(box))
         {
             return;
         }
+
+        // A run carries the selector of the innermost INLINE element it sits in, and null when it
+        // is the block’s own text, so the block is what a structure tag hangs off. An anonymous
+        // block has no element of its own, and its text belongs to whichever ancestor generated it.
+        owner = box.Selector ?? owner;
 
         using var _ = Clip(surface, box);
 
@@ -1347,6 +1396,8 @@ static class PdfPainter
             box.BorderBox.Y < page.End &&
             box.Style.Visibility == VisibilityKind.Visible)
         {
+            using var image = Mark(surface, page, box.Selector ?? owner, text: false);
+
             PaintReplaced(surface, replaced, box.ContentBox, box.Style);
         }
 
@@ -1403,7 +1454,10 @@ static class PdfPainter
                             });
                     }
 
-                    PaintRun(surface, run);
+                    using (Mark(surface, page, run.Selector ?? owner, text: true))
+                    {
+                        PaintRun(surface, run);
+                    }
                 }
 
 
@@ -1441,6 +1495,8 @@ static class PdfPainter
 
             foreach (var image in line.Images)
             {
+                using var span = Mark(surface, page, image.Selector ?? owner, text: false);
+
                 PaintInlineImage(surface, image);
             }
 
@@ -1457,7 +1513,7 @@ static class PdfPainter
 
         foreach (var child in InFlow(box))
         {
-            Inlines(surface, child, page);
+            Inlines(surface, child, page, owner);
         }
     }
 
@@ -1518,13 +1574,19 @@ static class PdfPainter
     /// </param>
     /// <param name="Links">Where each fragment identifier resolves to, or null.</param>
     /// <param name="ToPage">Layout units to page points, for annotations.</param>
+    /// <param name="Tags">
+    /// Where each span of tagged content is recorded, or null when the caller asked for no
+    /// structure tree. Nothing here builds the tree; it only notes which element each span came
+    /// from, because the order the painter emits content in is not reading order.
+    /// </param>
     readonly record struct PageSlice(
         float Top,
         float Bottom,
         float End,
         float Reserved,
         LinkTargets? Links,
-        Func<Rect, Rect> ToPage)
+        Func<Rect, Rect> ToPage,
+        DocumentTags? Tags = null)
     {
         /// <summary>
         /// How far a box has to move to go from its position in the document to the same position

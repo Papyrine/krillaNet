@@ -66,7 +66,13 @@ public static class HtmlConverter
         var root = layout.Root;
         var fonts = RequireFonts(options);
 
-        using var pdf = new KrillaDocument();
+        // Tagging has to be asked for at construction: krilla refuses a tag tree on a document
+        // that was not built to carry one.
+        var tags = options.Tagged ? new DocumentTags() : null;
+
+        using var pdf = tags is null
+            ? new KrillaDocument()
+            : new KrillaDocument(new() {EnableTagging = true});
 
         if (Metadata(document, options) is {} metadata)
         {
@@ -146,7 +152,18 @@ public static class HtmlConverter
                     pages.Count,
                     blank,
                     new(strings, pages[index].Top, end),
-                    names.Value(pages[index].Top)));
+                    names.Value(pages[index].Top)),
+                tags);
+        }
+
+        // After every page has closed, which is when the spans painted on them resolve — and the
+        // tree is built from the DOM rather than from what was painted, because the painter emits
+        // content in Appendix E's phases and a reader follows document order.
+        using var tree = tags?.Build(document, Text(document.DocumentElement.GetAttribute("lang")));
+
+        if (tree is not null)
+        {
+            pdf.SetTagTree(tree);
         }
 
         return pdf.Finish();
