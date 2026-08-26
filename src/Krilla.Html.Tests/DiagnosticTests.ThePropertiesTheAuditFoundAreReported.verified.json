@@ -100,11 +100,5 @@
     "Name": "initial-letter",
     "Value": "2",
     "Reason": "the first letter is set like the rest"
-  },
-  {
-    "Element": "div",
-    "Name": "counter-set",
-    "Value": "chapter 3",
-    "Reason": "the counter keeps the value it had"
   }
 ]

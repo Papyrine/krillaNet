@@ -358,6 +358,7 @@ static class StyleResolver
             UnderlineOffset = Thickness(declaration, "text-underline-offset", font, root),
             CounterReset = Counters(declaration, "counter-reset", 0),
             CounterIncrement = Counters(declaration, "counter-increment", 1),
+            CounterSet = Counters(declaration, "counter-set", 0),
             Quotes = ParseQuotes(declaration.GetPropertyValue("quotes"), parent.Quotes),
             Orphans = Count(declaration, "orphans", parent.Orphans),
             Widows = Count(declaration, "widows", parent.Widows),

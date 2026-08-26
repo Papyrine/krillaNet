@@ -1615,6 +1615,16 @@ sealed record ComputedStyle
     /// </remarks>
     public TextAlignKind? TextAlignLast { get; init; }
 
+    /// <summary>
+    /// The counters this element sets, and to what. Not inherited.
+    /// </summary>
+    /// <remarks>
+    /// Applied after <see cref="CounterReset"/> and <see cref="CounterIncrement"/>, which is CSS's
+    /// own order and observable: an element doing all three to one counter ends on the value it
+    /// SET rather than on the one it counted to.
+    /// </remarks>
+    public (string Name, int Value)[] CounterSet { get; init; } = [];
+
     /// <summary>Whether this style preserves white space rather than collapsing it.</summary>
     public bool PreservesSpaces =>
         WhiteSpace is WhiteSpaceKind.Pre or WhiteSpaceKind.PreWrap;

@@ -28,13 +28,22 @@ sealed class CssCounters
     readonly Dictionary<string, List<int>> scopes = new(StringComparer.Ordinal);
 
     /// <summary>
-    /// Applies an element's <c>counter-reset</c> and <c>counter-increment</c>, in that order.
+    /// Applies an element's <c>counter-reset</c>, <c>counter-increment</c> and <c>counter-set</c>,
+    /// in that order.
     /// </summary>
     /// <remarks>
     /// <para>
     /// The order is CSS's own and it is observable: <c>counter-reset: n 0; counter-increment: n 1</c>
     /// on one element gives 1, where the other order gives 0. An element resetting and incrementing
-    /// the same counter is how a numbered heading restarts its own subsection numbering.
+    /// the same counter is how a numbered heading restarts its own subsection numbering, and one
+    /// that also sets it ends on the value it set rather than on the one it counted to.
+    /// </para>
+    /// <para>
+    /// <c>counter-set</c> differs from <c>counter-reset</c> in the half that is not the value: it
+    /// creates no SCOPE. Setting a counter that is already in scope changes the one that is there,
+    /// where resetting it would nest a second inside it — so a document that sets a counter and then
+    /// reads it with <c>counters()</c> gets one level rather than two. That is the whole of the
+    /// difference, and it is why the two do not share a branch here.
     /// </para>
     /// <para>
     /// Returns the names it pushed, so the caller can pop exactly those when the subtree ends.
@@ -69,6 +78,20 @@ sealed class CssCounters
             }
 
             stack[^1] += value;
+        }
+
+        foreach (var (name, value) in style.CounterSet)
+        {
+            if (!scopes.TryGetValue(name, out var stack) || stack.Count == 0)
+            {
+                // A counter set without ever being reset is created here, exactly as an
+                // incremented one is — and, like it, without a scope to pop, so it lasts the rest
+                // of the document rather than the rest of the subtree.
+                stack = [0];
+                scopes[name] = stack;
+            }
+
+            stack[^1] = value;
         }
 
         return pushed;

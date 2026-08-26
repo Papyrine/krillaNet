@@ -375,7 +375,6 @@ public class DiagnosticTests
                 <div style="text-wrap: balance">p</div>
                 <div style="content-visibility: hidden">u</div>
                 <div style="initial-letter: 2">v</div>
-                <div style="counter-set: chapter 3">w</div>
                 """));
 
     /// <summary>

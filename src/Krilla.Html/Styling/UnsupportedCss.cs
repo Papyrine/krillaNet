@@ -66,7 +66,6 @@ static class UnsupportedCss
         ("mask-image", ["none"], "nothing is masked"),
         ("content-visibility", ["visible"], "laid out and painted"),
         ("initial-letter", ["normal"], "the first letter is set like the rest"),
-        ("counter-set", [], "the counter keeps the value it had"),
         ("perspective", ["none"], "painted flat"),
         ("transform-style", ["flat"], "painted flat")
     ];

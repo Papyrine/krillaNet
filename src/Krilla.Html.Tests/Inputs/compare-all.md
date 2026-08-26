@@ -757,11 +757,26 @@ below came out 8px high.
 What to look at: the `1.1` and `1.2` prefixes. A flat `1` there is `counters()` reading only the
 innermost scope; nothing at all is the comma being lost in the argument split.
 
-**Boxes**: 14 matched, worst offset 0.00px, worst size 0.00px.
+## counter-set
+
+Added later, with the property. `counter-set` was read by nothing, so a document numbering a run and
+then correcting it mid-way carried on from wherever the increment had reached.
+
+It differs from `counter-reset` in the half that is not the value: it creates no SCOPE. `#set` is
+inside a `#scoped` div that resets the counter, and reads `[7]` rather than `[3.7]` — one level,
+where a reset would have nested a second inside the first. That is the whole of the difference and
+the reason the two do not share a branch.
+
+`#ordered` puts all three on one element. CSS's order is reset, then increment, then set, and it is
+observable: reset to 1, increment by 5, set to 9 ends on 9 rather than on 6, and any other order
+gives a different number. `#flat` is what the property is actually for — a run of paragraphs
+numbered 1, 20, 21, with the middle one setting the counter it also incremented.
+
+**Boxes**: 21 matched, worst offset 0.00px, worst size 0.00px.
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |
-| **Page 1** | **Page 1. AE 0.0005 · SSIM 0.9999** |
+| **Page 1** | **Page 1. AE 0.0013 · SSIM 0.9997** |
 | <img src="block/counters/reference_0001.png" width="480"> | <img src="block/counters/result%23page_0001.verified.png" width="480"> |
 
 
