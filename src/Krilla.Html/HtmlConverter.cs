@@ -313,6 +313,11 @@ public static class HtmlConverter
         };
 
         var context = DocumentContext.For(document, options);
+
+        // Before the tree, because it is a property of the DOCUMENT rather than of any element and
+        // there is nothing in the walk below to attach it to.
+        context.ReportFontFaces();
+
         var root = BoxBuilder.Build(element, initial, context);
 
         // The root box's containing block is the page's content area, which is the print

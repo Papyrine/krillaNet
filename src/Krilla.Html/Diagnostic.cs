@@ -42,6 +42,22 @@ static class Diagnostic
         string reason) =>
         sink?.Invoke(new(HtmlDiagnosticKind.IgnoredAttribute, element, name, value, reason));
 
+    /// <summary>
+    /// Something about the TEXT rather than about a declaration anyone wrote.
+    /// </summary>
+    /// <remarks>
+    /// The one report with no site in the cascade to hang it on: line breaking, bidirectional
+    /// reordering and font coverage are properties of the characters, so a document in Arabic or
+    /// Japanese used to convert silently and wrongly however carefully its stylesheet was scanned.
+    /// </remarks>
+    internal static void Text(
+        Action<HtmlDiagnostic>? sink,
+        string element,
+        string name,
+        string? value,
+        string reason) =>
+        sink?.Invoke(new(HtmlDiagnosticKind.UnsupportedText, element, name, value, reason));
+
     internal static void Element(Action<HtmlDiagnostic>? sink, string element, string reason) =>
         sink?.Invoke(new(HtmlDiagnosticKind.UnsupportedElement, element, element, null, reason));
 

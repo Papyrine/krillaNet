@@ -1590,7 +1590,15 @@ sealed record ComputedStyle
 
     /// <summary>Whether this box is laid out by the table algorithm rather than as a block.</summary>
     public bool IsTablePart =>
-        Display is DisplayKind.Table or DisplayKind.TableCaption or DisplayKind.TableHeaderGroup or
+        IsTable(Display);
+
+    /// <inheritdoc cref="IsTablePart"/>
+    /// <remarks>
+    /// Static as well, because <see cref="StyleResolver"/> asks it while the style is still being
+    /// built — a table's bevelled borders take shades a block's do not.
+    /// </remarks>
+    public static bool IsTable(DisplayKind display) =>
+        display is DisplayKind.Table or DisplayKind.TableCaption or DisplayKind.TableHeaderGroup or
             DisplayKind.TableRowGroup or DisplayKind.TableFooterGroup or DisplayKind.TableRow or
             DisplayKind.TableCell;
 

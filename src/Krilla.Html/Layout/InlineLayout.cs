@@ -1725,7 +1725,7 @@ static class InlineLayout
         ImageData? Image = null,
         float Height = 0,
         string? Selector = null,
-        string? Link = null,
+        AnchorLink? Link = null,
         ShapedText? Shaped = null,
         int TextStart = 0,
         int TextEnd = 0,

@@ -22,6 +22,13 @@
 /// accident rather than by rule — and black has none to scale up at all, where the formula divides
 /// by zero. Both are named constants in Blink for the same reason they are named here.
 /// </para>
+/// <para>
+/// On top of the two formulas sits a CONTRAST rule: a colour dark enough that darkening it leaves
+/// it black steps UP instead, taking one lightening where the dark shade belongs and two where the
+/// light one does. See <see cref="TooDark"/>. It matters far more than its rarity suggests, because
+/// the colour it fires on most often is black — which is what an undeclared border colour on a
+/// table resolves to, and a table is where <c>outset</c> still turns up in real documents.
+/// </para>
 /// </remarks>
 static class Bevel
 {
@@ -34,7 +41,14 @@ static class Bevel
     /// </remarks>
     const float Scale = 255.99998f;
 
-    /// <summary>What <c>inset</c> gives its top and left edges.</summary>
+    /// <summary>
+    /// What <c>inset</c> gives its top and left edges.
+    /// </summary>
+    /// <remarks>
+    /// A colour too dark to darken is LIGHTENED instead — see <see cref="TooDark"/>. Without that,
+    /// black and everything near it comes out black on both halves of the bevel and the border
+    /// vanishes into itself.
+    /// </remarks>
     public static Color Darken(Color color)
     {
         if (!color.TryGetRgb(out var red, out var green, out var blue))
@@ -48,6 +62,11 @@ static class Bevel
             return Color.Rgb(0xAB, 0xAB, 0xAB);
         }
 
+        if (TooDark(red, green, blue))
+        {
+            return Lightened(color);
+        }
+
         var (r, g, b) = (red / 255f, green / 255f, blue / 255f);
         var value = MathF.Max(r, MathF.Max(g, b));
 
@@ -58,8 +77,31 @@ static class Bevel
         return Apply(multiplier, r, g, b);
     }
 
-    /// <summary>What <c>outset</c> gives its top and left edges.</summary>
+    /// <summary>
+    /// What <c>outset</c> gives its top and left edges.
+    /// </summary>
+    /// <remarks>
+    /// A colour too dark to darken is lightened TWICE, so that the two halves of the bevel stay
+    /// one step apart: black gives <c>#545454</c> below and <c>#a8a8a8</c> above, which is exactly
+    /// what Chromium draws for <c>border: 12px outset black</c>.
+    /// </remarks>
     public static Color Lighten(Color color)
+    {
+        if (!color.TryGetRgb(out var red, out var green, out var blue))
+        {
+            return color;
+        }
+
+        if (TooDark(red, green, blue))
+        {
+            return Lightened(Lightened(color));
+        }
+
+        return Lightened(color);
+    }
+
+    /// <summary>One step lighter, with no contrast rule applied.</summary>
+    static Color Lightened(Color color)
     {
         if (!color.TryGetRgb(out var red, out var green, out var blue))
         {
@@ -76,6 +118,38 @@ static class Bevel
         }
 
         return Apply(MathF.Min(1, value + 0.33f) / value, r, g, b);
+    }
+
+    /// <summary>
+    /// Whether darkening this colour would produce something indistinguishable from it, so that
+    /// both shades step UP instead.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Chromium's rule, recovered by measurement rather than read: every colour below a threshold
+    /// takes <c>Lighten</c> where the dark shade belongs and <c>Lighten(Lighten(…))</c> where the
+    /// light one does, and every colour above it takes the ordinary pair. It is what makes
+    /// <c>border: outset black</c> a visible bevel rather than a black box, and black is not a
+    /// corner case — it is what an undeclared border colour on a table resolves to.
+    /// </para>
+    /// <para>
+    /// The threshold is on relative LUMINANCE and not on the brightest channel, which one probe
+    /// settled: <c>#212121</c> takes the ordinary pair and <c>#000021</c> does not, and the two
+    /// share a brightest channel. Bracketed by measurement to lie between 0.014444
+    /// (<c>#202020</c>, which steps up) and 0.014552 (<c>#00007c</c>, which does not), so the
+    /// constant below is inside a band 0.7% wide. Chromium's own number is not recoverable from
+    /// outside it; forty-odd sampled colours agree with this one.
+    /// </para>
+    /// </remarks>
+    static bool TooDark(byte red, byte green, byte blue) =>
+        0.2126f * Linear(red) + 0.7152f * Linear(green) + 0.0722f * Linear(blue) < 0.0145f;
+
+    /// <summary>One sRGB channel undone, which is what a relative luminance is a sum of.</summary>
+    static float Linear(byte channel)
+    {
+        var value = channel / 255f;
+
+        return value <= 0.04045f ? value / 12.92f : MathF.Pow((value + 0.055f) / 1.055f, 2.4f);
     }
 
     /// <summary>
@@ -98,7 +172,9 @@ static class Bevel
     /// <para>
     /// An UNDECLARED colour takes <see cref="CurrentDark"/> and <see cref="CurrentLight"/> instead
     /// of anything derived. That is measured too, and it is the one rule here that a reading of
-    /// either the specification or the formulas would never produce.
+    /// either the specification or the formulas would never produce. A TABLE is exempt from it and
+    /// derives from the colour like anything declared, which is where <c>StyleResolver</c> settles
+    /// <paramref name="current"/> rather than this.
     /// </para>
     /// </remarks>
     public static Color Shade(Color color, BorderStyleKind style, bool near, bool outer, bool current) =>

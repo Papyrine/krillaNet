@@ -191,26 +191,32 @@ into a report:
 ```cs
 options.OnDiagnostic = diagnostic => Console.WriteLine(diagnostic);
 
+// <@font-face> src: Corporate — not read, so the document's own font is not loaded
 // <div> display: flex — laid out as a block
 // <div> column-count: 2 — laid out in one column
 // <table> rules: all — not applied, because presentational attributes are not mapped onto CSS
 // <img> src: logo.png — did not resolve to an image, so no box was generated
+// <p> bidirectional text: ש (U+05E9) — laid out left to right, so it comes out in the wrong order
 ```
-<sup><a href='/src/Krilla.Html.Tests/Samples.cs#L75-L84' title='Snippet source file'>snippet source</a> | <a href='#snippet-Diagnostics' title='Start of snippet'>anchor</a></sup>
+<sup><a href='/src/Krilla.Html.Tests/Samples.cs#L75-L86' title='Snippet source file'>snippet source</a> | <a href='#snippet-Diagnostics' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
 Unrecognised CSS is deliberately not reported. Listing every `cursor` and `content` an ordinary
 stylesheet carries would bury the signal, and would cost the invariant that makes the sink worth
 subscribing to: a conversion that reports nothing laid out every construct the way a browser would.
 
-Two limits worth knowing before reaching for it:
+Limits worth knowing before reaching for it:
 
 - Text is shaped through krilla's own shaper, so kerning and ligatures are applied, and a character
   the resolved face lacks is drawn in a registered face that covers it. Bidirectional resolution and
-  complex-script shaping are still missing, so a run is shaped in one direction and one script.
+  complex-script shaping are still missing, so a run is shaped in one direction and one script. A
+  document holding right-to-left text says so through the sink.
 - Lines break at spaces, at hyphens and dashes, at a soft hyphen or a `<wbr>`, and either side of an
   image or inline-block. There is no hyphenation dictionary and no Unicode line breaking algorithm
-  beyond that — so scripts that wrap without spaces overflow rather than wrapping.
+  beyond that — so scripts that wrap without spaces overflow rather than wrapping, and say so.
+- A document's own `@font-face` rules are reported and not loaded. Register the faces through
+  `HtmlOptions.Fonts` instead: a font is a document resource with the same exfiltration concern an
+  image has, and loading one on the document's say-so would need a policy of its own.
 - AngleSharp compares CSS specificity across cascade origins, where the specification resolves
   origin first. A reset relying on `* { margin: 0 }` will not clear the default margins on `body`
   and `p`; name the elements explicitly instead.

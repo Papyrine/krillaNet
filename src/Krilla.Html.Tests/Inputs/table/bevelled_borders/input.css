@@ -1,0 +1,41 @@
+/* The bevelled border styles on a TABLE, which take shades a block does not. Everything here was
+   measured out of Chromium, because CSS specifies none of the shading. */
+table, div {
+  width: 160px;
+  margin-bottom: 10px;
+  border-width: 12px;
+  border-style: outset;
+}
+
+td { padding: 4px; }
+
+/* No border colour anywhere, so the used colour is `currentColor` — and a table derives its shades
+   from what that resolved to, where a block takes a fixed pair of greys instead. Black is what it
+   resolves to here, and darkening black leaves black, so both shades step UP: #545454 below and
+   #a8a8a8 above. */
+#plain { }
+
+/* The same table with a colour, which proves the derivation really is running: a block with this
+   `color` and no border colour still gets the fixed greys. */
+#coloured { color: #cc3333; }
+
+/* Bright enough to darken, so the ordinary pair applies and the contrast rule does not. */
+#grey { color: #808080; }
+
+/* A cell carries the rule as well as the table, and `inset` is the same bevel reflected. */
+#cells { border-style: inset; }
+#cells td { border-width: 8px; border-style: outset; }
+
+/* A BLOCK reaches the same contrast rule the moment its colour is declared rather than inherited
+   through `currentColor`, which is what says the rule belongs to the colour and the exemption to
+   the element. */
+#black { border-color: black; }
+
+/* Just above the threshold and just below it. #212121 takes the ordinary pair — its dark half is
+   plain black — and #000021 steps up, and the two share a brightest channel: the threshold is on
+   LUMINANCE, which is the whole reason this row exists. */
+#near { border-color: #000021; }
+
+/* The unexempted case, for contrast with #plain: a block whose border colour is `currentColor`
+   ignores the colour entirely. */
+#current { border-color: currentColor; color: #cc3333; }

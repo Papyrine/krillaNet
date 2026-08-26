@@ -389,12 +389,34 @@ static class PdfPainter
             var dy = page.ToPageOrigin;
 
             using var repeated = surface.PushTransform(Matrix.Translate(0, dy));
-            using var faded = Fade(surface, box);
 
             // The window is the whole page's content box rather than what the slice has left of
             // it: a fixed box is laid out against the page, so one anchored to the bottom edge
             // sits below anything a reserved band leaves room for.
-            PaintStack(surface, box, page.Repeated(dy, 0, page.PageHeight), collects: true);
+            var window = page.Repeated(dy, 0, page.PageHeight);
+
+            // Every sheet after the first is the same content drawn again, so it is an ARTIFACT —
+            // the rule a repeated table header already follows, reached here from the other
+            // direction. A header is drawn by a path that can suppress tagging wholesale; a fixed
+            // box goes through the ordinary walk on every page, so which sheet this is has to be
+            // asked. It is asked of the TAGS rather than of the page, because a page index reaches
+            // neither this method nor the slice, and the box is one instance laid out once and
+            // drawn per sheet in order — so the first sighting is page one by construction.
+            //
+            // The artifact opens INSIDE the transform, matching `PaintRepeats`, so the span brackets
+            // the drawing rather than the state that positions it.
+            if (page.Tags is {} seen && !seen.FirstSighting(box))
+            {
+                using var artifact = Artifact(surface, page);
+                using var once = Fade(surface, box);
+
+                PaintStack(surface, box, window with {Tags = null}, collects: true);
+                return;
+            }
+
+            using var faded = Fade(surface, box);
+
+            PaintStack(surface, box, window, collects: true);
             return;
         }
 
@@ -1523,7 +1545,7 @@ static class PdfPainter
                 }
 
 
-                PaintLink(surface, run, page.Links, page.ToPage);
+                PaintLink(surface, run, page, page.ToPage);
             }
 
             // Ahead of the images and the atomic inlines, and after the runs, because an edge is
@@ -3066,14 +3088,22 @@ static class PdfPainter
     /// annotation at all when it does not — a link that silently goes to the wrong page is worse
     /// than one that is absent.
     /// </para>
+    /// <para>
+    /// With a structure tree, the annotation is added TAGGED and recorded against the anchor's own
+    /// selector, so it lands under the same <c>Link</c> element the anchor's text does — which is
+    /// what PDF asks for and what lets a reader announce the two together. The anchor's selector is
+    /// carried on the run rather than read off it: a run takes the INNERMOST inline element's path,
+    /// so an anchor holding a <c>&lt;b&gt;</c> is named by nothing the run itself carries.
+    /// </para>
     /// </remarks>
-    static void PaintLink(Surface surface, TextRun run, LinkTargets? links, Func<Rect, Rect> toPage)
+    static void PaintLink(Surface surface, TextRun run, PageSlice page, Func<Rect, Rect> toPage)
     {
-        if (run.Link is not {Length: > 0} href || run.Width <= 0)
+        if (run.Link is not {Href.Length: > 0} anchor || run.Width <= 0)
         {
             return;
         }
 
+        var href = anchor.Href;
         var ascent = run.Face.Ascent(run.Style.FontSize);
         var descent = run.Face.Descent(run.Style.FontSize);
         var area = toPage(new(run.X, run.Y - ascent, run.Width, ascent + descent));
@@ -3081,14 +3111,28 @@ static class PdfPainter
 
         if (!href.StartsWith('#'))
         {
+            if (page.Tags is {} external)
+            {
+                external.Record(anchor.Selector, surface.AddTaggedLink(bounds, href));
+                return;
+            }
+
             surface.AddLink(bounds, href);
             return;
         }
 
-        if (links is not null && links.TryResolve(href[1..], out var page, out var target))
+        if (page.Links is not {} links || !links.TryResolve(href[1..], out var index, out var target))
         {
-            surface.AddLink(bounds, page, target);
+            return;
         }
+
+        if (page.Tags is {} tags)
+        {
+            tags.Record(anchor.Selector, surface.AddTaggedLink(bounds, index, target));
+            return;
+        }
+
+        surface.AddLink(bounds, index, target);
     }
 
     /// <summary>

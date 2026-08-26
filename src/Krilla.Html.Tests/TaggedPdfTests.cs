@@ -165,6 +165,55 @@ public class TaggedPdfTests
     }
 
     /// <summary>
+    /// An element's own text keeps its place among its children's, and an anchor is a
+    /// <c>Link</c> holding both its words and the annotation over them.
+    /// </summary>
+    /// <remarks>
+    /// The two things a tag NAME cannot show, so this reads the <c>/K</c> arrays instead. Reading
+    /// order is the whole point of the tree, and a paragraph holding a word in bold used to produce
+    /// both halves of its own text and then the bold — which a reader announces as "Before after.
+    /// bold".
+    /// </remarks>
+    [Test]
+    public async Task ContentKeepsItsPlaceAmongTheChildren() =>
+        await Verify(
+            Nesting(
+                await HtmlConverter.ConvertAsync(
+                    """
+                    <p>Before <b>bold</b> after.</p>
+                    <p>See <a href="https://example.com">the link</a> now.</p>
+                    <ul><li>One</li></ul>
+                    """,
+                    Options(tagged: true))));
+
+    /// <summary>
+    /// A <c>position: fixed</c> box is content once and an artifact on every sheet after.
+    /// </summary>
+    /// <remarks>
+    /// It is drawn on every page — CSS 2.1 §9.6.1, which <c>page/fixed_repeat</c> measures in
+    /// pixels — and a reader must meet it once. A repeated table header reaches the same rule
+    /// through a path that suppresses tagging wholesale; a fixed box goes through the ordinary
+    /// walk on every page, so it needs the count asserting rather than reasoning about.
+    /// </remarks>
+    [Test]
+    public async Task AFixedBoxIsTaggedOnce()
+    {
+        var html =
+            """
+            <div style="position: fixed; top: 0; left: 0">Running</div>
+            <p style="height: 2000px">Tall</p>
+            """;
+
+        var pdf = await HtmlConverter.ConvertAsync(html, Options(tagged: true));
+
+        await Assert.That(CorpusRunner.RenderPages(pdf).Count).IsGreaterThan(1);
+
+        // One span for the box's one line, whatever the page count.
+        await Assert.That(Nesting(pdf).Count(_ => _.StartsWith("Div ["))).IsEqualTo(1);
+        await Assert.That(Nesting(pdf)).Contains("Div [text]");
+    }
+
+    /// <summary>
     /// The document's language reaches the tree, which PDF/UA requires and which nothing on the
     /// page shows.
     /// </summary>
@@ -198,6 +247,70 @@ public class TaggedPdfTests
         return found;
     }
 
+    /// <summary>
+    /// Every structure element as its role and the roles of what hangs under it, in order.
+    /// </summary>
+    /// <remarks>
+    /// A marked-content id is written as <c>text</c> and an annotation reference as <c>link</c>:
+    /// what is being asserted is the SEQUENCE, and the numbers themselves are an accident of how
+    /// many spans the painter opened before this one.
+    /// </remarks>
+    static List<string> Nesting(byte[] pdf)
+    {
+        var text = Text(pdf);
+        var roles = new Dictionary<string, string>(StringComparer.Ordinal);
+        var bodies = new List<(string Number, string Role, string Children)>();
+
+        foreach (Match match in Regex.Matches(
+                     text,
+                     @"(\d+) 0 obj\s*<<(?<body>.*?)>>\s*endobj",
+                     RegexOptions.Singleline))
+        {
+            var body = match.Groups["body"].Value;
+
+            if (Regex.Match(body, @"/S\s*/(\w+)") is not {Success: true} role ||
+                Regex.Match(body, @"/K\s*\[(?<items>.*?)\]") is not {Success: true} kids)
+            {
+                continue;
+            }
+
+            roles[match.Groups[1].Value] = role.Groups[1].Value;
+            bodies.Add((match.Groups[1].Value, role.Groups[1].Value, kids.Groups["items"].Value));
+        }
+
+        var found = new List<string>();
+
+        foreach (var (_, role, children) in bodies)
+        {
+            var items = new List<string>();
+
+            // An annotation reference is a dictionary of its own, holding object references that
+            // are not children — so it is folded to one token before anything counts them.
+            var flattened = Regex.Replace(children, "<<.*?>>", " OBJR ", RegexOptions.Singleline);
+
+            foreach (Match item in Regex.Matches(flattened, @"(?<ref>\d+) 0 R|OBJR|(?<mcid>\d+)"))
+            {
+                if (item.Value == "OBJR")
+                {
+                    items.Add("link");
+                }
+                else if (item.Groups["ref"].Success)
+                {
+                    items.Add(roles.GetValueOrDefault(item.Groups["ref"].Value, "?"));
+                }
+                else
+                {
+                    items.Add("text");
+                }
+            }
+
+            found.Add($"{role} [{string.Join(", ", items)}]");
+        }
+
+        return found;
+    }
+
     static string Text(byte[] pdf) =>
         Encoding.Latin1.GetString(pdf);
 }
+

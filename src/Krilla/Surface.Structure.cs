@@ -70,6 +70,31 @@ public sealed partial class Surface
     }
 
     /// <summary>
+    /// Adds a link to a position within the document and returns an identifier for placing it in
+    /// the tag tree.
+    /// </summary>
+    /// <remarks>
+    /// <paramref name="pageIndex"/> may name a page that does not exist yet.
+    /// </remarks>
+    public TagIdentifier AddTaggedLink(Rectangle bounds, int pageIndex, Point target = default)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(pageIndex);
+
+        Status.Check(
+            KrillaNative.krilla_page_add_tagged_link(
+                Handle,
+                token,
+                bounds.ToNative(),
+                [],
+                0,
+                (uint) pageIndex,
+                target.ToNative(),
+                out var identifier),
+            "Adding a tagged link");
+        return new(identifier);
+    }
+
+    /// <summary>
     /// Marks the start of a span of tagged text, to be closed with <see cref="EndTagged"/>.
     /// </summary>
     /// <param name="language">The span's natural language, as a BCP 47 tag.</param>

@@ -156,6 +156,18 @@ growing its table, a cleared first child keeps its margin out of its parent's, a
 `HtmlOptions.Tagged` produces a PDF with a logical structure tree and everything else marked as an
 artifact.
 
+And from the fourteenth, which was about what a document says that the PAGE does not show. The tag
+tree became a reading order rather than a listing: an element's own text keeps its place among its
+children's, an `<a href>` is a `Link` holding both its words and the annotation over them, a list
+item holds an `LBody`, a repeated `position: fixed` box is an artifact after the first sheet, and
+`<code>`, `<strong>` and `<em>` reach their own roles instead of falling to `Span`. `Krilla`'s own
+`Tag` had to be fixed for the first of those — content and children were kept in two lists and
+joined children-last. Beside it, two measured bevel rules — a table derives its shades from
+`currentColor` where a block takes a fixed pair, and a colour too dark to darken steps up instead —
+and the diagnostics reached below the declaration level for the first time: a script this engine
+offers no line break inside, text it cannot reorder, a character no registered face covers, and a
+document's own `@font-face` rules.
+
 Three structural points worth knowing before changing anything:
 
 - **Layout needs the native, for shaping only.** `FontFace` reads its metrics out of the font bytes in managed code and `ImageData` reads image sizes from file headers, but `FontFace.Shape` calls through to krilla's rustybuzz. That crossing is unavoidable — measuring text correctly means shaping it — and it ended the earlier property that layout ran without a Rust toolchain.
@@ -178,7 +190,7 @@ It records two independent measurements, and **asserts neither**:
 - **`reference.boxes.json`** — the browser's `getBoundingClientRect()` per element, against our box tree. Integer-exact, localising ("this paragraph is 14px low" is a defect report), and — the practical reason it leads — computable without the native library, so it works on a machine with no Rust toolchain.
 - **`reference_0001.png`** — pixels, via AbsoluteError and SSIM.
 
-**Box geometry currently sits at zero across all 152 scenarios, with nothing unmatched**, and 105
+**Box geometry currently sits at zero across all 153 scenarios, with nothing unmatched**, and 105
 read SSIM 1.0000. Several got there by finding a defect first, which is the argument for adding a
 scenario for anything the engine implements rather than only for what it implements well:
 `block/anonymous` found trailing inline content hoisted above a block sibling, `position/fixed`
@@ -190,7 +202,8 @@ on a section with no columns, `page/table_break` found a break taken at the line
 belonged and once flattened onto the page. Each is written up in its own `notes.md`. The remaining pixel residuals each have a named cause rather than
 a mystery: `block/border_styles` (0.9995) is a vertical dotted edge Chromium constructs differently,
 `text/kerning` (0.9945) and `text/ligatures` (0.9982) are sub-pixel glyph positioning,
-`block/bevelled_borders` (0.9990) is antialiasing where two colours meet on a mitre,
+`block/bevelled_borders` and `table/bevelled_borders` (0.9990) are antialiasing where two
+colours meet on a mitre,
 `text/decoration_style` (0.9999) is `text-decoration-skip-ink`, `image/inline_flow` (0.9999) is
 antialiasing on an image edge at a fractional position, and the rest are the same glyph positioning
 seen on fewer words. FOUR are the browser's rather than this engine's: `table/cell_baseline`
@@ -712,7 +725,8 @@ All four are geometry-exact; the middle two are pixel-identical.
 
 ## Traps in the bevelled border styles
 
-`block/bevelled_borders` measures these and `ua/hr` is pixel-identical because of them. CSS specifies
+`block/bevelled_borders` and `table/bevelled_borders` measure these and `ua/hr` is pixel-identical
+because of them. CSS specifies
 none of the shading — it says the box should look carved into or raised out of the canvas and leaves
 every colour to the user agent — so, as with `line-height: normal` and every number in
 `ListMarkers`, there is no correct value to compute and agreeing with the reference browser is the
@@ -735,6 +749,26 @@ only useful target.
   derivation predicts, and it is why `ComputedStyle` carries a per-side flag saying the colour came
   from `currentColor`: the cascade cannot otherwise tell a declared grey from a resolved one, and a
   box declaring `border-color: gray` gets the derivation instead.
+- **A TABLE is EXEMPT from that rule, and derives like anything declared.** A table, a row, a row
+  group and a cell all take the colour `currentColor` resolved to: `color: #808080` gives
+  `#d4d4d4` over `#2c2c2c`, `color: #cc3333` gives `#ff3f3f` over `#781e1e`, and the initial black
+  gives `#a8a8a8` over `#545454` — where a `div` in each of those three states gets the same fixed
+  greys. Measured, and it is the element rather than the declaration: a table with an explicit
+  `border-color: currentcolor` derives, and a `div` with the same declaration does not. Settled in
+  `StyleResolver` by refusing the flag to anything laid out by the table algorithm, and written on
+  the DISPLAY so `display: table` on a `div` follows it. It matters more than its obscurity
+  suggests, `<table border="1">` mapping onto exactly this.
+- **A colour too dark to DARKEN steps up instead, on both halves.** Darkening black leaves black, so
+  the bevel would be one colour and disappear. Chromium lightens once where the dark shade belongs
+  and twice where the light one does, which is where `#545454` and `#a8a8a8` come from — the first
+  is Blink's own lightened-black constant and the second is that lightened again.
+- **That threshold is on relative LUMINANCE, not on the brightest channel**, which one probe
+  settled: `#212121` takes the ordinary pair and `#000021` steps up, and the two share a brightest
+  channel of 33. Bracketed by measurement to between 0.014444 (`#202020`, which steps up) and
+  0.014552 (`#00007c`, which does not) — a band 0.7% wide, inside which any constant reproduces all
+  forty-odd colours sampled, and Chromium's own number is not recoverable from outside it. Worth
+  knowing that the first reading of this defect recorded it as a table-specific pair of constants
+  that "no single base colour produces"; it is neither table-specific nor a constant.
 - **A groove is not one bevel in two shades.** Its outer half is an `inset` edge and its inner half
   an `outset` one, which is what puts dark over light on the top and light over dark on the bottom;
   a ridge is those two exchanged. Shading one band from light to dark is the plausible reading and
@@ -744,8 +778,8 @@ only useful target.
   `inset`; `Rank` stopped at `dashed` and swept the rest into one, which was correct only while the
   bevelled styles did not exist. Nothing failed, because the tie is observable only where two edges
   of equal width meet with different bevelled styles.
-- **The mitre is where the residual is.** Every differing pixel in `block/bevelled_borders` is on a
-  corner diagonal, two per row, because two antialiased edges meeting there do not composite to full
+- **The mitre is where the residual is.** Every differing pixel in either scenario is on a corner
+  diagonal, two per row, because two antialiased edges meeting there do not composite to full
   coverage — the same reason `PaintUniformBorder` paints a uniform border as one ring. Chromium
   covers the same pixel fully with a 50/50 blend of the two colours.
 
@@ -1409,9 +1443,11 @@ element box — the same position `link/` is in, and the same answer.
 - **A repeated table header must not record a SECOND span.** It is the same boxes drawn again, so
   the slice `PaintRepeats` passes carries no tags and the whole repeat is one artifact. A screen
   reader meeting both would read a continued table's header once per page, where the point of the
-  tree is that it is read once. A running margin box goes the same way, and a repeated
-  `position: fixed` box does NOT — it goes through the ordinary walk on every page, and is recorded
-  in `todo.md`.
+  tree is that it is read once. A running margin box goes the same way, and so does a repeated
+  `position: fixed` box — reached from the other direction, since that one goes through the ORDINARY
+  walk on every page and so has to be asked which sheet this is. It asks the TAGS rather than the
+  page, because no page index reaches `PaintContext` or the slice, and the box is one instance laid
+  out once and drawn per sheet in order — so the first sighting is page one by construction.
 - **`sh` and `Do` are not ink, for the purpose of checking that nothing is untagged.** Both
   REFERENCE content held in a stream of its own — a shading, and the form XObject krilla emits for
   an isolated transparency group — so the ink is checked where it is written rather than where it
@@ -1421,6 +1457,24 @@ element box — the same position `link/` is in, and the same answer.
   rendered twice, tagged and not, and compared. The artifact spans are bracketed THROUGH the
   painting rather than around it, so an opening on the wrong side of a clip or a transform would
   move something.
+- **`Krilla`'s own `Tag` could not express reading order at all**, and that had to be fixed before
+  the tree could have any. `Add(TagIdentifier)` pushed to the native tag immediately while
+  `Add(Tag)` buffered the child until `Flatten` — so every child landed after everything its parent
+  said itself, whatever order the two were added in. Both go into ONE list now and both are pushed
+  in `Flatten`. It is a defect of the wrapper rather than of the converter, and invisible until a
+  parent had content of its own to interleave.
+- **The order the spans were PAINTED in is reading order, but only for a parent's own text.** Within
+  Appendix E's inline content phase the painter visits lines top to bottom and runs left to right,
+  so a paragraph's own spans arrive in the order a reader meets them. The CHILDREN are a different
+  matter: a float paints in a phase of its own before the text it was declared after, and anything
+  positioned paints after everything. So the merge is one-sided — children keep DOM order, and each
+  takes every own span whose paint order precedes its subtree's first.
+- **An `<a href>` is a `Link` holding the annotation as well as the words**, which needed the
+  anchor's own selector carried on the run: a run takes the INNERMOST inline element's path, so an
+  anchor wrapping a `<b>` is named by nothing the run carries. `AnchorLink` carries both, and
+  `Surface.AddTaggedLink` grew the internal-destination overload a `#fragment` needs.
+- **A list item wants `LI > LBody`**, and the `Lbl` beside it is deliberately absent: the marker is
+  painted as an artifact here, so an empty label would be worse than none.
 
 ## The diagnostic table is only as good as its audit
 
@@ -1440,6 +1494,10 @@ The pass before found:
 Both are now reported, and the lesson generalises: a value-by-value fallback with a reasoned comment beside it is exactly where an unreported gap hides, because the comment makes the code look considered.
 
 **Neither audit looks at the MARKUP**, and that is the third blind spot. Both compare CSS against CSS, so an element the engine lays out wrongly reports nothing unless a property was involved — and there is no declaration to hang a report on, so it could not report even in principle. Reading `UserAgentStyles` against the HTML Standard's rendering section is the pass that finds those, and it found two in one sitting: `<font>` had no `display` at all, so every run it wrapped went on a line of its own, and `<wbr>` reached the tokeniser as an empty run and offered no break. Both are whole-document differences in the documents that use them.
+
+**The fourth blind spot is the TEXT**, and it is the one that stayed open longest, because closing it needed a report with no site in the cascade at all rather than another entry in a table. Line breaking, bidirectional reordering and font coverage are properties of the CHARACTERS, so both audits are structurally unable to see them — a document in Japanese or Arabic converted silently and wrongly however carefully its stylesheet was scanned. `UnsupportedText` scans a text node as the box builder collects it, and reports three things: a script the engine offers no break opportunity inside, so a paragraph of it is one unbreakable word; a script it lays out left to right and so gets backwards; and a character no registered face covers, which is drawn as `.notdef`. `HtmlDiagnosticKind.UnsupportedText` is what carries them. A `@font-face` rule is the document-level member of the same family — it declares a family rather than using a property, so nothing scanning declarations could ever have found it — and is reported before the tree is built.
+
+**Its false positives are not the ones you would guess, and the corpus found all of them at once.** A tab, a newline and a soft hyphen are covered by no face, because none of them is a glyph — the first two are consumed by white-space processing and the third is stripped before shaping — so `text/tabs`, both `inline/white_space` rows and `inline/white_space_pre` all reported on the first run, every one of them pixel-identical to Chrome. What is left is one genuine report, on `inline/hyphen_breaks`: no Liberation face covers U+2011, so it really is a `.notdef` here, and the scenario is pixel-identical only because the reference browser is pinned to the same files and draws the same `.notdef`. Outside the corpus a browser reaches a system face and the document differs, which is exactly what the report is for.
 
 The other thing the audit cannot see is a syntax the resolver does not PARSE. `calc()` was the case: it fell through to the unparseable fallback, the property took its default, and no diagnostic could fire because nothing recognised the value as one the engine was getting wrong. **A value nothing recognises is a value nothing can report.**
 

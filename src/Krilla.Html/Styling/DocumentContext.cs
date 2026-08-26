@@ -345,6 +345,62 @@ sealed class DocumentContext :
     }
 
     /// <summary>
+    /// Reports every <c>@font-face</c> the document declares, none of which is read.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A document that SHIPS its fonts — a mail merge with a corporate face, anything exported from
+    /// a design tool — is rendered in whatever <see cref="HtmlOptions.Fonts"/> happens to hold, and
+    /// silently: nothing in the cascade scan can see it, because the rule declares a family rather
+    /// than using a property. It is one of the document-level differences a reader would notice
+    /// first and the conversion said least about.
+    /// </para>
+    /// <para>
+    /// Reported rather than honoured, and the gap between the two is not an afternoon. A font is a
+    /// document resource with exactly the image policy's exfiltration concern, so it needs a
+    /// resolver and a policy of its own; and a <see cref="FontSet"/> is caller-owned and routinely
+    /// SHARED between conversions, so a document's own faces have to be an overlay rather than a
+    /// registration or one document's fonts leak into the next.
+    /// </para>
+    /// </remarks>
+    public void ReportFontFaces()
+    {
+        if (!Reports)
+        {
+            return;
+        }
+
+        foreach (var sheet in document.StyleSheets.OfType<ICssStyleSheet>())
+        {
+            Descend(sheet.Rules);
+        }
+
+        void Descend(ICssRuleList rules)
+        {
+            foreach (var rule in rules)
+            {
+                if (rule is ICssGroupingRule group)
+                {
+                    Descend(group.Rules);
+                    continue;
+                }
+
+                if (rule is ICssFontFaceRule face)
+                {
+                    Diagnostic.Rule(
+                        OnDiagnostic,
+                        "@font-face",
+                        "src",
+                        // AngleSharp hands the family back as it was WRITTEN, quotes included,
+                        // where every other value in a report is already normalised.
+                        face.Family?.Trim('"').Trim('\'') is {Length: > 0} family ? family : null,
+                        "not read, so the document's own font is not loaded");
+                }
+            }
+        }
+    }
+
+    /// <summary>
     /// Visits every style rule in the document's own stylesheets, in document order.
     /// </summary>
     /// <remarks>

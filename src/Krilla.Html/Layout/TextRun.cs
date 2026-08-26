@@ -31,7 +31,7 @@ readonly record struct TextRun(
     float X,
     float Y,
     float Width,
-    string? Link = null,
+    AnchorLink? Link = null,
     IReadOnlyList<Glyph>? Glyphs = null,
     string? Selector = null,
     IReadOnlyList<InlineBackdrop>? Backdrops = null,
