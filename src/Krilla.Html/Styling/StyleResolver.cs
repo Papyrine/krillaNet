@@ -386,6 +386,9 @@ static class StyleResolver
             VerticalAlignDeclared =
                 !string.IsNullOrWhiteSpace(declaration.GetPropertyValue("vertical-align")),
             TextAlign = ParseTextAlign(declaration.GetPropertyValue("text-align"), parent.TextAlign),
+            TextAlignLast = ParseTextAlignLast(
+                declaration.GetPropertyValue("text-align-last"),
+                parent.TextAlignLast),
             WhiteSpace = ParseWhiteSpace(declaration, parent.WhiteSpace),
             Float = ParseFloat(declaration.GetPropertyValue("float")),
             Clear = ParseClear(declaration.GetPropertyValue("clear")),
@@ -2114,6 +2117,25 @@ static class StyleResolver
     /// <c>preserve</c> here and reported.
     /// </para>
     /// </remarks>
+    /// <summary>
+    /// How the last line of a block is aligned, or null for <c>auto</c>. Inherited.
+    /// </summary>
+    /// <remarks>
+    /// <c>auto</c> is a value in its own right rather than a synonym for the inherited one: it
+    /// hands the decision back to <c>text-align</c>, which is not the same as taking whatever the
+    /// parent's <c>text-align-last</c> was.
+    /// </remarks>
+    static TextAlignKind? ParseTextAlignLast(string value, TextAlignKind? inherited) =>
+        value.Trim().ToLowerInvariant() switch
+        {
+            "auto" => null,
+            "center" => TextAlignKind.Center,
+            "right" or "end" => TextAlignKind.Right,
+            "justify" => TextAlignKind.Justify,
+            "left" or "start" => TextAlignKind.Left,
+            _ => inherited
+        };
+
     static WhiteSpaceKind ParseWhiteSpace(ICssStyleDeclaration declaration, WhiteSpaceKind inherited)
     {
         var shorthand = declaration.GetPropertyValue("white-space").Trim().ToLowerInvariant();

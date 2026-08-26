@@ -1,0 +1,72 @@
+[
+  {
+    "selector": "html",
+    "x": 0,
+    "y": 0,
+    "width": 816,
+    "height": 448
+  },
+  {
+    "selector": "html > body:nth-child(2)",
+    "x": 0,
+    "y": 0,
+    "width": 816,
+    "height": 438
+  },
+  {
+    "selector": "html > body:nth-child(2) > p:nth-child(1)",
+    "x": 0,
+    "y": 0,
+    "width": 300,
+    "height": 72
+  },
+  {
+    "selector": "html > body:nth-child(2) > p:nth-child(2)",
+    "x": 0,
+    "y": 82,
+    "width": 300,
+    "height": 54
+  },
+  {
+    "selector": "html > body:nth-child(2) > p:nth-child(3)",
+    "x": 0,
+    "y": 146,
+    "width": 300,
+    "height": 54
+  },
+  {
+    "selector": "html > body:nth-child(2) > p:nth-child(4)",
+    "x": 0,
+    "y": 210,
+    "width": 300,
+    "height": 54
+  },
+  {
+    "selector": "html > body:nth-child(2) > p:nth-child(5)",
+    "x": 0,
+    "y": 274,
+    "width": 300,
+    "height": 54
+  },
+  {
+    "selector": "html > body:nth-child(2) > p:nth-child(6)",
+    "x": 0,
+    "y": 338,
+    "width": 300,
+    "height": 54
+  },
+  {
+    "selector": "html > body:nth-child(2) > p:nth-child(6) > br:nth-child(1)",
+    "x": 300,
+    "y": 338,
+    "width": 0,
+    "height": 17
+  },
+  {
+    "selector": "html > body:nth-child(2) > p:nth-child(7)",
+    "x": 0,
+    "y": 402,
+    "width": 300,
+    "height": 36
+  }
+]

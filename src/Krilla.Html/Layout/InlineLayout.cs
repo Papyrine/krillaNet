@@ -1093,17 +1093,25 @@ static class InlineLayout
         line.Bounds = new(band.Left, y, band.Width, height);
         line.Baseline = above;
 
-        var x = box.Style.TextAlign switch
+        // `text-align-last` decides the last line of the block and the line before a forced
+        // break, which is exactly what `forced` marks. Its `auto` hands the decision back to
+        // `text-align` with the one carve-out CSS makes for it: the last line of a justified block
+        // aligns to the start edge rather than being stretched. A declared value replaces the whole
+        // of that rule, which is what lets `text-align-last: justify` stretch the line the default
+        // exempts.
+        var alignment = forced
+            ? box.Style.TextAlignLast ??
+              (box.Style.TextAlign == TextAlignKind.Justify ? TextAlignKind.Left : box.Style.TextAlign)
+            : box.Style.TextAlign;
+
+        var x = alignment switch
         {
             TextAlignKind.Center => band.Left + (band.Width - width) / 2,
             TextAlignKind.Right => band.Left + band.Width - width,
-            // The last line of a justified block is not stretched, so it aligns to the start edge
-            // like any other left-aligned line.
-            TextAlignKind.Justify when !forced => band.Left,
             _ => band.Left
         };
 
-        var justify = box.Style.TextAlign == TextAlignKind.Justify && !forced;
+        var justify = alignment == TextAlignKind.Justify;
         var extra = justify ? ExtraSpacePerGap(tokens, band.Width - width) : 0;
 
         // Adjacent tokens sharing a style become one run: fewer glyph draws, and the painted text

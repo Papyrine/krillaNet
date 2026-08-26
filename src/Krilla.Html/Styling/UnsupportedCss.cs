@@ -55,7 +55,6 @@ static class UnsupportedCss
         ("unicode-bidi", ["normal", "embed", "isolate"], "laid out in one direction"),
         ("column-count", ["auto"], "laid out in one column"),
         ("column-width", ["auto"], "laid out in one column"),
-        ("text-align-last", ["auto"], "the last line is aligned like the rest"),
         ("text-justify", ["auto", "inter-word"], "justified between words"),
         ("line-break", ["auto"], "lines break between words as usual"),
         ("text-wrap", ["auto", "wrap", "nowrap"], "lines break at the last opportunity that fits"),

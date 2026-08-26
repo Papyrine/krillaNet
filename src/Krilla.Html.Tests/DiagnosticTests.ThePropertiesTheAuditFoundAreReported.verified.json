@@ -61,12 +61,6 @@
   },
   {
     "Element": "div",
-    "Name": "text-align-last",
-    "Value": "right",
-    "Reason": "the last line is aligned like the rest"
-  },
-  {
-    "Element": "div",
     "Name": "unicode-bidi",
     "Value": "bidi-override",
     "Reason": "laid out in one direction"

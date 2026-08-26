@@ -1603,6 +1603,18 @@ sealed record ComputedStyle
     public bool HasSymbolMarker =>
         ListStyle is ListStyleKind.Disc or ListStyleKind.Circle or ListStyleKind.Square;
 
+    /// <summary>
+    /// How the LAST line of a block is aligned, or null for <c>auto</c>.
+    /// </summary>
+    /// <remarks>
+    /// Null is not the same as <see cref="TextAlign"/>'s value: <c>auto</c> means "whatever
+    /// <c>text-align</c> says, with the last line of a justified block aligned to the start edge
+    /// rather than stretched", and that carve-out is CSS's own. A declared value replaces the whole
+    /// of it, which is what lets <c>text-align-last: justify</c> stretch the line the default rule
+    /// exempts.
+    /// </remarks>
+    public TextAlignKind? TextAlignLast { get; init; }
+
     /// <summary>Whether this style preserves white space rather than collapsing it.</summary>
     public bool PreservesSpaces =>
         WhiteSpace is WhiteSpaceKind.Pre or WhiteSpaceKind.PreWrap;

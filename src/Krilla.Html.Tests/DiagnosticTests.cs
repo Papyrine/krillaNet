@@ -368,7 +368,6 @@ public class DiagnosticTests
                 <div style="font-kerning: none">h</div>
                 <div style="text-justify: distribute">i</div>
                 <div style="line-break: strict">j</div>
-                <div style="text-align-last: right">k</div>
                 <div style="unicode-bidi: bidi-override">l</div>
                 <div style="transform-style: preserve-3d">m</div>
                 <div style="perspective: 400px">n</div>
