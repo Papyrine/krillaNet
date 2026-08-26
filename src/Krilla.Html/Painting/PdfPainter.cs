@@ -64,7 +64,11 @@ static class PdfPainter
         // The canvas, before anything else and outside the transform stack below, because it is
         // measured in page points rather than layout units and covers the margins as well as the
         // content.
-        PaintCanvas(surface, root, paper);
+        PaintCanvas(
+            surface,
+            root,
+            paper,
+            new(0, 0, 0, 0, null, _ => _, tags));
 
         using var _ = surface.PushTransform(Matrix.Scale(scale, scale));
 
@@ -75,7 +79,7 @@ static class PdfPainter
         // content rather than before it, so a running header is never buried by a box that
         // overflows its way — it cannot, being clipped, but the ordering costs nothing and the
         // alternative would have to be reasoned about.
-        PaintMargins(surface, margins, scale);
+        PaintMargins(surface, margins, scale, tags);
     }
 
     /// <summary>
@@ -171,7 +175,7 @@ static class PdfPainter
     /// which strip of the margin it sits in. Its slice is its own extent, which culls nothing and
     /// is what lets the ordinary painting machinery draw it.
     /// </remarks>
-    static void PaintMargins(Surface surface, List<LayoutBox>? margins, float scale)
+    static void PaintMargins(Surface surface, List<LayoutBox>? margins, float scale, DocumentTags? tags)
     {
         if (margins is not {Count: > 0} boxes)
         {
@@ -192,9 +196,15 @@ static class PdfPainter
                 float.PositiveInfinity,
                 0,
                 null,
-                toPage);
+                toPage,
+                tags);
 
-            PaintStack(surface, box, slice, collects: true);
+            // A running header is an artifact by definition: it is not in the document, and its
+            // page number differs on every sheet. `Tags` is carried so the artifact span opens at
+            // all, and the whole box is inside one so nothing under it records a span of its own.
+            using var artifact = Artifact(surface, slice, ArtifactKind.Header);
+
+            PaintStack(surface, box, slice with {Tags = null}, collects: true);
         }
     }
 
@@ -223,7 +233,8 @@ static class PdfPainter
         Surface surface,
         List<RepeatedRows> groups,
         PageSlice page,
-        float origin)
+        float origin,
+        ArtifactKind kind)
     {
         var stacked = 0f;
 
@@ -234,7 +245,15 @@ static class PdfPainter
 
             using var moved = surface.PushTransform(Matrix.Translate(0, dy));
 
-            PaintStack(surface, group.Group, page.Repeated(dy, band.Y, band.Bottom), collects: true);
+            // A whole artifact, and the slice carries no tags into it, which is what stops the
+            // repeat from recording a SECOND span against the same cells. A screen reader meeting
+            // both would read the header once per page it continued onto, where the point of the
+            // structure tree is that it is read once.
+            using var repeated = Artifact(surface, page, kind);
+
+            var slice = page.Repeated(dy, band.Y, band.Bottom) with {Tags = null};
+
+            PaintStack(surface, group.Group, slice, collects: true);
             PaintHeaderLines(surface, group.Table, band);
 
             stacked += band.Height;
@@ -304,12 +323,12 @@ static class PdfPainter
 
         if (repeats is {} start)
         {
-            PaintRepeats(surface, start.Headers, page, page.ToPageOrigin);
+            PaintRepeats(surface, start.Headers, page, page.ToPageOrigin, ArtifactKind.Header);
 
             // Where the page's content ended, in the document coordinates everything here is drawn
             // in. `End` is the next page's top, so the footer's band begins exactly where the last
             // row on this page left off.
-            PaintRepeats(surface, start.Footers, page, page.End);
+            PaintRepeats(surface, start.Footers, page, page.End, ArtifactKind.Footer);
         }
 
         for (var i = above; i < contexts.Count; i++)
@@ -515,17 +534,21 @@ static class PdfPainter
     /// the root white and the page under it was white already. Acid1 found it in one render.
     /// </para>
     /// </remarks>
-    static void PaintCanvas(Surface surface, LayoutBox root, Size page)
+    static void PaintCanvas(Surface surface, LayoutBox root, Size page, PageSlice slice)
     {
         if (CanvasBackground(root) is not {} color)
         {
             return;
         }
 
+        var bounds = Rectangle.FromSize(0, 0, page.Width, page.Height);
+
+        using var _ = Artifact(surface, slice, ArtifactKind.Page, bounds);
+
         // The root box then paints this colour again over its own area, which is left alone: a
         // Color here is opaque by construction — Rgb, Gray and Cmyk, with no alpha — so the second
         // fill is provably identical to the first rather than merely close to it.
-        surface.FillRectangle(Rectangle.FromSize(0, 0, page.Width, page.Height), color);
+        surface.FillRectangle(bounds, color);
     }
 
     /// <summary>
@@ -639,6 +662,8 @@ static class PdfPainter
             return;
         }
 
+        using var _ = Artifact(surface, page);
+
         PaintBackground(surface, box);
         PaintBorders(surface, box);
         PaintOutline(surface, box);
@@ -663,6 +688,8 @@ static class PdfPainter
         {
             return;
         }
+
+        using var _ = Artifact(surface, page);
 
         foreach (var line in lines)
         {
@@ -1272,6 +1299,30 @@ static class PdfPainter
             ? new(surface, tags, named, text ? surface.BeginText() : surface.BeginContent())
             : default;
 
+    /// <summary>
+    /// Opens an ARTIFACT span, to be closed by disposing the result.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Everything a reader is not meant to meet: a background, a border, an outline, a collapsed
+    /// table's grid lines, a list marker, a text shadow, and a repeated table header — which is
+    /// content, but content already read once on the page before.
+    /// </para>
+    /// <para>
+    /// PDF/UA asks for every operator to be either inside a structure element or inside one of
+    /// these, and the difference is not cosmetic: content in neither is content a reader may read
+    /// out at a position nobody chose. It is also why the spans are so many and so small — krilla's
+    /// marked content does not nest, so a phase that interleaves text with decoration has to open
+    /// and close one per piece.
+    /// </para>
+    /// </remarks>
+    static TagSpan Artifact(
+        Surface surface,
+        PageSlice page,
+        ArtifactKind kind = ArtifactKind.Other,
+        Rectangle? bounds = null) =>
+        page.Tags is null ? default : new(surface, null, null, surface.BeginArtifact(kind, bounds));
+
     /// <summary>One open marked-content span, or nothing.</summary>
     /// <remarks>
     /// A struct so the common case — no tagging — allocates nothing and the <c>using</c> at each
@@ -1292,7 +1343,10 @@ static class PdfPainter
             }
 
             surface.EndTagged();
-            tags!.Record(selector!, identifier);
+
+            // An artifact has no element to belong to and no place in the tree — which is the
+            // whole of what makes it an artifact, so its identifier is deliberately dropped.
+            tags?.Record(selector!, identifier);
         }
     }
 
@@ -1403,7 +1457,7 @@ static class PdfPainter
 
         if (box.Style.Visibility == VisibilityKind.Visible)
         {
-            PaintMarker(surface, box, page.Top, page.End);
+            PaintMarker(surface, box, page.Top, page.End, page);
         }
 
         // Built before the lines are walked rather than during, because both of the things it
@@ -1433,25 +1487,33 @@ static class PdfPainter
                 // hiding the text does not hide the rectangle in a browser either.
                 if (run.Style.Visibility == VisibilityKind.Visible)
                 {
-                    PaintInlineBackground(surface, run, fragments);
+                    using (Artifact(surface, page))
+                    {
+                        PaintInlineBackground(surface, run, fragments);
+                    }
 
                     // Behind the text and in front of its background, which is where CSS puts a
-                    // text shadow — over the element's own background and under its glyphs.
-                    foreach (var shadow in run.Style.TextShadows)
+                    // text shadow — over the element's own background and under its glyphs. An
+                    // artifact rather than content: it is the same words a second time, and a
+                    // reader that read them twice would be reading the shadow.
+                    using (Artifact(surface, page))
                     {
-                        PaintRun(
-                            surface,
-                            run with
-                            {
-                                X = run.X + shadow.OffsetX,
-                                Y = run.Y + shadow.OffsetY,
-                                Style = run.Style with
+                        foreach (var shadow in run.Style.TextShadows)
+                        {
+                            PaintRun(
+                                surface,
+                                run with
                                 {
-                                    Color = shadow.Color,
-                                    TextShadows = [],
-                                    Decorations = TextDecorations.None
-                                }
-                            });
+                                    X = run.X + shadow.OffsetX,
+                                    Y = run.Y + shadow.OffsetY,
+                                    Style = run.Style with
+                                    {
+                                        Color = shadow.Color,
+                                        TextShadows = [],
+                                        Decorations = TextDecorations.None
+                                    }
+                                });
+                        }
                     }
 
                     using (Mark(surface, page, run.Selector ?? owner, text: true))
@@ -1466,36 +1528,44 @@ static class PdfPainter
 
             // Ahead of the images and the atomic inlines, and after the runs, because an edge is
             // part of the same inline content step and nothing on a line overlaps it.
-            foreach (var edge in line.Edges)
+            using (Artifact(surface, page))
             {
-                if (edge.Style.Visibility != VisibilityKind.Visible)
+                foreach (var edge in line.Edges)
                 {
-                    continue;
-                }
-
-                if (Grouped(fragments, (object?) edge.Selector ?? edge.Style) is {} fragment)
-                {
-                    // Drawn with the runs it encloses, so it lands where the per-run fill it
-                    // replaces would have. A fragment with no run inside it — an empty element
-                    // carrying nothing but padding — has no earlier place to go and is drawn here.
-                    if (fragment.First is null)
+                    if (edge.Style.Visibility != VisibilityKind.Visible)
                     {
-                        PaintInlineFragment(surface, fragment);
+                        continue;
                     }
 
-                    continue;
-                }
+                    if (Grouped(fragments, (object?) edge.Selector ?? edge.Style) is {} fragment)
+                    {
+                        // Drawn with the runs it encloses, so it lands where the per-run fill it
+                        // replaces would have. A fragment with no run inside it — an empty element
+                        // carrying nothing but padding — has no earlier place to go and is drawn
+                        // here.
+                        if (fragment.First is null)
+                        {
+                            PaintInlineFragment(surface, fragment);
+                        }
 
-                PaintInlineSurface(
-                    surface,
-                    edge.Style,
-                    edge.Bounds with {X = Snap(edge.Bounds.X), Width = Snap(edge.Bounds.Width)},
-                    edge.Kind);
+                        continue;
+                    }
+
+                    PaintInlineSurface(
+                        surface,
+                        edge.Style,
+                        edge.Bounds with {X = Snap(edge.Bounds.X), Width = Snap(edge.Bounds.Width)},
+                        edge.Kind);
+                }
             }
 
             foreach (var image in line.Images)
             {
-                using var span = Mark(surface, page, image.Selector ?? owner, text: false);
+                // A marker image is decoration rather than content: it stands in for a bullet, and
+                // the list's own tag already says the item is one.
+                using var span = image.Decorated
+                    ? Mark(surface, page, image.Selector ?? owner, text: false)
+                    : Artifact(surface, page);
 
                 PaintInlineImage(surface, image);
             }
@@ -2723,7 +2793,7 @@ static class PdfPainter
     /// <see cref="PaintRun"/> and is drawn with the very glyphs it was measured with.
     /// </para>
     /// </remarks>
-    static void PaintMarker(Surface surface, LayoutBox box, float top, float pageEnd)
+    static void PaintMarker(Surface surface, LayoutBox box, float top, float pageEnd, PageSlice page)
     {
         if (box.Marker is not {} marker ||
             marker.Bounds.Bottom < top ||
@@ -2731,6 +2801,11 @@ static class PdfPainter
         {
             return;
         }
+
+        // The marker is an artifact whatever shape it takes. A numbered one is real glyphs, and a
+        // reader announcing “1.” before every item would be announcing what the list tag already
+        // says, which is why CSS calls it a marker and PDF puts it outside the tree.
+        using var _ = Artifact(surface, page);
 
         if (marker.Run is {} run)
         {

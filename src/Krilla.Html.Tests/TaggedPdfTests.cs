@@ -90,6 +90,81 @@ public class TaggedPdfTests
     }
 
     /// <summary>
+    /// Nothing puts ink on the page from outside a marked-content span.
+    /// </summary>
+    /// <remarks>
+    /// PDF/UA's other half, and the one prose cannot assert: every operator has to be inside either
+    /// a structure element or an artifact, and a background painted outside both is content a
+    /// reader may read out at a position nobody chose. Asserted over the corpus rather than over
+    /// one document, because the sites that had to be bracketed are spread across every phase the
+    /// painter has.
+    /// </remarks>
+    [Test]
+    public async Task NothingIsPaintedOutsideASpan()
+    {
+        var loose = new List<string>();
+
+        foreach (var directory in CorpusLayout.Directories())
+        {
+            var options = CorpusRunner.Options(directory);
+            options.Tagged = true;
+
+            var pdf = await HtmlConverter.ConvertAsync(CorpusLayout.Html(directory), options);
+
+            foreach (var token in PdfContent.Untagged(pdf).Distinct())
+            {
+                loose.Add($"{CorpusLayout.Name(directory)}: {token}");
+            }
+        }
+
+        await Assert.That(loose).IsEmpty();
+    }
+
+    /// <summary>
+    /// Tagging changes no ink.
+    /// </summary>
+    /// <remarks>
+    /// The guarantee the corpus cannot give, because it runs untagged: a structure tree is
+    /// bookkeeping, and a page rendered with one has to be the page rendered without. It is worth
+    /// asserting because the artifact spans are bracketed THROUGH the painting rather than around
+    /// it — an opening that lands on the wrong side of a clip or a transform would move something.
+    /// </remarks>
+    [Test]
+    public async Task TheSamePageIsPainted()
+    {
+        var differing = new List<string>();
+
+        foreach (var directory in CorpusLayout.Directories())
+        {
+            var html = CorpusLayout.Html(directory);
+
+            var plain = CorpusRunner.RenderPages(
+                await HtmlConverter.ConvertAsync(html, CorpusRunner.Options(directory)));
+
+            var options = CorpusRunner.Options(directory);
+            options.Tagged = true;
+
+            var tagged = CorpusRunner.RenderPages(await HtmlConverter.ConvertAsync(html, options));
+
+            if (plain.Count != tagged.Count)
+            {
+                differing.Add($"{CorpusLayout.Name(directory)}: {plain.Count} pages against {tagged.Count}");
+                continue;
+            }
+
+            for (var page = 0; page < plain.Count; page++)
+            {
+                if (!plain[page].SequenceEqual(tagged[page]))
+                {
+                    differing.Add($"{CorpusLayout.Name(directory)}: page {page + 1}");
+                }
+            }
+        }
+
+        await Assert.That(differing).IsEmpty();
+    }
+
+    /// <summary>
     /// The document's language reaches the tree, which PDF/UA requires and which nothing on the
     /// page shows.
     /// </summary>

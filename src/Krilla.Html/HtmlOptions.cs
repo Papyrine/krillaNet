@@ -189,11 +189,15 @@ public sealed class HtmlOptions
     /// costs nothing to produce beyond the marked-content spans it puts around the text.
     /// </para>
     /// <para>
-    /// OFF by default, which is a statement about how far it has got rather than about its value.
-    /// The text and the pictures are tagged; the backgrounds, borders and list markers are left
-    /// outside the tree rather than marked as artifacts, and a PDF/UA validator wants both. It
-    /// also changes the bytes of every document it is enabled for, so it is a decision a caller
-    /// should take rather than one that arrives with an upgrade.
+    /// The text and the pictures are tagged; everything else — backgrounds, borders, outlines,
+    /// grid lines, list markers, text shadows, a repeated table header and a running margin box —
+    /// is marked as an artifact, so no operator puts ink on the page from outside one or the
+    /// other. That is what a PDF/UA validator checks for, and asserting it over the whole corpus is
+    /// what <c>TaggedPdfTests</c> spends most of its time on.
+    /// </para>
+    /// <para>
+    /// OFF by default all the same, because it changes the bytes of every document it is enabled
+    /// for — a decision a caller should take rather than one that arrives with an upgrade.
     /// </para>
     /// </remarks>
     public bool Tagged { get; set; }

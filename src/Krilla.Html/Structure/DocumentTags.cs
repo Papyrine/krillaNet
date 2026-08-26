@@ -20,11 +20,13 @@ namespace Krilla.Html.Structure;
 /// walking the DOM, which is reading order by construction.
 /// </para>
 /// <para>
-/// What is tagged is the text and the pictures. Backgrounds, borders, rules and list markers are
-/// left outside the tree rather than marked as artifacts, which is the remaining half of PDF/UA
-/// and is recorded in <c>todo.md</c>: krilla's marked-content spans do not nest, so bracketing
-/// them means interleaving artifact spans through phases that already interleave text with
-/// decoration.
+/// What is tagged is the text and the pictures. Everything else is marked as an ARTIFACT rather
+/// than left out — a background, a border, an outline, a collapsed table's grid lines, a list
+/// marker, a text shadow, a repeated table header and a running margin box — because PDF/UA asks
+/// for every operator to be inside one or the other, and content in neither is content a reader
+/// may read out at a position nobody chose. krilla's marked content does not nest, which is why
+/// the spans are so many and so small: a phase that interleaves text with decoration has to open
+/// and close one per piece.
 /// </para>
 /// </remarks>
 sealed class DocumentTags
