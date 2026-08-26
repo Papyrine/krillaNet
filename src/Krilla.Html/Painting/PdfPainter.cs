@@ -1000,6 +1000,46 @@ static class PdfPainter
     /// leaves the inner one square. Visible only where a thick border changes colour part way
     /// round, which nothing in the corpus does and no document sensibly asks for.
     /// </remarks>
+    /// <summary>
+    /// An atomic inline image: its background, its border, and the picture inside both.
+    /// </summary>
+    /// <remarks>
+    /// The surround is the whole reason this is not a bare <see cref="PaintImage"/> call. An
+    /// <c>&lt;img&gt;</c> in a paragraph is inline-level and takes its full box model, so it can
+    /// carry a border the way <c>&lt;img border&gt;</c> asks for one — and the picture then goes
+    /// inside that rather than filling the rectangle the line reserved.
+    /// </remarks>
+    static void PaintInlineImage(Surface surface, InlineImage image)
+    {
+        var style = image.Style;
+
+        if (!image.Decorated)
+        {
+            PaintImage(surface, image.Image, image.Content);
+            return;
+        }
+
+        // Snapped at each EDGE, like every other rectangle this fills, because an inline image
+        // lands at a fractional position as a matter of course: it starts wherever the words
+        // before it ended.
+        var left = Snap(image.Bounds.X);
+        var top = Snap(image.Bounds.Y);
+        var border = new Rect(left, top, Snap(image.Bounds.Right) - left, Snap(image.Bounds.Bottom) - top);
+
+        if (style.BackgroundColor is {} background)
+        {
+            using var builder = new PathBuilder();
+            AddRectangle(builder, border.X, border.Y, border.Right, border.Bottom, clockwise: true);
+
+            using var path = builder.Build();
+            using var paint = Krilla.Paint.Solid(background);
+            surface.SetFill(new Fill(paint, style.BackgroundAlpha)).DrawPath(path);
+        }
+
+        PaintInlineBorder(surface, style, border);
+        PaintImage(surface, image.Image, image.Content);
+    }
+
     static void PaintInlineBorder(Surface surface, ComputedStyle style, Rect rect)
     {
         if (!style.HasBorder)
@@ -1401,7 +1441,7 @@ static class PdfPainter
 
             foreach (var image in line.Images)
             {
-                PaintImage(surface, image.Image, image.Bounds);
+                PaintInlineImage(surface, image);
             }
 
             // Appendix E step 7.2.1: an inline-block paints as though it established a stacking

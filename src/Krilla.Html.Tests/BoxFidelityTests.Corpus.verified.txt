@@ -55,6 +55,7 @@ float/stacking                   matched 18  offset    0.00  size    0.00  diffe
 image/block_centred              matched  3  offset    0.00  size    0.00  differing  0  unmatched 0
 image/data_uri                   matched  3  offset    0.00  size    0.00  differing  0  unmatched 0
 image/inline_flow                matched  4  offset    0.00  size    0.00  differing  0  unmatched 0
+image/inline_surround            matched 14  offset    0.00  size    0.00  differing  0  unmatched 0
 image/intrinsic                  matched  4  offset    0.00  size    0.00  differing  0  unmatched 0
 image/max_width                  matched  4  offset    0.00  size    0.00  differing  0  unmatched 0
 image/object_fit                 matched 10  offset    0.00  size    0.00  differing  0  unmatched 0

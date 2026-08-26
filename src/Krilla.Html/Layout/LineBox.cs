@@ -65,7 +65,8 @@ sealed class LineBox
         {
             Images[index] = Images[index] with
             {
-                Bounds = Images[index].Bounds.Offset(dx, dy)
+                Bounds = Images[index].Bounds.Offset(dx, dy),
+                Content = Images[index].Content.Offset(dx, dy)
             };
         }
 

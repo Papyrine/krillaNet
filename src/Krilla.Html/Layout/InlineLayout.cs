@@ -686,15 +686,29 @@ static class InlineLayout
                 // where it would have without one and the image is drawn back beyond that. INSIDE
                 // takes its own width plus the marker gap, which is the same seven pixels an
                 // outside marker leaves and was measured on both.
+                // An atomic inline occupies its MARGIN box on the line and hangs the bottom of that
+                // box on the baseline, so its whole box model counts — including the vertical
+                // margins, which a non-replaced inline does not get. A marker image is not that
+                // box: it is generated content with no element of its own, so it keeps the two
+                // measured advances above.
+                var outerWidth = width + item.Style.SurroundX(contentWidth) +
+                                 item.Style.MarginLeft.Resolve(contentWidth) +
+                                 item.Style.MarginRight.Resolve(contentWidth);
+
+                var outerHeight = height + item.Style.SurroundY(contentWidth) +
+                                  item.Style.MarginTop.Resolve(contentWidth) +
+                                  item.Style.MarginBottom.Resolve(contentWidth);
+
                 var advance = item.Marker switch
                 {
                     MarkerPlacement.Outside => 0,
                     MarkerPlacement.Inside => image.Width + ListMarkers.MarkerGap,
-                    _ => width
+                    _ => outerWidth
                 };
 
                 tokens.Add(new(
-                    item.Style, face, advance, TokenKind.Replaced, image, height,
+                    item.Style, face, advance, TokenKind.Replaced, image,
+                    item.Marker == MarkerPlacement.None ? outerHeight : height,
                     item.Selector, item.Link, BreaksBefore: true, Marker: item.Marker));
                 breakable = true;
                 continue;
@@ -1279,14 +1293,39 @@ static class InlineLayout
                     ? x - image.Width - ListMarkers.MarkerGap
                     : x;
 
+                // The token's extent is the MARGIN box; the rectangle recorded is the BORDER box,
+                // which is what the browser reports and what the background and border paint into.
+                // A marker image has no such box, so its two edges are zero and the two agree.
+                var ordinary = replaced.Marker == MarkerPlacement.None;
+                var style = replaced.Style;
+
+                var marginLeft = ordinary ? style.MarginLeft.Resolve(band.Width) : 0;
+                var marginTop = ordinary ? style.MarginTop.Resolve(band.Width) : 0;
+                var marginRight = ordinary ? style.MarginRight.Resolve(band.Width) : 0;
+                var marginBottom = ordinary ? style.MarginBottom.Resolve(band.Width) : 0;
+
+                var outer = new Rect(
+                    left + marginLeft,
+                    y + above + shifts[runStart] - replaced.Height + marginTop,
+                    ordinary ? replaced.Width - marginLeft - marginRight : image.Width,
+                    replaced.Height - marginTop - marginBottom);
+
+                var insetLeft = ordinary ? style.BorderLeft + style.PaddingLeft.Resolve(band.Width) : 0;
+                var insetTop = ordinary ? style.BorderTop + style.PaddingTop.Resolve(band.Width) : 0;
+                var insetRight = ordinary ? style.BorderRight + style.PaddingRight.Resolve(band.Width) : 0;
+                var insetBottom = ordinary ? style.BorderBottom + style.PaddingBottom.Resolve(band.Width) : 0;
+
                 line.Images.Add(new(
                     image,
+                    outer,
                     new(
-                        left,
-                        y + above + shifts[runStart] - replaced.Height,
-                        replaced.Marker == MarkerPlacement.None ? replaced.Width : image.Width,
-                        replaced.Height),
-                    replaced.Selector));
+                        outer.X + insetLeft,
+                        outer.Y + insetTop,
+                        Math.Max(0, outer.Width - insetLeft - insetRight),
+                        Math.Max(0, outer.Height - insetTop - insetBottom)),
+                    replaced.Selector,
+                    style,
+                    ordinary));
 
                 x += replaced.Width;
                 runStart++;
