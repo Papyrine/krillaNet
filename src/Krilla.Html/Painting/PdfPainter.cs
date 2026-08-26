@@ -855,7 +855,7 @@ static class PdfPainter
             // fragments, of which this rectangle shows one slice. A shading is positioned in user
             // space, so filling the fragment with a paint built over the larger box samples exactly
             // the part of the ramp that belongs to it.
-            var ramp = style.BackgroundImage is {} gradient && ramps?.Span(identity, run.X, run.Y) is {} span
+            var ramp = style.BackgroundImage is not null && ramps?.Span(identity, run.X, run.Y) is {} span
                 ? new Rect(left - span.Before, top, span.Total, bottom - top)
                 : (Rect?) null;
 
@@ -1882,7 +1882,7 @@ static class PdfPainter
     /// upward are genuine antialiased circles. Where between three and four the switch is made is
     /// not measurable, since a browser rounds a border's width to whole pixels first.
     /// </remarks>
-    const float SquareDot = 3;
+    const float squareDot = 3;
 
     static bool Mitred(BorderStyleKind kind) =>
         kind is BorderStyleKind.Solid
@@ -1903,7 +1903,7 @@ static class PdfPainter
     /// </para>
     /// <para>
     /// A dot is the border's width across and repeats at twice it, and its SHAPE depends on how
-    /// big it is: at or below <see cref="SquareDot"/> pixels Chromium draws a crisp square snapped
+    /// big it is: at or below <see cref="squareDot"/> pixels Chromium draws a crisp square snapped
     /// to the pixel grid, and above it an antialiased circle. Both are drawn here, because neither
     /// approximates the other — a circle at 3px is a soft blob where the browser has three solid
     /// pixels, and a square at 12px is a visibly different shape.
@@ -1966,7 +1966,7 @@ static class PdfPainter
             // A SMALL dot is a snapped square rather than a circle, which is what Chromium draws
             // and is not something either shape can approximate: at three pixels it comes out of
             // the browser with no antialiased pixel anywhere in it.
-            if (width <= SquareDot)
+            if (width <= squareDot)
             {
                 Squares(paint, dots.Count, width + dots.Gap);
                 return;

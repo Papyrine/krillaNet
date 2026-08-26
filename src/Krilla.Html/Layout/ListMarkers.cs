@@ -314,7 +314,7 @@ static class ListMarkers
     /// twenty-fifth code point is the final sigma, which the style skips — so the alphabet has to
     /// be a list rather than a first character and a length.
     /// </remarks>
-    static string Alphabetic(int ordinal, ReadOnlySpan<char> alphabet)
+    static string Alphabetic(int ordinal, CharSpan alphabet)
     {
         // Outside the range the style can express, the specification says to fall back to decimal
         // rather than to invent a glyph for it.

@@ -100,6 +100,7 @@ public sealed partial class Surface
     /// <summary>
     /// Sets the stroke for subsequent drawing, or clears it when passed null.
     /// </summary>
+    // ReSharper disable once RedundantUnsafeContext
     public unsafe Surface SetStroke(Stroke? stroke)
     {
         if (stroke is not { } value)
