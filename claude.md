@@ -137,10 +137,14 @@ and `string()` for running headers, the `page` property and the named `@page` ru
 `word-wrap` beside `overflow-wrap`, the logical box properties (`margin-inline`, `padding-block`,
 `inline-size` and the rest), `list-style-type: lower-greek` and a literal string, a gradient as an
 inline element's background, and a percentage height on an inline-block or a float.
-between `top` and `bottom`, a percentage `height`/`min-height`/`max-height` against a definite
-containing block, `break-before`/`break-after: avoid`, a `tfoot` repeated at the foot of every page
-its table continues onto, `rgba()` on a border, an outline, a decoration and a collapsed table's
-grid lines, an `inset` box shadow, and `display: block` on a `::before` or `::after`.
+
+And from the twelfth, which came out of an audit run against the CASCADE rather than against the
+diagnostic table: `background-repeat: round` and `space`, `border-radius` on an inline element, a
+gradient reaching an inline element's padding, the individual transform properties (`translate`,
+`rotate` and `scale`), the `white-space` longhands (`white-space-collapse` and `text-wrap`),
+`white-space: nowrap` on an inline element rather than only on its block, `text-align-last`,
+`counter-set`, coverage-driven font fallback per character, and twenty-three more properties the
+audit found reaching nothing and reported by nothing.
 
 Three structural points worth knowing before changing anything:
 
@@ -164,8 +168,7 @@ It records two independent measurements, and **asserts neither**:
 - **`reference.boxes.json`** — the browser's `getBoundingClientRect()` per element, against our box tree. Integer-exact, localising ("this paragraph is 14px low" is a defect report), and — the practical reason it leads — computable without the native library, so it works on a machine with no Rust toolchain.
 - **`reference_0001.png`** — pixels, via AbsoluteError and SSIM.
 
-**Box geometry currently sits at zero across all 139 scenarios, with nothing unmatched**, and 100
-read SSIM 1.0000.
+**Box geometry currently sits at zero across all 145 scenarios, with nothing unmatched**, and 102
 read SSIM 1.0000. Several got there by finding a defect first, which is the argument for adding a
 scenario for anything the engine implements rather than only for what it implements well:
 `block/anonymous` found trailing inline content hoisted above a block sibling, `position/fixed`
@@ -180,11 +183,12 @@ a mystery: `block/border_styles` (0.9995) is a vertical dotted edge Chromium con
 `block/bevelled_borders` (0.9990) is antialiasing where two colours meet on a mitre,
 `text/decoration_style` (0.9999) is `text-decoration-skip-ink`, `image/inline_flow` (0.9999) is
 antialiasing on an image edge at a fractional position, and the rest are the same glyph positioning
-seen on fewer words. TWO are the browser's rather than this engine's: `table/cell_baseline` (0.9926),
-where Chromium's printer disagrees with its own layout, and `block/translucent`'s `AE`, which is a
-one-unit rounding difference in alpha compositing. A scenario reading SSIM 1.0000 is not necessarily
+seen on fewer words. THREE are the browser's rather than this engine's: `table/cell_baseline`
+(0.9926), where Chromium's printer disagrees with its own layout; `block/background_repeat` (0.9842),
+where it blurs a spaced background's tile edges; and `block/translucent`'s `AE`, which is a one-unit
+rounding difference in alpha compositing. A scenario reading SSIM 1.0000 is not necessarily
 pixel-identical — twenty-eight differ on a scattering of antialiased pixels, which is what `AE` is
-there to show. Sixty-nine are identical outright.
+there to show. Seventy-four are identical outright.
 
 **The unmatched count is an assertion, not a statistic.** `BaselineHealthTests.EveryElementIsMeasured`
 requires every element the browser laid out to have a box on this side. It closes the same hole
@@ -557,6 +561,10 @@ All four are geometry-exact; the middle two are pixel-identical.
 - **It creates a stacking context**, so it reuses the machinery `opacity` built. The transform is pushed OUTSIDE the fade, so a box carrying both is faded and then drawn through the transform.
 - **The three-dimensional functions are left unparsed rather than flattened.** `rotate3d` has a two-dimensional shadow that would put the box somewhere plausible and wrong, so the whole transform is dropped and reported.
 - **The cascade does NOT normalise `transform`** — values arrive verbatim, unlike a gradient's corner keyword. It does reorder `transform-origin` so the horizontal component comes first, which is what lets the two be read positionally.
+- **`translate`, `rotate` and `scale` are not shorthands for `transform`** and reach no longhand of it, so a document written in the modern spelling moved nothing. CSS Transforms 2 §3 composes them AHEAD of it in a fixed order — translate, then rotate, then scale, whatever order the declarations were written in — which makes them a PREFIX on the function list rather than a second matrix, and lets `transform-origin` and everything else downstream apply to the composite without knowing they exist.
+- **A percentage on `scale` is a FACTOR**, not a fraction of anything: `scale: 150%` and `scale: 1.5` are the same declaration. It is the one place in the value layer where a percentage does not resolve against a box.
+- **All four properties compose into ONE matrix, so refusing one drops the rest.** A three-dimensional `rotate` loses the `translate` beside it exactly as a `rotate3d()` inside `transform` loses the `scale()` beside that, which is why every declared one reports: the report is about the matrix, not about the function that named a third axis.
+- **A one-value `translate` leaves the vertical alone and a one-value `scale` scales both axes.** The identities differ — no movement is zero and no scaling is one — so the two properties cannot share a "missing component" rule.
 
 ## Traps in gradients
 
@@ -682,7 +690,21 @@ the exceptions a careful reading of the specification suggests turn out not to e
 - **The en and em dashes break; U+2011 and the solidus do not.** The non-breaking hyphen is the whole point of that character. The solidus is worth knowing because a URL is the obvious thing a reader expects to wrap, and Chrome does not wrap one.
 - **Splitting happens at TOKENISATION, over one shaped run.** Each segment's width is a sub-range of the same `ShapedText`, so the segments sum to exactly what the whole word measured and the kerning across the dash survives. Shaping the segments separately would lose both.
 - **A break opportunity changes MIN-CONTENT width, and nothing fails when that is missed.** A hyphenated word's minimum is its longest segment, so a table column sized from the whole word comes out too wide and a cell that should have wrapped does not. `table/hyphen_columns` is 23px wide and one line short without the reset in `Intrinsic` — and no other scenario in the corpus moves at all, which is exactly why it needed a scenario of its own.
-- **Soft hyphen is unimplemented rather than decided against.** It is a break opportunity AND paints a hyphen only when the break falls there, which is a conditional glyph rather than a break rule.
+- **Soft hyphen is a break opportunity that paints a hyphen only where the break falls**, which is a conditional glyph rather than a break rule. Implemented since, and measured by `text/soft_hyphen`; the section below records what it cost.
+- **Whether a line may break is a property of the TOKEN at the opportunity, not of the block.** The
+  fill loop read `box.Style.Wraps` once, so `white-space: nowrap` on an inline element suppressed
+  nothing — and that is the common half of how the property is written, a held phrase inside a
+  sentence being the reason anyone reaches for it. The intrinsic-width pass already read the token's
+  own style, so the two halves of the engine disagreed about where a line could break and only the
+  one nothing measured was right.
+- **An unbreakable run ends at a space only where the space is an OPPORTUNITY.** Inside a `nowrap`
+  element a space is content like any other, so `UnbreakableWidths` has to reach past it — a run
+  that stopped there is measured short of the group it exists to hold together.
+- **A change of FACE inside a word is not a break opportunity either.** Coverage-driven fallback
+  splits a word into one token per face, and two adjacent tokens are exactly the arrangement
+  `inline/word_joins` proved a line must not break between — so the fallback would have
+  reintroduced that defect by another route. Only the first of the pieces carries `BreaksBefore`
+  and only the last can hyphenate.
 
 ## Traps in page breaks
 
@@ -756,6 +778,28 @@ they came from, which is the point the section below about measurement makes.
   exposed this: the leading edge fitted, the word after it could not break, and the line overran its
   band. The two readings agree wherever a break opportunity is followed by something that offers one
   of its own, which is nearly always.
+- **A background is painted per RUN, and a rounded corner belongs to the FRAGMENT.** Three abutting
+  rectangles and one long rectangle are the same picture until a corner is rounded, at which point
+  a `<span>` holding a `<b>` — three runs — grows a notch at every element boundary inside the
+  phrase. `InlineFragments` is the grouping that fixes it, and it is the whole of what
+  `border-radius` on an inline element needed.
+- **A fragment that does not carry the element's opening edge loses its two LEFT corners**, and one
+  that does not carry the closing edge loses the pair on the right. Which is the same rule the
+  square path already followed for the side borders: a break is not an edge of the element, so
+  nothing is drawn there.
+- **A grouped fragment is painted at the FIRST RUN inside it**, which is exactly where the per-run
+  fill it replaces would have happened — so grouping does not move the element among its
+  neighbours' backgrounds. That, plus building the pre-pass only for a box whose inline content is
+  rounded or ramped, is what let the change leave every other scenario identical.
+- **A gradient's box is the element's PADDING box laid end to end, not its runs.** A fragment
+  reaches past its first and last run by whatever surround the element carries, so anchoring the
+  ramp on the run left the padding strip unpainted AND made the ramp that much shorter than the
+  browser's — the phase wrong everywhere, not only at the ends. `InlineRamps` measured runs and is
+  gone; `InlineFragments` answers both questions.
+- **A rounded inline border is a RING where its edges agree on a colour and four clipped rectangles
+  where they do not.** `UnsupportedCss` cannot reuse `PaintsBorderAsRing` to decide which: that
+  requires all four edges present, and a fragment in the middle of a wrapped element has no left or
+  right border at all.
 
 ## Traps in the value layer
 
@@ -815,6 +859,55 @@ all four exact on geometry.
   be honoured or reported because it never arrives: `revert`, `text-overflow`, and the
   `min-content`/`max-content`/`fit-content` sizing keywords. `unset` does arrive, and is a no-op for
   everything in the diagnostic table for the same reason `initial` is.
+
+## Traps in the white-space longhands and the last line
+
+`text/white_space_longhands` and `text/align_last` measure these, both exact against Chrome.
+
+- **`white-space` and its longhands do not meet.** It is a shorthand for `white-space-collapse` and
+  `text-wrap` in CSS Text 4, and AngleSharp expands neither into the other: the longhands come back
+  empty for a document that writes the shorthand, and the shorthand comes back empty for one that
+  writes the longhands. Both are read, the shorthand first because a document writing it means it.
+  The same shape as `word-wrap` beside `overflow-wrap` and `page-break-before` beside
+  `break-before`.
+- **The five values of the shorthand are the five combinations this engine distinguishes**, which is
+  what lets the longhands fold onto the same enum rather than needing an axis of their own.
+- **An absent longhand falls back to what the element INHERITED, not to its own initial value.**
+  `text-wrap: nowrap` inside a preserving block keeps the preserving half; reading the absent one as
+  its initial value silently undoes the half nobody mentioned.
+- **`text-align-last` names the last line of the block AND the line before a forced break**, which
+  is exactly the set the line breaker already marks — so the property costs one branch rather than a
+  pass.
+- **Its `auto` is a value in its own right, not a synonym for `text-align`.** It hands the decision
+  back with the carve-out CSS makes for it, that the last line of a justified block aligns to the
+  start edge rather than being stretched, and a DECLARED value replaces the whole of that rule.
+  Which is what lets `text-align-last: justify` stretch the one line the default exempts.
+
+## Traps in font fallback
+
+`FontFallbackTests` measures these. The corpus cannot: the reference generator binds the bundled
+families through `@font-face`, so a character none of them covers is resolved by Chromium against
+whatever the HOST has installed — which is exactly what the corpus exists to keep out of its
+numbers.
+
+- **Family resolution and coverage are different questions.** `FontSet.Resolve` answers a
+  `font-family` list and nothing else, so a character outside the face it chose was drawn as
+  `.notdef` — a document in Greek set in a face with no Greek came out as a row of boxes, silently,
+  with the resolution having done exactly what it was asked. Coverage is asked per CHARACTER, so the
+  answer is a list of runs rather than a face.
+- **The rest of the element's OWN stack is searched before anything else registered**, which is what
+  a font stack is for. Only then does it fall through to every registered family in REGISTRATION
+  order, which has to be recorded separately: a dictionary's order is an implementation detail, and
+  "which face draws this character" has to be the same answer on two machines.
+- **A character nothing covers keeps the DECLARED face.** The `.notdef` belongs in the face the
+  document asked for rather than in whichever face was looked at last — and it keeps the run from
+  splitting for no reason.
+- **Each run is shaped over its OWN substring rather than sliced out of one shaping.** A shaper
+  works in one face, and the kerning it would find across a boundary where the face changes is not
+  kerning any face defines.
+- **The common case has to stay one run over the whole item.** It is the same single shaping this
+  did before coverage was consulted at all, which is what says a corpus made entirely of Latin
+  cannot have moved — and it has not.
 
 ## Traps in soft hyphens, word breaking and tabs
 
@@ -877,6 +970,22 @@ and pixel-identical to Chrome.
   position still came from the padding box.
 - **The tile count is bounded at 512 per axis.** A `background-size` resolving to a fraction of a
   pixel would otherwise ask for hundreds of thousands of draws.
+- **`round` and `space` answer the same question from opposite ends**, and both are a step and a
+  start rather than a separate walk. `round` rescales the tile so a whole number fills the
+  positioning area — the NEAREST count rather than the largest that fits, so a tile is as often
+  stretched as squeezed — and `space` keeps the tile and shares the remainder out, pinning the first
+  and last to the edges, which is why `background-position` is ignored on a spaced axis.
+- **`space` falls back to `no-repeat` where fewer than two whole tiles fit**, and that is the common
+  case rather than a corner one: the property is usually written for an image nobody measured
+  against its box. With one tile there is no gap to share, so the position is honoured again.
+- **Rounding ONE axis of an image whose other axis is `auto` rescales that other axis**, which is
+  CSS Backgrounds 3 §3.6's third step. Without it a rounded axis distorts the picture, which is the
+  one thing `round` is not meant to do while it has a free axis to spend.
+- **Chromium's printer blurs a spaced background and cannot be matched.** It draws one through a
+  filtered shader, so every tile edge in the reference is smeared across two pixels. Measured with a
+  probe rather than assumed: a box fitting three tiles with NO gap renders crisply, and the same box
+  with a 4px gap at integer positions does not — so the trigger is the spacing putting the paint on
+  a different code path, not a fractional position.
 - **`object-position` is the same rule as `background-position`**, and it has to apply AFTER
   `object-fit`: under `cover` the slack goes negative and the offset chooses which band of the image
   survives the clip.
@@ -1051,6 +1160,11 @@ serialisation had to be worked around, and both were found by measuring.
   outside it, which is what makes `counters()` produce `1.1` and `1.2`. Popping it when the subtree
   ends is what stops a second list continuing the first's numbering. The reset applies before the
   increment, CSS's order and observable: an element doing both to one counter gives 1 rather than 0.
+- **`counter-set` creates no SCOPE, and that is the whole of what separates it from `counter-reset`.**
+  Setting a counter already in scope changes the one that is there where resetting it nests a second
+  inside it, so a `counters()` after a set reads one level and after a reset reads two. The order is
+  reset, then increment, then set — an element doing all three to one counter ends on the value it
+  SET, and any other order gives a different number.
 
 ## Traps in shadows and rgba
 
@@ -1162,6 +1276,8 @@ it goes — which is where all five of these live.
 
 The audit is a two-line shell pipeline — every property name `StyleResolver` reads, against every string `UnsupportedCss` mentions — and the difference is the properties the engine claims to honour. Reading that list is the work: each entry has to be *honoured for every value it takes*, not merely read. Two passes have each found two, and none of the four failed anything.
 
+**That pipeline has a blind spot of its own, and it is the larger one.** It compares two lists the engine wrote, so it finds a property the engine claims and gets wrong — and it cannot find one that neither file mentions at all. Enumerating what `ComputeCascadedStyle` actually hands back is the pass that finds those, and it is a different exercise: put one declaration at a time through the cascade and print every property that comes out. The last one found twenty-three, of which the three worth naming are `translate`, `rotate` and `scale`. They are not shorthands for `transform` and reach no longhand of it, so a document written in the modern spelling moved nothing and was told nothing — and they were implemented rather than reported, which is what the pass is for. It also found `white-space-collapse` and `text-wrap`, the longhands `white-space` is being replaced by, and `text-align-last` and `counter-set`, all of which arrived from the cascade and reached nothing.
+
 The most recent found a value-by-value gap in two of the properties added alongside it: an `aspect-ratio` given the two-value `auto <ratio>` form resolves to nothing, and a `background-position` or `object-position` given the four-component `right 10px bottom 5px` form had its first two components read positionally — a plausible answer in the wrong place, which is the worst kind. Both are reported now.
 
 The pass before found:
@@ -1173,7 +1289,9 @@ Both are now reported, and the lesson generalises: a value-by-value fallback wit
 
 The other thing the audit cannot see is a syntax the resolver does not PARSE. `calc()` was the case: it fell through to the unparseable fallback, the property took its default, and no diagnostic could fire because nothing recognised the value as one the engine was getting wrong. **A value nothing recognises is a value nothing can report.**
 
-Still reported rather than implemented: `column-count`, `writing-mode`, `direction`, `font-variant`, `font-stretch`, a wavy text decoration, `word-break: keep-all`, a blurred or spread shadow, automatic hyphenation, a `position: fixed` box with neither `top` nor `bottom` given, `visibility: collapse` on a table row, an unrecognised `list-style-type`, `white-space: break-spaces`, an unresolved `list-style-image`, a `content` value that names something unreadable, a non-inline `display` on a pseudo-element of an INLINE host, a named `@page` selector, rounded corners on an inline element, and a gradient as an inline element's background.
+Still reported rather than implemented: `column-count` and `column-width`, `writing-mode`, `direction`, `unicode-bidi`, `font-variant`, `font-stretch`, `font-size-adjust`, `font-kerning`, `text-justify`, `line-break`, `text-wrap: balance` and `pretty`, `white-space-collapse: preserve-spaces`, `mix-blend-mode` and `background-blend-mode`, `isolation`, `background-attachment`, `border-image-source`, `mask-image`, `content-visibility`, `initial-letter`, `perspective` and `transform-style`, a wavy text decoration, `word-break: keep-all`, a blurred or spread shadow, automatic hyphenation, a `position: fixed` box with neither `top` nor `bottom` given, `visibility: collapse` on a table row, an unrecognised `list-style-type`, an unresolved `list-style-image`, a `content` value that names something unreadable, a non-inline `display` on a pseudo-element of an INLINE host, a named `@page` selector, and the INNER corner of a rounded inline element whose border edges disagree about a colour.
+
+The last of those is worth reading twice, because it narrowed rather than disappearing. An inline element's corners are rounded now; what is left is the inside of one, on the fragment that cannot be drawn as a ring. `white-space: break-spaces` came off the list the other way — not implemented, but found to be unreachable: AngleSharp drops it from both the shorthand and the longhand, so nothing can see it to report it.
 
 `border-style` came off it entirely, which is the first property to leave the table by having every value it takes honoured rather than by having one value reasoned about — the four bevelled styles were the last four, and `hr`'s by-name exemption went with them. `break-before` and `break-after` followed, and their test is now an assertion of ABSENCE: every value either takes is honoured, so the case that used to prove the report fires proves it does not.
 

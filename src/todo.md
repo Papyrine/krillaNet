@@ -14,18 +14,19 @@ it, that is stated, because an unmeasured gap is the more dangerous kind.
 
 ## Where the corpus stands
 
-139 scenarios across 10 categories, 1735 element boxes matched. **Box geometry matches Chrome
-exactly on every one** — worst offset 0.00px, worst size 0.00px, and nothing unmatched — and 100
-read SSIM 1.0000, of which 72 are pixel-identical outright. The other 28 differ on a scattering of
+145 scenarios across 10 categories, 1830 element boxes matched. **Box geometry matches Chrome
+exactly on every one** — worst offset 0.00px, worst size 0.00px, and nothing unmatched — and 102
+read SSIM 1.0000, of which 74 are pixel-identical outright. The other 28 differ on a scattering of
 antialiased pixels, which is what `AE` is there to show.
 
-Thirty-nine read below 1.0000. None is a mystery, and none should be "fixed" by regenerating a
+Forty-three read below 1.0000. None is a mystery, and none should be "fixed" by regenerating a
 baseline:
 
 | Scenario | AE | SSIM | Cause |
 | --- | --- | --- | --- |
 | `page/tall_image` | 0.0122 | 0.9750 | Chromium's PRINTER drops a margin its own layout keeps, below |
-| `page/table_header` | 0.0119 | 0.9900 | Sub-pixel glyph positioning at 24 and 30px; page three is identical |
+| `block/background_repeat` | 0.0167 | 0.9842 | Chromium's PRINTER blurs a SPACED background's tile edges, below |
+| `page/table_header` | 0.0049 | 0.9900 | Sub-pixel glyph positioning at 24 and 30px; page three is identical |
 | `table/cell_baseline` | 0.0031 | 0.9926 | Chromium's PRINTER does not apply cell baseline alignment, below |
 | `text/kerning` | 0.0201 | 0.9945 | Sub-pixel glyph positioning, below |
 | `text/ligatures` | 0.0099 | 0.9982 | Same |
@@ -38,40 +39,46 @@ baseline:
 | `block/border_styles` | 0.0002 | 0.9995 | A vertical dotted edge, below |
 | `page/break_between_lines` | 0.0017 | 0.9996 | Sub-pixel glyph positioning |
 | `page/trailing_margin` | 0.0024 | 0.9996 | Same |
-| `page/float_break` | 0.0023 | 0.9997 | Same |
 | `text/underline_offset` | 0.0002 | 0.9997 | Glyph edges |
-| `block/min_width` | 0.0009 | 0.9998 | Sub-pixel glyph positioning |
+| `block/counters` | 0.0013 | 0.9997 | Sub-pixel glyph positioning |
+| `page/float_break` | 0.0023 | 0.9997 | Same |
+| `block/min_width` | 0.0009 | 0.9998 | Same |
+| `text/word_spacing` | 0.0009 | 0.9998 | Same, across the widened spaces |
 | `page/break_inside` | 0.0012 | 0.9998 | Same, on page two; page one is identical |
+| `text/align_last` | 0.0013 | 0.9998 | Same |
 | `page/multi_page_flow` | 0.0016 | 0.9998 | Same |
 | `page/orphans_widows` | 0.0019 | 0.9998 | Same; pages one and three are identical |
-| `text/word_spacing` | 0.0009 | 0.9998 | Same, across the widened spaces |
-| `block/box_sizing` | 0.0004 | 0.9999 | Same, on the one line beside a float |
-| `block/counters` | 0.0005 | 0.9999 | Same |
-| `block/gradients` | 0.0500 | 0.9999 | Quantisation along the ramp; no pixel differs by more than 2 of 255, and the `AE` means nothing here |
-| `block/list_image` | 0.0006 | 0.9999 | Sub-pixel glyph positioning |
-| `block/outline` | 0.0006 | 0.9999 | Same |
-| `float/overflow_bfc` | 0.0005 | 0.9999 | Same |
-| `image/inline_flow` | 0.0006 | 0.9999 | One antialiased pixel column at an image edge |
-| `inline/gradient` | 0.0055 | 0.9999 | The same ramp quantisation, plus glyph edges |
-| `inline/text_indent` | 0.0005 | 0.9999 | Sub-pixel glyph positioning |
-| `link/fragment` | 0.0001 | 0.9999 | Same |
 | `link/wrapped` | 0.0000 | 0.9999 | Same |
-| `page/tall_block` | 0.0004 | 0.9999 | Same |
-| `position/absolute` | 0.0005 | 0.9999 | One pixel column where two backgrounds meet at a fractional edge |
+| `link/fragment` | 0.0001 | 0.9999 | Same |
 | `text/decoration_style` | 0.0002 | 0.9999 | `text-decoration-skip-ink`, deliberate, below |
-| `text/font_size_keywords` | 0.0006 | 0.9999 | Sub-pixel glyph positioning |
-| `text/letter_spacing` | 0.0005 | 0.9999 | Same |
-| `text/text_transform` | 0.0002 | 0.9999 | Same |
+| `text/text_transform` | 0.0002 | 0.9999 | Sub-pixel glyph positioning |
+| `block/box_sizing` | 0.0004 | 0.9999 | Same, on the one line beside a float |
+| `page/tall_block` | 0.0004 | 0.9999 | Same |
+| `float/overflow_bfc` | 0.0005 | 0.9999 | Same |
+| `inline/text_indent` | 0.0005 | 0.9999 | Same |
+| `position/absolute` | 0.0005 | 0.9999 | One pixel column where two backgrounds meet at a fractional edge |
+| `text/letter_spacing` | 0.0005 | 0.9999 | Sub-pixel glyph positioning |
 | `ua/blockquote_pre` | 0.0005 | 0.9999 | Same |
+| `block/list_image` | 0.0006 | 0.9999 | Same |
+| `block/outline` | 0.0006 | 0.9999 | Same |
+| `image/inline_flow` | 0.0006 | 0.9999 | One antialiased pixel column at an image edge |
+| `text/font_size_keywords` | 0.0006 | 0.9999 | Sub-pixel glyph positioning |
+| `inline/nowrap` | 0.0010 | 0.9999 | Same |
+| `inline/border_radius` | 0.0018 | 0.9999 | Antialiasing on the rounded corners, plus glyph edges |
+| `inline/gradient` | 0.0111 | 0.9999 | Ramp quantisation, plus glyph edges |
+| `block/gradients` | 0.0500 | 0.9999 | Quantisation along the ramp; no pixel differs by more than 2 of 255, and the `AE` means nothing here |
 
-**Three of these are the BROWSER's rather than this engine's**, and each is recorded in its
+**Four of these are the BROWSER's rather than this engine's**, and each is recorded in its
 scenario's notes. `table/cell_baseline`: Chromium's printer reserves the taller row that cell
 baseline alignment demands and then leaves the content against the top of it, disagreeing with the
 same browser's own `getBoundingClientRect()` by exactly the offset. `page/tall_image`: its printer
-drops the margin above the paragraph after an overflowing picture, which the same layout keeps. And
-`block/translucent`'s high `AE`, which is a one-unit rounding difference in alpha compositing over
-large flat areas. In all three the box comparison is exact, which is what says the disagreement is
-with the printer rather than with the layout.
+drops the margin above the paragraph after an overflowing picture, which the same layout keeps.
+`block/background_repeat`: it draws a SPACED background through a filtered shader, so every tile
+edge in the reference is smeared across two pixels where ours is crisp — measured with a probe, a
+box fitting three tiles with no gap renders crisply and the same box with a 4px gap at integer
+positions does not. And `block/translucent`'s high `AE`, which is a one-unit rounding difference in
+alpha compositing over large flat areas. In all four the box comparison is exact, which is what says
+the disagreement is with the printer rather than with the layout.
 
 Six causes cover the rest. Three are property gaps with a fix behind them — a vertical dotted edge,
 `text-decoration-skip-ink` and the gradient quantisation — and each is written up in the sections
@@ -93,7 +100,7 @@ wrong is still unmeasured.
 - **Flexbox**, then **grid**. The most valuable remaining piece by a wide margin, and the block
   substrate they want — tables, floats, positioned boxes, stacking contexts and `overflow`
   formatting contexts — is all underneath them now.
-- **Multi-column.** `column-count` is reported and lays out as one column.
+- **Multi-column.** `column-count` and `column-width` are reported and lay out as one column.
 
 ## Text
 
@@ -117,11 +124,11 @@ wrong is still unmeasured.
 - **No bidirectional resolution.** A run is shaped in one direction, so mixed Arabic or Hebrew with
   Latin comes out in the wrong order. `krilla_font_shape` takes a direction already, so the missing
   piece is the UAX #9 paragraph algorithm above it. Nothing measures it.
-- **No font fallback per character.** `FontSet.Fallback` is a whole-face fallback — the face used
-  when family resolution finds nothing — not a coverage-driven one, and neither `FontSet` nor
-  `CharacterMap` tests whether a face covers a given character. A character the resolved face lacks
-  renders as `.notdef`. This interacts with shaping: fallback means splitting a run at coverage
-  boundaries and shaping each piece separately.
+- **Font fallback searches faces, not the system.** `FontSet.Covering` picks a registered face
+  covering a character the resolved one lacks, which is what a caller's own font set can answer. A
+  character NO registered face covers still renders as `.notdef` — krilla has no font database, so
+  there is nowhere else to look, and reaching the host's installed fonts would end the
+  reproducibility the whole corpus rests on.
 
 ## Boxes and painting
 
@@ -143,10 +150,11 @@ wrong is still unmeasured.
   the colour asked for once the colour is translucent. `block/translucent` keeps its dashed row to
   one side and names the table's junctions for this reason. The same is true of two antialiased
   trapezia meeting on a mitre, which is the residual `block/bevelled_borders` records.
-- **Rounded corners on an inline element are still square**, and reported. Chrome rounds only the
-  outer corners of the FIRST and LAST fragment, which needs the background fill and the border edges
-  grouped per line fragment rather than per run — the background is per run today, and abuts
-  invisibly only because the fills are square.
+- **A rounded inline element whose border edges DISAGREE about a colour keeps a square inner
+  corner**, and is reported. With one colour the border is a ring and both edges of the corner are
+  rounded; with four the rectangles are cut to the rounded outline instead, which rounds the outer
+  edge and leaves the inner one square. `inline/border_radius`'s `#seven` is that case, and it is
+  the only row of the corpus that reports.
 - **A gradient's ramp is quantised differently from Chrome's.** No pixel in `block/gradients`
   differs by more than two of 255 and `#stops` and `#hard` are exactly identical, so this is a
   rounding difference along the ramp rather than a geometry one. Probably not worth chasing; it is
@@ -269,6 +277,13 @@ the table does NOT cover belongs here:
   not recognise — `calc()` was that case, falling through to the unparseable fallback with no
   diagnostic possible. Re-run the audit when adding properties, and remember it has this blind
   spot.
+- **The audit has to be run against the CASCADE, not against the table.** Diffing what
+  `StyleResolver` reads against what `UnsupportedCss` lists finds a property the engine claims and
+  gets wrong; it cannot find one that neither file mentions. Enumerating what
+  `ComputeCascadedStyle` actually hands back is the pass that finds those, and the last one found
+  twenty-three — including `translate`, `rotate` and `scale`, which are not shorthands for
+  `transform` and reach no longhand of it, so a document in the modern spelling moved nothing and
+  was told nothing.
 
 ## Known limitations that are workarounds, not bugs
 
@@ -280,17 +295,27 @@ work rather than as tidying.
   `body` and `p`. `Inputs/flatten.css` names elements explicitly to work around it. Fixing it
   properly means filtering declarations by origin, which `ComputeCascadedStyle` does not expose.
 - **AngleSharp drops some declarations rather than passing the value through**, so they can be
-  neither honoured nor reported: `revert`, `text-overflow`, the `min-content`/`max-content`/
-  `fit-content` sizing keywords, `aspect-ratio` given a single number, `overflow-wrap: anywhere`,
-  `overflow: clip`, and `recto`/`verso` on both break spellings. Four more were dropped and are now
-  recovered from the stylesheet's own text by `CssSource`: `string-set`, `page`, a `content` value
-  carrying `string()`, and a `::before`'s `display`. The whole of `@page` except its margins goes
-  the same way — its `size`, its selector, and its margin box at-rules.
-- **AngleSharp does not ALIAS two spellings of one property**, which is a quieter version of the
-  same problem: `word-wrap` comes back under its own name and leaves `overflow-wrap` empty, exactly
-  as `page-break-before` does beside `break-before`. Both spellings of both are read now. The
-  logical box properties are the same shape again — `margin-inline` reaches no physical property at
-  all — and are read from their own names.
+  neither honoured nor reported. The audit that diffs what the cascade hands back against what the
+  engine reads is also what finds these, because a dropped declaration is invisible from both
+  sides. Found so far: `revert`, `text-overflow`, the `min-content`/`max-content`/`fit-content`
+  sizing keywords, `aspect-ratio` given a single number, `overflow-wrap: anywhere`, `overflow:
+  clip`, `recto`/`verso` on both break spellings, `white-space: break-spaces` AND
+  `white-space-collapse: break-spaces`, `background-position` given four components,
+  `caption-side: inline-start`, `text-justify: none` and `inter-character`, `filter`, `clip-path`,
+  `shape-outside`, `zoom`, `text-emphasis`, `background-clip: text`, `text-underline-position`,
+  `font-variant-caps` and `font-variant-ligatures`. Four more were dropped and are now recovered
+  from the stylesheet's own text by `CssSource`: `string-set`, `page`, a `content` value carrying
+  `string()`, and a `::before`'s `display`. The whole of `@page` except its margins goes the same
+  way — its `size`, its selector, and its margin box at-rules.
+- **AngleSharp does not ALIAS two spellings of one property**, nor expand a shorthand into
+  longhands the engine reads, which is a quieter version of the same problem: `word-wrap` comes back
+  under its own name and leaves `overflow-wrap` empty, exactly as `page-break-before` does beside
+  `break-before`, and `white-space` leaves `white-space-collapse` and `text-wrap` empty while those
+  leave it empty in turn. Both spellings of all three are read now. The logical box properties are
+  the same shape again — `margin-inline` reaches no physical property at all — and are read from
+  their own names. `background-repeat` is the one that goes the other way: it is SPLIT into
+  `-x` and `-y` and the shorthand reserialised, which folds `repeat no-repeat` onto `repeat-x` and
+  has no spelling at all for `round no-repeat`, so the longhands are read first.
 - **A generic font family cannot be pinned in the corpus**, because a generic name is not legal as
   an `@font-face` family, so "does `<pre>` default to monospace" is not measurable here.
 - **A `::before` or `::after` rule's `display` is read from the stylesheet's own rules**, because
@@ -307,7 +332,7 @@ work rather than as tidying.
 
 - **The corpus references are generated on one platform.** Regenerating on the machine that
   produced them is known to be byte-identical, so the generator is at least deterministic — but
-  that is the lesser half. The claim that matters is still untested: generating all 133 on a second
+  that is the lesser half. The claim that matters is still untested: generating all 145 on a second
   machine, with a different Chromium build, and diffing the PNGs. Until then a platform-specific
   difference would look like a layout regression.
 - **`Krilla.Html` is never packed or published by CI.** It packs perfectly well locally — the

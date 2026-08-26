@@ -29,8 +29,8 @@ toolchain. Zero means the box tree agrees with Chrome exactly.
 
 **Pixels** are AbsoluteError and SSIM against the printed reference.
 
-Boxes sit at zero across the whole corpus: all 139 scenarios match Chrome's geometry exactly. Pixels
-are close behind — 100 read SSIM 1.0000 and 72 are identical outright.
+Boxes sit at zero across the whole corpus: all 145 scenarios match Chrome's geometry exactly. Pixels
+are close behind — 102 read SSIM 1.0000 and 74 are identical outright.
 
 Several defects reached that state rather than starting there, each found by the scenario named for
 it: `block/anonymous` hoisted trailing inline content above a block sibling, `position/fixed`
@@ -42,12 +42,14 @@ long word to a fresh line and then never offered it for splitting, and `position
 absolute box inside a stacking context twice. Each scenario's `notes.md` records what it found and
 what changed.
 
-The thirty-nine below 1.0000 come down to named causes. Three of them are the BROWSER's:
+The forty-three below 1.0000 come down to named causes. Four of them are the BROWSER's:
 `table/cell_baseline` (0.9926), where Chromium's printer reserves the taller row that cell baseline
 alignment demands and then leaves the content against the top of it; `page/tall_image` (0.9750),
-where it drops the margin above the paragraph after an overflowing picture; and
+where it drops the margin above the paragraph after an overflowing picture;
+`block/background_repeat` (0.9842), where it draws a spaced background through a filtered shader and
+smears every tile edge across two pixels; and
 `block/translucent`'s high `AE`, which is a one-unit rounding difference in alpha compositing. In
-all three the box comparison is exact, which is what says the disagreement is with the printer
+all four the box comparison is exact, which is what says the disagreement is with the printer
 rather than with the layout. The rest are sub-pixel glyph positioning, which `text/kerning` exists
 to measure, box edges landing on fractional pixels, which `position/absolute` and
 `image/inline_flow` measure, and a vertical dotted border edge in `block/border_styles`. SSIM
