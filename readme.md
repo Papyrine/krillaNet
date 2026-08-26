@@ -59,7 +59,9 @@ per line — and a background may be a raster image, with `background-repeat`, `
 A `list-style-image` marker is drawn from an image and falls back to the counter style when the
 source does not resolve.
 
-An `<img src>` or a CSS `url()` naming an SVG is rendered as vector art rather than rasterised, and
+An `<svg>` written into the document is drawn rather than laid out: its markup goes to the same
+renderer a referenced SVG does, so an icon beside a word or a chart in a report comes out as vector
+art. An `<img src>` or a CSS `url()` naming an SVG is rendered the same way, and
 sizes the way a browser sizes one: a document declaring `width` and `height` has an intrinsic size,
 while one carrying only a `viewBox` has an aspect ratio and no size — SVG defaults those attributes
 to `100%` — so it fills its containing block and takes its height from the ratio. Text inside an SVG
@@ -139,10 +141,27 @@ specifies nothing about. The `ex` and `ch` units resolve against the face rather
 approximate half an em, and an absolutely positioned box with an offset at each end and auto margins
 is centred between them.
 
+HTML's presentational attributes are mapped onto CSS, which AngleSharp does not do: `<table width>`,
+`cellpadding`, `cellspacing`, `border`, `bgcolor`, `align`, `valign` and `nowrap`, `<hr>`'s `width`,
+`size`, `color`, `noshade` and `align`, `<font>`'s `color`, `size` and `face`, `<body bgcolor>` and
+`text`, an image's `align`, `border`, `hspace` and `vspace`, and `type` on both kinds of list. They
+are hints rather than inline styles, so any author rule beats them. Documents converted to PDF come
+disproportionately from reporting tools and mail merges, which lay themselves out with exactly this
+markup.
+
+A `<wbr>` offers a line break without forcing one, which is how a document says a long URL or a
+generated identifier may be split.
+
 The PDF gets structure the page cannot show. Headings become a bookmark tree, nested by level and
 bounded by `HtmlOptions.OutlineDepth`; every `id` becomes a named destination, so
 `report.pdf#introduction` opens at that heading; and the document's `<title>` and `lang` fill the
 PDF's title and language when the caller has not set them.
+
+`HtmlOptions.Tagged` adds a logical structure tree, which is what a screen reader navigates and what
+PDF/UA requires. HTML carries the semantics it wants, so headings, paragraphs, lists, tables, figures
+and their alternative text arrive with no extra markup — and everything that is not content is
+marked as an artifact, so a background, a border, a list marker or a repeated table header is never
+read out as if it were. It is off by default because it changes the bytes of every document.
 
 Images resolve from `data:` URIs and from files relative to `BaseUrl`. Nothing is fetched over the
 network by default — converting an untrusted document would otherwise issue requests to whatever
@@ -184,11 +203,11 @@ subscribing to: a conversion that reports nothing laid out every construct the w
 
 Two limits worth knowing before reaching for it:
 
-- Text is shaped through krilla's own shaper, so kerning and ligatures are applied. Bidirectional
-  resolution, font fallback and complex-script shaping are still missing, so a run is shaped with
-  one font and one script.
-- Lines break at spaces, at hyphens and dashes, and either side of an image or inline-block. There
-  is no hyphenation dictionary, no soft-hyphen support, and no Unicode line breaking algorithm
+- Text is shaped through krilla's own shaper, so kerning and ligatures are applied, and a character
+  the resolved face lacks is drawn in a registered face that covers it. Bidirectional resolution and
+  complex-script shaping are still missing, so a run is shaped in one direction and one script.
+- Lines break at spaces, at hyphens and dashes, at a soft hyphen or a `<wbr>`, and either side of an
+  image or inline-block. There is no hyphenation dictionary and no Unicode line breaking algorithm
   beyond that — so scripts that wrap without spaces overflow rather than wrapping.
 - AngleSharp compares CSS specificity across cascade origins, where the specification resolves
   origin first. A reset relying on `* { margin: 0 }` will not clear the default margins on `body`

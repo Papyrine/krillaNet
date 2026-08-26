@@ -14,12 +14,12 @@ it, that is stated, because an unmeasured gap is the more dangerous kind.
 
 ## Where the corpus stands
 
-145 scenarios across 10 categories, 1830 element boxes matched. **Box geometry matches Chrome
-exactly on every one** — worst offset 0.00px, worst size 0.00px, and nothing unmatched — and 102
-read SSIM 1.0000, of which 74 are pixel-identical outright. The other 28 differ on a scattering of
+151 scenarios across 10 categories, 1964 element boxes matched. **Box geometry matches Chrome
+exactly on every one** — worst offset 0.00px, worst size 0.00px, and nothing unmatched — and 105
+read SSIM 1.0000, of which 74 are pixel-identical outright. The other 31 differ on a scattering of
 antialiased pixels, which is what `AE` is there to show.
 
-Forty-three read below 1.0000. None is a mystery, and none should be "fixed" by regenerating a
+Forty-six read below 1.0000. None is a mystery, and none should be "fixed" by regenerating a
 baseline:
 
 | Scenario | AE | SSIM | Cause |
@@ -39,33 +39,36 @@ baseline:
 | `block/border_styles` | 0.0002 | 0.9995 | A vertical dotted edge, below |
 | `page/break_between_lines` | 0.0017 | 0.9996 | Sub-pixel glyph positioning |
 | `page/trailing_margin` | 0.0024 | 0.9996 | Same |
-| `text/underline_offset` | 0.0002 | 0.9997 | Glyph edges |
-| `block/counters` | 0.0013 | 0.9997 | Sub-pixel glyph positioning |
+| `block/counters` | 0.0013 | 0.9997 | Same |
 | `page/float_break` | 0.0023 | 0.9997 | Same |
-| `block/min_width` | 0.0009 | 0.9998 | Same |
-| `text/word_spacing` | 0.0009 | 0.9998 | Same, across the widened spaces |
+| `text/underline_offset` | 0.0002 | 0.9997 | Glyph edges |
+| `block/min_width` | 0.0009 | 0.9998 | Sub-pixel glyph positioning |
 | `page/break_inside` | 0.0012 | 0.9998 | Same, on page two; page one is identical |
-| `text/align_last` | 0.0013 | 0.9998 | Same |
 | `page/multi_page_flow` | 0.0016 | 0.9998 | Same |
 | `page/orphans_widows` | 0.0019 | 0.9998 | Same; pages one and three are identical |
-| `link/wrapped` | 0.0000 | 0.9999 | Same |
-| `link/fragment` | 0.0001 | 0.9999 | Same |
-| `text/decoration_style` | 0.0002 | 0.9999 | `text-decoration-skip-ink`, deliberate, below |
-| `text/text_transform` | 0.0002 | 0.9999 | Sub-pixel glyph positioning |
+| `text/align_last` | 0.0013 | 0.9998 | Same |
+| `text/word_spacing` | 0.0009 | 0.9998 | Same, across the widened spaces |
 | `block/box_sizing` | 0.0004 | 0.9999 | Same, on the one line beside a float |
-| `page/tall_block` | 0.0004 | 0.9999 | Same |
-| `float/overflow_bfc` | 0.0005 | 0.9999 | Same |
-| `inline/text_indent` | 0.0005 | 0.9999 | Same |
-| `position/absolute` | 0.0005 | 0.9999 | One pixel column where two backgrounds meet at a fractional edge |
-| `text/letter_spacing` | 0.0005 | 0.9999 | Sub-pixel glyph positioning |
-| `ua/blockquote_pre` | 0.0005 | 0.9999 | Same |
 | `block/list_image` | 0.0006 | 0.9999 | Same |
 | `block/outline` | 0.0006 | 0.9999 | Same |
+| `float/overflow_bfc` | 0.0005 | 0.9999 | Same |
 | `image/inline_flow` | 0.0006 | 0.9999 | One antialiased pixel column at an image edge |
-| `text/font_size_keywords` | 0.0006 | 0.9999 | Sub-pixel glyph positioning |
-| `inline/nowrap` | 0.0010 | 0.9999 | Same |
 | `inline/border_radius` | 0.0018 | 0.9999 | Antialiasing on the rounded corners, plus glyph edges |
 | `inline/gradient` | 0.0111 | 0.9999 | Ramp quantisation, plus glyph edges |
+| `inline/nowrap` | 0.0010 | 0.9999 | Sub-pixel glyph positioning |
+| `inline/text_indent` | 0.0005 | 0.9999 | Same |
+| `link/fragment` | 0.0001 | 0.9999 | Same |
+| `link/wrapped` | 0.0000 | 0.9999 | Same |
+| `page/tall_block` | 0.0004 | 0.9999 | Same |
+| `position/absolute` | 0.0005 | 0.9999 | One pixel column where two backgrounds meet at a fractional edge |
+| `text/decoration_style` | 0.0002 | 0.9999 | `text-decoration-skip-ink`, deliberate, below |
+| `text/font_size_keywords` | 0.0006 | 0.9999 | Sub-pixel glyph positioning |
+| `text/letter_spacing` | 0.0005 | 0.9999 | Same |
+| `text/text_transform` | 0.0002 | 0.9999 | Same |
+| `text/word_break_opportunity` | 0.0002 | 0.9999 | Same |
+| `ua/blockquote_pre` | 0.0005 | 0.9999 | Same |
+| `ua/presentational` | 0.0016 | 0.9999 | Corner mitres, plus glyph edges on the right-aligned heading |
+| `ua/presentational_text` | 0.0006 | 0.9999 | Bevelled corners, two antialiased bullets, and glyph edges |
 | `block/gradients` | 0.0500 | 0.9999 | Quantisation along the ramp; no pixel differs by more than 2 of 255, and the `AE` means nothing here |
 
 **Four of these are the BROWSER's rather than this engine's**, and each is recorded in its
@@ -129,6 +132,14 @@ wrong is still unmeasured.
   character NO registered face covers still renders as `.notdef` — krilla has no font database, so
   there is nowhere else to look, and reaching the host's installed fonts would end the
   reproducibility the whole corpus rests on.
+- **A document's own `@font-face` rules are neither read nor reported.** A document that ships its
+  fonts — a mail merge with a corporate face, anything exported from a design tool — silently
+  renders in whatever `HtmlOptions.Fonts` happens to hold. Two things make it more than an
+  afternoon. A font is a document resource with exactly the image policy's exfiltration concern, so
+  it needs a resolver and a policy of its own or a deliberate decision to share the image ones; and
+  `FontSet` is caller-owned and routinely SHARED across conversions — the corpus has one static set
+  for the whole run — so a document's faces have to be an overlay rather than a registration, or
+  one document's fonts leak into the next.
 
 ## Boxes and painting
 
@@ -159,6 +170,14 @@ wrong is still unmeasured.
   differs by more than two of 255 and `#stops` and `#hard` are exactly identical, so this is a
   rounding difference along the ramp rather than a geometry one. Probably not worth chasing; it is
   listed so that the high `AE` is recognisable as expected rather than as a regression.
+- **A TABLE whose bevelled border has no declared colour takes shades this cannot derive.**
+  Measured against Chromium with a probe scenario: a `div` with `border-style: outset` and no
+  colour is `#eeeeee` over `#9a9a9a` at every width, which is the pair `Bevel` hardcodes and which
+  `ua/hr` confirms; `border-color: gray` gives `#d4d4d4` over `#2c2c2c`, which is the derivation.
+  A TABLE with the same undeclared colour gives `#a8a8a8` over `#545454`, which is neither — and no
+  single base colour produces that pair under Blink's own lighten and darken, so it is a third rule
+  rather than a different colour. `ua/presentational` declares a border colour to keep the `border`
+  attribute's mapping measurable without it.
 - **A vertical dotted border edge follows a construction this does not reproduce.** A horizontal
   one fits its pattern into the whole side, corner to corner, and the flush rule reproduces it
   exactly; a vertical one does not. On a 30px box Chromium's left edge carries five dots at a pitch
@@ -178,14 +197,14 @@ wrong is still unmeasured.
 
 ## Floats
 
-- **A cleared box that is its parent's FIRST child collapses its top margin out through the
-  parent's top edge**, where CSS 2.1 §8.3.1 stops it: "the top margin of an in-flow block element
-  collapses with its first in-flow block-level child's top margin if the element has no top border,
-  no top padding, **and the child has no clearance**". Measured at 8px, and left out of
-  `float/clearance` rather than committed failing. It is a two-pass problem rather than an
-  oversight: whether that child HAS clearance depends on where the float ends, the float is placed
-  while the parent is laid out, and the parent's position is already settled by the margin this rule
-  would change — which is exactly why §9.5.2 is written in terms of a *hypothetical* position.
+- **A cleared FIRST child still collapses its margin out when the float it clears is declared in
+  its own parent ahead of it.** The rule itself is implemented and `float/clearance` measures it;
+  what is left is the arrangement where the two passes disagree about whether the float exists.
+  `LeadingMargin` runs before the parent is laid out, and a float declared in that parent is placed
+  during it — so while a margin is still escaping through the parent's top edge, a float at or
+  before the child turns the clearance test off, because the ancestor asked the same question
+  without it and applying the margin twice is worse than applying it at the wrong level.
+  Reconciling them needs the second pass §9.5.2's *hypothetical* position exists to avoid.
 
 - **The band a line is given is sampled over the strut height**, not the line height it turns out
   to have. A line made taller by an image or a larger inline font could overlap a float that begins
@@ -227,15 +246,24 @@ wrong is still unmeasured.
 
 ## Structure and metadata
 
-- **No tagged PDF.** `Krilla` exposes `DocumentOptions.EnableTagging`, a tag tree and
-  `Surface.AddTaggedLink`, and `Krilla.Html` calls none of them. HTML carries exactly the semantics
-  a tag tree wants: headings, lists, tables, figures, alt text. The neighbouring structure work has
-  landed — the outline from headings, a named destination per `id`, the document title and language
-  — so this is the remaining half of it, and it is a genuine differentiator against other
-  HTML-to-PDF libraries with nothing blocking it.
-- **`alt` text is discarded.** An image that fails to resolve generates no box, matching a browser
-  with no alt text, but an image that has alt text should carry it into the tag tree. Nothing in
-  the converter reads the attribute, and no corpus scenario sets one.
+`HtmlOptions.Tagged` builds a structure tree now, and everything that is not content is marked as
+an artifact, so no operator puts ink on the page from outside one or the other. What is left:
+
+- **It is OFF by default.** Turning it on changes the bytes of every document, so it wants a round
+  of its own — and the four entries below are what to settle first.
+- **An element's own text sorts before its children's, not among them.** A paragraph holding a word
+  in bold produces its own spans and then the `<b>`'s, where a reader meets one, then the other,
+  then the first again. Putting them in order needs a span to carry a position in the source, which
+  a selector path does not have.
+- **An `<a href>` is a `Span` rather than a `Link`.** A `Link` tag wants the annotation's own
+  identifier in it, which means `Surface.AddTaggedLink` in place of `AddLink` and a way to get that
+  identifier back to the element — a link is one annotation per LINE FRAGMENT, so there are several
+  per anchor.
+- **A list item holds its content directly.** PDF wants `LI > LBody`, and the marker's `Lbl`
+  alongside it; the marker is an artifact here, which is defensible, and the missing `LBody` is not.
+- **A repeated `position: fixed` box is content on every page.** A repeated table header is an
+  artifact from the second page on, because it is drawn by a path this can suppress tagging in; a
+  fixed box goes through the ordinary walk on every page, so its spans are recorded once per sheet.
 
 ## Diagnostics
 
@@ -256,7 +284,9 @@ the table does NOT cover belongs here:
   indefinite and wrong otherwise, and which of those applies is a layout result rather than a
   declaration — so reporting it would fire on documents that are perfectly correct, which is the one
   thing the table must not do.
-- **Origin is not testable.** `ComputeCascadedStyle` does not say whether a declaration came from
+- **Origin is not testable**, and it now has two consumers rather than one: what a diagnostic may
+  report, and which user-agent declaration a presentational attribute may beat.
+  `ComputeCascadedStyle` does not say whether a declaration came from
   the document or from the default stylesheet, so a UA rule the author never wrote could only be
   kept quiet by naming the element. Nothing needs it today — `hr` was the single case, exempted from
   border-style reporting, and implementing the four bevelled styles removed the entry that would
@@ -284,6 +314,12 @@ the table does NOT cover belongs here:
   twenty-three — including `translate`, `rotate` and `scale`, which are not shorthands for
   `transform` and reach no longhand of it, so a document in the modern spelling moved nothing and
   was told nothing.
+- **Neither audit looks at the MARKUP.** Both compare CSS against CSS, so an element the engine
+  lays out wrongly reports nothing unless a property was involved. The pass that finds those is
+  reading `UserAgentStyles` against the HTML Standard's rendering section, and it found two in one
+  sitting: `<font>` had no `display` at all, so every run it wrapped went on a line of its own, and
+  `<wbr>` reached the tokeniser as an empty run and offered no break. Neither reported anything,
+  and neither could have — there is no declaration to hang a report on.
 
 ## Known limitations that are workarounds, not bugs
 
@@ -316,6 +352,14 @@ work rather than as tidying.
   their own names. `background-repeat` is the one that goes the other way: it is SPLIT into
   `-x` and `-y` and the shorthand reserialised, which folds `repeat no-repeat` onto `repeat-x` and
   has no spelling at all for `round no-repeat`, so the longhands are read first.
+- **A presentational attribute applies only where the cascade is EMPTY or holds the user-agent's
+  own value.** HTML puts `<table width>` and the rest in an origin between the user-agent sheet and
+  the author's, and `ComputeCascadedStyle` does not say which origin a value came from — so
+  `PresentationalHints.defaults` names the handful of user-agent declarations a hint is allowed to
+  beat and compares against those. The cost is that an author restating the user-agent's own value
+  loses to the attribute: `table { border-spacing: 2px }` in a document's own stylesheet does not
+  beat `cellspacing="0"`, where in a browser it would. The same separated-by-VALUE heuristic a
+  pseudo-element's own declarations go through, and the same underlying limitation.
 - **A generic font family cannot be pinned in the corpus**, because a generic name is not legal as
   an `@font-face` family, so "does `<pre>` default to monospace" is not measurable here.
 - **A `::before` or `::after` rule's `display` is read from the stylesheet's own rules**, because
@@ -332,7 +376,7 @@ work rather than as tidying.
 
 - **The corpus references are generated on one platform.** Regenerating on the machine that
   produced them is known to be byte-identical, so the generator is at least deterministic — but
-  that is the lesser half. The claim that matters is still untested: generating all 145 on a second
+  that is the lesser half. The claim that matters is still untested: generating all 151 on a second
   machine, with a different Chromium build, and diffing the PNGs. Until then a platform-specific
   difference would look like a layout regression.
 - **`Krilla.Html` is never packed or published by CI.** It packs perfectly well locally — the

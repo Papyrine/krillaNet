@@ -146,6 +146,16 @@ gradient reaching an inline element's padding, the individual transform properti
 `counter-set`, coverage-driven font fallback per character, and twenty-three more properties the
 audit found reaching nothing and reported by nothing.
 
+And from the thirteenth, which was mostly about the MARKUP rather than the cascade: HTML's
+presentational attributes are mapped onto CSS (`<table width>`, `cellpadding`, `cellspacing`,
+`border`, `bgcolor`, `align`, `valign`, `nowrap`, `<hr>`'s four, `<font>`'s three, `<body bgcolor>`
+and `text`, `<img align/border/hspace/vspace>`, and `type` on both kinds of list), an `<svg>`
+written into the document is drawn, a `<wbr>` offers a line break, an inline image takes its whole
+box model, `caption-side` is read off the caption, a declared cell width is squeezed rather than
+growing its table, a cleared first child keeps its margin out of its parent's, and
+`HtmlOptions.Tagged` produces a PDF with a logical structure tree and everything else marked as an
+artifact.
+
 Three structural points worth knowing before changing anything:
 
 - **Layout needs the native, for shaping only.** `FontFace` reads its metrics out of the font bytes in managed code and `ImageData` reads image sizes from file headers, but `FontFace.Shape` calls through to krilla's rustybuzz. That crossing is unavoidable — measuring text correctly means shaping it — and it ended the earlier property that layout ran without a Rust toolchain.
@@ -168,7 +178,7 @@ It records two independent measurements, and **asserts neither**:
 - **`reference.boxes.json`** — the browser's `getBoundingClientRect()` per element, against our box tree. Integer-exact, localising ("this paragraph is 14px low" is a defect report), and — the practical reason it leads — computable without the native library, so it works on a machine with no Rust toolchain.
 - **`reference_0001.png`** — pixels, via AbsoluteError and SSIM.
 
-**Box geometry currently sits at zero across all 145 scenarios, with nothing unmatched**, and 102
+**Box geometry currently sits at zero across all 151 scenarios, with nothing unmatched**, and 105
 read SSIM 1.0000. Several got there by finding a defect first, which is the argument for adding a
 scenario for anything the engine implements rather than only for what it implements well:
 `block/anonymous` found trailing inline content hoisted above a block sibling, `position/fixed`
@@ -183,11 +193,12 @@ a mystery: `block/border_styles` (0.9995) is a vertical dotted edge Chromium con
 `block/bevelled_borders` (0.9990) is antialiasing where two colours meet on a mitre,
 `text/decoration_style` (0.9999) is `text-decoration-skip-ink`, `image/inline_flow` (0.9999) is
 antialiasing on an image edge at a fractional position, and the rest are the same glyph positioning
-seen on fewer words. THREE are the browser's rather than this engine's: `table/cell_baseline`
-(0.9926), where Chromium's printer disagrees with its own layout; `block/background_repeat` (0.9842),
-where it blurs a spaced background's tile edges; and `block/translucent`'s `AE`, which is a one-unit
-rounding difference in alpha compositing. A scenario reading SSIM 1.0000 is not necessarily
-pixel-identical — twenty-eight differ on a scattering of antialiased pixels, which is what `AE` is
+seen on fewer words. FOUR are the browser's rather than this engine's: `table/cell_baseline`
+(0.9926), where Chromium's printer disagrees with its own layout; `page/tall_image` (0.9750), where
+its printer drops a margin the same layout keeps; `block/background_repeat` (0.9842), where it blurs
+a spaced background's tile edges; and `block/translucent`'s `AE`, which is a one-unit rounding
+difference in alpha compositing. A scenario reading SSIM 1.0000 is not necessarily
+pixel-identical — thirty-one differ on a scattering of antialiased pixels, which is what `AE` is
 there to show. Seventy-four are identical outright.
 
 **The unmatched count is an assertion, not a statistic.** `BaselineHealthTests.EveryElementIsMeasured`
@@ -223,7 +234,7 @@ Found by measuring against a browser, not by reading. Each cost a whole category
 - **AngleSharp does not resolve the `font-size` keywords**, so `medium`, `large`, `smaller` and the rest arrive at `ResolveFontSize` as written rather than as lengths. The trap is in what an unparseable value falls back to: `CssLength.Zero` is an **absolute** length, so it took the `LengthKind.Absolute` branch and returned a font size of 0 — which is not a smaller size, it is an invisible one, and `font-size: large` therefore deleted the text of the element carrying it. The fallback is `CssLength.None` so the `_` branch can catch it. Any new parse whose fallback is meant to mean "unparseable" needs a kind the switch above it does not otherwise handle. `<small>` and `<big>` never hit this, because the cascade resolves the default stylesheet's sizes for those into real lengths first — which is what kept it hidden.
 - **AngleSharp rewrites a gradient's corner keyword as a flat `45deg`.** `to top right` names an angle that depends on the box's proportions — the gradient line is perpendicular to the diagonal joining the other two corners, so in a wide, short box it is nearly `to top`. The cascade collapses it to 45° before the engine sees it, which is right only for a square box. It cannot be reported either, being indistinguishable from an angle the author wrote. `GradientPaint.Resolve` keeps the correct resolution against the day the value survives, and `block/gradients` had the row that measured it removed for this reason.
 - **AngleSharp DROPS some declarations rather than passing the value through**, which is a different failure from mis-resolving one and a worse one to debug: the cascaded style comes back *empty*, indistinguishable from a property nobody declared. So the value can be neither honoured nor reported, and the gap is invisible from this side. Found so far: the `revert` keyword, `text-overflow`, the `min-content`/`max-content`/`fit-content` sizing keywords, `recto` and `verso` on both break spellings, `aspect-ratio` given a single number rather than a ratio, `overflow-wrap: anywhere`, `content` given a `string()`, and the whole of `@page` except its margins — its `size`, its selector, and its margin box at-rules, which have no object at all. `unset` survives, and `calc()` and the viewport units survive verbatim — so the rule is not "anything modern". The ones worth working around were `@page`'s, recovered from the stylesheet's own text because a page size is a whole-document difference and a running header is the reason most documents have the rule; the rest are recorded and left.
-- **AngleSharp does not apply presentational attributes.** HTML maps `<table width>`, `<td bgcolor>`, `<p align>` and the rest onto CSS as hints below every author rule; AngleSharp performs none of that mapping, so they reach the cascade as nothing at all. `<img width>`/`<img height>` are applied by hand in `BoxBuilder.WithAttributeSize`; everything else is reported by `UnsupportedAttributes` rather than silently dropped. Documents converted to PDF come disproportionately from reporting tools and mail merges, which emit exactly this markup.
+- **AngleSharp does not apply presentational attributes.** HTML maps `<table width>`, `<td bgcolor>`, `<p align>` and the rest onto CSS as declarations in an origin between the user-agent sheet and the author's; AngleSharp performs none of that mapping, so they reach the cascade as nothing at all. `PresentationalHints` performs it, writing into the declaration `ComputeCascadedStyle` just returned — which is a fresh mutable object per call rather than a view onto the cascade, and is the whole reason this is possible at all. See *Traps in the presentational attributes* for what the missing origin costs. Documents converted to PDF come disproportionately from reporting tools and mail merges, which emit exactly this markup.
 
 ## Traps found by importing an external test
 
@@ -249,6 +260,18 @@ The lesson generalises past the three: a corpus written alongside an engine test
   margin.** `LeadingMargin` and `TrailingMargin` both step over a self-collapsing child; it was only
   the sequential placement in `LayoutChildren` that did not, which is why the defect needed a box
   with nothing in it between two boxes with margins and survived a hundred scenarios.
+- **A cleared FIRST child keeps its margin out of its parent's**, which is the last clause of
+  §8.3.1: a box's top margin collapses with its first in-flow child's only when the element has no
+  top border, no top padding, AND THE CHILD HAS NO CLEARANCE. That clause reached nothing, so the
+  parent sat 20px low and came out 20px short on the arrangement `float/clearance` now carries. Its
+  awkwardness is real: whether the child HAS clearance depends on where the floats end, and a float
+  declared in the same parent is placed while that parent is laid out — after the parent's position
+  was settled by the very margin the rule changes, which is why §9.5.2 is written in terms of a
+  *hypothetical* position. So the question is only asked where the answer cannot change underneath
+  it. While a margin is still escaping through the parent's top edge, a float declared at or before
+  the child in that same parent turns the test off, because the ancestor asked the same question
+  without it and the two must agree or the margin is applied twice; once the escaping run has ended
+  the context is up to date and the full answer is used.
 - **CLEARANCE takes a box out of that rule**, which is §8.3.1's own wording — two margins are
   adjoining only when no clearance separates them — so the test is on the clearance actually TAKEN
   rather than on the declaration. A cleared box that clears nothing collapses through like any
@@ -392,6 +415,18 @@ below; both are exact against Chrome.
 - **`<img>` is inline-level.** Defaulting it to block puts a picture on a line of its own, so an image mid-sentence drops below the paragraph text. It lives in `UserAgentStyles`' inline set alongside `<b>` and `<span>`, despite being replaced rather than textual.
 - **A replaced box is never self-collapsing.** `IsSelfCollapsing` tests for a zero height, and an image sized from its aspect ratio has `height: auto`, which reads as zero — so without an explicit exclusion the image's own bottom margin collapses through it and pushes it down by that margin.
 - **An atomic inline sits its bottom edge on the baseline**, so a tall image pushes the line's top upward rather than growing it downward. That is what `vertical-align: baseline` means for a replaced element, and it is why an image taller than the line still leaves the text where it was.
+- **An atomic inline takes its WHOLE box model, vertical margins included.** A run of text takes
+  the horizontal half of it — vertical padding on a `<span>` overflows the line rather than growing
+  it — and a replaced element takes all of it: its MARGIN box is what sits on the line, and the
+  bottom of that box is what rests on the baseline. None of it applied. The advance was the CONTENT
+  width and the rectangle recorded was the content box, so a border reserved no space, was never
+  drawn, and was invisible to the box comparison as well — both sides were reporting a box that
+  agreed by accident whenever there was no surround to disagree about, and every image in the corpus
+  before `image/inline_surround` had none.
+- **The content rectangle is carried rather than derived.** A marker image's style is the LIST
+  ITEM's, so deflating by that surround would shrink the bullet and painting its background would
+  draw the item's own a second time. `InlineImage.Decorated` separates the two, and `block/list_image`
+  is what noticed: its PDF grew a redundant fill while its pixels stayed identical.
 - **A percentage width resolves against the CONTAINER, not against what is left of it.** `width: 50%` on an image in a 600px block is 300px of picture whatever padding the image carries — taking the image's own padding and border off the 600 first makes a padded image narrower than an unpadded one asking for the same share. Measured; `image/percent_width` keeps it, in both box-sizing modes, and its heights are what check that the aspect ratio is applied to the content box on both.
 - **The vertical surround is its own quantity, not the horizontal one.** `box-sizing: border-box` takes the padding and border out of a declared `height` as well as a declared `width`, and the two pairs differ the moment the padding is not uniform — so deflating a height by the horizontal pair feeds a wrong number into the aspect ratio and the WIDTH comes out wrong too, on the axis nobody declared. `image/percent_width`'s `#ratio` is 250x120 against the 170x120 that mistake produces.
 - **Clamping a width has to rescale an auto height.** `max-width: 100%` on a photograph in a narrow container must shrink both dimensions; rescaling only the width is how images end up distorted in responsive layouts. `ReplacedSizing` does it, and `image/max_width` exists to catch a regression.
@@ -415,6 +450,49 @@ There is no specification for any of this. CSS says a marker is placed "outside 
 - **`circle` must be STROKED, not filled as a ring of two contours.** Both give the same nominal shape, but the corpus reference is Chrome's PDF rasterised by PDFium, so constructing the shape the way Chrome does is what makes the pixels agree — an annulus left a visible thickness difference along the top and bottom arcs, and stroking removed it. This is the general lesson the corpus keeps teaching: matching the browser's construction beats matching its description.
 - **A uniform border must be one ring, not four mitred trapezia.** Two antialiased edges meeting on a mitre diagonal do not composite to full coverage, so every corner pixel comes out part transparent — about six pixels per corner, measured. Browsers have the same special case for the same reason. `PaintBorders` mitres only when the four edges do not share a colour, which is the only time the diagonal is visible anyway.
 
+## Traps in the presentational attributes
+
+HTML defines `<table width>`, `<td bgcolor>`, `<p align>` and the rest as declarations in an origin
+of their own, above the user-agent sheet and below every author rule. AngleSharp maps none of them,
+so they used to reach the cascade as nothing at all and were merely reported.
+`ua/presentational` and `ua/presentational_text` measure them, both exact.
+
+- **The origin has to be faked, and the fake is a VALUE test.** A hint applies where the cascade
+  says nothing, which puts it below every author rule; where the user-agent sheet supplies a value
+  the hint is meant to beat, the cascaded value is compared against that known default instead.
+  `PresentationalHints.defaults` is that list, and every entry was measured out of the cascade
+  rather than read off a stylesheet, because two sheets contribute — AngleSharp's own and
+  `UserAgentStyles.Corrections`. An entry naming the wrong string silently stops its hint applying.
+- **The collisions are not the ones you would guess.** `border-spacing: 2px` on a table, `1px` of
+  cell padding, `th`'s centred text, and `vertical-align: inherit` on a ROW — that last is what made
+  `<tr valign="top">` reach nothing while `<td valign>` worked, because AngleSharp declares it for
+  the row as well as the cell.
+- **The value test cannot be avoided by writing the hints as CSS.** A user-agent-origin sheet would
+  beat author rules of lower specificity, which is the same origin trap `flatten.css` works around
+  from the other side.
+- **`<font>` was BLOCK-LEVEL**, and that is the largest thing the round found. AngleSharp's sheet
+  gives it no `display`, so every run it wrapped went on a line of its own — a whole-document
+  difference in exactly the documents that still contain one, and invisible until six `<font size>`
+  spans came out on six lines. `big`, `tt`, `strike`, `acronym` and `nobr` were in the same state.
+- **`<hr size="9">` is nine pixels tall, not eleven.** A rule is a zero-height box drawn entirely by
+  its 1px border, so `size` asks for a thicker BOX and the two border pixels come out of it. It
+  comes out of the coloured case too, where HTML's own wording reads as though a coloured rule keeps
+  the whole number.
+- **`<hr noshade>` is a solid GREY bar** — not the element's colour, not the shades a carved rule
+  derives from one, and FILLED rather than outlined. Without the fill a literal reading of
+  `border-style: solid` gives a nine-pixel white bar with a hairline round it.
+- **`<font size>` is a table of seven keywords**, and the relative form counts from 3 rather than
+  from the parent, which is what stops a nested `size="+1"` growing without bound. `size="7"` is
+  `xxx-large`, a keyword the table did not have: nobody writes it in a stylesheet, and the attribute
+  is where documents ask for it.
+- **An attribute stops being REPORTED exactly when it starts being applied.** What is left in
+  `UnsupportedAttributes` is the attributes that reach no property at all — `rules` and `frame` on a
+  table, and body's three link colours, which need a `:link` of their own to land on — while an
+  attribute whose VALUE names nothing (`align="char"`, a `bgcolor` naming no colour) is reported by
+  `PresentationalHints` itself. Which values those are is a question only the CSS parser can answer,
+  since the cascade normalises `silver` into an `rgba()` long before anything here would see it, so
+  the reporting pass writes its candidates into a declaration nothing reads.
+
 ## Traps in tables
 
 Like list markers, almost none of this is specified in usable detail. CSS 2.1 §17.5.2 describes the automatic column algorithm as a sketch and explicitly leaves the distribution to the user agent, so `TableLayout`'s numbers were measured out of Chrome across thirty-two constructed cases rather than derived. They reproduce it to within a hundredth of a pixel on every one.
@@ -430,6 +508,22 @@ Like list markers, almost none of this is specified in usable detail. CSS 2.1 §
 - **Chromium's PRINTER does not apply it.** It reserves the taller row the alignment demands and then leaves the content against the top of it, disagreeing with the same browser's `getBoundingClientRect()` by exactly the offset. `table/cell_baseline` is geometry-exact and pixel-different for that reason, and the disagreement is one-sided: the box geometry agrees with CSS 2.1 §17.5.4 and the print render agrees with nothing, including its own row height.
 - **A cell's content is centred, and it is the CONTENT that is centred rather than the cell's height.** The user-agent sheet puts `vertical-align: middle` on the table and `inherit` on the cells, so the default is middle rather than the `baseline` the property's initial value suggests. And a cell with `height: 100px` holding one line is a hundred pixels tall with eighteen pixels of content: centring the used height leaves the text against the top edge, looking exactly as though vertical alignment were not implemented.
 - **A shrink-to-fit table lands on the proportional branch with nothing to spare**, so the multiply-then-divide round trip loses a hundredth of a pixel — enough for the last word in the widest cell to stop fitting, which wraps it and makes the table a whole line taller. `Distribute` clamps each column to its own maximum, which the arithmetic guarantees and floating point does not.
+- **A width declared on a CELL is a preference, not a floor.** It pins the column when there is
+  room and is SQUEEZED when there is not, and the column still may never go below what its content
+  needs: measured, a cell asking for 700px in a table declaring 300px comes out at 232.41, with the
+  column beside it at its own min-content and the table exactly 300 wide. Two things had it wrong at
+  once. `IntrinsicWidths.Measure` returns the declaration as the minimum as well as the maximum —
+  right everywhere else, since every other caller is asking how much room the box wants — so it
+  reached `ContentMinTotal`, which is precisely the floor a declared width is not; and `Distribute`
+  handed a pinned column its declared width whatever was left. The shortfall now comes out of the
+  pinned columns in proportion to what each can give up, which is the rule `Reconcile` already
+  follows when EVERY column is pinned. `table/declared_cell_widths` keeps all four arrangements, and
+  its `#shrunk` row guards the other direction: with no declared table width the declaration DOES
+  raise the floor, which is what `table/spans` caught the last time this was touched.
+- **`caption-side` is read off the CAPTION and inherits.** It was read off the table's own style,
+  which is where a stylesheet usually writes it and not where CSS puts the property — so
+  `caption { caption-side: bottom }` was silently a no-op, and with it `<caption align="bottom">`,
+  which maps onto exactly that declaration.
 - **An empty table occupies nothing**, not two pixels square. With no columns there is nothing for the edge spacing to be outside of.
 - **A table lays out its children by ROLE rather than in order**, so a child with no table role is not merely misplaced — it is never positioned or painted at all. Unreachable from HTML, whose parser moves stray content out of tables, and reachable from `display: table` in a stylesheet. `BoxBuilder.TableFixup` wraps such children in anonymous rows and cells; its geometry is not measured against a browser, and content being on the page at all is the point.
 
@@ -700,6 +794,14 @@ the exceptions a careful reading of the specification suggests turn out not to e
 - **An unbreakable run ends at a space only where the space is an OPPORTUNITY.** Inside a `nowrap`
   element a space is content like any other, so `UnbreakableWidths` has to reach past it — a run
   that stopped there is measured short of the group it exists to hold together.
+- **A `<wbr>` is a break opportunity and nothing else.** It carries no characters, so it reached
+  the tokeniser as an empty run and was dropped — a document using it wrapped exactly as one
+  without it, which is the only thing HTML has for saying "this word may be split here" and the
+  reason a long URL or a generated identifier carries one. It produces no token: it says the next
+  one may start a line, which is what `breakable` already carries, so it behaves like a hyphen
+  without drawing one. `getBoundingClientRect()` returns 0,0,0,0 for it — not a zero-width box
+  where the element sits, but no box at all — so the dump reports the same, from the inline ITEMS
+  because there is no token to hang it off.
 - **A change of FACE inside a word is not a break opportunity either.** Coverage-driven fallback
   splits a word into one token per face, and two adjacent tokens are exactly the arrangement
   `inline/word_joins` proved a line must not break between — so the fallback would have
@@ -1219,9 +1321,9 @@ serialisation had to be worked around, and both were found by measuring.
 
 ## Traps in SVG
 
-`image/svg` measures these, exact on geometry and pixel-identical to Chrome on both its pages.
+`image/svg` and `image/inline_svg` measure these, exact on geometry and pixel-identical to Chrome.
 `krilla-svg` does the drawing, so the engine's share is deciding how big the picture is and where
-it goes — which is where all five of these live.
+it goes — which is where most of these live.
 
 - **The `svg` cargo feature was on by default and exported NOTHING**, for as long as it had
   existed. Nothing in `krilla-capi/src` named `krilla_svg`, no managed P/Invoke reached it, and the
@@ -1261,6 +1363,19 @@ it goes — which is where all five of these live.
   mirrors usvg's resolution — including its 100x100 fallback for a document declaring neither a
   size nor a viewBox, which is not the 300x150 a browser would give — rather than implementing the
   better rule and letting the two drift.
+- **An `<svg>` written INTO the document laid out as a block full of blocks.** `<rect>` and
+  `<circle>` have no CSS `display`, so each became a block box with no content and a drawing
+  rendered as a stack of empty rectangles with the picture nowhere on the page — silently, since
+  every element involved was one the engine believed it had laid out. It is a replaced element: its
+  markup is serialised and handed to the same path an `<img src="x.svg">` takes, and
+  `AddInlineSvg` returns before `AddChildren`, which is the point.
+- **The namespace declaration has to be ADDED.** An HTML parser puts an `<svg>` into the SVG
+  namespace by POSITION rather than by declaration, so a document almost never writes the `xmlns`
+  that a standalone SVG parser then requires.
+- **The reference harvest has to skip what is inside one.** `getBoundingClientRect()` answers for an
+  `<rect>` as readily as for a `<div>`, so the browser reports a box for every shape in the drawing
+  and there is nothing on this side to compare them against. The generator skips any element with an
+  `ownerSVGElement`, which is the same argument it already makes for `display: none`.
 - **A block-level replaced element is UNBREAKABLE, and nothing had noticed.** A page break landed
   inside a picture and drew its top on the page before. Invisible until an image grew close to a
   page tall, and every image in the corpus before this was a 64x32 swatch. It is the same thing to
@@ -1269,6 +1384,43 @@ it goes — which is where all five of these live.
   case really was unreachable rather than merely unmeasured. The INLINE case is not fixed: an
   inline image taller than a page goes through the line breaker rather than through
   `Paginator.Unbreakable`, and is still sliced at the page edge where Chrome moves it whole.
+
+## Traps in the tagged PDF
+
+`HtmlOptions.Tagged` builds a logical structure tree and marks everything else as an artifact.
+`TaggedPdfTests` measures it; the corpus cannot, because a tag tree carries no ink and is not an
+element box — the same position `link/` is in, and the same answer.
+
+- **The painter cannot produce the tree directly.** Content goes down in Appendix E's phases rather
+  than in document order, a positioned box is painted from the root rather than where it was
+  declared, and a repeated table header is drawn again on every page — so the sequence a reader
+  would follow is not the sequence the painter emits. Each span is recorded against the SELECTOR of
+  the element it came from and the tree is built afterwards by walking the DOM, which is reading
+  order by construction.
+- **A run's selector is the innermost INLINE element's, and null for a block's own text.** That is
+  what `BoxDump` wants and the opposite of what this wants: the first version tagged the `<b>`
+  inside a paragraph and nothing else, so a document of headings, lists and tables produced a tree
+  holding two paragraphs. The containing box is threaded down as the owner, and an anonymous block
+  passes its own ancestor's through.
+- **Marked content does not NEST**, which is why the artifact spans are so many and so small: a
+  phase that interleaves text with decoration has to open and close one per piece. It is also why
+  the first attempt failed on every scenario — `TagSpan` is a struct, and disposing one by hand and
+  again at scope exit ends a section twice, which krilla refuses outright.
+- **A repeated table header must not record a SECOND span.** It is the same boxes drawn again, so
+  the slice `PaintRepeats` passes carries no tags and the whole repeat is one artifact. A screen
+  reader meeting both would read a continued table's header once per page, where the point of the
+  tree is that it is read once. A running margin box goes the same way, and a repeated
+  `position: fixed` box does NOT — it goes through the ordinary walk on every page, and is recorded
+  in `todo.md`.
+- **`sh` and `Do` are not ink, for the purpose of checking that nothing is untagged.** Both
+  REFERENCE content held in a stream of its own — a shading, and the form XObject krilla emits for
+  an isolated transparency group — so the ink is checked where it is written rather than where it
+  is invoked. Without that carve-out `block/gradients` and `block/opacity` report a gap they do not
+  have.
+- **Tagging must change no ink**, and that is asserted rather than assumed: every corpus scenario is
+  rendered twice, tagged and not, and compared. The artifact spans are bracketed THROUGH the
+  painting rather than around it, so an opening on the wrong side of a clip or a transform would
+  move something.
 
 ## The diagnostic table is only as good as its audit
 
@@ -1287,7 +1439,11 @@ The pass before found:
 
 Both are now reported, and the lesson generalises: a value-by-value fallback with a reasoned comment beside it is exactly where an unreported gap hides, because the comment makes the code look considered.
 
+**Neither audit looks at the MARKUP**, and that is the third blind spot. Both compare CSS against CSS, so an element the engine lays out wrongly reports nothing unless a property was involved — and there is no declaration to hang a report on, so it could not report even in principle. Reading `UserAgentStyles` against the HTML Standard's rendering section is the pass that finds those, and it found two in one sitting: `<font>` had no `display` at all, so every run it wrapped went on a line of its own, and `<wbr>` reached the tokeniser as an empty run and offered no break. Both are whole-document differences in the documents that use them.
+
 The other thing the audit cannot see is a syntax the resolver does not PARSE. `calc()` was the case: it fell through to the unparseable fallback, the property took its default, and no diagnostic could fire because nothing recognised the value as one the engine was getting wrong. **A value nothing recognises is a value nothing can report.**
+
+The presentational attributes left the table wholesale, which is the largest single removal it has had: `<table width>`, `cellpadding`, `cellspacing`, `border`, `bgcolor`, `align`, `valign`, `nowrap`, `<hr>`'s four, `<font>`'s three, `<img align/border/hspace/vspace>` and `type` on both kinds of list are all mapped onto CSS now. What is left in `UnsupportedAttributes` reaches no property at all — `rules` and `frame` on a table, and body's three link colours — and an attribute whose VALUE names nothing is reported by `PresentationalHints` itself.
 
 Still reported rather than implemented: `column-count` and `column-width`, `writing-mode`, `direction`, `unicode-bidi`, `font-variant`, `font-stretch`, `font-size-adjust`, `font-kerning`, `text-justify`, `line-break`, `text-wrap: balance` and `pretty`, `white-space-collapse: preserve-spaces`, `mix-blend-mode` and `background-blend-mode`, `isolation`, `background-attachment`, `border-image-source`, `mask-image`, `content-visibility`, `initial-letter`, `perspective` and `transform-style`, a wavy text decoration, `word-break: keep-all`, a blurred or spread shadow, automatic hyphenation, a `position: fixed` box with neither `top` nor `bottom` given, `visibility: collapse` on a table row, an unrecognised `list-style-type`, an unresolved `list-style-image`, a `content` value that names something unreadable, a non-inline `display` on a pseudo-element of an INLINE host, a named `@page` selector, and the INNER corner of a rounded inline element whose border edges disagree about a colour.
 

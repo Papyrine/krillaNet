@@ -29,8 +29,8 @@ toolchain. Zero means the box tree agrees with Chrome exactly.
 
 **Pixels** are AbsoluteError and SSIM against the printed reference.
 
-Boxes sit at zero across the whole corpus: all 145 scenarios match Chrome's geometry exactly. Pixels
-are close behind — 102 read SSIM 1.0000 and 74 are identical outright.
+Boxes sit at zero across the whole corpus: all 151 scenarios match Chrome's geometry exactly. Pixels
+are close behind — 105 read SSIM 1.0000 and 74 are identical outright.
 
 Several defects reached that state rather than starting there, each found by the scenario named for
 it: `block/anonymous` hoisted trailing inline content above a block sibling, `position/fixed`
@@ -42,7 +42,7 @@ long word to a fresh line and then never offered it for splitting, and `position
 absolute box inside a stacking context twice. Each scenario's `notes.md` records what it found and
 what changed.
 
-The forty-three below 1.0000 come down to named causes. Four of them are the BROWSER's:
+The forty-six below 1.0000 come down to named causes. Four of them are the BROWSER's:
 `table/cell_baseline` (0.9926), where Chromium's printer reserves the taller row that cell baseline
 alignment demands and then leaves the content against the top of it; `page/tall_image` (0.9750),
 where it drops the margin above the paragraph after an overflowing picture;
@@ -61,6 +61,11 @@ both sides are rasterised by PDFium. A screenshot would put Skia on one side and
 other, and two rasterisers disagree about glyph edges however correct the layout is — a floor
 somewhere around 0.90–0.97 on any page of text. That is the trade the printed reference buys, and
 it is why a regression here is unambiguous rather than lost in noise.
+
+Two kinds of element are left out of the harvest, and both for the same reason: they generate no box
+here, so counting them would count an absence as a failure. An element with `display: none` is one;
+everything INSIDE an `<svg>` is the other, since the whole subtree is drawn by krilla-svg and the
+browser reports a rectangle for every shape in it.
 
 ## Adding a scenario
 
