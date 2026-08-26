@@ -184,6 +184,16 @@ static class UserAgentStyles
         localName.Equals("br", StringComparison.OrdinalIgnoreCase);
 
     /// <summary>
+    /// Whether <paramref name="localName"/> offers a line break without forcing one.
+    /// </summary>
+    /// <remarks>
+    /// <c>&lt;wbr&gt;</c> is the only one, and it is the only way HTML has of saying "this word may
+    /// be split here", which is why a document holding a long URL or an identifier reaches for it.
+    /// </remarks>
+    public static bool IsWordBreak(string localName) =>
+        localName.Equals("wbr", StringComparison.OrdinalIgnoreCase);
+
+    /// <summary>
     /// The <c>vertical-align</c> a table element starts from, or null to inherit.
     /// </summary>
     /// <remarks>

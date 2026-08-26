@@ -659,6 +659,15 @@ static class InlineLayout
                 continue;
             }
 
+            // A <wbr> produces no token at all. It says the next one may start a line, which is
+            // exactly what `breakable` carries: the same variable a dash sets, so a <wbr> inside
+            // a word behaves like a hyphen without drawing one.
+            if (item.SoftBreak)
+            {
+                breakable = true;
+                continue;
+            }
+
             if (item.Box is {} inline)
             {
                 // Either side of an atomic inline is an opportunity, with or without a space —

@@ -140,6 +140,7 @@ text/text_transform              matched  7  offset    0.00  size    0.00  diffe
 text/underline_offset            matched 14  offset    0.00  size    0.00  differing  0  unmatched 0
 text/white_space_longhands       matched  8  offset    0.00  size    0.00  differing  0  unmatched 0
 text/word_break                  matched 22  offset    0.00  size    0.00  differing  0  unmatched 0
+text/word_break_opportunity      matched 16  offset    0.00  size    0.00  differing  0  unmatched 0
 text/word_spacing                matched  7  offset    0.00  size    0.00  differing  0  unmatched 0
 ua/acid1                         matched 14  offset    0.00  size    0.00  differing  0  unmatched 0
 ua/blockquote_pre                matched  6  offset    0.00  size    0.00  differing  0  unmatched 0

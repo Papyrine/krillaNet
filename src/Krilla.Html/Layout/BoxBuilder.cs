@@ -460,6 +460,14 @@ static class BoxBuilder
             return;
         }
 
+        // A break OPPORTUNITY, handled beside the forced break for the same reason: it carries no
+        // characters, so the white-space processing below would see an empty run and drop it.
+        if (UserAgentStyles.IsWordBreak(element.LocalName))
+        {
+            inlines.Add(new("", style, SelectorPath.For(element), SoftBreak: true));
+            return;
+        }
+
         if (element.LocalName.Equals("img", StringComparison.OrdinalIgnoreCase))
         {
             AddImage(element, style, parentStyle, context, blocks, inlines, floats, positioned, link);

@@ -71,6 +71,19 @@ public static class BoxDump
                 boxes.Add(Geometry(selector, Visual(box.BorderBox, matrix)));
             }
 
+            // A <wbr> generates no box, and a browser says so by returning an empty rectangle at
+            // the origin rather than one where the element sits. Reported from the INLINE ITEMS
+            // rather than from a line, because it produces no token to hang off one — and it has to
+            // be reported at all, or every document containing one has an element the geometry
+            // comparison counts as unmatched.
+            foreach (var item in box.Inlines)
+            {
+                if (item is {SoftBreak: true, Selector: {} empty})
+                {
+                    boxes.Add(Geometry(empty, default));
+                }
+            }
+
             foreach (var line in box.Lines)
             {
                 foreach (var run in line.Runs)

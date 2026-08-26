@@ -10,6 +10,11 @@
 /// newline character because white-space processing would collapse a newline into a space under
 /// the default <c>white-space: normal</c>, which is exactly what a forced break must survive.
 /// </param>
+/// <param name="SoftBreak">
+/// Set on a <c>&lt;wbr&gt;</c>: a break OPPORTUNITY rather than a break. It carries no text and
+/// generates no box (a browser returns an empty rectangle for one), so the only trace it leaves
+/// is that the line may break at the point it sits at.
+/// </param>
 /// <param name="Image">
 /// An image, when this item is an inline-level replaced element rather than text. It occupies a
 /// box on the line instead of a run of glyphs, which is what CSS calls an atomic inline.
@@ -48,6 +53,7 @@ sealed record InlineItem(
     ComputedStyle Style,
     string? Selector,
     bool ForcedBreak = false,
+    bool SoftBreak = false,
     ImageData? Image = null,
     string? Link = null,
     LayoutBox? Box = null,
