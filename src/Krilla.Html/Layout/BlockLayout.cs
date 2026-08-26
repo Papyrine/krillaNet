@@ -251,7 +251,23 @@ static class BlockLayout
             // and that is where it goes when its offsets are auto.
             noted = NoteStatic(parent, noted, index, contentX, contentY + y);
 
-            pending = pending.Merge(LeadingMargin(child, contentWidth));
+            // The guard is only needed while the margin is still escaping through the parent's top
+            // edge, because that is the only case where the same question was already asked, by
+            // whoever positioned the parent, against a float context that did not yet hold this
+            // parent's own floats. Once the run has ended the context is fully up to date and the
+            // answer is used here and nowhere else.
+            var scope = escaping ? InScope(parent, floats, index) : floats;
+
+            pending = pending.Merge(LeadingMargin(child, contentWidth, scope, contentY + y));
+
+            // Its margin did NOT collapse out through the parent's top edge, because clearance
+            // separates the two — so whoever positioned the parent left it out, and it belongs
+            // here. The same guard and the same question `LeadingMargin` asks, which is what keeps
+            // the two from disagreeing and applying the margin twice or not at all.
+            if (escaping && TakesClearance(child, scope, contentY + y + pending.Value))
+            {
+                escaping = false;
+            }
 
             if (escaping)
             {
@@ -756,11 +772,32 @@ static class BlockLayout
     /// The margin that collapses out through <paramref name="box"/>'s top edge.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// Its own top margin, plus every descendant top margin that reaches the edge unobstructed. A
     /// border or padding on the top edge stops the collapse, and so does inline content, because
     /// both put something between the margin and the edge.
+    /// </para>
+    /// <para>
+    /// So does CLEARANCE, which is why the float context is threaded in: CSS 2.1 §8.3.1 collapses a
+    /// box's top margin with its first child's only when that child has none. Given no context the
+    /// question cannot be asked and the collapse happens, which is what every caller outside flow
+    /// wants — an absolute box, a table cell and an inline-block are all measured without one.
+    /// </para>
     /// </remarks>
-    public static CollapsedMargin LeadingMargin(LayoutBox box, float containingWidth)
+    /// <param name="box">The box whose top edge the margin escapes through.</param>
+    /// <param name="containingWidth">What a percentage margin resolves against.</param>
+    /// <param name="floats">
+    /// The floats in scope, or null when there is nothing to clear past.
+    /// </param>
+    /// <param name="top">
+    /// Where <paramref name="box"/>'s top edge is, in the float context's own coordinates. Only
+    /// read when <paramref name="floats"/> is given.
+    /// </param>
+    public static CollapsedMargin LeadingMargin(
+        LayoutBox box,
+        float containingWidth,
+        FloatContext? floats = null,
+        float top = 0)
     {
         var margin = CollapsedMargin.Of(box.Style.MarginTop.Resolve(containingWidth));
 
@@ -769,9 +806,24 @@ static class BlockLayout
             return margin;
         }
 
-        foreach (var child in box.Children)
+        for (var index = 0; index < box.Children.Count; index++)
         {
-            margin = margin.Merge(LeadingMargin(child, containingWidth));
+            var child = box.Children[index];
+
+            // A float DECLARED BEFORE this child has not been placed yet. It will be, at the
+            // box's content top, which is the position this method is being asked to help decide.
+            // So the clearance question is only asked where the answer cannot change underneath
+            // it, and `LayoutChildren` applies the same guard so the two always agree.
+            var inScope = InScope(box, floats, index);
+
+            var merged = margin.Merge(LeadingMargin(child, containingWidth, inScope, top));
+
+            if (TakesClearance(child, inScope, top + merged.Value))
+            {
+                break;
+            }
+
+            margin = merged;
 
             if (!IsSelfCollapsing(child, containingWidth))
             {
@@ -785,6 +837,25 @@ static class BlockLayout
 
         return margin;
     }
+
+    /// <summary>
+    /// Whether <paramref name="child"/> would be moved down by <c>clear</c> from
+    /// <paramref name="hypothetical"/>, which is where it would sit with <c>clear: none</c>.
+    /// </summary>
+    /// <remarks>
+    /// The test CSS 2.1 §8.3.1 asks for is on the clearance actually TAKEN, not on the declaration:
+    /// a box that clears nothing collapses through like any other. §9.5.2 is written in terms of a
+    /// hypothetical position for exactly this reason — the answer has to be known before the box is
+    /// placed, and placing it is what the answer changes.
+    /// </remarks>
+    static bool TakesClearance(LayoutBox child, FloatContext? floats, float hypothetical) =>
+        floats is {} context &&
+        child.Style.Clear != ClearKind.None &&
+        context.ClearTo(child.Style.Clear, hypothetical) > hypothetical;
+
+    /// <inheritdoc cref="LeadingMargin"/>
+    static FloatContext? InScope(LayoutBox parent, FloatContext? floats, int index) =>
+        parent.Floats.Any(_ => _.Index <= index) ? null : floats;
 
     /// <summary>
     /// The margin that collapses out through <paramref name="box"/>'s bottom edge.

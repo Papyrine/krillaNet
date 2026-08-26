@@ -46,7 +46,7 @@ block/viewport_units             matched  7  offset    0.00  size    0.00  diffe
 block/visibility                 matched  8  offset    0.00  size    0.00  differing  0  unmatched 0
 float/basic                      matched 12  offset    0.00  size    0.00  differing  0  unmatched 0
 float/clear                      matched 14  offset    0.00  size    0.00  differing  0  unmatched 0
-float/clearance                  matched 27  offset    0.00  size    0.00  differing  0  unmatched 0
+float/clearance                  matched 34  offset    0.00  size    0.00  differing  0  unmatched 0
 float/margins                    matched 12  offset    0.00  size    0.00  differing  0  unmatched 0
 float/mid_line                   matched  6  offset    0.00  size    0.00  differing  0  unmatched 0
 float/overflow_bfc               matched  6  offset    0.00  size    0.00  differing  0  unmatched 0

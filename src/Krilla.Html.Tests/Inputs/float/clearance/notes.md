@@ -44,17 +44,33 @@ Nothing in the corpus held an empty box between two boxes with margins until thi
 which is why a defect this plain survived: it needs a box with nothing in it, and every scenario
 written before this one had something in every box.
 
-Exact on all 27 boxes and pixel-identical.
 
-## What is still not done
 
-A cleared box that is its parent's FIRST child still collapses its top margin out through the
-parent's top edge, where CSS 2.1 §8.3.1 stops it — "the top margin of an in-flow block element
-collapses with its first in-flow block-level child's top margin if the element has no top border, no
-top padding, **and the child has no clearance**". Measured at 8px on a frame whose first child clears
-a float inside it, and left out of this scenario rather than committed failing.
+## A cleared FIRST child
 
-It is a two-pass problem rather than an oversight. Whether that child HAS clearance depends on where
-the float ends, the float is placed while the parent is laid out, and the parent's position is
-already settled by the margin this rule would change — which is exactly why §9.5.2 is written in
-terms of a *hypothetical* position.
+`#wrapper` and `#loose` are the last pair, and they measure the half of §8.3.1 this used to get
+wrong: "the top margin of an in-flow block element collapses with its first in-flow block-level
+child's top margin if the element has no top border, no top padding, **and the child has no
+clearance**". The child's 20px margin escaped through the wrapper's top edge whatever the clearance
+was, so the wrapper sat 20px low and came out 20px short. `#loose` is the same arrangement with
+nothing to clear, where the collapse is correct — the two rows differ by exactly that margin, which
+is what makes either of them attributable.
+
+The padding on `.outer` is load-bearing rather than decoration. It stops the outer box's own top
+margin escaping, which is what puts the float into the context BEFORE the wrapper's leading margin
+is asked for — and the ordering is the whole difficulty here.
+
+Whether a child has clearance depends on where the floats end, and a float declared in the same
+parent is placed while that parent is laid out, which is after the parent's own position was
+settled by the very margin this rule changes. §9.5.2 is written in terms of a *hypothetical*
+position for exactly that reason. So the question is only asked where the answer cannot change
+underneath it: while a margin is still escaping through the parent's top edge, a float declared at
+or before the child in that same parent turns the test off, because the ancestor asked the same
+question without it. Once the escaping run has ended the context is fully up to date and the full
+answer is used.
+
+The case that remains is a wrapper whose FIRST child clears a float declared in that same wrapper's
+parent ahead of it. Both passes disagree about whether the float exists, and reconciling them needs
+the second pass §9.5.2's hypothetical position exists to avoid.
+
+Exact on all 34 boxes and pixel-identical.
