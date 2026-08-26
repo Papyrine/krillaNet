@@ -112,7 +112,7 @@ static class ListMarkers
     {
         if (!style.HasSymbolMarker)
         {
-            var text = Counter(marker.Kind, marker.Ordinal) + counterSuffix;
+            var text = Text(style, marker);
             return ShapedText.Create(face, text, style.FontSize).Width(0, text.Length);
         }
 
@@ -188,7 +188,7 @@ static class ListMarkers
         float baseline,
         float edge)
     {
-        var text = Counter(marker.Kind, marker.Ordinal) + counterSuffix;
+        var text = Text(style, marker);
         var shaped = ShapedText.Create(face, text, style.FontSize);
         var width = shaped.Width(0, text.Length);
         var (glyphs, runText) = shaped.Slice(0, text.Length);
@@ -243,6 +243,20 @@ static class ListMarkers
     }
 
     /// <summary>
+    /// The whole of what a text marker draws: its counter and the suffix that right-aligns it.
+    /// </summary>
+    /// <remarks>
+    /// The trailing space in <c>N. </c> is load-bearing — the marker is right-aligned so the END of
+    /// its advance lands on the item's edge, and dropping the space moves every number four and a
+    /// half pixels right at 16px. A literal string takes no suffix at all, which is measured: an
+    /// arrow style draws the arrow and nothing else.
+    /// </remarks>
+    static string Text(ComputedStyle style, ListMarker marker) =>
+        marker.Kind == ListStyleKind.String
+            ? style.ListStyleText ?? ""
+            : Counter(marker.Kind, marker.Ordinal) + counterSuffix;
+
+    /// <summary>
     /// The counter text for <paramref name="ordinal"/>, without its suffix.
     /// </summary>
     /// <remarks>
@@ -258,8 +272,18 @@ static class ListMarkers
             ListStyleKind.UpperAlpha => Alphabetic(ordinal, 'A'),
             ListStyleKind.LowerRoman => Roman(ordinal).ToLowerInvariant(),
             ListStyleKind.UpperRoman => Roman(ordinal),
+            ListStyleKind.LowerGreek => Alphabetic(ordinal, greek),
             _ => ordinal.ToString(CultureInfo.InvariantCulture)
         };
+
+    /// <summary>
+    /// The twenty-four letters <c>lower-greek</c> counts in, without the final sigma.
+    /// </summary>
+    /// <remarks>
+    /// CSS's own list. The final sigma is excluded because the style is a counting alphabet rather
+    /// than a transcription — a numbered item is never at the end of a word.
+    /// </remarks>
+    const string greek = "αβγδεζηθικλμνξοπρστυφχψω";
 
     /// <summary>
     /// The bijective base-26 representation: a to z, then aa to az.
@@ -271,6 +295,27 @@ static class ListMarkers
     /// </remarks>
     static string Alphabetic(int ordinal, char first)
     {
+        Span<char> letters = stackalloc char[26];
+
+        for (var letter = 0; letter < letters.Length; letter++)
+        {
+            letters[letter] = (char) (first + letter);
+        }
+
+        return Alphabetic(ordinal, letters);
+    }
+
+    /// <summary>
+    /// The bijective representation over an arbitrary alphabet, for the styles whose letters are
+    /// not a contiguous range.
+    /// </summary>
+    /// <remarks>
+    /// Greek is the case: its twenty-four counting letters are contiguous in Unicode and its
+    /// twenty-fifth code point is the final sigma, which the style skips — so the alphabet has to
+    /// be a list rather than a first character and a length.
+    /// </remarks>
+    static string Alphabetic(int ordinal, ReadOnlySpan<char> alphabet)
+    {
         // Outside the range the style can express, the specification says to fall back to decimal
         // rather than to invent a glyph for it.
         if (ordinal < 1)
@@ -278,15 +323,16 @@ static class ListMarkers
             return ordinal.ToString(CultureInfo.InvariantCulture);
         }
 
-        // Seven digits is the most an int can reach in bijective base 26, so the buffer is a fixed
-        // one. The digits arrive least significant first, which is what the builder's Insert was
-        // paying for; writing backwards into a span gets the same order for nothing.
+        // Seven digits is the most an int can reach in bijective base 24, which is the shortest
+        // alphabet here, so the buffer is a fixed one. The digits arrive least significant first,
+        // which is what a builder's Insert would be paying for; writing backwards into a span gets
+        // the same order for nothing.
         Span<char> digits = stackalloc char[7];
         var index = digits.Length;
 
-        for (var value = ordinal; value > 0; value = (value - 1) / 26)
+        for (var value = ordinal; value > 0; value = (value - 1) / alphabet.Length)
         {
-            digits[--index] = (char) (first + (value - 1) % 26);
+            digits[--index] = alphabet[(value - 1) % alphabet.Length];
         }
 
         return new(digits[index..]);

@@ -355,7 +355,7 @@ static class CssContent
     /// stylesheet writes a character it cannot type — <c>"\201C"</c> for a left double quote is the
     /// usual one — and a backslash before any other character, which stands for that character.
     /// </remarks>
-    static string Unescape(string value)
+    internal static string Unescape(string value)
     {
         if (!value.Contains('\\'))
         {

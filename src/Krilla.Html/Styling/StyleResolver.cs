@@ -367,6 +367,7 @@ static class StyleResolver
             DecorationAlpha = DecorationOpacity(declaration, parent, alpha),
             DecorationStyle = DecorationRule(declaration, parent),
             ListStyle = ParseListStyle(declaration.GetPropertyValue("list-style-type"), parent.ListStyle),
+            ListStyleText = ListLiteral(declaration.GetPropertyValue("list-style-type"), parent.ListStyleText),
             BorderSpacingX = Spacing(declaration, "border-spacing", font, root, first: true)
                              ?? parent.BorderSpacingX,
             BorderSpacingY = Spacing(declaration, "border-spacing", font, root, first: false)
@@ -1180,6 +1181,32 @@ static class StyleResolver
     /// are declared on <c>ul</c> and <c>ol</c> rather than on <c>li</c>, so a marker that does not
     /// inherit is a marker that never reaches the item drawing it.
     /// </remarks>
+    /// <summary>
+    /// The literal a string counter style shows, or the inherited one when nothing was declared.
+    /// </summary>
+    /// <remarks>
+    /// Inherited alongside the kind rather than separately, because the two are one declaration:
+    /// <c>ul { list-style-type: "→" }</c> has to reach the <c>li</c> that draws it, and the kind
+    /// already travels that way.
+    /// </remarks>
+    static string? ListLiteral(string value, string? inherited)
+    {
+        var text = value.Trim();
+
+        if (text.Length == 0)
+        {
+            return inherited;
+        }
+
+        if (text.Length >= 2 &&
+            ((text[0] == '"' && text[^1] == '"') || (text[0] == '\'' && text[^1] == '\'')))
+        {
+            return CssContent.Unescape(text[1..^1]);
+        }
+
+        return null;
+    }
+
     static ListStyleKind ParseListStyle(string value, ListStyleKind inherited) =>
         value.Trim().ToLowerInvariant() switch
         {
@@ -1194,6 +1221,10 @@ static class StyleResolver
             "upper-alpha" or "upper-latin" => ListStyleKind.UpperAlpha,
             "lower-roman" => ListStyleKind.LowerRoman,
             "upper-roman" => ListStyleKind.UpperRoman,
+            "lower-greek" => ListStyleKind.LowerGreek,
+            // A quoted literal, which CSS Counter Styles allows in place of a named style. Every
+            // item then shows the same text, so there is nothing to count and nothing to suffix.
+            ['"', _, ..] or ['\'', _, ..] => ListStyleKind.String,
             // An unimplemented counter style still marks its items rather than losing them, on the
             // same reasoning as an unimplemented `display`: a wrong marker is visible and a missing
             // one is not.

@@ -499,7 +499,26 @@ enum ListStyleKind
     LowerRoman,
 
     /// <summary>I, II, III.</summary>
-    UpperRoman
+    UpperRoman,
+
+    /// <summary>
+    /// α, β, γ — the classical Greek alphabet, alphabetic like <see cref="LowerAlpha"/>.
+    /// </summary>
+    /// <remarks>
+    /// Twenty-four letters and no final sigma, which is what CSS's own definition says: the style
+    /// counts in bijective base 24, so the twenty-fifth item is αα.
+    /// </remarks>
+    LowerGreek,
+
+    /// <summary>
+    /// A literal string, from <c>list-style-type: "→"</c>.
+    /// </summary>
+    /// <remarks>
+    /// The one counter style with no numbering in it: every item shows the same text. It takes no
+    /// SUFFIX either — measured, and unlike every numeric style, which is written with the trailing
+    /// <c>". "</c> that right-aligns it.
+    /// </remarks>
+    String
 }
 
 /// <summary>What a declared <c>width</c> or <c>height</c> measures.</summary>
@@ -1191,6 +1210,16 @@ sealed record ComputedStyle
 
     /// <summary>What marker a list item shows.</summary>
     public ListStyleKind ListStyle { get; init; } = ListStyleKind.Disc;
+
+    /// <summary>
+    /// The literal a <see cref="ListStyleKind.String"/> marker shows, or null.
+    /// </summary>
+    /// <remarks>
+    /// Beside the kind rather than in it, because the kind is an enum a counter is looked up by and
+    /// this is the one style whose value is not enumerable. Inherited with the kind, since the two
+    /// are one declaration and the nesting defaults are declared on the list rather than the item.
+    /// </remarks>
+    public string? ListStyleText { get; init; }
 
     /// <summary>Horizontal gap between cells, in CSS pixels.</summary>
     /// <remarks>

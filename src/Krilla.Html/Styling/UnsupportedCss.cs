@@ -82,7 +82,8 @@ static class UnsupportedCss
     static readonly string[] counters =
     [
         "none", "disc", "circle", "square", "decimal", "decimal-leading-zero",
-        "lower-alpha", "lower-latin", "upper-alpha", "upper-latin", "lower-roman", "upper-roman"
+        "lower-alpha", "lower-latin", "upper-alpha", "upper-latin", "lower-roman", "upper-roman",
+        "lower-greek"
     ];
 
     /// <summary>
@@ -551,6 +552,8 @@ static class UnsupportedCss
     {
         if (Set(declaration, "list-style-type") is {} value &&
             !counters.Contains(value) &&
+            // A quoted literal is a counter style of its own, and every item shows it.
+            value is not (['"', ..] or ['\'', ..]) &&
             !IsInitial(value))
         {
             Diagnostic.Property(sink, element, "list-style-type", value, "the items are marked with a disc");

@@ -187,11 +187,14 @@ wrong is still unmeasured.
 
 ## Pagination and paged media
 
-- **A run's lines are counted from the BLOCK's start, not from the page top**, which `orphans` and
-  `widows` both read. The two agree for a block that fits on two pages, which is every arrangement
-  either property is written for; for one spanning three or more, the count above a break on the
-  third page includes lines that are on the first. Nothing measures it, and no report is possible —
-  which page a line landed on is a layout result rather than a declaration.
+- **A run's lines are counted from the BLOCK's start rather than from the page top, and the two
+  cannot be told apart.** Counting from the page was written and then reverted, because nothing can
+  observe the difference: a block that continues onto a page starts its lines AT that page's top, so
+  the run on it is the whole page's worth, and `orphans` is satisfied either way. The one
+  arrangement where the counts differ is a block whose middle page holds fewer lines than `orphans`
+  asks for — which needs the run on that page to start below the page's top, and a continuing block
+  never does. The guard that refuses a move leaving the page empty then makes the two readings
+  identical. Measured rather than reasoned, and left as it is.
 
 - **`string()` and `string-set` are not implemented**, which is CSS's own way of putting a
   section's heading into a running header. Not reported either, and that is the harder half: the

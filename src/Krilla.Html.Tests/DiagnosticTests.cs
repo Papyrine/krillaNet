@@ -374,6 +374,8 @@ public class DiagnosticTests
             <div style="transform: rotate(15deg) scale(1.2); transform-origin: top left">turned</div>
             <div style="border: 2px solid rgba(0, 0, 0, 0.4); outline: 1px solid rgba(0, 0, 0, 0.2)">faint</div>
             <div style="box-shadow: inset 4px 4px #000">pressed in</div>
+            <ul style="list-style-type: lower-greek"><li>counted in Greek</li></ul>
+            <ul style="list-style-type: '→'"><li>marked with a literal</li></ul>
             <p style="text-decoration: underline; text-decoration-color: rgba(0, 0, 0, 0.3)">faintly ruled</p>
             <p style="height: 40px"><span style="height: 50%">a share of a definite height</span></p>
             <div style="break-before: avoid; break-after: avoid">kept with its neighbours</div>
@@ -409,7 +411,7 @@ public class DiagnosticTests
             """
             <div style="box-shadow: 0 0 4px #000">a blurred shadow</div>
             <div style="column-count: 2">two columns</div>
-            <div style="list-style-type: lower-greek">an unimplemented counter style</div>
+            <div style="list-style-type: armenian">an unimplemented counter style</div>
             """);
 
         var lines = reports.Select(_ => _.ToString()).ToList();
