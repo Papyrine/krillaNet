@@ -1,4 +1,4 @@
-namespace Krilla.Html.Styling;
+﻿namespace Krilla.Html.Styling;
 
 /// <summary>What one component of a <c>content</c> value contributes.</summary>
 enum ContentKind
@@ -15,7 +15,6 @@ enum ContentKind
     /// <summary>Every value of one counter on the scope stack, joined by a separator.</summary>
     Counters,
 
-    /// <summary>An image.</summary>
     Image,
 
     /// <summary>The opening or closing quotation mark for the current depth.</summary>
