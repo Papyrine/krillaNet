@@ -1,9 +1,0 @@
-﻿[
-  {
-    "Kind": "UnresolvedImage",
-    "Element": "img",
-    "Name": "src",
-    "Value": "does-not-exist.png",
-    "Reason": "did not resolve to an image, so no box was generated"
-  }
-]

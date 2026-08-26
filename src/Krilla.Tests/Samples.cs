@@ -34,7 +34,19 @@ public class Samples
 
         #endregion
 
-        return Verify(pdf, "pdf");
+        return Verify(pdf, "pdf")
+            .Snapshot(
+                """
+                {
+                  PageCount: 1,
+                  Pages: [
+                    {
+                      Width: 595.0,
+                      Height: 842.0
+                    }
+                  ]
+                }
+                """);
     }
 
     [Test]
@@ -70,8 +82,8 @@ public class Samples
                   PageCount: 1,
                   Pages: [
                     {
-                      Width: 595.0,
-                      Height: 842.0
+                      Width: 300.0,
+                      Height: 200.0
                     }
                   ]
                 }
@@ -109,7 +121,7 @@ public class Samples
                   PageCount: 1,
                   Pages: [
                     {
-                      Width: 300.0,
+                      Width: 200.0,
                       Height: 200.0
                     }
                   ]
@@ -147,8 +159,8 @@ public class Samples
                   PageCount: 1,
                   Pages: [
                     {
-                      Width: 200.0,
-                      Height: 200.0
+                      Width: 300.0,
+                      Height: 150.0
                     }
                   ]
                 }
@@ -186,8 +198,8 @@ public class Samples
                   PageCount: 1,
                   Pages: [
                     {
-                      Width: 300.0,
-                      Height: 150.0
+                      Width: 200.0,
+                      Height: 200.0
                     }
                   ]
                 }
@@ -478,8 +490,8 @@ public class Samples
                   PageCount: 1,
                   Pages: [
                     {
-                      Width: 200.0,
-                      Height: 200.0
+                      Width: 595.0,
+                      Height: 842.0
                     }
                   ]
                 }

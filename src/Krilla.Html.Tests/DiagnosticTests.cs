@@ -262,7 +262,19 @@ public class DiagnosticTests
                   <tr><td>a</td><td>b</td></tr>
                 </table>
                 <img src="does-not-exist.png" alt="missing">
-                """));
+                """))
+                .Snapshot(
+                    """
+                    [
+                      {
+                        "Kind": "UnresolvedImage",
+                        "Element": "img",
+                        "Name": "src",
+                        "Value": "does-not-exist.png",
+                        "Reason": "did not resolve to an image, so no box was generated"
+                      }
+                    ]
+                    """);
 
     /// <summary>
     /// A font-size keyword resolves to a real size, and says nothing about it.
