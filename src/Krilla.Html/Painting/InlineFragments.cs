@@ -16,9 +16,16 @@
 /// would have covered between them.
 /// </para>
 /// <para>
-/// Built only for an element that actually declares a radius, so an ordinary paragraph pays one
-/// walk of its runs and nothing else — and, more usefully, every scenario without one keeps
-/// exactly the painting path it had.
+/// A background GRADIENT needs the same grouping for a different reason: its box is the element's
+/// fragments laid end to end, so a ramp continues over a break rather than restarting on the next
+/// line, and a fragment reaches past its first and last run by whatever padding and border the
+/// element carries. Anchoring the ramp on the run — which is what this replaced — left the padding
+/// out of the box and the strip under it unpainted.
+/// </para>
+/// <para>
+/// Built only for an element that declares one of the two, so an ordinary paragraph pays one walk
+/// of its runs and nothing else — and, more usefully, every document without one keeps exactly the
+/// painting path it had.
 /// </para>
 /// </remarks>
 sealed class InlineFragments
@@ -53,7 +60,7 @@ sealed class InlineFragments
 
                 foreach (var (identity, style, face, depth) in Owners(run))
                 {
-                    if (!style.HasRadius)
+                    if (!Grouped(style))
                     {
                         continue;
                     }
@@ -66,7 +73,7 @@ sealed class InlineFragments
             {
                 foreach (var (identity, style, face, depth) in Owners(edge))
                 {
-                    if (!style.HasRadius)
+                    if (!Grouped(style))
                     {
                         continue;
                     }
@@ -144,6 +151,12 @@ sealed class InlineFragments
         return fragments;
     }
 
+    /// <summary>
+    /// Whether an element's painting needs its fragments grouped rather than its runs filled.
+    /// </summary>
+    static bool Grouped(ComputedStyle style) =>
+        style.HasRadius || style.BackgroundImage is not null;
+
     static void Extend(
         Dictionary<object, Fragment> onLine,
         object identity,
@@ -178,10 +191,9 @@ sealed class InlineFragments
     /// The elements a run paints a background for, with the face and nesting depth each needs.
     /// </summary>
     /// <remarks>
-    /// The same sequence <see cref="InlineRamps.Owners"/> yields, with two things it does not need:
-    /// the face, because the rectangle is measured against the OWNER's font rather than the run's,
-    /// and the depth, because a nested rounded element has to be painted after the one containing
-    /// it.
+    /// The face comes with each one because the rectangle is measured against the OWNER's font
+    /// rather than the run's, and the depth because a grouped element nested inside another has to
+    /// be painted after it.
     /// </remarks>
     static IEnumerable<(object Identity, ComputedStyle Style, FontFace Face, int Depth)> Owners(
         TextRun run)

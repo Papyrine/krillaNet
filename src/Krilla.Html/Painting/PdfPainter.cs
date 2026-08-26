@@ -805,14 +805,13 @@ static class PdfPainter
     static void PaintInlineBackground(
         Surface surface,
         TextRun run,
-        InlineRamps? ramps,
         IReadOnlyList<InlineFragment>? fragments)
     {
         if (run.Backdrops is {} backdrops)
         {
             foreach (var backdrop in backdrops)
             {
-                Owner(surface, backdrop.Style, backdrop.Face, run, ramps, backdrop.Style, fragments);
+                Owner(surface, backdrop.Style, backdrop.Face, run, backdrop.Style, fragments);
             }
         }
 
@@ -828,25 +827,17 @@ static class PdfPainter
         // so every anonymous run would paint its parent's background a second time.
         if (run.Selector is not null || run.Generated)
         {
-            Owner(
-                surface,
-                run.Style,
-                run.Face,
-                run,
-                ramps,
-                (object?) run.Selector ?? run.Style,
-                fragments);
+            Owner(surface, run.Style, run.Face, run, (object?) run.Selector ?? run.Style, fragments);
         }
 
-        // A rounded element is painted as one fragment instead, at the first run inside it — which
-        // is exactly where this fill would have happened, so a radius does not move the element in
-        // the paint order.
+        // A grouped element — one that is rounded, or carries a gradient — is painted as a whole
+        // fragment instead, at the first run inside it. That is exactly where this fill would have
+        // happened, so grouping does not move the element in the paint order.
         static void Owner(
             Surface surface,
             ComputedStyle style,
             FontFace face,
             TextRun run,
-            InlineRamps? ramps,
             object identity,
             IReadOnlyList<InlineFragment>? fragments)
         {
@@ -861,16 +852,10 @@ static class PdfPainter
             }
 
 
-            Fill(surface, style, face, run, ramps, identity);
+            Fill(surface, style, face, run);
         }
 
-        static void Fill(
-            Surface surface,
-            ComputedStyle style,
-            FontFace face,
-            TextRun run,
-            InlineRamps? ramps,
-            object identity)
+        static void Fill(Surface surface, ComputedStyle style, FontFace face, TextRun run)
         {
             if (run.Width <= 0)
             {
@@ -888,15 +873,7 @@ static class PdfPainter
 
             var bounds = new Rect(left, top, Snap(run.X + run.Width) - left, bottom - top);
 
-            // The gradient's own box is the element's WHOLE advance, laid end to end across its
-            // fragments, of which this rectangle shows one slice. A shading is positioned in user
-            // space, so filling the fragment with a paint built over the larger box samples exactly
-            // the part of the ramp that belongs to it.
-            var ramp = style.BackgroundImage is not null && ramps?.Span(identity, run.X, run.Y) is {} span
-                ? new Rect(left - span.Before, top, span.Total, bottom - top)
-                : (Rect?) null;
-
-            PaintInlineSurface(surface, style, bounds, InlineEdgeKind.None, ramp);
+            PaintInlineSurface(surface, style, bounds, InlineEdgeKind.None);
         }
     }
 
@@ -1156,8 +1133,7 @@ static class PdfPainter
         Surface surface,
         ComputedStyle style,
         Rect bounds,
-        InlineEdgeKind kind,
-        Rect? ramp = null)
+        InlineEdgeKind kind)
     {
         if (bounds.Width <= 0 || bounds.Height <= 0)
         {
@@ -1171,17 +1147,6 @@ static class PdfPainter
 
             using var inline = Krilla.Paint.Solid(background);
             surface.SetFill(new Fill(inline, style.BackgroundAlpha)).DrawPath(path);
-        }
-
-        // The colour first and the ramp over it, which is the same two layers a block background
-        // has: a translucent gradient shows the colour through it.
-        if (style.BackgroundImage is {} gradient && ramp is {} box)
-        {
-            using var path = PdfPath.Rectangle(
-                Rectangle.FromSize(bounds.X, bounds.Y, bounds.Width, bounds.Height));
-
-            using var paint = GradientPaint.Create(gradient, box, tiles: false);
-            surface.SetFill(new Fill(paint)).DrawPath(path);
         }
 
         Edge(
@@ -1350,16 +1315,13 @@ static class PdfPainter
             PaintMarker(surface, box, page.Top, page.End);
         }
 
-        // Built before the lines are walked rather than during, because a gradient on a WRAPPED
-        // inline element runs across its fragments and the painter reaches them one page at a time.
-        // Null for a box whose inline content carries no gradient, which is almost every box.
-        var ramps = InlineRamps.For(box);
-
-        // The same pre-pass for `border-radius`, and for the same reason: an inline element's
-        // background is painted per RUN, and a rounded corner belongs to the FRAGMENT those runs
-        // make up. Null unless something in this box's inline content is rounded, which keeps every
-        // other document on exactly the painting path it had.
-        var rounded = InlineFragments.For(box);
+        // Built before the lines are walked rather than during, because both of the things it
+        // answers are properties of a whole element rather than of a run: where a rounded corner
+        // goes, and how far along a gradient's ramp a fragment sits. The painter reaches the lines
+        // one page at a time, so a fragment on the second page of a long paragraph still has to
+        // know what stood before it on the first. Null for a box whose inline content declares
+        // neither, which is almost every box.
+        var grouped = InlineFragments.For(box);
 
         foreach (var line in box.Lines)
         {
@@ -1370,7 +1332,7 @@ static class PdfPainter
                 continue;
             }
 
-            var fragments = rounded?.On(line);
+            var fragments = grouped?.On(line);
 
             foreach (var run in line.Runs)
             {
@@ -1380,7 +1342,7 @@ static class PdfPainter
                 // hiding the text does not hide the rectangle in a browser either.
                 if (run.Style.Visibility == VisibilityKind.Visible)
                 {
-                    PaintInlineBackground(surface, run, ramps, fragments);
+                    PaintInlineBackground(surface, run, fragments);
 
                     // Behind the text and in front of its background, which is where CSS puts a
                     // text shadow — over the element's own background and under its glyphs.

@@ -4,14 +4,14 @@
     "x": 0,
     "y": 0,
     "width": 816,
-    "height": 236
+    "height": 312
   },
   {
     "selector": "html > body:nth-child(2)",
     "x": 0,
     "y": 0,
     "width": 816,
-    "height": 226
+    "height": 302
   },
   {
     "selector": "html > body:nth-child(2) > p:nth-child(1)",
@@ -68,5 +68,33 @@
     "y": 203,
     "width": 92.5,
     "height": 17
+  },
+  {
+    "selector": "html > body:nth-child(2) > p:nth-child(5)",
+    "x": 0,
+    "y": 236,
+    "width": 300,
+    "height": 28
+  },
+  {
+    "selector": "html > body:nth-child(2) > p:nth-child(5) > span:nth-child(1)",
+    "x": 67.61,
+    "y": 239,
+    "width": 167.66,
+    "height": 21
+  },
+  {
+    "selector": "html > body:nth-child(2) > p:nth-child(6)",
+    "x": 0,
+    "y": 274,
+    "width": 300,
+    "height": 28
+  },
+  {
+    "selector": "html > body:nth-child(2) > p:nth-child(6) > span:nth-child(1)",
+    "x": 67.61,
+    "y": 274,
+    "width": 170.95,
+    "height": 27
   }
 ]

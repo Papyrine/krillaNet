@@ -31,3 +31,16 @@ to it — no clipping and no second paint per fragment.
 differently from Chrome's, which `block/gradients` records and which is why the `AE` is high and
 means nothing, and the black text around each span differs on glyph edges. No pixel of any gradient
 differs by more than one of 255.
+
+## The padding
+
+`#padded` and `#framed` were added later, and each found the same gap. The ramp's box is the
+element's PADDING box laid end to end, not its runs — so the strip under the padding is part of the
+gradient rather than a hole in it, and leaving it out made the ramp that much shorter than the
+browser's everywhere else as well. It was invisible while every span here had no padding, which is
+what an inline gradient in a real document never looks like.
+
+The fix was to measure the ramp off the same fragments `border-radius` needed, rather than off a
+running total of run widths — which is why `InlineRamps` is gone and `InlineFragments` answers both
+questions. A fragment reaches past its first and last run by whatever surround the element carries,
+so the box it gives is the one the browser uses.
