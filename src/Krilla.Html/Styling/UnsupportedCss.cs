@@ -704,7 +704,7 @@ static class UnsupportedCss
             return;
         }
 
-        var reason = "the border is painted with square corners";
+        string reason;
 
         if (style.Display == DisplayKind.Inline)
         {

@@ -105,7 +105,7 @@ sealed class ImageStore(
             return cached;
         }
 
-        ImageData? image = null;
+        ImageData? image;
 
         try
         {

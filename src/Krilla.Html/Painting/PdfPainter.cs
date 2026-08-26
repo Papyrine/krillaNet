@@ -2454,7 +2454,7 @@ static class PdfPainter
 
             // Wound the other way so the non-zero rule cuts it out, and skipped once the band has
             // closed on itself and there is nothing left to remove.
-            if (innerRect.Width > 0 && innerRect.Height > 0)
+            if (innerRect is {Width: > 0, Height: > 0})
             {
                 radii
                     .Deflate(style.BorderTop * to, style.BorderRight * to, style.BorderBottom * to, style.BorderLeft * to)
