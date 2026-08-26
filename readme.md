@@ -7,6 +7,8 @@ A .NET wrapper over [krilla](https://github.com/LaurenzV/krilla), the Rust PDF-w
 
 Krilla *writes* PDFs. To read, render or edit an existing one, use [Morph.PDFium](https://github.com/Papyrine/Morph.PDFium).
 
+[Try it in the browser](https://papyrine.github.io/krillaNet/) — a Blazor WebAssembly app that converts HTML to PDF entirely client side, with the Rust native linked into the app's own `.wasm`.
+
 **See [Milestones](../../milestones?state=closed) for release notes.**
 
 
