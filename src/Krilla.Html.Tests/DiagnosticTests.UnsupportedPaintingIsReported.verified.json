@@ -6,6 +6,12 @@
     "Reason": "the border is painted with square corners"
   },
   {
+    "Element": "span",
+    "Name": "border-top-left-radius",
+    "Value": "8px",
+    "Reason": "an inline element's border is painted with a square inner corner"
+  },
+  {
     "Element": "div",
     "Name": "text-transform",
     "Value": "full-width",

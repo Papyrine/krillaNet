@@ -43,7 +43,13 @@ public class DiagnosticTests
         // the counter style. The fallback is exactly what a browser does, so the RENDER is right
         // and the report is still wanted: from the resolved style, an image the policy refused and
         // an image that is simply absent are the same null, and the first is worth hearing about.
-        "block/list_image"
+        "block/list_image",
+
+        // A row whose four border edges disagree on a colour, which is the one arrangement left
+        // where a rounded inline element differs from a browser: with no single ring to draw, the
+        // four rectangles are cut to the rounded outline instead, so the OUTER corner rounds and
+        // the inner one stays square. Everything else in the scenario is silent.
+        "inline/border_radius"
     ];
 
     /// <summary>
@@ -166,6 +172,10 @@ public class DiagnosticTests
     /// in, so every value <c>border-style</c> takes is now honoured and the whole entry came off the
     /// table. What is left of the borders here is a RADIUS on an edge that is not solid, which is a
     /// different gap — the corner is painted square.
+    ///
+    /// The second row is the inline half of the same entry, and it narrowed rather than
+    /// disappearing: an inline element's corners are rounded now, and what is left is the INSIDE of
+    /// one, on the fragment whose edges disagree about a colour and so cannot be drawn as a ring.
     /// </remarks>
     [Test]
     public async Task UnsupportedPaintingIsReported() =>
@@ -173,6 +183,7 @@ public class DiagnosticTests
             await Collect(
                 """
                 <div style="border-radius: 4px; border: 2px dashed red">b</div>
+                <p><span style="border: 4px solid red; border-right-color: blue; border-radius: 8px">c</span></p>
                 <div style="text-transform: full-width">f</div>
                 <div style="visibility: collapse">g</div>
                 <div style="transform: rotate3d(1, 1, 0, 45deg)">t</div>
@@ -393,6 +404,8 @@ public class DiagnosticTests
             <ul style="list-style-type: '→'"><li>marked with a literal</li></ul>
             <p style="text-decoration: underline; text-decoration-color: rgba(0, 0, 0, 0.3)">faintly ruled</p>
             <p style="height: 40px"><span style="height: 50%">a share of a definite height</span></p>
+            <p>A <span style="background: silver; padding: 2px 6px; border-radius: 8px">rounded badge</span>.</p>
+            <p>A <span style="border: 2px solid red; border-radius: 8px">rounded frame</span>.</p>
             <div style="break-before: avoid; break-after: avoid">kept with its neighbours</div>
             <table><tr><td style="vertical-align: baseline">on the row's baseline</td></tr></table>
             """);

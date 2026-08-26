@@ -802,13 +802,17 @@ static class PdfPainter
     /// means changing where the words go.
     /// </para>
     /// </remarks>
-    static void PaintInlineBackground(Surface surface, TextRun run, InlineRamps? ramps)
+    static void PaintInlineBackground(
+        Surface surface,
+        TextRun run,
+        InlineRamps? ramps,
+        IReadOnlyList<InlineFragment>? fragments)
     {
         if (run.Backdrops is {} backdrops)
         {
             foreach (var backdrop in backdrops)
             {
-                Fill(surface, backdrop.Style, backdrop.Face, run, ramps, backdrop.Style);
+                Owner(surface, backdrop.Style, backdrop.Face, run, ramps, backdrop.Style, fragments);
             }
         }
 
@@ -824,7 +828,40 @@ static class PdfPainter
         // so every anonymous run would paint its parent's background a second time.
         if (run.Selector is not null || run.Generated)
         {
-            Fill(surface, run.Style, run.Face, run, ramps, (object?) run.Selector ?? run.Style);
+            Owner(
+                surface,
+                run.Style,
+                run.Face,
+                run,
+                ramps,
+                (object?) run.Selector ?? run.Style,
+                fragments);
+        }
+
+        // A rounded element is painted as one fragment instead, at the first run inside it — which
+        // is exactly where this fill would have happened, so a radius does not move the element in
+        // the paint order.
+        static void Owner(
+            Surface surface,
+            ComputedStyle style,
+            FontFace face,
+            TextRun run,
+            InlineRamps? ramps,
+            object identity,
+            IReadOnlyList<InlineFragment>? fragments)
+        {
+            if (Grouped(fragments, identity) is {} fragment)
+            {
+                if (fragment.First is {} first && first.X == run.X && first.Y == run.Y)
+                {
+                    PaintInlineFragment(surface, fragment);
+                }
+
+                return;
+            }
+
+
+            Fill(surface, style, face, run, ramps, identity);
         }
 
         static void Fill(
@@ -861,6 +898,241 @@ static class PdfPainter
 
             PaintInlineSurface(surface, style, bounds, InlineEdgeKind.None, ramp);
         }
+    }
+
+    /// <summary>The rounded fragment for <paramref name="identity"/> on this line, if any.</summary>
+    static InlineFragment? Grouped(IReadOnlyList<InlineFragment>? fragments, object identity)
+    {
+        if (fragments is null)
+        {
+            return null;
+        }
+
+        foreach (var fragment in fragments)
+        {
+            if (Equals(fragment.Identity, identity))
+            {
+                return fragment;
+            }
+        }
+
+        return null;
+    }
+
+    /// <summary>
+    /// Paints one line's worth of a rounded inline element as a single box.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// A radius is what forces the grouping: the ordinary path fills a background per RUN, and
+    /// three abutting rounded rectangles are not one rounded rectangle. Everything else here is the
+    /// block path applied to a rectangle that is not a box — the same <see cref="RoundedBox"/>
+    /// outline, and the same ring cut out of it.
+    /// </para>
+    /// <para>
+    /// A fragment that does not carry the element's opening edge loses its two LEFT corners and its
+    /// left border, and one that does not carry the closing edge loses the two on the right. That
+    /// is what a browser draws, and it is the same rule the square path already followed for the
+    /// side borders: the element did not end where the line did, so nothing is drawn there.
+    /// </para>
+    /// </remarks>
+    static void PaintInlineFragment(Surface surface, InlineFragment fragment)
+    {
+        var style = fragment.Style;
+
+        if (!fragment.Opening)
+        {
+            style = style with
+            {
+                BorderLeft = 0,
+                RadiusTopLeft = default,
+                RadiusBottomLeft = default
+            };
+        }
+
+        if (!fragment.Closing)
+        {
+            style = style with
+            {
+                BorderRight = 0,
+                RadiusTopRight = default,
+                RadiusBottomRight = default
+            };
+        }
+
+        // Snapped horizontally exactly as the per-run fill is, and left fractional vertically for
+        // the same reason: the extent comes from the font's whole-pixel ascent and descent already.
+        var left = Snap(fragment.Bounds.X);
+        var rect = fragment.Bounds with {X = left, Width = Snap(fragment.Bounds.Right) - left};
+
+        if (rect.Width <= 0 || rect.Height <= 0)
+        {
+            return;
+        }
+
+        var radii = RoundedBox.Resolve(style, rect);
+
+        if (style.BackgroundColor is {} background)
+        {
+            Fill(Krilla.Paint.Solid(background), style.BackgroundAlpha);
+        }
+
+        // The gradient's box is the element's whole advance laid end to end, of which this fragment
+        // shows one slice. Measured off the fragments rather than off `InlineRamps`, which counts
+        // RUNS: a fragment reaches past its first and last run by the element's own padding and
+        // border, and anchoring the ramp on the run puts it that far along.
+        if (style.BackgroundImage is {} gradient)
+        {
+            Fill(
+                GradientPaint.Create(
+                    gradient,
+                    rect with {X = rect.X - fragment.Before, Width = fragment.Total},
+                    tiles: false));
+        }
+
+        PaintInlineBorder(surface, style, rect);
+
+        void Fill(Paint paint, float opacity = 1f)
+        {
+            using var owned = paint;
+            using var builder = new PathBuilder();
+
+            if (radii.IsRounded)
+            {
+                radii.Trace(builder, rect, clockwise: true);
+            }
+            else
+            {
+                AddRectangle(builder, rect.X, rect.Y, rect.Right, rect.Bottom, clockwise: true);
+            }
+
+            using var path = builder.Build();
+            surface.SetFill(new Fill(owned, opacity)).DrawPath(path);
+        }
+    }
+
+    /// <summary>
+    /// The border around a rounded inline fragment: one ring where the edges share a colour, and
+    /// four rectangles cut to the outline where they do not.
+    /// </summary>
+    /// <remarks>
+    /// The ring is the same construction a block's uniform border takes, and it is what makes a
+    /// thick rounded border read as a ring rather than a tube — the inner corners are the outer
+    /// radii less the edge running along them. The fallback keeps the square path's four
+    /// rectangles and clips them to the rounded outline instead, which rounds the OUTER corner and
+    /// leaves the inner one square. Visible only where a thick border changes colour part way
+    /// round, which nothing in the corpus does and no document sensibly asks for.
+    /// </remarks>
+    static void PaintInlineBorder(Surface surface, ComputedStyle style, Rect rect)
+    {
+        if (!style.HasBorder)
+        {
+            return;
+        }
+
+        var innerLeft = Snap(Math.Min(rect.X + style.BorderLeft, rect.Right));
+        var innerRight = Snap(Math.Max(rect.Right - style.BorderRight, innerLeft));
+        var innerTop = Math.Min(rect.Y + style.BorderTop, rect.Bottom);
+        var innerBottom = Math.Max(rect.Bottom - style.BorderBottom, innerTop);
+
+        if (RingColor(style) is {} ring)
+        {
+            PaintUniformBorder(
+                surface,
+                style,
+                ring.Color,
+                ring.Alpha,
+                rect,
+                innerLeft,
+                innerTop,
+                innerRight,
+                innerBottom);
+
+            return;
+        }
+
+        using var builder = new PathBuilder();
+        RoundedBox.Resolve(style, rect).Trace(builder, rect, clockwise: true);
+
+        using var outline = builder.Build();
+        using var clip = surface.PushClip(outline);
+
+        Edge(style.BorderTopColor, style.BorderTopAlpha, rect.X, rect.Y, rect.Width, style.BorderTop);
+        Edge(
+            style.BorderBottomColor,
+            style.BorderBottomAlpha,
+            rect.X,
+            rect.Bottom - style.BorderBottom,
+            rect.Width,
+            style.BorderBottom);
+
+        Edge(style.BorderLeftColor, style.BorderLeftAlpha, rect.X, rect.Y, style.BorderLeft, rect.Height);
+        Edge(
+            style.BorderRightColor,
+            style.BorderRightAlpha,
+            rect.Right - style.BorderRight,
+            rect.Y,
+            style.BorderRight,
+            rect.Height);
+
+        void Edge(Color? color, float alpha, float x, float y, float w, float h)
+        {
+            if (color is not {} painted || w <= 0 || h <= 0)
+            {
+                return;
+            }
+
+            using var path = PdfPath.Rectangle(Rectangle.FromSize(x, y, w, h));
+            using var paint = Krilla.Paint.Solid(painted);
+            surface.SetFill(new Fill(paint, alpha)).DrawPath(path);
+        }
+    }
+
+    /// <summary>
+    /// The colour and opacity an inline fragment's border ring takes, or null when its edges
+    /// disagree.
+    /// </summary>
+    /// <remarks>
+    /// Not <see cref="UniformColor"/>, which requires all four edges to be present: a fragment in
+    /// the middle of a wrapped element has no left or right border at all, and that is the ordinary
+    /// case here rather than a corner one. The sides with no width are skipped instead of failing
+    /// the test.
+    /// </remarks>
+    static (Color Color, float Alpha)? RingColor(ComputedStyle style)
+    {
+        (float Width, Color? Color, float Alpha)[] sides =
+        [
+            (style.BorderTop, style.BorderTopColor, style.BorderTopAlpha),
+            (style.BorderRight, style.BorderRightColor, style.BorderRightAlpha),
+            (style.BorderBottom, style.BorderBottomColor, style.BorderBottomAlpha),
+            (style.BorderLeft, style.BorderLeftColor, style.BorderLeftAlpha)
+        ];
+
+        Color? found = null;
+        var alpha = 1f;
+
+        foreach (var (width, color, sideAlpha) in sides)
+        {
+            if (width <= 0)
+            {
+                continue;
+            }
+
+            if (color is not {} painted)
+            {
+                return null;
+            }
+
+            if (found is {} already && (already != painted || alpha != sideAlpha))
+            {
+                return null;
+            }
+
+            found = painted;
+            alpha = sideAlpha;
+        }
+
+        return found is {} result ? (result, alpha) : null;
     }
 
     /// <summary>
@@ -1083,6 +1355,12 @@ static class PdfPainter
         // Null for a box whose inline content carries no gradient, which is almost every box.
         var ramps = InlineRamps.For(box);
 
+        // The same pre-pass for `border-radius`, and for the same reason: an inline element's
+        // background is painted per RUN, and a rounded corner belongs to the FRAGMENT those runs
+        // make up. Null unless something in this box's inline content is rounded, which keeps every
+        // other document on exactly the painting path it had.
+        var rounded = InlineFragments.For(box);
+
         foreach (var line in box.Lines)
         {
             // Bounded by where the next page starts, not by the paper. A line at or past the break
@@ -1092,6 +1370,8 @@ static class PdfPainter
                 continue;
             }
 
+            var fragments = rounded?.On(line);
+
             foreach (var run in line.Runs)
             {
                 // Per RUN rather than per box, because `visibility` inherits and a descendant can
@@ -1100,7 +1380,7 @@ static class PdfPainter
                 // hiding the text does not hide the rectangle in a browser either.
                 if (run.Style.Visibility == VisibilityKind.Visible)
                 {
-                    PaintInlineBackground(surface, run, ramps);
+                    PaintInlineBackground(surface, run, ramps, fragments);
 
                     // Behind the text and in front of its background, which is where CSS puts a
                     // text shadow — over the element's own background and under its glyphs.
@@ -1132,14 +1412,29 @@ static class PdfPainter
             // part of the same inline content step and nothing on a line overlaps it.
             foreach (var edge in line.Edges)
             {
-                if (edge.Style.Visibility == VisibilityKind.Visible)
+                if (edge.Style.Visibility != VisibilityKind.Visible)
                 {
-                    PaintInlineSurface(
-                        surface,
-                        edge.Style,
-                        edge.Bounds with {X = Snap(edge.Bounds.X), Width = Snap(edge.Bounds.Width)},
-                        edge.Kind);
+                    continue;
                 }
+
+                if (Grouped(fragments, (object?) edge.Selector ?? edge.Style) is {} fragment)
+                {
+                    // Drawn with the runs it encloses, so it lands where the per-run fill it
+                    // replaces would have. A fragment with no run inside it — an empty element
+                    // carrying nothing but padding — has no earlier place to go and is drawn here.
+                    if (fragment.First is null)
+                    {
+                        PaintInlineFragment(surface, fragment);
+                    }
+
+                    continue;
+                }
+
+                PaintInlineSurface(
+                    surface,
+                    edge.Style,
+                    edge.Bounds with {X = Snap(edge.Bounds.X), Width = Snap(edge.Bounds.Width)},
+                    edge.Kind);
             }
 
             foreach (var image in line.Images)

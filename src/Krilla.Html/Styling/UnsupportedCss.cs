@@ -151,7 +151,6 @@ static class UnsupportedCss
         Background(declaration, name, style, sink);
         Transform(declaration, name, style, sink);
         Casing(declaration, name, sink);
-        InlineSurround(declaration, name, style, sink);
         Fixed(declaration, name, sink);
         Radius(declaration, name, style, sink);
     }
@@ -284,54 +283,6 @@ static class UnsupportedCss
             !IsInitial(value))
         {
             Diagnostic.Property(sink, element, "text-transform", value, "the text is drawn as written");
-        }
-    }
-
-    /// <summary>
-    /// The parts of an inline element's box that are still not drawn.
-    /// </summary>
-    /// <remarks>
-    /// <para>
-    /// Most of the inline box model IS honoured — the background including a gradient, the padding,
-    /// the border and the horizontal margins, each per line fragment — so what is left is one
-    /// decoration that a real box gets and a fragment does not.
-    /// </para>
-    /// <para>
-    /// A rounded corner cannot be reported through <see cref="Radius"/>, which asks whether the
-    /// border is painted as one ring and answers yes for the uniform solid case. An inline border
-    /// is never a ring: it is up to four rectangles, because a fragment has no corners to mitre at
-    /// the end where the line broke.
-    /// </para>
-    /// <para>
-    /// Vertical margins are silent, and correctly so: CSS drops them on an inline element, so
-    /// ignoring them is what a browser does rather than something left undone.
-    /// </para>
-    /// </remarks>
-    static void InlineSurround(
-        ICssStyleDeclaration declaration,
-        string element,
-        ComputedStyle style,
-        Action<HtmlDiagnostic> sink)
-    {
-        if (style.Display != DisplayKind.Inline)
-        {
-            return;
-        }
-
-        foreach (var corner in corners)
-        {
-            if (Set(declaration, corner) is {} value &&
-                !IsZero(value) &&
-                !IsInitial(value))
-            {
-                Diagnostic.Property(
-                    sink,
-                    element,
-                    corner,
-                    value,
-                    "an inline element's border is painted with square corners");
-                return;
-            }
         }
     }
 
@@ -646,7 +597,27 @@ static class UnsupportedCss
         // one ring — which needs every edge solid and every edge the same colour. Anything else
         // falls back to four mitred trapezia, which have square corners, so the radius is honoured
         // on the fill underneath and lost on the frame over it.
-        if (!style.HasBorder || style.PaintsBorderAsRing)
+        if (!style.HasBorder)
+        {
+            return;
+        }
+
+        var reason = "the border is painted with square corners";
+
+        if (style.Display == DisplayKind.Inline)
+        {
+            // An inline element's border is never mitred: a fragment has no corner to mitre at the
+            // end where the line broke, so it is a ring where the edges agree on a colour and four
+            // rectangles cut to the rounded outline where they do not. What a radius loses there is
+            // the INSIDE of the corner rather than the corner itself.
+            if (SameColor(style))
+            {
+                return;
+            }
+
+            reason = "an inline element's border is painted with a square inner corner";
+        }
+        else if (style.PaintsBorderAsRing)
         {
             return;
         }
@@ -657,15 +628,55 @@ static class UnsupportedCss
                 !IsZero(value) &&
                 !IsInitial(value))
             {
-                Diagnostic.Property(
-                    sink,
-                    element,
-                    corner,
-                    value,
-                    "the border is painted with square corners");
+                Diagnostic.Property(sink, element, corner, value, reason);
                 return;
             }
         }
+    }
+
+    /// <summary>
+    /// Whether every border edge with a width agrees on its colour and opacity.
+    /// </summary>
+    /// <remarks>
+    /// The test <see cref="ComputedStyle.PaintsBorderAsRing"/> makes, less the requirement that all
+    /// four edges be present and solid. Neither applies to an inline element: a wrapped fragment
+    /// has no left or right border at all, and the styles are not drawn there anyway.
+    /// </remarks>
+    static bool SameColor(ComputedStyle style)
+    {
+        (float Width, Color? Color, float Alpha)[] sides =
+        [
+            (style.BorderTop, style.BorderTopColor, style.BorderTopAlpha),
+            (style.BorderRight, style.BorderRightColor, style.BorderRightAlpha),
+            (style.BorderBottom, style.BorderBottomColor, style.BorderBottomAlpha),
+            (style.BorderLeft, style.BorderLeftColor, style.BorderLeftAlpha)
+        ];
+
+        Color? found = null;
+        var alpha = 1f;
+
+        foreach (var (width, color, sideAlpha) in sides)
+        {
+            if (width <= 0)
+            {
+                continue;
+            }
+
+            if (color is not {} painted)
+            {
+                return false;
+            }
+
+            if (found is {} already && (already != painted || alpha != sideAlpha))
+            {
+                return false;
+            }
+
+            found = painted;
+            alpha = sideAlpha;
+        }
+
+        return true;
     }
 
     /// <summary>
