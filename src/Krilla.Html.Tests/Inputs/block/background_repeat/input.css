@@ -1,0 +1,43 @@
+/*
+  The two repeat values that are not simply "tile it or don't". The swatch is 64x32; every box is
+  210px wide, which is a deliberately awkward multiple — three tiles need 192 and four need 256, so
+  `round` has to choose and `space` has a real remainder to share out.
+*/
+div {
+  width: 210px; height: 70px; margin-bottom: 4px;
+  background-image: url("../../image/swatch.png");
+  background-color: #dde6f2;
+}
+
+/* Both axes rounded: 210/64 rounds to 3, so the tile becomes 70 wide; 70/32 rounds to 2, so it
+   becomes 35 tall. Nothing is clipped at either far edge. */
+#round { background-repeat: round; }
+
+/* Rounded horizontally only, with an auto height, so the vertical scales to keep the proportions:
+   a 70-wide tile is 35 tall, and the last row is clipped rather than fitted. */
+#roundx { background-repeat: round no-repeat; }
+#roundy { background-repeat: no-repeat round; }
+
+/* An explicit background-size pins the axis that is not rounded, so the rounding no longer drags
+   the other one with it. */
+#roundsized { background-repeat: round no-repeat; background-size: 64px 50px; }
+
+/* Three whole tiles fit across 210 and two down 70, so the leftovers — 18 and 6 — are shared
+   between them. The first and last tiles touch the edges, which is what makes the position
+   irrelevant on a spaced axis. */
+#space { background-repeat: space; }
+#spacex { background-repeat: space no-repeat; background-position: 40px 10px; }
+
+/* Fewer than two whole tiles fit across, so that axis falls back to no-repeat and honours the
+   position again. */
+#spacetoobig { width: 100px; background-repeat: space; background-position: 25px 12px; }
+
+/* The two values are independent, and neither is a spelling of the other. */
+#mixed { background-repeat: round space; }
+
+/* Spacing is measured over the POSITIONING area, which is the padding box, while the paint reaches
+   the border box — so the strip under the border carries the tail of the pattern. */
+#spacepadded {
+  border: 8px solid #204080; padding: 10px;
+  background-repeat: space;
+}

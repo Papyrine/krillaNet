@@ -1429,38 +1429,30 @@ static class PdfPainter
             return;
         }
 
-        var (width, height) = TileSize(style, origin, image);
+        var (width, height) = Rounded(style, origin, image);
 
         if (width <= 0 || height <= 0)
         {
             return;
         }
 
-        // Snapped, because the browser snaps: `75%` of the 38px left over is 28.5, and Chrome
-        // starts the tile on row 29 rather than straddling two rows at half coverage. The same
-        // construction argument the inline background fill records.
-        var x = Snap(Place(style.BackgroundPositionX, origin.Width, width) + origin.X);
-        var y = Snap(Place(style.BackgroundPositionY, origin.Height, height) + origin.Y);
+        var across = Tiles(
+            style.BackgroundRepeatX,
+            style.BackgroundPositionX,
+            origin.X,
+            origin.Width,
+            painted.X,
+            painted.Right,
+            width);
 
-        // Back up to the last tile that still reaches into the painted area, so a repeated
-        // background is continuous across the border rather than starting at the positioned tile.
-        if (style.BackgroundRepeatX)
-        {
-            x -= MathF.Ceiling((x - painted.X) / width) * width;
-        }
-
-        if (style.BackgroundRepeatY)
-        {
-            y -= MathF.Ceiling((y - painted.Y) / height) * height;
-        }
-
-        var columns = style.BackgroundRepeatX
-            ? (int) MathF.Ceiling((painted.Right - x) / width)
-            : 1;
-
-        var rows = style.BackgroundRepeatY
-            ? (int) MathF.Ceiling((painted.Bottom - y) / height)
-            : 1;
+        var down = Tiles(
+            style.BackgroundRepeatY,
+            style.BackgroundPositionY,
+            origin.Y,
+            origin.Height,
+            painted.Y,
+            painted.Bottom,
+            height);
 
         const int most = 512;
 
@@ -1468,16 +1460,148 @@ static class PdfPainter
             Rectangle.FromSize(painted.X, painted.Y, painted.Width, painted.Height));
         using var clip = surface.PushClip(clipPath);
 
-        for (var row = 0; row < Math.Min(rows, most); row++)
+        for (var row = 0; row < Math.Min(down.Count, most); row++)
         {
-            for (var column = 0; column < Math.Min(columns, most); column++)
+            for (var column = 0; column < Math.Min(across.Count, most); column++)
             {
                 PaintImage(
                     surface,
                     image,
-                    new(x + column * width, y + row * height, width, height));
+                    new(
+                        across.Start + column * across.Step,
+                        down.Start + row * down.Step,
+                        width,
+                        height));
             }
         }
+    }
+
+    /// <summary>
+    /// Where the tiles along one axis start, how far apart they sit, and how many there are.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The three repeating values differ only in the step and in where the first tile sits, which
+    /// is what lets one walk paint all of them. <c>repeat</c> and <c>round</c> step by the tile and
+    /// take their phase from <c>background-position</c>; <c>space</c> steps by the tile plus the
+    /// gap it shares out and starts on the positioning area's own edge, the position being ignored
+    /// on an axis whose first and last tiles are pinned to the edges.
+    /// </para>
+    /// <para>
+    /// <c>space</c> falls back to <c>no-repeat</c> when fewer than two whole tiles fit, which is
+    /// the specification's own rule and Chromium's: with one tile there is no gap to share out, so
+    /// the position is honoured again. A tile larger than the area is what makes it visible, and
+    /// that is the common case — <c>space</c> is usually written for an image nobody measured
+    /// against the box.
+    /// </para>
+    /// <para>
+    /// Each repeating axis is backed up to the last tile that still reaches into the painted area,
+    /// so the strip under a border carries the tail of the previous tile rather than starting the
+    /// first one there.
+    /// </para>
+    /// </remarks>
+    static (float Start, float Step, int Count) Tiles(
+        BackgroundRepeatKind repeat,
+        CssLength position,
+        float areaStart,
+        float areaSize,
+        float paintedStart,
+        float paintedEnd,
+        float tile)
+    {
+        if (repeat == BackgroundRepeatKind.Space)
+        {
+            var whole = (int) MathF.Floor(areaSize / tile);
+
+            if (whole > 1)
+            {
+                var step = tile + (areaSize - whole * tile) / (whole - 1);
+                return Repeating(Snap(areaStart), step, paintedStart, paintedEnd);
+            }
+
+            repeat = BackgroundRepeatKind.NoRepeat;
+        }
+
+        // Snapped, because the browser snaps: `75%` of the 38px left over is 28.5, and Chrome
+        // starts the tile on row 29 rather than straddling two rows at half coverage. The same
+        // construction argument the inline background fill records.
+        var start = Snap(Place(position, areaSize, tile) + areaStart);
+
+        if (repeat == BackgroundRepeatKind.NoRepeat)
+        {
+            return (start, tile, 1);
+        }
+
+        return Repeating(start, tile, paintedStart, paintedEnd);
+    }
+
+    static (float Start, float Step, int Count) Repeating(
+        float start,
+        float step,
+        float paintedStart,
+        float paintedEnd)
+    {
+        start -= MathF.Ceiling((start - paintedStart) / step) * step;
+        return (start, step, (int) MathF.Ceiling((paintedEnd - start) / step));
+    }
+
+    /// <summary>
+    /// The size <see cref="TileSize"/> gives, rescaled by whichever axes asked to be rounded.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>round</c> is the one repeat value that changes the image's SIZE rather than only where
+    /// its copies go: the tile is scaled so that a whole number of them fills the positioning area
+    /// exactly, leaving nothing clipped at the far edge. The count is the NEAREST whole number
+    /// rather than the largest that fits, so a tile is as often stretched as squeezed, and it never
+    /// falls below one.
+    /// </para>
+    /// <para>
+    /// Rounding ONE axis of an image whose other axis is <c>auto</c> rescales that other axis to
+    /// restore the proportions, which is CSS Backgrounds 3 §3.6's third step. Without it a rounded
+    /// axis distorts the picture, which is the one thing <c>round</c> is not meant to do while it
+    /// has a free axis to spend.
+    /// </para>
+    /// </remarks>
+    static (float Width, float Height) Rounded(ComputedStyle style, Rect origin, ImageData image)
+    {
+        var (width, height) = TileSize(style, origin, image);
+
+        if (width <= 0 || height <= 0)
+        {
+            return (width, height);
+        }
+
+        var roundX = style.BackgroundRepeatX == BackgroundRepeatKind.Round;
+        var roundY = style.BackgroundRepeatY == BackgroundRepeatKind.Round;
+
+        if (!roundX && !roundY)
+        {
+            return (width, height);
+        }
+
+        var ratio = height / width;
+
+        if (roundX)
+        {
+            width = origin.Width / MathF.Max(1, MathF.Round(origin.Width / width));
+        }
+
+        if (roundY)
+        {
+            height = origin.Height / MathF.Max(1, MathF.Round(origin.Height / height));
+        }
+
+        if (roundX && !roundY && style.BackgroundSizeY.Kind == LengthKind.Auto)
+        {
+            height = width * ratio;
+        }
+        else if (roundY && !roundX && style.BackgroundSizeX.Kind == LengthKind.Auto)
+        {
+            width = height / ratio;
+        }
+
+        return (width, height);
     }
 
     /// <summary>

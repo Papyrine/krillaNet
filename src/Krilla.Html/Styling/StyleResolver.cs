@@ -929,18 +929,48 @@ static class StyleResolver
             _ => fallback
         };
 
-    /// <summary>Whether the background repeats along one axis.</summary>
+    /// <summary>How the background repeats along one axis.</summary>
     /// <remarks>
+    /// <para>
     /// The initial value is <c>repeat</c> on both, which is why a background image reaches past the
     /// element that declared it far more often than authors expect.
+    /// </para>
+    /// <para>
+    /// The two-value form does not arrive as written: AngleSharp splits it into
+    /// <c>background-repeat-x</c> and <c>background-repeat-y</c> and reserialises the shorthand, so
+    /// <c>repeat no-repeat</c> comes back as <c>repeat-x</c>. That folding only covers the pairs
+    /// that have a single-keyword spelling, though — <c>round no-repeat</c> has none — so the
+    /// longhands are read first and the shorthand only used when they say nothing.
+    /// </para>
     /// </remarks>
-    static bool Repeats(ICssStyleDeclaration declaration, bool horizontal) =>
-        declaration.GetPropertyValue("background-repeat").Trim().ToLowerInvariant() switch
+    static BackgroundRepeatKind Repeats(ICssStyleDeclaration declaration, bool horizontal)
+    {
+        var axis = declaration
+            .GetPropertyValue(horizontal ? "background-repeat-x" : "background-repeat-y")
+            .Trim()
+            .ToLowerInvariant();
+
+        if (axis.Length > 0)
         {
-            "no-repeat" => false,
-            "repeat-x" => horizontal,
-            "repeat-y" => !horizontal,
-            _ => true
+            return Repeat(axis);
+        }
+
+        return declaration.GetPropertyValue("background-repeat").Trim().ToLowerInvariant() switch
+        {
+            "no-repeat" => BackgroundRepeatKind.NoRepeat,
+            "repeat-x" => horizontal ? BackgroundRepeatKind.Repeat : BackgroundRepeatKind.NoRepeat,
+            "repeat-y" => horizontal ? BackgroundRepeatKind.NoRepeat : BackgroundRepeatKind.Repeat,
+            var value => Repeat(value)
+        };
+    }
+
+    static BackgroundRepeatKind Repeat(string value) =>
+        value switch
+        {
+            "no-repeat" => BackgroundRepeatKind.NoRepeat,
+            "round" => BackgroundRepeatKind.Round,
+            "space" => BackgroundRepeatKind.Space,
+            _ => BackgroundRepeatKind.Repeat
         };
 
     /// <summary>

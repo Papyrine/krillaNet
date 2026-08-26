@@ -378,6 +378,32 @@ enum BackgroundSizing
     Explicit
 }
 
+/// <summary>How a background image is repeated along one axis.</summary>
+/// <remarks>
+/// The initial value is <see cref="Repeat"/> on both axes, which is why a background image reaches
+/// past the element that declared it far more often than authors expect. The other three each
+/// answer the same question — what to do with the room a whole number of tiles does not fill —
+/// differently: <see cref="NoRepeat"/> leaves it empty, <see cref="Repeat"/> fills it with a
+/// clipped tile, <see cref="Round"/> rescales the tile so there is none, and <see cref="Space"/>
+/// shares it out between whole tiles.
+/// </remarks>
+enum BackgroundRepeatKind
+{
+    /// <summary>Tiled from the position, clipping the last tile.</summary>
+    Repeat,
+
+    /// <summary>Drawn once, at the position.</summary>
+    NoRepeat,
+
+    /// <summary>Rescaled so a whole number of tiles fills the positioning area exactly.</summary>
+    Round,
+
+    /// <summary>
+    /// As many whole tiles as fit, pinned to both edges with the remainder shared evenly between.
+    /// </summary>
+    Space
+}
+
 /// <summary>How white space and line breaking are handled.</summary>
 enum WhiteSpaceKind
 {
@@ -839,11 +865,11 @@ sealed record ComputedStyle
     /// </remarks>
     public BoxArea BackgroundOrigin { get; init; } = BoxArea.Padding;
 
-    /// <summary>Whether the background image repeats horizontally.</summary>
-    public bool BackgroundRepeatX { get; init; } = true;
+    /// <summary>How the background image repeats horizontally.</summary>
+    public BackgroundRepeatKind BackgroundRepeatX { get; init; } = BackgroundRepeatKind.Repeat;
 
-    /// <summary>Whether it repeats vertically.</summary>
-    public bool BackgroundRepeatY { get; init; } = true;
+    /// <summary>How it repeats vertically.</summary>
+    public BackgroundRepeatKind BackgroundRepeatY { get; init; } = BackgroundRepeatKind.Repeat;
 
     /// <summary>
     /// Where the first tile sits horizontally within the positioning area.
