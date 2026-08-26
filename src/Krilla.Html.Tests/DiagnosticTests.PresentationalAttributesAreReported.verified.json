@@ -2,77 +2,50 @@
   {
     "Kind": "IgnoredAttribute",
     "Element": "table",
-    "Name": "width",
-    "Value": "300",
-    "Reason": "not applied, because presentational attributes are not mapped onto the cascade"
+    "Name": "rules",
+    "Value": "all",
+    "Reason": "not applied, because presentational attributes are not mapped onto CSS"
   },
   {
     "Kind": "IgnoredAttribute",
     "Element": "table",
-    "Name": "cellpadding",
-    "Value": "8",
-    "Reason": "not applied, because presentational attributes are not mapped onto the cascade"
-  },
-  {
-    "Kind": "IgnoredAttribute",
-    "Element": "table",
-    "Name": "bgcolor",
-    "Value": "silver",
-    "Reason": "not applied, because presentational attributes are not mapped onto the cascade"
-  },
-  {
-    "Kind": "IgnoredAttribute",
-    "Element": "tr",
-    "Name": "height",
-    "Value": "40",
-    "Reason": "not applied, because presentational attributes are not mapped onto the cascade"
+    "Name": "frame",
+    "Value": "box",
+    "Reason": "not applied, because presentational attributes are not mapped onto CSS"
   },
   {
     "Kind": "IgnoredAttribute",
     "Element": "td",
     "Name": "align",
-    "Value": "right",
-    "Reason": "not applied, because presentational attributes are not mapped onto the cascade"
-  },
-  {
-    "Kind": "IgnoredAttribute",
-    "Element": "td",
-    "Name": "valign",
-    "Value": "bottom",
-    "Reason": "not applied, because presentational attributes are not mapped onto the cascade"
-  },
-  {
-    "Kind": "IgnoredAttribute",
-    "Element": "td",
-    "Name": "nowrap",
-    "Reason": "not applied, because presentational attributes are not mapped onto the cascade"
+    "Value": "char",
+    "Reason": "names nothing this maps onto CSS"
   },
   {
     "Kind": "IgnoredAttribute",
     "Element": "ol",
     "Name": "type",
     "Value": "a",
-    "Reason": "not applied, because presentational attributes are not mapped onto the cascade"
+    "Reason": "not applied, because presentational attributes are not mapped onto CSS"
   },
   {
     "Kind": "IgnoredAttribute",
-    "Element": "p",
-    "Name": "align",
-    "Value": "center",
-    "Reason": "not applied, because presentational attributes are not mapped onto the cascade"
+    "Element": "hr",
+    "Name": "size",
+    "Value": "4",
+    "Reason": "not applied, because presentational attributes are not mapped onto CSS"
   },
   {
     "Kind": "IgnoredAttribute",
     "Element": "font",
     "Name": "color",
     "Value": "red",
-    "Reason": "not applied, because presentational attributes are not mapped onto the cascade"
+    "Reason": "not applied, because presentational attributes are not mapped onto CSS"
   },
   {
     "Kind": "IgnoredAttribute",
     "Element": "font",
     "Name": "size",
     "Value": "6",
-    "Reason": "not applied, because presentational attributes are not mapped onto the cascade"
+    "Reason": "not applied, because presentational attributes are not mapped onto CSS"
   }
 ]

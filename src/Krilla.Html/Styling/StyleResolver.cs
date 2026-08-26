@@ -31,8 +31,20 @@ static class StyleResolver
     /// <summary>
     /// Resolves <paramref name="element"/>'s style against its <paramref name="parent"/>.
     /// </summary>
-    public static ComputedStyle Resolve(IElement element, ComputedStyle parent, DocumentContext context) =>
-        Resolve(element, context.Cascade(element), parent, context, pseudo: false);
+    /// <remarks>
+    /// The presentational attributes are folded in here rather than anywhere the cascade is read,
+    /// because this is the only route that produces an element's own style. A pseudo-element's
+    /// cascade deliberately does not get them: its host's declarations already leak into it, and a
+    /// hint arriving through that leak would be indistinguishable from one the pseudo declared.
+    /// </remarks>
+    public static ComputedStyle Resolve(IElement element, ComputedStyle parent, DocumentContext context)
+    {
+        var declaration = context.Cascade(element);
+
+        PresentationalHints.Apply(element, declaration);
+
+        return Resolve(element, declaration, parent, context, pseudo: false);
+    }
 
     /// <summary>
     /// Resolves a page margin box's own declarations against the page context.

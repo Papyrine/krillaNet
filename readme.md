@@ -172,7 +172,7 @@ options.OnDiagnostic = diagnostic => Console.WriteLine(diagnostic);
 
 // <div> display: flex — laid out as a block
 // <div> column-count: 2 — laid out in one column
-// <p> align: left — not applied, because presentational attributes are not mapped onto the cascade
+// <table> rules: all — not applied, because presentational attributes are not mapped onto CSS
 // <img> src: logo.png — did not resolve to an image, so no box was generated
 ```
 <sup><a href='/src/Krilla.Html.Tests/Samples.cs#L75-L84' title='Snippet source file'>snippet source</a> | <a href='#snippet-Diagnostics' title='Start of snippet'>anchor</a></sup>

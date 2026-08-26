@@ -250,18 +250,45 @@ public class DiagnosticTests
         await Assert.That(reports.Select(_ => _.Name)).Contains("widows");
     }
 
+    /// <summary>
+    /// The attributes that reach no CSS property at all, and an attribute that reaches one whose
+    /// VALUE names nothing.
+    /// </summary>
+    /// <remarks>
+    /// The second kind is the one worth having a test for. <c>align="char"</c> is a real value of
+    /// a real attribute and it aligns a column on a decimal point, which nothing here does — so it
+    /// has to survive the change that stopped reporting <c>align="right"</c> beside it.
+    /// </remarks>
     [Test]
     public async Task PresentationalAttributesAreReported() =>
         await Verify(
             await Collect(
                 """
-                <table width="300" cellpadding="8" bgcolor="silver">
-                  <tr height="40"><td align="right" valign="bottom" nowrap>a</td></tr>
+                <table rules="all" frame="box">
+                  <tr><td align="char">a</td></tr>
                 </table>
                 <ol type="a"><li>b</li></ol>
-                <p align="center">c</p>
+                <hr size="4">
                 <font color="red" size="6">d</font>
                 """));
+
+    /// <summary>
+    /// The attributes that now reach the cascade say nothing, which is the invariant this change
+    /// had to keep: an attribute stops being reported exactly when it starts being applied.
+    /// </summary>
+    [Test]
+    public async Task AppliedPresentationalAttributesAreSilent() =>
+        await Assert.That(
+                await Collect(
+                    """
+                    <table width="300" cellpadding="8" cellspacing="0" border="1" bgcolor="silver">
+                      <caption align="bottom">c</caption>
+                      <tr height="40" valign="top"><td align="right" nowrap bgcolor="#eee">a</td></tr>
+                    </table>
+                    <p align="center">c</p>
+                    <h2 align="right">h</h2>
+                    """))
+            .IsEmpty();
 
     [Test]
     public async Task ColumnsAndUnresolvedImagesAreReported() =>

@@ -147,3 +147,4 @@ ua/hr                            matched  7  offset    0.00  size    0.00  diffe
 ua/lists                         matched 12  offset    0.00  size    0.00  differing  0  unmatched 0
 ua/list_markers                  matched 32  offset    0.00  size    0.00  differing  0  unmatched 0
 ua/paragraphs                    matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
+ua/presentational                matched 26  offset    0.00  size    0.00  differing  0  unmatched 0

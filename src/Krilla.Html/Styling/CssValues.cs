@@ -305,6 +305,18 @@ static class CssValues
 
     static Color? ParseHex(string hex)
     {
+        // A length that looks right is not enough: `#silver` is six characters and `byte.Parse`
+        // throws on the first of them, where every other route out of `ParseColor` returns null.
+        // Reachable from a stylesheet, and reached in practice by the legacy colour parse behind
+        // `bgcolor`, which tries a bare value with a hash in front of it.
+        foreach (var digit in hex)
+        {
+            if (!char.IsAsciiHexDigit(digit))
+            {
+                return null;
+            }
+        }
+
         // #rgb and #rgba expand by digit doubling; #rrggbb and #rrggbbaa are read directly.
         switch (hex.Length)
         {
