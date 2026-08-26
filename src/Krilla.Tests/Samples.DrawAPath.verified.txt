@@ -1,9 +1,0 @@
-﻿{
-  PageCount: 1,
-  Pages: [
-    {
-      Width: 300.0,
-      Height: 200.0
-    }
-  ]
-}

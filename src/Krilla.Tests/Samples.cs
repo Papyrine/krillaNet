@@ -63,7 +63,19 @@ public class Samples
 
         #endregion
 
-        return Verify(pdf, "pdf");
+        return Verify(pdf, "pdf")
+            .Snapshot(
+                """
+                {
+                  PageCount: 1,
+                  Pages: [
+                    {
+                      Width: 595.0,
+                      Height: 842.0
+                    }
+                  ]
+                }
+                """);
     }
 
     [Test]
@@ -90,7 +102,19 @@ public class Samples
 
         #endregion
 
-        return Verify(pdf, "pdf");
+        return Verify(pdf, "pdf")
+            .Snapshot(
+                """
+                {
+                  PageCount: 1,
+                  Pages: [
+                    {
+                      Width: 300.0,
+                      Height: 200.0
+                    }
+                  ]
+                }
+                """);
     }
 
     [Test]
@@ -116,7 +140,19 @@ public class Samples
 
         #endregion
 
-        return Verify(pdf, "pdf");
+        return Verify(pdf, "pdf")
+            .Snapshot(
+                """
+                {
+                  PageCount: 1,
+                  Pages: [
+                    {
+                      Width: 200.0,
+                      Height: 200.0
+                    }
+                  ]
+                }
+                """);
     }
 
     [Test]
@@ -143,7 +179,19 @@ public class Samples
 
         #endregion
 
-        return Verify(pdf, "pdf");
+        return Verify(pdf, "pdf")
+            .Snapshot(
+                """
+                {
+                  PageCount: 1,
+                  Pages: [
+                    {
+                      Width: 300.0,
+                      Height: 150.0
+                    }
+                  ]
+                }
+                """);
     }
 
     [Test]
@@ -203,7 +251,19 @@ public class Samples
 
         #endregion
 
-        return Verify(pdf, "pdf");
+        return Verify(pdf, "pdf")
+            .Snapshot(
+                """
+                {
+                  PageCount: 1,
+                  Pages: [
+                    {
+                      Width: 120.0,
+                      Height: 120.0
+                    }
+                  ]
+                }
+                """);
     }
 
     [Test]
@@ -411,7 +471,19 @@ public class Samples
 
         #endregion
 
-        return Verify(pdf, "pdf");
+        return Verify(pdf, "pdf")
+            .Snapshot(
+                """
+                {
+                  PageCount: 1,
+                  Pages: [
+                    {
+                      Width: 200.0,
+                      Height: 200.0
+                    }
+                  ]
+                }
+                """);
     }
 
     [Test]
@@ -437,6 +509,18 @@ public class Samples
 
         #endregion
 
-        return Verify(pdf, "pdf");
+        return Verify(pdf, "pdf")
+            .Snapshot(
+                """
+                {
+                  PageCount: 1,
+                  Pages: [
+                    {
+                      Width: 595.0,
+                      Height: 842.0
+                    }
+                  ]
+                }
+                """);
     }
 }

@@ -29,7 +29,7 @@ public class PageMarginBoxTests
             var ink = await Marked(html, page);
 
             await Assert.That(ink).IsNotNull();
-            await Assert.That(ink!.Value.Bottom).IsLessThanOrEqualTo(Margin);
+            await Assert.That(ink!.Value.Bottom).IsLessThanOrEqualTo(margin);
         }
     }
 
@@ -50,7 +50,7 @@ public class PageMarginBoxTests
         var ink = await Marked(html, 0);
 
         await Assert.That(ink).IsNotNull();
-        await Assert.That(ink!.Value.Top).IsGreaterThanOrEqualTo(CorpusLayout.PageHeight - Margin);
+        await Assert.That(ink!.Value.Top).IsGreaterThanOrEqualTo(CorpusLayout.PageHeight - margin);
     }
 
     /// <summary>
@@ -79,7 +79,7 @@ public class PageMarginBoxTests
     public async Task APageCounterTakesACounterStyle()
     {
         var html = Document(
-            """@page { @bottom-center { content: counter(page, upper-roman); color: #00c000 } }""",
+            "@page { @bottom-center { content: counter(page, upper-roman); color: #00c000 } }",
             pages: 3);
 
         await Assert.That(await Text(html, 2)).IsEqualTo("III");
@@ -201,7 +201,7 @@ public class PageMarginBoxTests
     public async Task AMarginBoxWithNoContentGeneratesNothing()
     {
         var html = Document(
-            """@page { @top-center { border-bottom: 4px solid #00c000 } }""",
+            "@page { @top-center { border-bottom: 4px solid #00c000 } }",
             pages: 1);
 
         await Assert.That(await Marked(html, 0)).IsNull();
@@ -227,7 +227,7 @@ public class PageMarginBoxTests
 
         await Assert.That(ink).IsNotNull();
         await Assert.That(ink!.Value.Bottom).IsLessThanOrEqualTo(200);
-        await Assert.That(ink.Value.Top).IsGreaterThan(Margin);
+        await Assert.That(ink.Value.Top).IsGreaterThan(margin);
     }
 
     /// <summary>
@@ -242,7 +242,7 @@ public class PageMarginBoxTests
     {
         var reports = new List<HtmlDiagnostic>();
 
-        var options = Options(Margin);
+        var options = Options(margin);
         options.OnDiagnostic = reports.Add;
 
         await HtmlConverter.ConvertAsync(
@@ -345,7 +345,7 @@ public class PageMarginBoxTests
     [Test]
     public async Task AnUnsetNamedStringDrawsNothing()
     {
-        var html = Sections("""@page { @top-center { content: string(missing) } }""");
+        var html = Sections("@page { @top-center { content: string(missing) } }");
 
         await Assert.That(await Text(html, 0)).IsEqualTo("Materials");
     }
@@ -387,8 +387,8 @@ public class PageMarginBoxTests
             html, body, div, h2 { margin: 0; padding: 0 }
             body { font-family: "Liberation Sans"; font-size: 16px; line-height: 24px }
             h2 { font-size: 16px; line-height: 24px }
-            .filler { height: {{CorpusLayout.PageHeight - 2 * Margin - 24}}px }
-            .whole { height: {{CorpusLayout.PageHeight - 2 * Margin}}px }
+            .filler { height: {{CorpusLayout.PageHeight - 2 * margin - 24}}px }
+            .whole { height: {{CorpusLayout.PageHeight - 2 * margin}}px }
             {{css}}
           </style></head>
           <body>
@@ -421,10 +421,10 @@ public class PageMarginBoxTests
         var ink = await Marked(html, 0);
 
         await Assert.That(ink).IsNotNull();
-        await Assert.That(ink!.Value.Bottom).IsLessThanOrEqualTo(Margin);
+        await Assert.That(ink!.Value.Bottom).IsLessThanOrEqualTo(margin);
     }
 
-    const float Margin = 72;
+    const float margin = 72;
 
     /// <summary>The extent of the marker colour on a page, or null when it is not there.</summary>
     static async Task<(float Left, float Top, float Right, float Bottom)?> Marked(string html, int page)
@@ -468,13 +468,13 @@ public class PageMarginBoxTests
     /// </remarks>
     static async Task<string> Text(string html, int page)
     {
-        using var document = PdfiumDocument.Load(await HtmlConverter.ConvertAsync(html, Options(Margin)));
+        using var document = PdfiumDocument.Load(await HtmlConverter.ConvertAsync(html, Options(margin)));
         using var sheet = document.LoadPage(page);
 
         return (sheet.GetText() ?? "").Trim();
     }
 
-    static string Document(string css, int pages, float margin = Margin)
+    static string Document(string css, int pages, float margin = margin)
     {
         var body = new StringBuilder();
 
@@ -508,13 +508,13 @@ public class PageMarginBoxTests
 
     static async Task<int> PageCount(string html)
     {
-        using var document = PdfiumDocument.Load(await HtmlConverter.ConvertAsync(html, Options(Margin)));
+        using var document = PdfiumDocument.Load(await HtmlConverter.ConvertAsync(html, Options(margin)));
         return document.PageCount;
     }
 
     static async Task<PngImage> Render(string html, int index)
     {
-        using var document = PdfiumDocument.Load(await HtmlConverter.ConvertAsync(html, Options(Margin)));
+        using var document = PdfiumDocument.Load(await HtmlConverter.ConvertAsync(html, Options(margin)));
         var png = document.RenderPage(index, new RenderOptions
         {
             Dpi = CorpusLayout.Dpi
