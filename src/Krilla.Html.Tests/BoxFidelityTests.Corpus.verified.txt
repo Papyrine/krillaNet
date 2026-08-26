@@ -119,6 +119,7 @@ table/caption_side               matched 20  offset    0.00  size    0.00  diffe
 table/cell_baseline              matched 33  offset    0.00  size    0.00  differing  0  unmatched 0
 table/collapse                   matched 50  offset    0.00  size    0.00  differing  0  unmatched 0
 table/columns                    matched 63  offset    0.00  size    0.00  differing  0  unmatched 0
+table/declared_cell_widths       matched 28  offset    0.00  size    0.00  differing  0  unmatched 0
 table/empty                      matched 10  offset    0.00  size    0.00  differing  0  unmatched 0
 table/empty_cells                matched 28  offset    0.00  size    0.00  differing  0  unmatched 0
 table/fixed_layout               matched 27  offset    0.00  size    0.00  differing  0  unmatched 0

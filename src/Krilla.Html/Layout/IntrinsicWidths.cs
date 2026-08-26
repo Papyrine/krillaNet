@@ -62,6 +62,39 @@ static class IntrinsicWidths
     }
 
     /// <summary>
+    /// The min-content width of <paramref name="box"/>'s border box, with a declared
+    /// <c>width</c> ignored.
+    /// </summary>
+    /// <remarks>
+    /// What a table column needs, and only a table column. A declared cell width is a PREFERENCE
+    /// rather than a floor: measured, a cell asking for 700px in a table declaring 300px comes out
+    /// at 232, so the declaration is squeezed and the column still may not go below what its
+    /// content needs. <see cref="Measure"/> answers the other question — how much room the box
+    /// wants — and returning the declaration for both is right everywhere else.
+    ///
+    /// <c>min-width</c> is honoured here where <c>width</c> is not, which is the difference
+    /// between the two properties: one is a request and the other is a bound.
+    /// </remarks>
+    public static float ContentMinimum(LayoutBox box, FontSet fonts)
+    {
+        var style = box.Style;
+        var surround = style.SurroundX(0);
+        var (min, max) = Content(box, fonts);
+
+        if (style.MaxWidth.Kind == LengthKind.Absolute)
+        {
+            min = Math.Min(min, Math.Min(max, style.ContentSize(style.MaxWidth.Value, surround)));
+        }
+
+        if (style.MinWidth.Kind == LengthKind.Absolute)
+        {
+            min = Math.Max(min, style.ContentSize(style.MinWidth.Value, surround));
+        }
+
+        return min + surround;
+    }
+
+    /// <summary>
     /// The intrinsic widths of what is inside <paramref name="box"/>, excluding its own box model.
     /// </summary>
     static (float Min, float Max) Content(LayoutBox box, FontSet fonts)
