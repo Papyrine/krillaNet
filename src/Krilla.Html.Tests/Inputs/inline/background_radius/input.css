@@ -1,0 +1,20 @@
+p { font-size: 16px; line-height: 24px; margin: 0 0 8px 0; background-color: #eef2f8; }
+
+/* The point of the scenario: an inline element's background is painted per line fragment, and the
+   fragment is the opening edge's strip, the runs, and the closing edge's strip abutting. Rounding
+   them one at a time would put corners in the middle, so they are unioned and filled once. */
+code { background-color: #e2e2e6; padding: 0 5px; border-radius: 4px; }
+
+/* Rounded with NO padding, so there is no edge strip to carry the corner and the run's own fill is
+   the whole fragment. */
+.hl { background-color: #f0d060; border-radius: 5px; }
+
+/* Narrow, so the highlight wraps: a fragment is rounded only at the ends the ELEMENT owns, and is
+   square where the line broke. */
+#wrapped { width: 300px; }
+
+/* A rounded element inside another, each at its own height. */
+#nested code { background-color: #90c090; }
+
+/* Over-large, which CSS clamps by scaling every radius on the box until each side fits. */
+.pill { background-color: #c8b0e0; padding: 0 8px; border-radius: 999px; }

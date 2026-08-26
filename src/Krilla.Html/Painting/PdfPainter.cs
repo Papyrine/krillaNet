@@ -802,13 +802,31 @@ static class PdfPainter
     /// means changing where the words go.
     /// </para>
     /// </remarks>
-    static void PaintInlineBackground(Surface surface, TextRun run)
+    static void PaintInlineBackground(
+        Surface surface,
+        TextRun run,
+        Dictionary<string, InlineFill>? rounded)
     {
         if (run.Backdrops is {} backdrops)
         {
-            foreach (var backdrop in backdrops)
+            // An ancestor's own path is a prefix of this run's, which is what lets a backdrop be
+            // matched against the rounded fills already painted for this line without carrying a
+            // selector of its own.
+            var paths = new string?[backdrops.Count];
+            var path = run.Selector;
+            for (var index = backdrops.Count - 1; index >= 0; index--)
             {
-                Fill(surface, backdrop.Style, backdrop.Face, run);
+                path = Enclosing(path);
+                paths[index] = path;
+            }
+
+            // Outermost first, so a highlight nested inside another still comes out on top.
+            for (var index = 0; index < backdrops.Count; index++)
+            {
+                if (paths[index] is not {} enclosing || rounded?.ContainsKey(enclosing) != true)
+                {
+                    Fill(surface, backdrops[index].Style, backdrops[index].Face, run);
+                }
             }
         }
 
@@ -822,7 +840,8 @@ static class PdfPainter
         // reference identity `InlineLayout.InlineAlign` uses — is wrong for a run inside an
         // ANONYMOUS block: that block's style is a fresh instance while the text keeps its parent's,
         // so every anonymous run would paint its parent's background a second time.
-        if (run.Selector is not null || run.Generated)
+        if ((run.Selector is not null || run.Generated) &&
+            (run.Selector is null || rounded?.ContainsKey(run.Selector) != true))
         {
             Fill(surface, run.Style, run.Face, run);
         }
@@ -845,7 +864,7 @@ static class PdfPainter
 
             var bounds = new Rect(left, top, Snap(run.X + run.Width) - left, bottom - top);
 
-            PaintInlineSurface(surface, style, bounds, InlineEdgeKind.None);
+            PaintInlineSurface(surface, style, bounds, InlineEdgeKind.None, skipBackground: false);
         }
     }
 
@@ -870,14 +889,18 @@ static class PdfPainter
         Surface surface,
         ComputedStyle style,
         Rect bounds,
-        InlineEdgeKind kind)
+        InlineEdgeKind kind,
+        bool skipBackground)
     {
         if (bounds.Width <= 0 || bounds.Height <= 0)
         {
             return;
         }
 
-        if (style.BackgroundColor is {} background)
+        // Skipped when this element's fill was already laid down for the whole line fragment as one
+        // rounded path. The border edges below still run, because they are drawn per piece either
+        // way - the top and bottom rules span every fragment and owe nothing to the corners.
+        if (!skipBackground && style.BackgroundColor is {} background)
         {
             using var path = PdfPath.Rectangle(
                 Rectangle.FromSize(bounds.X, bounds.Y, bounds.Width, bounds.Height));
@@ -939,6 +962,268 @@ static class PdfPainter
             using var paint = Krilla.Paint.Solid(painted);
             surface.SetFill(new Fill(paint, alpha)).DrawPath(path);
         }
+    }
+
+
+    /// <summary>
+    /// One inline element's background on one line: everything it covers there, and which ends of
+    /// it are the element's own rather than a line break.
+    /// </summary>
+    readonly record struct InlineFill(
+        ComputedStyle Style,
+        Rect Bounds,
+        bool Opens,
+        bool Closes);
+
+    /// <summary>
+    /// The enclosing element's selector path, or null at the outermost.
+    /// </summary>
+    /// <remarks>
+    /// A selector path is its own ancestry, so every prefix of it names an enclosing element. The
+    /// same trick the box dump uses to report an inline element's extent, and the reason
+    /// a backdrop needs no selector of its own.
+    /// </remarks>
+    static string? Enclosing(string? selector)
+    {
+        if (selector is null)
+        {
+            return null;
+        }
+
+        var cut = selector.LastIndexOf(" > ", StringComparison.Ordinal);
+
+        return cut < 0 ? null : selector[..cut];
+    }
+
+    /// <summary>
+    /// The rounded fills this line owes, one per inline element that asks for a corner radius.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// An inline element's background is not one rectangle. It is the opening edge's strip, then
+    /// each run's own fill, then the closing edge's strip, each painted separately and abutting -
+    /// which is invisible while the corners are square and wrong the moment they are not, since
+    /// rounding the pieces individually puts corners in the MIDDLE of the element. So the pieces
+    /// are unioned per line here and the fill is laid down once, and the per-piece path skips the
+    /// background for anything that appears in this map.
+    /// </para>
+    /// <para>
+    /// Unioned from the SNAPPED pieces rather than snapped afterwards, so an element with no
+    /// radius is painted by exactly the arithmetic it was before - which is what keeps every
+    /// existing scenario identical, since none of them rounds an inline.
+    /// </para>
+    /// <para>
+    /// A fragment is rounded only at the ends the ELEMENT owns: a wrapped inline is open where the
+    /// line broke, because the element did not end there. Those ends are known without any
+    /// bookkeeping, because an opening and closing edge token is emitted for every inline element
+    /// whether or not it has padding to put in one.
+    /// </para>
+    /// </remarks>
+    static Dictionary<string, InlineFill>? RoundedInlines(
+        LineBox line,
+        int index,
+        Dictionary<string, (int First, int Last)> spans)
+    {
+        Dictionary<string, InlineFill>? fills = null;
+
+        foreach (var edge in line.Edges)
+        {
+            if (edge.Style.Visibility != VisibilityKind.Visible)
+            {
+                continue;
+            }
+
+            var bounds = edge.Bounds with
+            {
+                X = Snap(edge.Bounds.X),
+                Width = Snap(edge.Bounds.Width)
+            };
+
+            Add(edge.Selector, edge.Style, bounds);
+
+            Ancestors(edge.Selector, edge.Ancestors, bounds, edge.Baseline);
+        }
+
+        foreach (var run in line.Runs)
+        {
+            if (run.Style.Visibility != VisibilityKind.Visible || run.Width <= 0)
+            {
+                continue;
+            }
+
+            var left = Snap(run.X);
+            var (top, bottom) = InlineMetrics.Extent(run.Style, run.Face, run.Y);
+            var bounds = new Rect(left, top, Snap(run.X + run.Width) - left, bottom - top);
+
+            // Generated content has no element and so no selector to key on; it keeps the square
+            // fill, and the diagnostic keeps reporting it.
+            if (run.Selector is not null)
+            {
+                Add(run.Selector, run.Style, bounds);
+            }
+
+            Ancestors(run.Selector, run.Backdrops, bounds, run.Y);
+        }
+
+        if (fills is null)
+        {
+            return null;
+        }
+
+        // Resolved against the finished union, because a percentage radius reads the box it is on
+        // and the overlap clamp needs the real width. An element whose radius rounds to nothing is
+        // dropped, so the per-piece path keeps painting it and nothing changes.
+        foreach (var (key, fill) in fills.ToList())
+        {
+            if (!RoundedBox.Resolve(fill.Style, fill.Bounds).IsRounded)
+            {
+                fills.Remove(key);
+            }
+        }
+
+        return fills.Count == 0 ? null : fills;
+
+        void Ancestors(
+            string? selector,
+            IReadOnlyList<InlineBackdrop>? ancestors,
+            Rect bounds,
+            float baseline)
+        {
+            if (ancestors is null)
+            {
+                return;
+            }
+
+            var path = selector;
+
+            for (var index = ancestors.Count - 1; index >= 0; index--)
+            {
+                path = Enclosing(path);
+                if (path is null)
+                {
+                    return;
+                }
+
+                // At its OWN height, not at the height of whatever is nested inside it - the same
+                // rule the per-run fill follows, measuring each backdrop against its own face.
+                var (top, bottom) = InlineMetrics.Extent(
+                    ancestors[index].Style,
+                    ancestors[index].Face,
+                    baseline);
+
+                Add(
+                    path,
+                    ancestors[index].Style,
+                    bounds with {Y = top, Height = bottom - top});
+            }
+        }
+
+        void Add(string? selector, ComputedStyle style, Rect bounds)
+        {
+            if (selector is null || style.BackgroundColor is null || bounds.Width <= 0)
+            {
+                return;
+            }
+
+            fills ??= [];
+
+            // Which ends the element owns comes from the lines it occupies, not from its edge
+            // tokens: those are emitted only when there is padding or a border to put in one, so an
+            // ordinary highlight has none and asking them would square every such element at both
+            // ends. The line span answers it for every case with the same arithmetic.
+            var span = spans.GetValueOrDefault(selector, (First: index, Last: index));
+
+            fills[selector] = fills.TryGetValue(selector, out var existing)
+                ? existing with {Bounds = Span(existing.Bounds, bounds)}
+                : new(style, bounds, index == span.First, index == span.Last);
+        }
+    }
+
+    /// <summary>
+    /// The first and last line each inline element appears on, over a whole block.
+    /// </summary>
+    /// <remarks>
+    /// A fragment is rounded only at the ends the element itself reaches — a wrapped inline is
+    /// square where the line broke, because it did not end there. Its edge tokens would say so, but
+    /// they exist only when it has a padding or border to carry, so they answer for a code span and
+    /// not for a plain highlight. Which lines it occupies answers for both.
+    /// </remarks>
+    static Dictionary<string, (int First, int Last)> InlineSpans(LayoutBox box)
+    {
+        var spans = new Dictionary<string, (int First, int Last)>(StringComparer.Ordinal);
+
+        for (var index = 0; index < box.Lines.Count; index++)
+        {
+            foreach (var run in box.Lines[index].Runs)
+            {
+                Note(run.Selector, index);
+            }
+
+            foreach (var edge in box.Lines[index].Edges)
+            {
+                Note(edge.Selector, index);
+            }
+        }
+
+        return spans;
+
+        // Every prefix of a selector path names an enclosing element, so one walk records the
+        // element and its whole inline ancestry at once.
+        void Note(string? selector, int index)
+        {
+            for (var path = selector; path is not null; path = Enclosing(path))
+            {
+                spans[path] = spans.TryGetValue(path, out var existing)
+                    ? (Math.Min(existing.First, index), Math.Max(existing.Last, index))
+                    : (index, index);
+            }
+        }
+    }
+
+    /// <summary>The smallest rectangle containing both.</summary>
+    static Rect Span(Rect first, Rect second)
+    {
+        var x = MathF.Min(first.X, second.X);
+        var y = MathF.Min(first.Y, second.Y);
+
+        return new(
+            x,
+            y,
+            MathF.Max(first.Right, second.Right) - x,
+            MathF.Max(first.Bottom, second.Bottom) - y);
+    }
+
+    /// <summary>
+    /// Fills one inline element's line fragment, rounded at the ends it owns.
+    /// </summary>
+    static void PaintRoundedInline(Surface surface, InlineFill fill)
+    {
+        if (fill.Style.BackgroundColor is not {} background)
+        {
+            return;
+        }
+
+        var radii = RoundedBox.Resolve(fill.Style, fill.Bounds);
+
+        // Square where the line broke. A browser draws no corner at an end the element did not
+        // reach, which is what makes a wrapped inline read as one continuous highlight.
+        if (!fill.Opens)
+        {
+            radii = radii with {TopLeft = (0, 0), BottomLeft = (0, 0)};
+        }
+
+        if (!fill.Closes)
+        {
+            radii = radii with {TopRight = (0, 0), BottomRight = (0, 0)};
+        }
+
+        using var builder = new PathBuilder();
+        radii.Trace(builder, fill.Bounds, clockwise: true);
+
+        using var path = builder.Build();
+
+        using var paint = Krilla.Paint.Solid(background);
+        surface.SetFill(new Fill(paint, fill.Style.BackgroundAlpha)).DrawPath(path);
     }
 
     /// <summary>
@@ -1052,13 +1337,33 @@ static class PdfPainter
             PaintMarker(surface, box, page.Top, page.End);
         }
 
-        foreach (var line in box.Lines)
+        // Over every line, not only the ones on this page: which line an element starts and ends on
+        // is a property of the element, and culling first would round a fragment that is merely the
+        // first one visible here.
+        var spans = InlineSpans(box);
+
+        for (var index = 0; index < box.Lines.Count; index++)
         {
+            var line = box.Lines[index];
+
             // Bounded by where the next page starts, not by the paper. A line at or past the break
             // belongs overleaf and must not be drawn here even though it overlaps this sheet.
             if (line.Bounds.Bottom < page.Top || line.Bounds.Y >= page.End)
             {
                 continue;
+            }
+
+            // Ahead of every run, because these ARE the runs' backgrounds - unioned across the
+            // fragment so the corners land on the element's ends rather than inside it. Outermost
+            // first (an ancestor's path is a strict prefix, so it is the shorter string), which
+            // keeps a highlight nested inside another on top of it.
+            var rounded = RoundedInlines(line, index, spans);
+            if (rounded is not null)
+            {
+                foreach (var fill in rounded.OrderBy(_ => _.Key.Length).Select(_ => _.Value))
+                {
+                    PaintRoundedInline(surface, fill);
+                }
             }
 
             foreach (var run in line.Runs)
@@ -1069,7 +1374,7 @@ static class PdfPainter
                 // hiding the text does not hide the rectangle in a browser either.
                 if (run.Style.Visibility == VisibilityKind.Visible)
                 {
-                    PaintInlineBackground(surface, run);
+                    PaintInlineBackground(surface, run, rounded);
 
                     // Behind the text and in front of its background, which is where CSS puts a
                     // text shadow — over the element's own background and under its glyphs.
@@ -1107,7 +1412,9 @@ static class PdfPainter
                         surface,
                         edge.Style,
                         edge.Bounds with {X = Snap(edge.Bounds.X), Width = Snap(edge.Bounds.Width)},
-                        edge.Kind);
+                        edge.Kind,
+                        skipBackground: edge.Selector is {} selector &&
+                                        rounded?.ContainsKey(selector) == true);
                 }
             }
 

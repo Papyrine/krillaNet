@@ -299,7 +299,9 @@ static class UnsupportedCss
     /// A rounded corner cannot be reported through <see cref="Radius"/>, which asks whether the
     /// border is painted as one ring and answers yes for the uniform solid case. An inline border
     /// is never a ring: it is up to four rectangles, because a fragment has no corners to mitre at
-    /// the end where the line broke.
+    /// the end where the line broke. The BACKGROUND under it is rounded — unioned across the
+    /// fragment and filled once — so the report is narrowed to elements that actually have a
+    /// border, which are the only ones left with square corners to complain about.
     /// </para>
     /// <para>
     /// Vertical margins are silent, and correctly so: CSS drops them on an inline element, so
@@ -325,6 +327,14 @@ static class UnsupportedCss
                 "background-image",
                 Set(declaration, "background-image") ?? "set",
                 "only the background colour is painted on an inline element");
+        }
+
+        // Only where there is a border. The fill beneath one is rounded now, so an inline element
+        // with a background and no border — a code span, which is most of them — is drawn exactly
+        // as a browser draws it and has nothing to report.
+        if (!style.HasBorder)
+        {
+            return;
         }
 
         foreach (var corner in corners)
