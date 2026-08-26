@@ -10,6 +10,12 @@ span { background-color: #cfd8e8; }
 /* break-all breaks anywhere, whether or not the line would overflow. */
 #all { word-break: break-all; }
 
+/* The LEGACY spelling, which is what most documents in the wild carry: `word-wrap` predates
+   `overflow-wrap` by a decade and is still what reporting tools and mail merges emit. The cascade
+   does not alias the two — it hands `word-wrap` back under its own name and leaves `overflow-wrap`
+   empty — so a document written this way broke nothing and reported nothing. */
+#legacy { word-wrap: break-word; }
+
 /* break-word with ordinary words before it: those still break at spaces. */
 #mixed { overflow-wrap: break-word; }
 

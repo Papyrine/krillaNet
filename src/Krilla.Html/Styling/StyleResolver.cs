@@ -1877,10 +1877,20 @@ static class StyleResolver
     /// Whether a line may break inside a word, from either of the two properties that say so.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// <c>word-break</c> is read first because <c>break-all</c> is the stronger permission: it
     /// breaks whether or not the word would overflow, where <c>overflow-wrap: break-word</c> breaks
     /// only a word that fits on no line at all. The values not listed — <c>keep-all</c> and
     /// <c>break-word</c> as a <c>word-break</c> value — are reported rather than approximated.
+    /// </para>
+    /// <para>
+    /// BOTH spellings of the second property are read, and the cascade does not alias them: a
+    /// <c>word-wrap</c> declaration comes back under that name and leaves <c>overflow-wrap</c>
+    /// empty, exactly as the two break-property spellings do. Reading only the modern one is a
+    /// defect that leaves every test written in it passing while the documents that matter — the
+    /// legacy spelling predates the modern one by a decade and is what reporting tools and mail
+    /// merges emit — break nothing and report nothing.
+    /// </para>
     /// </remarks>
     static WordBreaking ParseWordBreaking(ICssStyleDeclaration declaration, WordBreaking inherited)
     {
@@ -1889,13 +1899,30 @@ static class StyleResolver
             return WordBreaking.Always;
         }
 
-        return declaration.GetPropertyValue("overflow-wrap").Trim().ToLowerInvariant() switch
+        return Wrapping(declaration) switch
         {
             "anywhere" => WordBreaking.Always,
             "break-word" => WordBreaking.OnOverflow,
             "normal" => WordBreaking.Normal,
             _ => inherited
         };
+    }
+
+    /// <summary>
+    /// The declared <c>overflow-wrap</c>, under whichever of its two spellings carries it.
+    /// </summary>
+    /// <remarks>
+    /// The modern one is preferred and the legacy one is the fallback, which is the same precedence
+    /// the break properties take.
+    /// </remarks>
+    static string Wrapping(ICssStyleDeclaration declaration)
+    {
+        if (declaration.GetPropertyValue("overflow-wrap").Trim().ToLowerInvariant() is {Length: > 0} modern)
+        {
+            return modern;
+        }
+
+        return declaration.GetPropertyValue("word-wrap").Trim().ToLowerInvariant();
     }
 
     static TextDecorations ParseDecorations(ICssStyleDeclaration declaration, TextDecorations inherited)
