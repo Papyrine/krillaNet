@@ -103,24 +103,6 @@
   },
   {
     "Element": "div",
-    "Name": "translate",
-    "Value": "10px 4px",
-    "Reason": "painted untransformed"
-  },
-  {
-    "Element": "div",
-    "Name": "rotate",
-    "Value": "45deg",
-    "Reason": "painted untransformed"
-  },
-  {
-    "Element": "div",
-    "Name": "scale",
-    "Value": "1.5",
-    "Reason": "painted untransformed"
-  },
-  {
-    "Element": "div",
     "Name": "content-visibility",
     "Value": "hidden",
     "Reason": "laid out and painted"

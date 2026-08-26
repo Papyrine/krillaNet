@@ -347,9 +347,11 @@ public class DiagnosticTests
     /// has to be re-run rather than trusted. Nothing failed to produce them; the list is the
     /// difference between what AngleSharp hands back and what this engine reads.
     ///
-    /// The three individual transform properties are the ones to notice. <c>translate</c>,
-    /// <c>rotate</c> and <c>scale</c> are not shorthands for <c>transform</c> and do not reach it,
-    /// so a document using the modern spelling moved nothing and was told nothing.
+    /// The three individual transform properties were found by the same pass and are not here,
+    /// because they were implemented rather than reported: <c>translate</c>, <c>rotate</c> and
+    /// <c>scale</c> are not shorthands for <c>transform</c> and do not reach it, so a document using
+    /// the modern spelling moved nothing and was told nothing. They report only where a
+    /// three-dimensional form drops the whole composite, which the test below covers.
     /// </remarks>
     [Test]
     public async Task ThePropertiesTheAuditFoundAreReported() =>
@@ -373,9 +375,6 @@ public class DiagnosticTests
                 <div style="background-attachment: fixed">o</div>
                 <div style="text-wrap: balance">p</div>
                 <div style="white-space-collapse: preserve">q</div>
-                <div style="translate: 10px 4px">r</div>
-                <div style="rotate: 45deg">s</div>
-                <div style="scale: 1.5">t</div>
                 <div style="content-visibility: hidden">u</div>
                 <div style="initial-letter: 2">v</div>
                 <div style="counter-set: chapter 3">w</div>
@@ -409,6 +408,25 @@ public class DiagnosticTests
 
         await Assert.That(reports).IsEmpty();
     }
+
+    /// <summary>
+    /// A three-dimensional individual transform, which drops the whole composite.
+    /// </summary>
+    /// <remarks>
+    /// The four properties compose into ONE matrix, so a <c>rotate</c> naming a third axis loses
+    /// the <c>translate</c> beside it as surely as a <c>rotate3d()</c> inside <c>transform</c> loses
+    /// the <c>scale()</c> beside that. Every declared property reports for that reason: the report
+    /// is about the composite, not about the one function that could not be applied.
+    /// </remarks>
+    [Test]
+    public async Task AThreeDimensionalIndividualTransformIsReported() =>
+        await Verify(
+            await Collect(
+                """
+                <div style="rotate: x 45deg; translate: 10px">a</div>
+                <div style="scale: 1 2 3">b</div>
+                <div style="translate: 1px 2px 3px">c</div>
+                """));
 
     [Test]
     public async Task ADiagnosticReadsAsASentence()

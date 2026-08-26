@@ -20,6 +20,7 @@ block/counters                   matched 14  offset    0.00  size    0.00  diffe
 block/counter_styles             matched 28  offset    0.00  size    0.00  differing  0  unmatched 0
 block/generated                  matched 10  offset    0.00  size    0.00  differing  0  unmatched 0
 block/gradients                  matched 11  offset    0.00  size    0.00  differing  0  unmatched 0
+block/individual_transforms      matched 24  offset    0.00  size    0.00  differing  0  unmatched 0
 block/inset_shadow               matched  8  offset    0.00  size    0.00  differing  0  unmatched 0
 block/list_image                 matched 11  offset    0.00  size    0.00  differing  0  unmatched 0
 block/list_position              matched 13  offset    0.00  size    0.00  differing  0  unmatched 0

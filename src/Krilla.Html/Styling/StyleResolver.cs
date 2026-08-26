@@ -396,6 +396,9 @@ static class StyleResolver
             Opacity = ParseOpacity(declaration.GetPropertyValue("opacity")),
             Transform = CssTransform.Parse(
                 declaration.GetPropertyValue("transform"),
+                declaration.GetPropertyValue("translate"),
+                declaration.GetPropertyValue("rotate"),
+                declaration.GetPropertyValue("scale"),
                 declaration.GetPropertyValue("transform-origin"),
                 font,
                 root),

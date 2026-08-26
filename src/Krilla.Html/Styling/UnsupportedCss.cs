@@ -69,9 +69,6 @@ static class UnsupportedCss
         ("content-visibility", ["visible"], "laid out and painted"),
         ("initial-letter", ["normal"], "the first letter is set like the rest"),
         ("counter-set", [], "the counter keeps the value it had"),
-        ("translate", ["none"], "painted untransformed"),
-        ("rotate", ["none"], "painted untransformed"),
-        ("scale", ["none"], "painted untransformed"),
         ("perspective", ["none"], "painted flat"),
         ("transform-style", ["flat"], "painted flat")
     ];
@@ -96,6 +93,15 @@ static class UnsupportedCss
 
     /// <summary>The two properties whose value is a position, read as two components.</summary>
     static readonly string[] positions = ["background-position", "object-position"];
+
+    /// <summary>
+    /// The four properties that compose into one transform matrix.
+    /// </summary>
+    /// <remarks>
+    /// The three individual ones are not shorthands for <c>transform</c> and reach no longhand of
+    /// it, so a document written in the modern spelling used to move nothing and be told nothing.
+    /// </remarks>
+    static readonly string[] matrices = ["transform", "translate", "rotate", "scale"];
 
     /// <summary>
     /// The <c>text-transform</c> values that are applied. Everything else falls through to the
@@ -226,13 +232,19 @@ static class UnsupportedCss
     }
 
     /// <summary>
-    /// A <c>transform</c> carrying a function this engine does not apply.
+    /// A transform carrying something this engine does not apply.
     /// </summary>
     /// <remarks>
     /// Asked of the resolved style, so the report follows exactly what the painter can do. What is
     /// left is the three-dimensional functions and <c>perspective</c>: applying their
     /// two-dimensional shadow would put the box somewhere plausible and wrong, so the whole
     /// transform is dropped and said to be dropped.
+    ///
+    /// All four properties, because they compose into ONE matrix: a three-dimensional
+    /// <c>rotate</c> drops the <c>translate</c> beside it as surely as a <c>rotate3d()</c> inside
+    /// <c>transform</c> drops the <c>scale()</c> beside that. So each declared property reports,
+    /// which is what says the whole composite was lost rather than the one function naming a third
+    /// axis.
     /// </remarks>
     static void Transform(
         ICssStyleDeclaration declaration,
@@ -245,11 +257,14 @@ static class UnsupportedCss
             return;
         }
 
-        if (Set(declaration, "transform") is {} value &&
-            value != "none" &&
-            !IsInitial(value))
+        foreach (var property in matrices)
         {
-            Diagnostic.Property(sink, element, "transform", value, "painted untransformed");
+            if (Set(declaration, property) is {} value &&
+                value != "none" &&
+                !IsInitial(value))
+            {
+                Diagnostic.Property(sink, element, property, value, "painted untransformed");
+            }
         }
     }
 
