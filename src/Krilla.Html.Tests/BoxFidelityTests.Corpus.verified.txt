@@ -22,6 +22,7 @@ block/gradients                  matched 11  offset    0.00  size    0.00  diffe
 block/inset_shadow               matched  8  offset    0.00  size    0.00  differing  0  unmatched 0
 block/list_image                 matched 11  offset    0.00  size    0.00  differing  0  unmatched 0
 block/list_position              matched 13  offset    0.00  size    0.00  differing  0  unmatched 0
+block/logical                    matched 14  offset    0.00  size    0.00  differing  0  unmatched 0
 block/margin_collapse            matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
 block/margin_collapse_blocked    matched  4  offset    0.00  size    0.00  differing  0  unmatched 0
 block/margin_collapse_parent     matched  5  offset    0.00  size    0.00  differing  0  unmatched 0

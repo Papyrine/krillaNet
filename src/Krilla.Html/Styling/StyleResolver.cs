@@ -544,10 +544,90 @@ static class StyleResolver
         CssRoot root,
         CssLength? fallback = null) =>
         CssValues.ParseLength(
-            declaration.GetPropertyValue(property),
+            Physical(declaration, property),
             fontSize,
             root,
             fallback ?? CssLength.Zero);
+
+    /// <summary>
+    /// A physical property's declared value, from its own name or from a LOGICAL one that means the
+    /// same thing here.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// CSS's logical properties name a box's edges by their relation to the writing direction
+    /// rather than by the page: <c>margin-inline-start</c> is the margin at the start of a line,
+    /// which in a left-to-right horizontal document is the left one. This engine has one writing
+    /// mode and one direction — both are reported when a document asks for another — so the mapping
+    /// is fixed, and reading them costs a lookup rather than a layout pass.
+    /// </para>
+    /// <para>
+    /// AngleSharp keeps them under their own names and expands none of them onto the physical
+    /// properties, which puts them where <c>word-wrap</c> was: honoured by nothing, reported by
+    /// nothing, and increasingly what modern stylesheets are written in.
+    /// </para>
+    /// <para>
+    /// The two-value shorthands are read positionally — <c>margin-inline: 4px 8px</c> is the start
+    /// then the end — and one value applies to both, which is the shorthand rule everywhere in CSS.
+    /// </para>
+    /// <para>
+    /// A LOGICAL declaration wins over a physical one, which is not the cascade's rule and is the
+    /// one approximation here: the two never reach a common slot, so nothing can say which was
+    /// written later. It is the right way round all the same. A physical value is present on
+    /// practically every element of every document — <c>* { margin: 0 }</c> is how a stylesheet
+    /// begins — so preferring it would make every logical declaration inert, where preferring the
+    /// logical one is wrong only for a document that declares both edges of the same box twice.
+    /// </para>
+    /// </remarks>
+    static string Physical(ICssStyleDeclaration declaration, string property)
+    {
+        if (logical.TryGetValue(property, out var mapping))
+        {
+            if (declaration.GetPropertyValue(mapping.Longhand) is {Length: > 0} longhand)
+            {
+                return longhand;
+            }
+
+            if (mapping.Shorthand is not null &&
+                declaration.GetPropertyValue(mapping.Shorthand).Trim() is {Length: > 0} pair)
+            {
+                var parts = pair.Split(' ', StringSplitOptions.RemoveEmptyEntries);
+                return parts.Length > 1 && mapping.Second ? parts[1] : parts[0];
+            }
+        }
+
+        return declaration.GetPropertyValue(property);
+    }
+
+    /// <summary>
+    /// Each physical property, and the logical spellings that reach it.
+    /// </summary>
+    /// <remarks>
+    /// <c>Second</c> says which half of a two-value shorthand the property takes — the END edge of
+    /// each axis, which is the right and the bottom in this writing mode.
+    /// </remarks>
+    static readonly Dictionary<string, (string Longhand, string? Shorthand, bool Second)> logical =
+        new(StringComparer.OrdinalIgnoreCase)
+        {
+            ["margin-left"] = ("margin-inline-start", "margin-inline", false),
+            ["margin-right"] = ("margin-inline-end", "margin-inline", true),
+            ["margin-top"] = ("margin-block-start", "margin-block", false),
+            ["margin-bottom"] = ("margin-block-end", "margin-block", true),
+            ["padding-left"] = ("padding-inline-start", "padding-inline", false),
+            ["padding-right"] = ("padding-inline-end", "padding-inline", true),
+            ["padding-top"] = ("padding-block-start", "padding-block", false),
+            ["padding-bottom"] = ("padding-block-end", "padding-block", true),
+            ["left"] = ("inset-inline-start", "inset-inline", false),
+            ["right"] = ("inset-inline-end", "inset-inline", true),
+            ["top"] = ("inset-block-start", "inset-block", false),
+            ["bottom"] = ("inset-block-end", "inset-block", true),
+            ["width"] = ("inline-size", null, false),
+            ["height"] = ("block-size", null, false),
+            ["min-width"] = ("min-inline-size", null, false),
+            ["min-height"] = ("min-block-size", null, false),
+            ["max-width"] = ("max-inline-size", null, false),
+            ["max-height"] = ("max-block-size", null, false)
+        };
 
     /// <summary>
     /// A border edge's width, which is zero whenever its style is <c>none</c> or <c>hidden</c>
