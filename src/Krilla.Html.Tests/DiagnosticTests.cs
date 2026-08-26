@@ -374,7 +374,6 @@ public class DiagnosticTests
                 <div style="perspective: 400px">n</div>
                 <div style="background-attachment: fixed">o</div>
                 <div style="text-wrap: balance">p</div>
-                <div style="white-space-collapse: preserve">q</div>
                 <div style="content-visibility: hidden">u</div>
                 <div style="initial-letter: 2">v</div>
                 <div style="counter-set: chapter 3">w</div>
@@ -399,7 +398,7 @@ public class DiagnosticTests
             <div style="font-kerning: auto">c</div>
             <div style="text-justify: inter-word">d</div>
             <div style="text-wrap: wrap">e</div>
-            <div style="white-space-collapse: collapse">f</div>
+            <div style="white-space-collapse: preserve; text-wrap: nowrap">f</div>
             <div style="background-attachment: local">g</div>
             <div style="unicode-bidi: embed">h</div>
             <div style="translate: none; rotate: none; scale: none">i</div>
@@ -427,6 +426,23 @@ public class DiagnosticTests
                 <div style="scale: 1 2 3">b</div>
                 <div style="translate: 1px 2px 3px">c</div>
                 """));
+
+    /// <summary>
+    /// The one <c>white-space-collapse</c> value that does not fold onto a value of the shorthand.
+    /// </summary>
+    /// <remarks>
+    /// <c>preserve-spaces</c> keeps spaces and tabs while collapsing a newline into a space, and
+    /// this folds it onto <c>preserve</c>, which honours the newline too. <c>break-spaces</c> would
+    /// belong here as well and cannot: AngleSharp drops it from BOTH spellings, which is the same
+    /// blind spot <c>revert</c> and <c>text-overflow</c> sit in.
+    /// </remarks>
+    [Test]
+    public async Task APreservedNewlineThatShouldCollapseIsReported()
+    {
+        var reports = await Collect("<div style=\"white-space-collapse: preserve-spaces\">a b</div>");
+
+        await Assert.That(reports.Single().Name).IsEqualTo("white-space-collapse");
+    }
 
     [Test]
     public async Task ADiagnosticReadsAsASentence()

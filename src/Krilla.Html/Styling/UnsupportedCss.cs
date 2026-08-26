@@ -58,8 +58,7 @@ static class UnsupportedCss
         ("text-align-last", ["auto"], "the last line is aligned like the rest"),
         ("text-justify", ["auto", "inter-word"], "justified between words"),
         ("line-break", ["auto"], "lines break between words as usual"),
-        ("text-wrap", ["auto", "wrap"], "lines break at the last opportunity that fits"),
-        ("white-space-collapse", ["collapse"], "white space is collapsed"),
+        ("text-wrap", ["auto", "wrap", "nowrap"], "lines break at the last opportunity that fits"),
         ("mix-blend-mode", ["normal"], "painted over what is under it"),
         ("background-blend-mode", ["normal"], "the layers are painted over one another"),
         ("isolation", ["auto"], "no group is isolated"),
@@ -139,6 +138,19 @@ static class UnsupportedCss
     static readonly string[] whiteSpaces = ["normal", "pre", "pre-wrap", "pre-line", "nowrap"];
 
     /// <summary>
+    /// The <c>white-space-collapse</c> values that fold onto one of those. Everything else lands on
+    /// the nearest, which is what gets reported.
+    /// </summary>
+    /// <remarks>
+    /// <c>preserve-spaces</c> is the one that is left: it keeps spaces and tabs while collapsing a
+    /// newline into a space, and this folds it onto <c>preserve</c>, which honours the newline too.
+    /// <c>break-spaces</c> would be here as well and is not reachable at all — AngleSharp drops it
+    /// from both spellings, which is the same blind spot <c>revert</c> and <c>text-overflow</c> sit
+    /// in.
+    /// </remarks>
+    static readonly string[] collapses = ["collapse", "preserve", "preserve-breaks"];
+
+    /// <summary>
     /// The <c>display</c> values that reach a layout mode of their own. Everything else falls
     /// through to block, which is what gets reported.
     /// </summary>
@@ -192,6 +204,7 @@ static class UnsupportedCss
         Positions(declaration, name, sink);
         Counters(declaration, name, sink);
         Spaces(declaration, name, sink);
+        Collapsing(declaration, name, sink);
         Collapse(declaration, name, sink);
         Outline(declaration, name, sink);
         Background(declaration, name, style, sink);
@@ -325,6 +338,24 @@ static class UnsupportedCss
                 "visibility",
                 "collapse",
                 "hidden, and still occupying its space");
+        }
+    }
+
+    /// <summary>
+    /// A <c>white-space-collapse</c> value that folds onto a coarser one.
+    /// </summary>
+    static void Collapsing(ICssStyleDeclaration declaration, string element, Action<HtmlDiagnostic> sink)
+    {
+        if (Set(declaration, "white-space-collapse") is {} value &&
+            !collapses.Contains(value) &&
+            !IsInitial(value))
+        {
+            Diagnostic.Property(
+                sink,
+                element,
+                "white-space-collapse",
+                value,
+                "white space is preserved and a newline is honoured with it");
         }
     }
 

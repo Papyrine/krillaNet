@@ -1,0 +1,27 @@
+/*
+  `white-space` is a shorthand for `white-space-collapse` and `text-wrap` in CSS Text 4, and the two
+  spellings do not meet: AngleSharp expands neither into the other, so a document written in the
+  modern one used to collapse every space it asked to keep.
+
+  The five values of the shorthand are the five combinations this engine distinguishes, which is
+  what lets the longhands fold onto the same answer rather than needing an axis of their own.
+*/
+div { font-family: "Liberation Mono"; font-size: 14px; line-height: 20px; width: 300px; margin-bottom: 20px; }
+
+/* `white-space: pre` in longhand. */
+#preserve { white-space-collapse: preserve; text-wrap: nowrap; background-color: #f0f0f0; }
+
+/* `pre-wrap`: the wrapping half is the initial value, so only one longhand is written. */
+#preservewrap { white-space-collapse: preserve; background-color: #e8e8e8; }
+
+/* `pre-line`. */
+#breaks { white-space-collapse: preserve-breaks; background-color: #e0e0e0; }
+
+/* `nowrap`, which is the wrapping longhand on its own. */
+#nowrap { text-wrap: nowrap; background-color: #d8d8d8; }
+
+/* A longhand INHERITS the half it does not name: the inner block turns wrapping off and keeps the
+   preserving that came from its parent, which is what a fallback to the property's own initial
+   value would silently undo. */
+#inherited { white-space-collapse: preserve; background-color: #f0f0f0; }
+#half { text-wrap: nowrap; background-color: #e8f0f8; margin-bottom: 0; }

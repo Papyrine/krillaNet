@@ -1,4 +1,4 @@
-# All scenarios (142)
+# All scenarios (143)
 
 The browser reference (left) beside the page Krilla.Html produced (right). `AE` is the fraction of pixels that differ and `SSIM` is structural similarity; neither is asserted. The worst offset is the largest positional disagreement in CSS pixels between the rendered element geometry and the browser's, and is the number to watch — it reaches zero exactly when the layout is right.
 
@@ -138,6 +138,7 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [text/tabs](#text-tabs)
 - [text/text_transform](#text-text_transform)
 - [text/underline_offset](#text-underline_offset)
+- [text/white_space_longhands](#text-white_space_longhands)
 - [text/word_break](#text-word_break)
 - [text/word_spacing](#text-word_spacing)
 - [ua/acid1](#ua-acid1)
@@ -4868,6 +4869,39 @@ What to look at: the rows each rule occupies. `#thin` is one row, `#plain` two, 
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0002 · SSIM 0.9997** |
 | <img src="text/underline_offset/reference_0001.png" width="480"> | <img src="text/underline_offset/result%23page_0001.verified.png" width="480"> |
+
+
+## text/white_space_longhands
+
+# text/white_space_longhands
+
+`white-space` is a shorthand for `white-space-collapse` and `text-wrap` in CSS Text 4, and the two
+spellings do not meet in AngleSharp: it expands neither into the other, so the longhands come back
+empty for a document that writes the shorthand and the shorthand comes back empty for one that
+writes the longhands. A document written in the modern spelling therefore collapsed every space it
+had asked to keep — the same shape as `word-wrap` beside `overflow-wrap`, and as
+`page-break-before` beside `break-before`.
+
+Both are read now, the shorthand first because a document writing it means it. The five values of
+the shorthand are the five combinations this engine distinguishes, which is what lets the longhands
+fold onto the same answer rather than needing an axis of their own — the first four rows here are
+`pre`, `pre-wrap`, `pre-line` and `nowrap` written the long way.
+
+`#inherited` is the row that decides how an absent longhand is read. It has to fall back to what the
+element INHERITED rather than to the property's own initial value: the inner block turns wrapping off and
+keeps the preserving that came from its parent, where a fallback to `collapse` would silently undo
+the half nobody mentioned.
+
+`break-spaces` is still out of reach from either spelling. AngleSharp drops it from `white-space`,
+and `white-space-collapse: break-spaces` is folded onto `preserve` and reported — it differs only in
+that a run of trailing spaces may itself be broken.
+
+**Boxes**: 8 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0002 · SSIM 1.0000** |
+| <img src="text/white_space_longhands/reference_0001.png" width="480"> | <img src="text/white_space_longhands/result%23page_0001.verified.png" width="480"> |
 
 
 ## text/word_break

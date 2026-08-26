@@ -386,7 +386,7 @@ static class StyleResolver
             VerticalAlignDeclared =
                 !string.IsNullOrWhiteSpace(declaration.GetPropertyValue("vertical-align")),
             TextAlign = ParseTextAlign(declaration.GetPropertyValue("text-align"), parent.TextAlign),
-            WhiteSpace = ParseWhiteSpace(declaration.GetPropertyValue("white-space"), parent.WhiteSpace),
+            WhiteSpace = ParseWhiteSpace(declaration, parent.WhiteSpace),
             Float = ParseFloat(declaration.GetPropertyValue("float")),
             Clear = ParseClear(declaration.GetPropertyValue("clear")),
             BreakBefore = ParseBreak(declaration, "break-before"),
@@ -2095,14 +2095,87 @@ static class StyleResolver
             _ => inherited
         };
 
-    static WhiteSpaceKind ParseWhiteSpace(string value, WhiteSpaceKind inherited) =>
-        value.Trim().ToLowerInvariant() switch
+    /// <summary>
+    /// How white space and wrapping are handled, from either spelling.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// <c>white-space</c> is a shorthand for <c>white-space-collapse</c> and <c>text-wrap</c> in CSS
+    /// Text 4, and AngleSharp does not expand it — the two longhands come back empty for a document
+    /// that writes the shorthand, and the shorthand comes back empty for one that writes the
+    /// longhands. So both are read, exactly as <c>overflow-wrap</c> and <c>word-wrap</c> are, and
+    /// the shorthand is read first because a document writing it means it.
+    /// </para>
+    /// <para>
+    /// The five values of the shorthand are the five combinations this engine distinguishes, which
+    /// is what lets the longhands fold onto the same enum rather than needing a second axis.
+    /// <c>break-spaces</c> is the sixth and is not reachable from either spelling: AngleSharp drops
+    /// it from <c>white-space</c>, and <c>white-space-collapse: break-spaces</c> is folded onto
+    /// <c>preserve</c> here and reported.
+    /// </para>
+    /// </remarks>
+    static WhiteSpaceKind ParseWhiteSpace(ICssStyleDeclaration declaration, WhiteSpaceKind inherited)
+    {
+        var shorthand = declaration.GetPropertyValue("white-space").Trim().ToLowerInvariant();
+
+        switch (shorthand)
         {
-            "pre" => WhiteSpaceKind.Pre,
-            "pre-wrap" => WhiteSpaceKind.PreWrap,
-            "pre-line" => WhiteSpaceKind.PreLine,
-            "nowrap" => WhiteSpaceKind.NoWrap,
-            "normal" => WhiteSpaceKind.Normal,
-            _ => inherited
+            case "pre":
+                return WhiteSpaceKind.Pre;
+            case "pre-wrap":
+                return WhiteSpaceKind.PreWrap;
+            case "pre-line":
+                return WhiteSpaceKind.PreLine;
+            case "nowrap":
+                return WhiteSpaceKind.NoWrap;
+            case "normal":
+                return WhiteSpaceKind.Normal;
+        }
+
+        var collapse = declaration.GetPropertyValue("white-space-collapse").Trim().ToLowerInvariant();
+        var wrap = declaration.GetPropertyValue("text-wrap").Trim().ToLowerInvariant();
+
+        if (collapse.Length == 0 && wrap.Length == 0)
+        {
+            return inherited;
+        }
+
+        // Each longhand falls back to what the element INHERITED rather than to its initial value,
+        // so `text-wrap: nowrap` inside a `pre` block keeps the preserving half of it. Reading the
+        // absent one as its initial value would silently reset the other half.
+        var preserves = collapse switch
+        {
+            // `break-spaces` differs from `preserve` only in that a run of trailing spaces may
+            // itself be broken, which is what `UnsupportedCss` reports.
+            "preserve" or "break-spaces" or "preserve-spaces" => true,
+            "preserve-breaks" => false,
+            "collapse" => false,
+            _ => inherited is WhiteSpaceKind.Pre or WhiteSpaceKind.PreWrap
         };
+
+        var breaks = collapse switch
+        {
+            "preserve-breaks" => true,
+            _ => preserves || inherited == WhiteSpaceKind.PreLine
+        };
+
+        var wraps = wrap switch
+        {
+            "nowrap" => false,
+            "" => inherited is not (WhiteSpaceKind.Pre or WhiteSpaceKind.NoWrap),
+            _ => true
+        };
+
+        if (preserves)
+        {
+            return wraps ? WhiteSpaceKind.PreWrap : WhiteSpaceKind.Pre;
+        }
+
+        if (breaks)
+        {
+            return WhiteSpaceKind.PreLine;
+        }
+
+        return wraps ? WhiteSpaceKind.Normal : WhiteSpaceKind.NoWrap;
+    }
 }

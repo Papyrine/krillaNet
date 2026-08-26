@@ -97,12 +97,6 @@
   },
   {
     "Element": "div",
-    "Name": "white-space-collapse",
-    "Value": "preserve",
-    "Reason": "white space is collapsed"
-  },
-  {
-    "Element": "div",
     "Name": "content-visibility",
     "Value": "hidden",
     "Reason": "laid out and painted"
