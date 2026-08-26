@@ -292,9 +292,9 @@ static class UnsupportedCss
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Most of the inline box model IS honoured — the background, the padding, the border and the
-    /// horizontal margins, each per line fragment — so what is left is two decorations that a real
-    /// box gets and a fragment does not.
+    /// Most of the inline box model IS honoured — the background including a gradient, the padding,
+    /// the border and the horizontal margins, each per line fragment — so what is left is one
+    /// decoration that a real box gets and a fragment does not.
     /// </para>
     /// <para>
     /// A rounded corner cannot be reported through <see cref="Radius"/>, which asks whether the
@@ -316,16 +316,6 @@ static class UnsupportedCss
         if (style.Display != DisplayKind.Inline)
         {
             return;
-        }
-
-        if (style.BackgroundImage is not null)
-        {
-            Diagnostic.Property(
-                sink,
-                element,
-                "background-image",
-                Set(declaration, "background-image") ?? "set",
-                "only the background colour is painted on an inline element");
         }
 
         foreach (var corner in corners)

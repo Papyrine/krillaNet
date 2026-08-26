@@ -1,0 +1,12 @@
+p { width: 300px; font-size: 16px; line-height: 28px; margin: 0 0 10px; }
+
+/* Measured: a span that wraps continues the ramp where the previous line left off, so the
+   gradient's box is the fragments laid end to end rather than one box per line. */
+.ramp { background-image: linear-gradient(to right, #d04040, #4060c0); color: #ffffff; }
+.round { background-image: radial-gradient(circle, #40a060, #204020); color: #ffffff; }
+
+/* Two layers, the colour under the ramp, which a translucent gradient shows through. */
+.translucent {
+  background-color: #f0c040;
+  background-image: linear-gradient(to right, rgba(40, 40, 160, 0.8), rgba(40, 40, 160, 0));
+}

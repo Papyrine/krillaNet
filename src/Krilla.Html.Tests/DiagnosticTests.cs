@@ -375,6 +375,9 @@ public class DiagnosticTests
             <div style="border: 2px solid rgba(0, 0, 0, 0.4); outline: 1px solid rgba(0, 0, 0, 0.2)">faint</div>
             <div style="box-shadow: inset 4px 4px #000">pressed in</div>
             <ul style="list-style-type: lower-greek"><li>counted in Greek</li></ul>
+            <p><span style="background-image: linear-gradient(to right, red, blue)">a ramp on a span</span></p>
+            <p style="margin-inline: 4px; inline-size: 100px">logically sized</p>
+            <p style="word-wrap: break-word">breakable</p>
             <ul style="list-style-type: '→'"><li>marked with a literal</li></ul>
             <p style="text-decoration: underline; text-decoration-color: rgba(0, 0, 0, 0.3)">faintly ruled</p>
             <p style="height: 40px"><span style="height: 50%">a share of a definite height</span></p>

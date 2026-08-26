@@ -802,13 +802,13 @@ static class PdfPainter
     /// means changing where the words go.
     /// </para>
     /// </remarks>
-    static void PaintInlineBackground(Surface surface, TextRun run)
+    static void PaintInlineBackground(Surface surface, TextRun run, InlineRamps? ramps)
     {
         if (run.Backdrops is {} backdrops)
         {
             foreach (var backdrop in backdrops)
             {
-                Fill(surface, backdrop.Style, backdrop.Face, run);
+                Fill(surface, backdrop.Style, backdrop.Face, run, ramps, backdrop.Style);
             }
         }
 
@@ -824,10 +824,16 @@ static class PdfPainter
         // so every anonymous run would paint its parent's background a second time.
         if (run.Selector is not null || run.Generated)
         {
-            Fill(surface, run.Style, run.Face, run);
+            Fill(surface, run.Style, run.Face, run, ramps, (object?) run.Selector ?? run.Style);
         }
 
-        static void Fill(Surface surface, ComputedStyle style, FontFace face, TextRun run)
+        static void Fill(
+            Surface surface,
+            ComputedStyle style,
+            FontFace face,
+            TextRun run,
+            InlineRamps? ramps,
+            object identity)
         {
             if (run.Width <= 0)
             {
@@ -845,7 +851,15 @@ static class PdfPainter
 
             var bounds = new Rect(left, top, Snap(run.X + run.Width) - left, bottom - top);
 
-            PaintInlineSurface(surface, style, bounds, InlineEdgeKind.None);
+            // The gradient's own box is the element's WHOLE advance, laid end to end across its
+            // fragments, of which this rectangle shows one slice. A shading is positioned in user
+            // space, so filling the fragment with a paint built over the larger box samples exactly
+            // the part of the ramp that belongs to it.
+            var ramp = style.BackgroundImage is {} gradient && ramps?.Span(identity, run.X, run.Y) is {} span
+                ? new Rect(left - span.Before, top, span.Total, bottom - top)
+                : (Rect?) null;
+
+            PaintInlineSurface(surface, style, bounds, InlineEdgeKind.None, ramp);
         }
     }
 
@@ -870,7 +884,8 @@ static class PdfPainter
         Surface surface,
         ComputedStyle style,
         Rect bounds,
-        InlineEdgeKind kind)
+        InlineEdgeKind kind,
+        Rect? ramp = null)
     {
         if (bounds.Width <= 0 || bounds.Height <= 0)
         {
@@ -884,6 +899,17 @@ static class PdfPainter
 
             using var inline = Krilla.Paint.Solid(background);
             surface.SetFill(new Fill(inline, style.BackgroundAlpha)).DrawPath(path);
+        }
+
+        // The colour first and the ramp over it, which is the same two layers a block background
+        // has: a translucent gradient shows the colour through it.
+        if (style.BackgroundImage is {} gradient && ramp is {} box)
+        {
+            using var path = PdfPath.Rectangle(
+                Rectangle.FromSize(bounds.X, bounds.Y, bounds.Width, bounds.Height));
+
+            using var paint = GradientPaint.Create(gradient, box, tiles: false);
+            surface.SetFill(new Fill(paint)).DrawPath(path);
         }
 
         Edge(
@@ -1052,6 +1078,11 @@ static class PdfPainter
             PaintMarker(surface, box, page.Top, page.End);
         }
 
+        // Built before the lines are walked rather than during, because a gradient on a WRAPPED
+        // inline element runs across its fragments and the painter reaches them one page at a time.
+        // Null for a box whose inline content carries no gradient, which is almost every box.
+        var ramps = InlineRamps.For(box);
+
         foreach (var line in box.Lines)
         {
             // Bounded by where the next page starts, not by the paper. A line at or past the break
@@ -1069,7 +1100,7 @@ static class PdfPainter
                 // hiding the text does not hide the rectangle in a browser either.
                 if (run.Style.Visibility == VisibilityKind.Visible)
                 {
-                    PaintInlineBackground(surface, run);
+                    PaintInlineBackground(surface, run, ramps);
 
                     // Behind the text and in front of its background, which is where CSS puts a
                     // text shadow — over the element's own background and under its glyphs.
