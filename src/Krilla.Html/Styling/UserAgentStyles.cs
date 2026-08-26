@@ -131,13 +131,19 @@ static class UserAgentStyles
     /// own — so a picture in the middle of a sentence jumps below the paragraph text instead of
     /// flowing with it. The replaced elements still missing (<c>input</c>, <c>svg</c>, <c>video</c>)
     /// are absent because they need more than a display value to lay out.
+    ///
+    /// The obsolete presentational elements are here too, and they are not decoration: a
+    /// <c>&lt;font&gt;</c> laid out as a block puts every run it wraps on a line of its own, which
+    /// is a whole-document difference in exactly the documents that still contain one. Found by
+    /// applying the presentational attributes and watching six <c>&lt;font size&gt;</c> spans come
+    /// out on six separate lines.
     /// </remarks>
     static readonly HashSet<string> inline =
     [
         with(StringComparer.OrdinalIgnoreCase),
-        "a", "abbr", "b", "bdi", "bdo", "br", "cite", "code", "data", "dfn", "em", "i", "img",
-        "kbd", "label", "mark", "q", "rp", "rt", "ruby", "s", "samp", "small", "span", "strong",
-        "sub", "sup", "time", "u", "var", "wbr"
+        "a", "abbr", "acronym", "b", "bdi", "bdo", "big", "br", "cite", "code", "data", "dfn",
+        "em", "font", "i", "img", "kbd", "label", "mark", "nobr", "q", "rp", "rt", "ruby", "s",
+        "samp", "small", "span", "strike", "strong", "sub", "sup", "time", "tt", "u", "var", "wbr"
     ];
 
     /// <summary>

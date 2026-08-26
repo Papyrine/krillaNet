@@ -1,6 +1,27 @@
 ﻿[
   {
     "Kind": "IgnoredAttribute",
+    "Element": "body",
+    "Name": "link",
+    "Value": "blue",
+    "Reason": "not applied, because presentational attributes are not mapped onto CSS"
+  },
+  {
+    "Kind": "IgnoredAttribute",
+    "Element": "body",
+    "Name": "vlink",
+    "Value": "purple",
+    "Reason": "not applied, because presentational attributes are not mapped onto CSS"
+  },
+  {
+    "Kind": "IgnoredAttribute",
+    "Element": "body",
+    "Name": "alink",
+    "Value": "red",
+    "Reason": "not applied, because presentational attributes are not mapped onto CSS"
+  },
+  {
+    "Kind": "IgnoredAttribute",
     "Element": "table",
     "Name": "rules",
     "Value": "all",
@@ -16,6 +37,13 @@
   {
     "Kind": "IgnoredAttribute",
     "Element": "td",
+    "Name": "bgcolor",
+    "Value": "chucknorris",
+    "Reason": "names nothing this maps onto CSS"
+  },
+  {
+    "Kind": "IgnoredAttribute",
+    "Element": "td",
     "Name": "align",
     "Value": "char",
     "Reason": "names nothing this maps onto CSS"
@@ -24,28 +52,21 @@
     "Kind": "IgnoredAttribute",
     "Element": "ol",
     "Name": "type",
-    "Value": "a",
-    "Reason": "not applied, because presentational attributes are not mapped onto CSS"
+    "Value": "q",
+    "Reason": "names nothing this maps onto CSS"
   },
   {
     "Kind": "IgnoredAttribute",
     "Element": "hr",
     "Name": "size",
-    "Value": "4",
-    "Reason": "not applied, because presentational attributes are not mapped onto CSS"
+    "Value": "thick",
+    "Reason": "names nothing this maps onto CSS"
   },
   {
     "Kind": "IgnoredAttribute",
-    "Element": "font",
-    "Name": "color",
-    "Value": "red",
-    "Reason": "not applied, because presentational attributes are not mapped onto CSS"
-  },
-  {
-    "Kind": "IgnoredAttribute",
-    "Element": "font",
-    "Name": "size",
-    "Value": "6",
-    "Reason": "not applied, because presentational attributes are not mapped onto CSS"
+    "Element": "img",
+    "Name": "align",
+    "Value": "middleish",
+    "Reason": "names nothing this maps onto CSS"
   }
 ]

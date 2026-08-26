@@ -1,0 +1,10 @@
+/*
+  Nothing here beats a hint. This scenario measures the mappings themselves, and the one that
+  proves they are hints rather than inline styles is in ua/presentational.
+
+  A colour for the rules that get one, so the two that DERIVE their shades from an undeclared
+  colour and the two that are told one stay distinguishable in the render.
+*/
+body {
+  color: #222222;
+}

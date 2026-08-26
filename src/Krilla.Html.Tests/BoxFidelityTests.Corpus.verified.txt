@@ -149,3 +149,4 @@ ua/lists                         matched 12  offset    0.00  size    0.00  diffe
 ua/list_markers                  matched 32  offset    0.00  size    0.00  differing  0  unmatched 0
 ua/paragraphs                    matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
 ua/presentational                matched 26  offset    0.00  size    0.00  differing  0  unmatched 0
+ua/presentational_text           matched 29  offset    0.00  size    0.00  differing  0  unmatched 0

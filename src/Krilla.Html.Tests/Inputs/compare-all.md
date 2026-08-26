@@ -1,4 +1,4 @@
-# All scenarios (146)
+# All scenarios (148)
 
 The browser reference (left) beside the page Krilla.Html produced (right). `AE` is the fraction of pixels that differ and `SSIM` is structural similarity; neither is asserted. The worst offset is the largest positional disagreement in CSS pixels between the rendered element geometry and the browser's, and is the number to watch — it reaches zero exactly when the layout is right.
 
@@ -58,6 +58,7 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [image/block_centred](#image-block_centred)
 - [image/data_uri](#image-data_uri)
 - [image/inline_flow](#image-inline_flow)
+- [image/inline_surround](#image-inline_surround)
 - [image/intrinsic](#image-intrinsic)
 - [image/max_width](#image-max_width)
 - [image/object_fit](#image-object_fit)
@@ -151,6 +152,7 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [ua/list_markers](#ua-list_markers)
 - [ua/paragraphs](#ua-paragraphs)
 - [ua/presentational](#ua-presentational)
+- [ua/presentational_text](#ua-presentational_text)
 
 </details>
 
@@ -2179,6 +2181,51 @@ replaced element.
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0006 · SSIM 0.9999** |
 | <img src="image/inline_flow/reference_0001.png" width="480"> | <img src="image/inline_flow/result%23page_0001.verified.png" width="480"> |
+
+
+## image/inline_surround
+
+# image/inline_surround
+
+Pixel-identical to Chrome and exact on all 14 boxes.
+
+An `<img>` in a paragraph is an atomic inline, and an atomic inline is the one inline-level box that
+takes its WHOLE box model. A run of text takes the horizontal half of it — vertical padding on a
+`<span>` overflows the line rather than growing it — and a replaced element takes all of it: its
+margin box is what sits on the line, and the bottom of that box is what rests on the baseline.
+
+None of it was applied. An inline image's advance was its CONTENT width and the rectangle recorded
+for it was its content box, so a border reserved no space, was never drawn, and was invisible to the
+box comparison as well — the geometry matched, because both the reference and this engine were
+reporting a box that agreed by accident whenever there was no surround to disagree about. Every
+image in the corpus before this had none.
+
+The rows, each adding one part of the box model to the same picture:
+
+- `#bare` — the control, and the row that says the change cost nothing where there is no surround.
+- `#framed` — a 4px border. Eight pixels of advance and eight of height.
+- `#inset` — asymmetric padding, plus a background, so the padding is visible rather than merely
+  reserved.
+- `#apart` — horizontal margins, which the line has to leave outside the border box.
+- `#raised` — vertical margins, which is the half that separates a replaced element from a run of
+  text: the line grows by both of them, where a `<span>`'s vertical margins do nothing at all.
+- `#everything` — all four at once, which is what catches an inset applied to the wrong rectangle.
+
+## What to look at when it moves
+
+Text after the image starting too far left is the advance back on the content box. The picture
+drawn over its own border is the content rectangle not being deflated — it is carried on the box
+rather than derived in the painter, because a list marker image shares the LIST ITEM's style and
+must not be deflated by it. A soft edge down one side of `#framed` is the border rectangle no longer
+being snapped to whole pixels, which an inline image needs more than most: it starts wherever the
+words before it ended, so a fractional position is the normal case rather than a corner one.
+
+**Boxes**: 14 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| <img src="image/inline_surround/reference_0001.png" width="480"> | <img src="image/inline_surround/result%23page_0001.verified.png" width="480"> |
 
 
 ## image/intrinsic
@@ -5319,5 +5366,66 @@ wide is the reverse mistake: a hint that has stopped being a hint.
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0016 · SSIM 0.9999** |
 | <img src="ua/presentational/reference_0001.png" width="480"> | <img src="ua/presentational/result%23page_0001.verified.png" width="480"> |
+
+
+## ua/presentational_text
+
+# ua/presentational_text
+
+The presentational attributes that are not a table's: `<font>`, `<hr>`, a list's `type`, and an
+image's spacing and border. Exact on all 29 boxes, at SSIM 0.9999.
+
+The sibling scenario `ua/presentational` covers the table attributes and carries the design note
+about why these have to be `ua/` scenarios at all — `flatten.css` writes author declarations that
+beat a hint outright, correctly and in both engines.
+
+What each row is for:
+
+- The `<font>` paragraph — the size levels, which are a table of seven keywords rather than a
+  length, and the two relative forms, which count from 3 rather than from the parent. Measured
+  against Chrome at every one: `size="1"` is `x-small`, `size="6"` is `xx-large`, `size="+2"` is
+  `x-large` and `size="-1"` is `small`. `size="7"` needed `xxx-large`, which the keyword table did
+  not have — nobody writes it in a stylesheet, and this attribute is where documents ask for it.
+  `color` and `face` are here too, the latter because a bare family name has to be quoted before
+  CSS will take it.
+- `#plain` — the control: a rule with no attributes, drawn by its 1px `inset` border.
+- `#thick` — `size="9"`. A rule is a zero-height box drawn entirely by its border, so `size` asks
+  for a thicker BOX and the two border pixels come out of it. Nine pixels tall, not eleven.
+- `#solid` — `noshade`, which turns the carved rule into a flat one. It is a solid GREY bar,
+  measured: not the element's colour, and not the shades a carved rule derives. The fill is the
+  half that a reading of HTML's own wording misses — without it the rule is a nine-pixel white bar
+  with a hairline around it.
+- `#painted` — `color` and `width`, which is the same flat rule with the colour named.
+- `#short` — `align="left"`, which is a margin pair rather than `text-align`, and `width`, which
+  the border is added to: 182px for a `width="180"`.
+- The four lists — `type` in both spellings and on an `<li>` rather than its list. `#mixed` is the
+  one that matters: the item's own `type` has to beat the marker its list already gave it, which
+  is a value the user-agent sheet supplies rather than an absent one.
+- `#wrapped` — `hspace`, `vspace` and `border` on an inline image, which reach the box model an
+  atomic inline was not being given at all. `image/inline_surround` measures that half in CSS.
+- `#around` — `align="right"`, which FLOATS a picture where the same attribute on a paragraph
+  aligns its text.
+
+## Residuals
+
+543 pixels differ and none of them is this feature: twelve on the rules' bevelled corners, forty on
+the two list markers' antialiased circles, and the rest sub-pixel glyph positioning — most of it in
+the `<font>` paragraph, which carries six sizes on three lines and so has more glyph edges than
+anything else in the corpus of its size.
+
+## What to look at when it moves
+
+Six `<font>` runs on six separate lines is the element back to block-level: it has no `display` in
+AngleSharp's sheet, and `UserAgentStyles` is what supplies one. A rule two pixels too tall is the
+`size` subtraction gone; a hollow one is `noshade` no longer filling. A bullet where a letter
+belongs is `type` losing to the user-agent's own `list-style-type`, which it is allowed to beat and
+an author rule is not.
+
+**Boxes**: 29 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0006 · SSIM 0.9999** |
+| <img src="ua/presentational_text/reference_0001.png" width="480"> | <img src="ua/presentational_text/result%23page_0001.verified.png" width="480"> |
 
 

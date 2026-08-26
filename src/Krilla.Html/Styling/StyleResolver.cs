@@ -552,6 +552,9 @@ static class StyleResolver
             "large" => defaultFontSize * 18 / 16f,
             "x-large" => defaultFontSize * 24 / 16f,
             "xx-large" => defaultFontSize * 32 / 16f,
+            // Reached from `<font size="7">` rather than from a stylesheet, which is why it was
+            // missing: the keyword is CSS Fonts 4 and the attribute is where documents write it.
+            "xxx-large" => defaultFontSize * 48 / 16f,
             "smaller" => parentSize / 1.2f,
             "larger" => parentSize * 1.2f,
             _ => null

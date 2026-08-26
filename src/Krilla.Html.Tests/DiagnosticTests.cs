@@ -264,12 +264,13 @@ public class DiagnosticTests
         await Verify(
             await Collect(
                 """
+                <body link="blue" vlink="purple" alink="red">
                 <table rules="all" frame="box">
-                  <tr><td align="char">a</td></tr>
+                  <tr><td align="char" bgcolor="chucknorris">a</td></tr>
                 </table>
-                <ol type="a"><li>b</li></ol>
-                <hr size="4">
-                <font color="red" size="6">d</font>
+                <ol type="q"><li>b</li></ol>
+                <hr size="thick">
+                <img src="data:image/gif;base64,R0lGODlhAQABAIAAAAAAAP///yH5BAEAAAAALAAAAAABAAEAAAIBRAA7" align="middleish">
                 """));
 
     /// <summary>
@@ -287,6 +288,11 @@ public class DiagnosticTests
                     </table>
                     <p align="center">c</p>
                     <h2 align="right">h</h2>
+                    <hr size="4" noshade width="200" align="left">
+                    <ol type="a"><li type="I">b</li></ol>
+                    <ul type="square"><li>c</li></ul>
+                    <font color="red" size="6" face="Liberation Serif">d</font>
+                    <body bgcolor="silver" text="#333">
                     """))
             .IsEmpty();
 

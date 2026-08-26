@@ -42,25 +42,41 @@ static class PresentationalHints
     /// entry naming the wrong string silently stops its hint applying, which is why they are
     /// listed once here rather than spelled out at each call site.
     /// </remarks>
-    static readonly Dictionary<string, string> defaults = new(StringComparer.OrdinalIgnoreCase)
+    static readonly Dictionary<string, string[]> defaults = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["table/border-spacing"] = "2px",
-        ["td/padding-top"] = "1px",
-        ["td/padding-right"] = "1px",
-        ["td/padding-bottom"] = "1px",
-        ["td/padding-left"] = "1px",
-        ["th/padding-top"] = "1px",
-        ["th/padding-right"] = "1px",
-        ["th/padding-bottom"] = "1px",
-        ["th/padding-left"] = "1px",
-        ["td/vertical-align"] = "inherit",
-        ["th/vertical-align"] = "inherit",
-        ["tr/vertical-align"] = "inherit",
-        ["thead/vertical-align"] = "inherit",
-        ["tbody/vertical-align"] = "inherit",
-        ["tfoot/vertical-align"] = "inherit",
-        ["th/text-align"] = "center",
-        ["caption/text-align"] = "center"
+        ["table/border-spacing"] = ["2px"],
+        ["td/padding-top"] = ["1px"],
+        ["td/padding-right"] = ["1px"],
+        ["td/padding-bottom"] = ["1px"],
+        ["td/padding-left"] = ["1px"],
+        ["th/padding-top"] = ["1px"],
+        ["th/padding-right"] = ["1px"],
+        ["th/padding-bottom"] = ["1px"],
+        ["th/padding-left"] = ["1px"],
+        ["td/vertical-align"] = ["inherit"],
+        ["th/vertical-align"] = ["inherit"],
+        ["tr/vertical-align"] = ["inherit"],
+        ["thead/vertical-align"] = ["inherit"],
+        ["tbody/vertical-align"] = ["inherit"],
+        ["tfoot/vertical-align"] = ["inherit"],
+        ["th/text-align"] = ["center"],
+        ["caption/text-align"] = ["center"],
+        ["hr/margin-left"] = ["auto"],
+        ["hr/margin-right"] = ["auto"],
+        ["hr/border-top-style"] = ["inset"],
+        ["hr/border-right-style"] = ["inset"],
+        ["hr/border-bottom-style"] = ["inset"],
+        ["hr/border-left-style"] = ["inset"],
+        ["hr/border-top-color"] = ["initial"],
+        ["hr/border-right-color"] = ["initial"],
+        ["hr/border-bottom-color"] = ["initial"],
+        ["hr/border-left-color"] = ["initial"],
+
+        // The nesting chain in `UserAgentStyles.Corrections` gives a list one of three markers by
+        // depth, so a `type` attribute has three values to beat rather than one.
+        ["ul/list-style-type"] = ["disc", "circle", "square"],
+        ["menu/list-style-type"] = ["disc", "circle", "square"],
+        ["ol/list-style-type"] = ["decimal"]
     };
 
     /// <summary>
@@ -134,7 +150,151 @@ static class PresentationalHints
             case "h6":
                 hints.Map("align", Align, "text-align");
                 break;
+            case "hr":
+                Rule(hints);
+                break;
+            case "font":
+                hints.Map("color", Color, "color");
+                hints.Map("face", Families, "font-family");
+                hints.Map("size", Size, "font-size");
+                break;
+            case "body":
+                hints.Map("bgcolor", Color, "background-color");
+                hints.Map("text", Color, "color");
+                break;
+            case "img":
+                Image(hints);
+                break;
+            case "ol":
+                hints.Map("type", Ordered, "list-style-type");
+                break;
+            case "ul":
+            case "menu":
+                hints.Map("type", Unordered, "list-style-type");
+                break;
+            case "li":
+                hints.Map("type", Marker, "list-style-type");
+                break;
         }
+    }
+
+    /// <summary>
+    /// <c>&lt;hr&gt;</c>, whose four attributes reach six properties between them.
+    /// </summary>
+    /// <remarks>
+    /// A rule is a zero-height box drawn entirely by its 1px border, so <c>size</c> asks for a
+    /// THICKER BOX rather than a thicker line and the two border pixels come out of it. Measured:
+    /// <c>size="9"</c> is nine pixels tall with a colour and nine without one, so the subtraction
+    /// happens either way — where HTML's own wording reads as though a coloured rule keeps the
+    /// whole of the number.
+    /// </remarks>
+    static void Rule(Hints hints)
+    {
+        hints.Map("width", Pixels, "width");
+
+        switch (hints.Raw("align")?.Trim().ToLowerInvariant())
+        {
+            case "left":
+                hints.Set("margin-left", "0");
+                hints.Set("margin-right", "auto");
+                break;
+            case "right":
+                hints.Set("margin-left", "auto");
+                hints.Set("margin-right", "0");
+                break;
+            case "center":
+                hints.Set("margin-left", "auto");
+                hints.Set("margin-right", "auto");
+                break;
+            case {} other:
+                hints.Report("align", other);
+                break;
+        }
+
+        // A rule drawn flat rather than carved: `border-style: solid`, and the box FILLED with the
+        // colour rather than merely outlined in it. Measured, and the fill is the half a reading of
+        // HTML's own wording misses — without it a `size="9"` rule is a nine-pixel white bar with
+        // a hairline around it. `noshade` on its own is grey, which is neither the element's colour
+        // nor the pair a carved rule derives from its own.
+        if (hints.Has("noshade") || hints.Has("color"))
+        {
+            foreach (var side in sides)
+            {
+                hints.Set($"border-{side}-style", "solid");
+            }
+
+            var colour = hints.Raw("color") is {} named ? Color(named) : "gray";
+
+            if (colour is null)
+            {
+                hints.Report("color", hints.Raw("color"));
+            }
+            else
+            {
+                foreach (var side in sides)
+                {
+                    hints.Set($"border-{side}-color", colour);
+                }
+
+                hints.Set("background-color", colour);
+            }
+        }
+
+        if (hints.Raw("size") is not {} declared)
+        {
+            return;
+        }
+
+        if (Integer(declared) is not {} size)
+        {
+            hints.Report("size", declared);
+        }
+        else if (size > 1)
+        {
+            hints.Set("height", $"{size - 2}px");
+        }
+    }
+
+    static void Image(Hints hints)
+    {
+        // `align` is the one attribute here reaching two different properties by value: the
+        // horizontal keywords float the picture and the vertical ones align it on its line.
+        switch (hints.Raw("align")?.Trim().ToLowerInvariant())
+        {
+            case "left":
+                hints.Set("float", "left");
+                break;
+            case "right":
+                hints.Set("float", "right");
+                break;
+            case "top":
+            case "middle":
+            case "bottom":
+                hints.Map("align", VerticalAlign, "vertical-align");
+                break;
+            case {} other:
+                hints.Report("align", other);
+                break;
+        }
+
+        if (hints.Raw("border") is {} border)
+        {
+            if (Integer(border) is not {} width)
+            {
+                hints.Report("border", border);
+            }
+            else
+            {
+                foreach (var side in sides)
+                {
+                    hints.Set($"border-{side}-width", $"{width}px");
+                    hints.Set($"border-{side}-style", "solid");
+                }
+            }
+        }
+
+        hints.Map("hspace", Pixels, "margin-left", "margin-right");
+        hints.Map("vspace", Pixels, "margin-top", "margin-bottom");
     }
 
     /// <summary>
@@ -147,6 +307,10 @@ static class PresentationalHints
         Action<HtmlDiagnostic>? sink)
     {
         public IElement Element => element;
+
+        /// <summary>Whether <paramref name="attribute"/> is present at all.</summary>
+        public bool Has(string attribute) =>
+            element.HasAttribute(attribute);
 
         /// <summary>The raw value of <paramref name="attribute"/>, or null when it is absent.</summary>
         public string? Raw(string attribute) =>
@@ -161,7 +325,7 @@ static class PresentationalHints
 
             if (declared.Length != 0 &&
                 !(defaults.TryGetValue($"{element.LocalName}/{property}", out var fallback) &&
-                  declared.Equals(fallback, StringComparison.OrdinalIgnoreCase)))
+                  fallback.Contains(declared, StringComparer.OrdinalIgnoreCase)))
             {
                 return;
             }
@@ -333,6 +497,92 @@ static class PresentationalHints
 
     static string? Spacing(string value) =>
         Integer(value) is {} spacing ? $"{spacing}px" : null;
+
+    /// <summary>
+    /// <c>&lt;font face&gt;</c>, which is a comma-separated family list already — but of BARE
+    /// names, where CSS needs anything holding a space quoted.
+    /// </summary>
+    static string? Families(string value)
+    {
+        var names = value
+            .Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+            .Select(Quoted)
+            .ToArray();
+
+        return names.Length == 0 ? null : string.Join(", ", names);
+    }
+
+    static string Quoted(string name) =>
+        name.StartsWith('"') || name.StartsWith('\'')
+            ? name
+            : $"\"{name}\"";
+
+    /// <summary>
+    /// <c>&lt;font size&gt;</c>, which is a level from 1 to 7 rather than a length, and may be
+    /// written relative to the middle of that range.
+    /// </summary>
+    /// <remarks>
+    /// The relative form is relative to 3 rather than to the parent's own level, which is what
+    /// HTML says and what stops a nested <c>&lt;font size="+1"&gt;</c> growing without bound.
+    /// </remarks>
+    static string? Size(string value)
+    {
+        var text = value.Trim();
+
+        if (text.Length == 0)
+        {
+            return null;
+        }
+
+        var relative = text[0] is '+' or '-';
+
+        if (Integer(relative ? text[1..] : text) is not {} number)
+        {
+            return null;
+        }
+
+        var level = relative
+            ? 3 + (text[0] == '-' ? -number : number)
+            : number;
+
+        return Math.Clamp(level, 1, 7) switch
+        {
+            1 => "x-small",
+            2 => "small",
+            3 => "medium",
+            4 => "large",
+            5 => "x-large",
+            6 => "xx-large",
+            _ => "xxx-large"
+        };
+    }
+
+    static string? Ordered(string value) =>
+        value.Trim() switch
+        {
+            "1" => "decimal",
+            "a" => "lower-alpha",
+            "A" => "upper-alpha",
+            "i" => "lower-roman",
+            "I" => "upper-roman",
+            _ => null
+        };
+
+    static string? Unordered(string value) =>
+        value.Trim().ToLowerInvariant() switch
+        {
+            "disc" => "disc",
+            "circle" => "circle",
+            "square" => "square",
+            _ => null
+        };
+
+    /// <summary>
+    /// <c>&lt;li type&gt;</c>, which takes either list's values, an item not knowing which kind of
+    /// list it is in.
+    /// </summary>
+    static string? Marker(string value) =>
+        Ordered(value) ?? Unordered(value);
 
     /// <summary>
     /// A dimension attribute as a CSS length: a bare number is pixels, and a percentage stays one.

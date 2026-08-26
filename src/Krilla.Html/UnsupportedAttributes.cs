@@ -29,13 +29,11 @@ static class UnsupportedAttributes
     static readonly Dictionary<string, string[]> byElement = new(StringComparer.Ordinal)
     {
         ["table"] = ["rules", "frame"],
-        ["ol"] = ["type"],
-        ["ul"] = ["type"],
-        ["li"] = ["type"],
-        ["hr"] = ["width", "size", "align", "color", "noshade"],
-        ["font"] = ["color", "size", "face"],
-        ["body"] = ["bgcolor", "text", "link", "vlink", "alink"],
-        ["img"] = ["align", "border", "hspace", "vspace"]
+
+        // The three colours a document gives its links, which need a `:link`, `:visited` and
+        // `:active` of their own to land on. Nothing here reads a pseudo-class, so unlike every
+        // other attribute on this element they have nowhere to go.
+        ["body"] = ["link", "vlink", "alink"]
     };
 
     public static void Report(IElement element, Action<HtmlDiagnostic> sink)
