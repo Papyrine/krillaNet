@@ -3,7 +3,7 @@
     "Element": "div",
     "Name": "border-top-left-radius",
     "Value": "4px",
-    "Reason": "the border is painted with square corners"
+    "Reason": "a dashed, dotted or double border is painted with square corners"
   },
   {
     "Element": "span",

@@ -1,0 +1,36 @@
+@inherits LayoutComponentBase
+@inject ThemePreferenceService ThemePreferenceService
+@inject IJSRuntime JSRuntime
+
+<header>
+    <h1>Krilla</h1>
+    <p>Convert HTML to PDF — entirely in your browser</p>
+    <ThemeToggle CurrentTheme="currentTheme" OnThemeChanged="HandleThemeChanged" />
+</header>
+
+<div class="container">
+    <ErrorBoundary>
+        <ChildContent>
+            @Body
+        </ChildContent>
+        <ErrorContent Context="exception">
+            <div class="error-panel" role="alert">
+                <strong>Something went wrong</strong>
+                <p>@exception.Message</p>
+            </div>
+        </ErrorContent>
+    </ErrorBoundary>
+</div>
+
+<footer>
+    Powered by <a href="https://github.com/Papyrine/krillaNet" target="_blank">Krilla</a> — no data leaves your device
+    <span class="footer-version">v@Version</span>
+    @if (downloadSize is { } size)
+    {
+        <span class="footer-size" title="Total app download — compressed over the wire / uncompressed">@FormatMb(size.Zipped) zipped · @FormatMb(size.Unzipped) unzipped</span>
+    }
+    @if (liveBytes is { } live && peakBytes is { } peak)
+    {
+        <span class="footer-ram" title="Memory the app is using — live .NET heap now / peak WebAssembly heap (never shrinks)">@FormatMb(live) RAM (@FormatMb(peak) peak)</span>
+    }
+</footer>

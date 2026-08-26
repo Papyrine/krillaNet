@@ -1,8 +1,13 @@
 name: Publish NuGet
 
-# Builds the natives for all eight RIDs, packs them into a single Krilla package, proves the
+# Builds the natives for all nine RIDs, packs them into a single Krilla package, proves the
 # package loads on every platform it claims to support, and only then publishes to nuget.org
 # using Trusted Publishing (OIDC) — no long-lived API key is stored.
+#
+# The smoke jobs cover the eight loadable RIDs. browser-wasm is not among them and cannot be:
+# there is nothing to load, the archive is linked into a consumer's own wasm module. Its
+# equivalent proof runs inside native.yml, which links the archive and runs the result under
+# node before uploading it.
 #
 # Trigger: pushing a tag (aligning with milestone-release.yml, which also fires on tags), or
 # manually via the Actions tab.
@@ -89,12 +94,20 @@ jobs:
           echo "Inspecting $nupkg"
           unzip -l "$nupkg"
 
-          for rid in win-x64 win-arm64 linux-x64 linux-arm64 linux-musl-x64 linux-musl-arm64 osx-x64 osx-arm64; do
+          for rid in win-x64 win-arm64 linux-x64 linux-arm64 linux-musl-x64 linux-musl-arm64 osx-x64 osx-arm64 browser-wasm; do
             if ! unzip -l "$nupkg" | grep -q "runtimes/$rid/native/"; then
               echo "::error::the package is missing a native for $rid"
               exit 1
             fi
           done
+
+          # The wasm archive is inert without this: nothing else puts a NativeFileReference in
+          # front of the consumer's Emscripten link step, so a package that lost this file
+          # would restore, build, and then fail at the first P/Invoke.
+          if ! unzip -l "$nupkg" | grep -q "buildTransitive/Krilla.targets"; then
+            echo "::error::the package is missing buildTransitive/Krilla.targets, so browser-wasm consumers would link nothing"
+            exit 1
+          fi
 
       - name: Upload package
         uses: actions/upload-artifact@v4
@@ -192,8 +205,54 @@ jobs:
           dotnet build IntegrationTests --configuration Release
           dotnet run --project IntegrationTests/IntegrationTests --configuration Release --no-build
 
+  # browser-wasm cannot be smoke-tested the way the other eight are: there is no process to
+  # start and no library to load. Whether the ARCHIVE is good was settled in native.yml, which
+  # links it and runs the result under node before uploading it. What is left is the
+  # PACKAGING — that a real consumer restoring this exact nupkg is handed the archive — and
+  # that is what this proves.
+  #
+  # A job of its own rather than a leg of `smoke`, because it needs the wasm-tools workload:
+  # a browser-wasm project does not merely fail to build without it, it fails to RESTORE, with
+  # NETSDK1147 raised by the SDK's own workload import before any of this package is reached.
+  # Installing that on the four smoke runners to test one RID would be most of their runtime.
+  smoke-wasm:
+    needs: pack
+    name: smoke browser-wasm
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      - name: Download package
+        uses: actions/download-artifact@v4
+        with:
+          name: nupkg
+          path: nugets
+
+      - name: Install wasm-tools
+        run: dotnet workload install wasm-tools
+
+      - name: Verify the package reaches a WebAssembly link step
+        working-directory: IntegrationTests/WasmConsumer
+        # Invoked by path, not through the solution: IntegrationTests.slnx deliberately
+        # excludes this project so that `dotnet build IntegrationTests` in the jobs above does
+        # not demand the workload on runners with no use for it.
+        #
+        # Both targets matter. The first is the feature; the second is the guard, since an
+        # import that fired unconditionally would hand a wasm archive to every ordinary build
+        # and nothing else here would notice.
+        run: |
+          set -euo pipefail
+          dotnet restore
+          dotnet msbuild -t:VerifyKrillaWasmNative
+          dotnet msbuild -t:VerifyKrillaNativeIsWasmOnly -p:RuntimeIdentifier=win-x64
+
   publish:
-    needs: [smoke, smoke-containers]
+    needs: [smoke, smoke-containers, smoke-wasm]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

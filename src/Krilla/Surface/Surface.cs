@@ -1,3 +1,4 @@
+// ReSharper disable RedundantUnsafeContext
 namespace Krilla;
 
 /// <summary>

@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Krilla — HTML to PDF</title>
+    <link rel="icon" type="image/svg+xml" href="favicon.svg" />
+    <base href="/" />
+    <link rel="preload" href="css/app.css" as="style" />
+    <link rel="preload" href="_framework/blazor.webassembly.js" as="script" />
+    <link rel="preload" href="js/interop.js" as="script" />
+    <!-- The six faces every conversion draws with (~2.4 MB, see FontStore). They are fetched by
+         HttpClient once the app is running, which is well after the runtime has finished
+         downloading; preloading starts them during the WASM boot instead, so they are in the HTTP
+         cache by the time the first conversion asks for them. as="fetch" needs the crossorigin
+         attribute to match the handler's same-origin credentials mode — without it the browser
+         will not reuse the preload and downloads each face twice. -->
+    <link rel="preload" href="fonts/LiberationSans-Regular.ttf" as="fetch" crossorigin />
+    <link rel="preload" href="fonts/LiberationSans-Bold.ttf" as="fetch" crossorigin />
+    <link rel="preload" href="fonts/LiberationSans-Italic.ttf" as="fetch" crossorigin />
+    <link rel="preload" href="fonts/LiberationSans-BoldItalic.ttf" as="fetch" crossorigin />
+    <link rel="preload" href="fonts/LiberationSerif-Regular.ttf" as="fetch" crossorigin />
+    <link rel="preload" href="fonts/LiberationMono-Regular.ttf" as="fetch" crossorigin />
+    <link rel="stylesheet" href="css/app.css" />
+</head>
+
+<body>
+    <div id="app">
+        <div class="loading">
+            <div class="spinner"></div>
+            <p>Loading Krilla...</p>
+        </div>
+    </div>
+
+    <div id="blazor-error-ui">
+        An unhandled error has occurred.
+        <a href="" class="reload">Reload</a>
+        <a class="dismiss">X</a>
+    </div>
+    <script src="_framework/blazor.webassembly.js"></script>
+    <script src="js/interop.js"></script>
+    <script>
+        window.themeManager.initializeTheme();
+    </script>
+</body>
+
+</html>

@@ -1,8 +1,11 @@
 name: native
 
-# Cross-compiles the krilla-capi cdylib for every shipped RID and uploads one artifact per
-# target. Called by publish-nuget.yml, and runnable on its own to check the matrix without
-# releasing.
+# Cross-compiles krilla-capi for every shipped RID and uploads one artifact per target.
+# Called by publish-nuget.yml, and runnable on its own to check the matrix without releasing.
+#
+# Eight legs produce a cdylib the .NET loader opens by name. The ninth, browser-wasm, produces
+# a STATIC archive instead, because WebAssembly has no loader to open one — it is linked into
+# the consumer's own .wasm module by their build. See src/Krilla.Native.props.
 #
 # The RID list here is duplicated in src/Krilla.Native.props (the MSBuild table) and readme.md
 # (documented support). All three must be kept in sync.
@@ -18,6 +21,10 @@ name: native
 #   * musl   — Rust's musl targets default to +crt-static, which links musl *into* the .so and
 #              gives the process two allocators and two TLS arenas.
 #   * arm64  — macOS refuses to load unsigned arm64 code.
+#   * wasm   — the archive is compiled with panic = "unwind", which rustc implements on this
+#              target with NATIVE WebAssembly exception handling. A link that does not enable
+#              it fails on an undefined __cpp_exception, and nothing readable off the .a says
+#              so — hence a leg that actually links and runs the thing.
 
 on:
   workflow_call:
@@ -85,6 +92,17 @@ jobs:
             target: aarch64-apple-darwin
             file: libkrilla_capi.dylib
 
+          # Not a ninth platform so much as a different kind of artifact. The emscripten
+          # version is pinned to the one the .NET wasm workload carries: the consumer's own
+          # link step runs THAT emcc over this archive, so the two have to agree. Bump it in
+          # step with the workload, not independently — the current value comes from
+          # sdk-manifests/<ver>/microsoft.net.workload.emscripten.current.
+          - rid: browser-wasm
+            os: ubuntu-latest
+            target: wasm32-unknown-emscripten
+            file: krilla_capi.a
+            emsdk: 3.1.56
+
     steps:
       - uses: actions/checkout@v4
 
@@ -129,8 +147,17 @@ jobs:
           RUSTFLAGS: -C target-feature=+crt-static
         run: cargo build --release --locked --target ${{ matrix.target }}
 
+      - name: Install emsdk
+        if: matrix.emsdk != ''
+        uses: mymindstorm/setup-emsdk@v15
+        with:
+          version: ${{ matrix.emsdk }}
+          actions-cache-folder: emsdk-${{ matrix.emsdk }}
+
+      # zig-target rather than runner.os: the browser-wasm leg also runs on Linux and must not
+      # go through cargo-zigbuild.
       - name: Build (Linux)
-        if: runner.os == 'Linux'
+        if: runner.os == 'Linux' && matrix.zig-target != ''
         working-directory: rust
         # -crt-static on musl so the cdylib links the host's libc rather than embedding its
         # own. A fully static musl .so loaded into a musl process means two libcs in one
@@ -138,6 +165,35 @@ jobs:
         env:
           RUSTFLAGS: ${{ contains(matrix.target, 'musl') && '-C target-feature=-crt-static' || '' }}
         run: cargo zigbuild --release --locked --target ${{ matrix.zig-target }}
+
+      # `cargo rustc --crate-type` rather than adding staticlib to the crate's own
+      # crate-type list. Doing it in Cargo.toml would make every one of the other eight legs —
+      # and every local `cargo build` — link a second artifact under fat LTO for nothing.
+      - name: Build (WebAssembly)
+        if: matrix.emsdk != ''
+        working-directory: rust
+        run: cargo rustc -p krilla-capi --release --locked --target ${{ matrix.target }} --crate-type staticlib
+
+      # Not a build flag, because it cannot be one: both features are implied by LLVM rather
+      # than chosen, and rustup's precompiled std and compiler_builtins carry them however this
+      # crate is compiled. So the declarations come off the finished archive instead. The
+      # script explains why they are REMOVED rather than marked disallowed -- marking them
+      # fixes Emscripten 3.1.56 and breaks 6.0.2, which is the trap this whole step is about.
+      - name: Name the archive for its P/Invoke module, and lower it to the 3.1.56 baseline
+        if: matrix.emsdk != ''
+        working-directory: rust
+        run: |
+          set -euo pipefail
+          out="target/${{ matrix.target }}/release"
+
+          # cargo emits libkrilla_capi.a. The WebAssembly SDK reads the P/Invoke module name
+          # off the FILE NAME and does not strip the `lib` prefix, so shipping cargo's name
+          # registers the module as `libkrilla_capi`, matches no DllImport in this package,
+          # and lets wasm-ld strip the entire archive as unreferenced -- a build that succeeds
+          # and a first P/Invoke that does not. Renaming is the whole fix.
+          mv "$out/libkrilla_capi.a" "$out/${{ matrix.file }}"
+
+          python3 ../.github/scripts/wasm-baseline-features.py "$out/${{ matrix.file }}" emar
 
       - name: Build (macOS)
         if: runner.os == 'macOS'
@@ -163,7 +219,10 @@ jobs:
           }
 
       - name: Check glibc floor
-        if: runner.os == 'Linux' && !contains(matrix.target, 'musl')
+        # zig-target rather than runner.os, for the same reason the build step above uses it:
+        # the browser-wasm leg is also a Linux runner, and objdump has nothing to say about a
+        # wasm archive — under `set -o pipefail` the grep below would fail the leg outright.
+        if: matrix.zig-target != '' && !contains(matrix.target, 'musl')
         run: |
           set -euo pipefail
           # cargo-zigbuild strips the glibc suffix for the output directory: a
@@ -215,6 +274,74 @@ jobs:
             exit 1
           }
           otool -l "$lib" | grep -A 3 LC_BUILD_VERSION || true
+
+      - name: Check the WebAssembly archive links and runs
+        if: matrix.emsdk != ''
+        working-directory: rust
+        # Every other leg can assert on its output statically. This one cannot: whether the
+        # archive is usable is a property of the LINK, not of the file. So the check builds a
+        # C driver against it with the same exception setting .NET uses, runs the result under
+        # node, and asserts on what it prints.
+        #
+        # It is also the only leg that proves krilla WORKS on its target rather than merely
+        # compiles for it -- the driver serializes a document and the check greps for the PDF
+        # magic. Cheap here, because emcc and node are already installed for the build.
+        run: |
+          set -euo pipefail
+          # Absolute, because the driver is built in a scratch directory: this check should
+          # leave nothing behind in the tree it is checking.
+          lib="$PWD/target/${{ matrix.target }}/release/${{ matrix.file }}"
+          cd "$(mktemp -d)"
+
+          cat > smoke.c <<'DRIVER'
+          #include <stdint.h>
+          #include <stddef.h>
+          #include <stdio.h>
+
+          typedef struct KrillaDocument KrillaDocument;
+          extern uint32_t krilla_abi_version(void);
+          extern size_t   krilla_abi_sizeof(int kind);
+          extern int32_t  krilla_document_new(KrillaDocument** out);
+          extern int32_t  krilla_document_finish(KrillaDocument* doc, uint8_t** out_ptr, size_t* out_len, void** out_error);
+          extern int32_t  krilla_document_free(KrillaDocument* doc);
+          extern int32_t  krilla_buffer_free(uint8_t* ptr, size_t len);
+
+          int main(void) {
+              uint8_t* buf = 0; size_t len = 0; void* err = 0;
+              KrillaDocument* doc = 0;
+
+              printf("pointer-size %zu\n", sizeof(void*));
+              printf("abi-version %u\n", krilla_abi_version());
+              printf("sizeof-stroke %zu\n", krilla_abi_sizeof(6));
+
+              if (krilla_document_new(&doc) != 0) { printf("new-failed\n"); return 1; }
+              if (krilla_document_finish(doc, &buf, &len, &err) != 0) { printf("finish-failed\n"); return 1; }
+              if (len >= 5) printf("magic %c%c%c%c%c\n", buf[0], buf[1], buf[2], buf[3], buf[4]);
+
+              krilla_buffer_free(buf, len);
+              krilla_document_free(doc);
+              return 0;
+          }
+          DRIVER
+
+          # -fwasm-exceptions is what .NET's own wasm link does, since
+          # WasmEnableExceptionHandling defaults to true. Dropping it here reproduces exactly
+          # what a consumer who switches that off sees: wasm-ld failing on an undefined
+          # __cpp_exception, from an archive that is otherwise perfectly good.
+          # -O2 is load-bearing, not thoroughness. It is what makes emcc run wasm-opt, and
+          # wasm-opt is where an archive declaring a feature the consumer's binaryen has never
+          # heard of brings the build down. At -O0 the step is skipped entirely and this check
+          # passes over exactly the failure that reaches every consumer.
+          emcc smoke.c "$lib" -fwasm-exceptions -O2 -o smoke.js
+          output=$(node smoke.js)
+          echo "$output"
+
+          # 32-bit, and the only shipped target that is. The managed mirrors spell the pointer
+          # fields IntPtr and nuint so they follow automatically; a 64-bit answer here would
+          # mean the leg built for the wrong target and one side of the ABI would be wrong.
+          grep -qx "pointer-size 4" <<< "$output" || { echo "::error::not a 32-bit build"; exit 1; }
+          grep -qx "sizeof-stroke 32" <<< "$output" || { echo "::error::KrillaStroke is not the 32-bit layout the managed mirror expects"; exit 1; }
+          grep -qx "magic %PDF-" <<< "$output" || { echo "::error::the archive linked but krilla produced no PDF"; exit 1; }
 
       - name: Upload
         uses: actions/upload-artifact@v4

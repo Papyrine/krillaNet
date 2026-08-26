@@ -17,6 +17,23 @@
 
     File is the name cargo emits for a [lib] named krilla_capi with crate-type = ["cdylib"].
     Nothing renames it anywhere in the pipeline, so every copy step is a plain copy.
+
+    browser-wasm is the exception, and it is a different KIND of artifact rather than a ninth
+    platform. WebAssembly has no dynamic loader for a P/Invoke to search, so the shim ships as
+    a STATIC archive that the consumer's own wasm link step pulls into their app. That is why
+    its row names a .a, why Static="true" keeps it out of the copy-next-to-the-assembly path,
+    and why the package carries buildTransitive/Krilla.targets to hand it to that link step.
+    It is also the only 32-bit target here; see the pointer-width assertions in
+    crates/krilla-capi/src/types.rs.
+
+    Its File is the one that does NOT follow cargo's naming, and the reason is exact. The
+    WebAssembly SDK derives the P/Invoke module name from the archive's file name with
+    %(FileName): extension off, `lib` prefix LEFT ON (WasmApp.Common.targets, and the same
+    line is why .NET's own imports are spelled "libSystem.Native"). Shipping cargo's
+    libkrilla_capi.a therefore registers the module as `libkrilla_capi`, which matches no
+    DllImport in this package, so nothing references the archive and wasm-ld strips every byte
+    of it. The build appears to succeed and the first P/Invoke fails. Named krilla_capi.a, the
+    module name is what KrillaNative.cs actually imports.
   -->
   <ItemGroup>
     <KrillaRid Include="win-x64"          Triple="x86_64-pc-windows-msvc"     File="krilla_capi.dll" />
@@ -27,5 +44,6 @@
     <KrillaRid Include="linux-musl-arm64" Triple="aarch64-unknown-linux-musl" File="libkrilla_capi.so" />
     <KrillaRid Include="osx-x64"          Triple="x86_64-apple-darwin"        File="libkrilla_capi.dylib" />
     <KrillaRid Include="osx-arm64"        Triple="aarch64-apple-darwin"       File="libkrilla_capi.dylib" />
+    <KrillaRid Include="browser-wasm"     Triple="wasm32-unknown-emscripten"  File="krilla_capi.a" Static="true" />
   </ItemGroup>
 </Project>

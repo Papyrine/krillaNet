@@ -1,0 +1,135 @@
+name: Deploy Blazor WASM to GitHub Pages
+
+# Builds, tests and deploys the Krilla.Web app (src/Krilla.Web) to GitHub Pages.
+#
+# Krilla.Web and Krilla.Web.Tests are in Krilla.slnx but excluded from Release solution builds, so
+# `dotnet build src --configuration Release` never touches them — a Blazor app that sets
+# WasmBuildNative needs the wasm-tools workload, which the ordinary build jobs have no use for.
+# They are built here by path instead.
+#
+# The step the other Papyrine deploys do not have is the native one. Krilla's converter is a Rust
+# library, and on this target it is a STATIC archive linked into the app's own .wasm module rather
+# than a shared library loaded at run time — so the archive has to exist before the app is
+# published, and building it needs both a Rust toolchain and the Emscripten the .NET workload
+# ships. See "Traps in the WebAssembly target" in claude.md.
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+
+      # Both halves of the native toolchain. The emscripten version is pinned to the one the .NET
+      # wasm workload carries, because the consumer's link — here, this job's own publish — runs
+      # THAT emcc over the archive. It must move in step with the workload, not independently.
+      - name: Add Rust target
+        run: rustup target add wasm32-unknown-emscripten
+
+      - name: Install emsdk
+        uses: mymindstorm/setup-emsdk@v15
+        with:
+          version: 3.1.56
+          actions-cache-folder: emsdk-3.1.56
+
+      - name: Cache cargo
+        uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: rust
+          key: browser-wasm
+
+      # `cargo rustc --crate-type` rather than adding staticlib to the crate's crate-type list,
+      # which would make every other target link a second artifact under fat LTO for nothing. The
+      # rename and the feature lowering are the same two steps native.yml runs, and for the same
+      # reasons — the archive must be named for its P/Invoke module, and rustc declares two wasm
+      # features the Emscripten 3.1.56 binaryen rejects.
+      - name: Build the native
+        working-directory: rust
+        run: |
+          set -euo pipefail
+          cargo rustc -p krilla-capi --release --locked --target wasm32-unknown-emscripten --crate-type staticlib
+          out="target/wasm32-unknown-emscripten/release"
+          mv "$out/libkrilla_capi.a" "$out/krilla_capi.a"
+          python3 ../.github/scripts/wasm-baseline-features.py "$out/krilla_capi.a" emar
+
+      # Where the app's buildTransitive import expects to find it. Krilla.Web picks the archive up
+      # through src/Krilla/buildTransitive/Krilla.targets, the same file NuGet consumers get.
+      - name: Stage the native
+        run: |
+          mkdir -p src/Krilla/runtimes/browser-wasm/native
+          cp rust/target/wasm32-unknown-emscripten/release/krilla_capi.a src/Krilla/runtimes/browser-wasm/native/
+
+      # Required, not an optimisation: WasmBuildNative relinks the runtime with emcc, which is what
+      # pulls the krilla archive into the app's .wasm module. Without the workload there is no
+      # relink and the first P/Invoke fails in the browser.
+      - name: Install wasm-tools workload
+        run: dotnet workload install wasm-tools
+
+      - name: Build tests (also publishes the Blazor app for the Playwright tests)
+        run: dotnet build src/Krilla.Web.Tests --configuration Release
+
+      # TUnit ships as an executable on Microsoft.Testing.Platform; run it directly rather than via
+      # `dotnet test`, which rejects it under the VSTest path. The ModuleInitializer installs the
+      # Playwright browser (VerifyPlaywright.Initialize(installPlaywright: true)) on first run.
+      - name: Run tests
+        run: dotnet src/Krilla.Web.Tests/bin/Release/net10.0/Krilla.Web.Tests.dll
+
+      - name: Publish
+        run: dotnet publish src/Krilla.Web --configuration Release --output publish
+
+      # The site is served from the GitHub Pages project subpath
+      # (https://papyrine.github.io/krillaNet/), so the published <base href="/" /> is wrong and
+      # every asset would 404. Rewrite it to the subpath.
+      #
+      # DELETE THIS STEP if the site moves to a custom domain served at its root — that is what
+      # Morph did when it moved to morph.papyrine.org, and leaving the rewrite in place afterwards
+      # breaks the site just as surely as omitting it does now.
+      - name: Rewrite base href for the project subpath
+        run: sed -i 's|<base href="/" />|<base href="/krillaNet/" />|g' publish/wwwroot/index.html
+
+      - name: Add .nojekyll file
+        run: touch publish/wwwroot/.nojekyll
+
+      - name: Copy index.html to 404.html for SPA routing
+        run: cp publish/wwwroot/index.html publish/wwwroot/404.html
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: publish/wwwroot
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4

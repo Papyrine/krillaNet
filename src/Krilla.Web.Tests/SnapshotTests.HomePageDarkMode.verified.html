@@ -1,0 +1,70 @@
+﻿<!DOCTYPE html><html lang="en" data-theme="dark" style="--blazor-load-percentage: 100%; --blazor-load-percentage-text: &quot;100%&quot;;"><head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    
+    <link rel="icon" type="image/svg+xml" href="favicon.svg">
+    <base href="/">
+    <link rel="preload" href="css/app.css" as="style">
+    <link rel="preload" href="_framework/blazor.webassembly.js" as="script">
+    <link rel="preload" href="js/interop.js" as="script">
+    <!-- The six faces every conversion draws with (~2.4 MB, see FontStore). They are fetched by
+         HttpClient once the app is running, which is well after the runtime has finished
+         downloading; preloading starts them during the WASM boot instead, so they are in the HTTP
+         cache by the time the first conversion asks for them. as="fetch" needs the crossorigin
+         attribute to match the handler's same-origin credentials mode — without it the browser
+         will not reuse the preload and downloads each face twice. -->
+    <link rel="preload" href="fonts/LiberationSans-Regular.ttf" as="fetch" crossorigin="">
+    <link rel="preload" href="fonts/LiberationSans-Bold.ttf" as="fetch" crossorigin="">
+    <link rel="preload" href="fonts/LiberationSans-Italic.ttf" as="fetch" crossorigin="">
+    <link rel="preload" href="fonts/LiberationSans-BoldItalic.ttf" as="fetch" crossorigin="">
+    <link rel="preload" href="fonts/LiberationSerif-Regular.ttf" as="fetch" crossorigin="">
+    <link rel="preload" href="fonts/LiberationMono-Regular.ttf" as="fetch" crossorigin="">
+    <link rel="stylesheet" href="css/app.css">
+<!--!--><!--!--><!--!--><title><!--!-->Krilla — HTML to PDF</title><!--!--><!--!--><!--!--></head>
+
+<body>
+    <div id="app"><!--!--><!--!--><!--!--><!--!--><header><!--!--><h1 tabindex="-1">Krilla</h1>
+    <!--!--><p>Convert HTML to PDF — entirely in your browser</p>
+    <!--!--><div class="theme-toggle"><button class="theme-toggle-btn" aria-label="Toggle theme"><!--!--><span class="icon">☀️</span><!--!--><span class="text"> Light</span></button></div></header><!--!-->
+
+<div class="container"><!--!--><!--!--><!--!--><!--!--><!--!-->
+
+<!--!--><div class="converter"><section class="source-panel"><div class="panel-head"><!--!--><h2>HTML</h2>
+            <div class="source-actions"><label class="file-btn"><!--!-->
+                    Open file
+                    <!--!--><input accept=".html,.htm,text/html" id="source-file" type="file" _bl_2="" style="caret-color: transparent !important;"></label><!--!-->
+                <button class="sample-btn" type="button">Sample</button></div></div><!--!-->
+
+        <textarea class="source-text" spellcheck="false" aria-label="HTML to convert" style="caret-color: transparent !important;"></textarea><!--!-->
+
+        <div class="options"><label><!--!-->
+                Paper
+                <select class="paper-select"><option value="Letter">Letter — 8.5 × 11 in</option><option value="A4">A4 — 210 × 297 mm</option><option value="A3">A3 — 297 × 420 mm</option><option value="A5">A5 — 148 × 210 mm</option><option value="A6">A6 — 105 × 148 mm</option><option value="B5">B5 — 176 × 250 mm</option><option value="Legal">Legal — 8.5 × 14 in</option><option value="Tabloid">Tabloid — 11 × 17 in</option><option value="Executive">Executive — 7.25 × 10.5 in</option></select></label><!--!-->
+            <label><!--!-->
+                Margin
+                <select class="margin-select"><option value="0">None</option><!--!-->
+                    <option value="48">0.5 in</option><!--!-->
+                    <option value="96">1 in</option></select></label><!--!-->
+            <button class="convert-btn" type="button">Convert to PDF</button></div></section><!--!-->
+
+    <section class="result-panel"><div class="panel-head"><!--!--><h2>PDF</h2></div><!--!--><div class="result-empty"><p>Convert some HTML to see the PDF here.</p></div></section></div></div><!--!-->
+
+<footer><!--!-->
+    Powered by <!--!--><a href="https://github.com/Papyrine/krillaNet" target="_blank">Krilla</a> — no data leaves your device
+    <!--!--><span class="footer-version">v0.0.0+0000000</span><span class="footer-size" title="Total app download — compressed over the wire / uncompressed">0.0 MB zipped · 0.0 MB unzipped</span><span class="footer-ram" title="Memory the app is using — live .NET heap now / peak WebAssembly heap (never shrinks)">0.0 MB RAM (0.0 MB peak)</span></footer><!--!-->
+        <!--!--></div>
+
+    <div id="blazor-error-ui">
+        An unhandled error has occurred.
+        <a href="" class="reload">Reload</a>
+        <a class="dismiss">X</a>
+    </div>
+    <script src="_framework/blazor.webassembly.js"></script>
+    <script src="js/interop.js"></script>
+    <script>
+        window.themeManager.initializeTheme();
+    </script>
+
+
+
+</body></html>

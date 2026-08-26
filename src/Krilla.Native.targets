@@ -23,7 +23,20 @@
   -->
   <Target Name="KrillaResolveHostNative">
     <ItemGroup>
-      <KrillaHostNative Include="@(KrillaRid)" Condition="'%(Identity)' == '$(KrillaHostRid)'" />
+      <!--
+        Static="true" excludes browser-wasm. Its .a is a link-time input to somebody else's
+        wasm module, not something a loader can find, so it can never be a host native however
+        the RID is spelled. Without this a forced KrillaHostRid=browser-wasm would copy an
+        archive next to the managed assembly and fail at the first P/Invoke instead of
+        producing the plain "no native for this machine" warning below.
+
+        Both references are QUALIFIED, which is a second MSBuild rule alongside the MSB4190
+        one above: only browser-wasm carries Static, and an unqualified %(Static) over a list
+        where the other eight rows do not define it is MSB4096. Qualifying one and not the
+        other is the same error, so Identity is spelled out too.
+      -->
+      <KrillaHostNative Include="@(KrillaRid)"
+                        Condition="'%(KrillaRid.Identity)' == '$(KrillaHostRid)' and '%(KrillaRid.Static)' != 'true'" />
     </ItemGroup>
 
     <PropertyGroup>
@@ -147,7 +160,7 @@
     </ItemGroup>
 
     <Error Condition="'$(KrillaRequireAllNatives)' == 'true' and '@(_KrillaMissing)' != ''"
-           Text="Krilla: native binaries missing for @(_KrillaMissing, ', '). A release package must carry all eight RIDs; download the artifacts from the native workflow before packing." />
+           Text="Krilla: native binaries missing for @(_KrillaMissing, ', '). A release package must carry all nine RIDs; download the artifacts from the native workflow before packing." />
 
     <Warning Condition="'$(KrillaRequireAllNatives)' != 'true' and '@(_KrillaMissing)' != ''"
              Text="Krilla: packing without natives for @(_KrillaMissing, ', '). This package is for local use only and must not be published." />

@@ -1,0 +1,57 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <PropertyGroup>
+    <TargetFramework>net10.0</TargetFramework>
+    <OutputType>Exe</OutputType>
+    <IsPackable>false</IsPackable>
+    <IsTestProject>true</IsTestProject>
+    <!-- Public test classes carry no XML docs; ProjectDefaults enables doc generation in Release. -->
+    <GenerateDocumentationFile>false</GenerateDocumentationFile>
+    <NoWarn>$(NoWarn);CS1591</NoWarn>
+    <BlazorPublishDir>$(MSBuildThisFileDirectory)bin\$(Configuration)\blazor-publish\</BlazorPublishDir>
+  </PropertyGroup>
+
+  <!--
+    Publish the app as part of build, so the Playwright tests serve pre-published output rather
+    than publishing it themselves. This is what makes those tests exercise the REAL artifact:
+    trimmed, relinked, with the krilla native actually inside the .wasm module. A bUnit test can
+    never see that, because it runs the components on the desktop runtime.
+  -->
+  <Target Name="PublishBlazorForTests" AfterTargets="Build">
+    <MSBuild Projects="..\Krilla.Web\Krilla.Web.csproj"
+             Targets="Publish"
+             Properties="Configuration=$(Configuration);PublishDir=$(BlazorPublishDir)" />
+  </Target>
+
+  <ItemGroup>
+    <FrameworkReference Include="Microsoft.AspNetCore.App" />
+    <PackageReference Include="ProjectFiles" />
+    <PackageReference Include="TUnit" />
+    <PackageReference Include="Verify.TUnit" />
+    <PackageReference Include="Verify.DiffPlex" />
+    <PackageReference Include="Verify.Playwright" />
+    <PackageReference Include="Verify.Bunit" />
+    <PackageReference Include="bunit" />
+    <PackageReference Include="Microsoft.AspNetCore.TestHost" />
+    <PackageReference Include="Microsoft.Playwright" />
+    <PackageReference Include="Microsoft.NET.Test.Sdk" />
+    <PackageReference Include="ProjectDefaults" PrivateAssets="all" />
+    <ProjectReference Include="..\Krilla.Web\Krilla.Web.csproj" />
+  </ItemGroup>
+
+  <!--
+    The faces a desktop-side conversion test needs. The app fetches these over HTTP as static web
+    assets, which a bUnit test has no server for — so the same six files are copied here and
+    loaded from disk instead.
+  -->
+  <ItemGroup>
+    <Content Include="..\Krilla.Html.Tests\Fonts\LiberationSans-Regular.ttf" Link="fonts\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\Krilla.Html.Tests\Fonts\LiberationSans-Bold.ttf" Link="fonts\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\Krilla.Html.Tests\Fonts\LiberationSans-Italic.ttf" Link="fonts\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\Krilla.Html.Tests\Fonts\LiberationSans-BoldItalic.ttf" Link="fonts\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\Krilla.Html.Tests\Fonts\LiberationSerif-Regular.ttf" Link="fonts\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\Krilla.Html.Tests\Fonts\LiberationMono-Regular.ttf" Link="fonts\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+    <Content Include="..\Krilla.Web\wwwroot\sample\sample.html" Link="sample.html" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
+
+</Project>

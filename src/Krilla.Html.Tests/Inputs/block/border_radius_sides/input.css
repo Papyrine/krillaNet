@@ -1,0 +1,32 @@
+div { width: 300px; padding: 8px; margin: 0 0 10px 0; background-color: #eef2f8; font-size: 14px; }
+
+/* The case the diagnostic used to report: a radius with a border that is not one uniform ring, so
+   the fill under it rounded and the frame over it did not. */
+#one { border-left: 6px solid #2b579a; border-radius: 10px; }
+
+/* Two colours meeting at a corner: the hand-over is on the diagonal between the outer corner and
+   the inner one, which is what the trapezium clip reproduces. */
+#two { border: 6px solid #2b579a; border-right-color: #c0392b; border-radius: 14px; }
+
+/* Every corner a transition. */
+#four {
+  border: 5px solid #2b579a;
+  border-right-color: #c0392b;
+  border-bottom-color: #28a745;
+  border-left-color: #f0a500;
+  border-radius: 12px;
+}
+
+/* Different widths, so the diagonal each corner splits on is not at 45 degrees. */
+#widths {
+  border-style: solid;
+  border-color: #2b579a #c0392b #28a745 #f0a500;
+  border-width: 3px 12px 6px 9px;
+  border-radius: 16px;
+}
+
+/* Radius under the border width: the outer corner curves and the inner one comes to a point. */
+#thick { border: 12px solid #2b579a; border-top-color: #c0392b; border-radius: 6px; }
+
+/* Two bands per side rather than one, each a ring of its own. */
+#groove { border: 8px groove #6a8fc0; border-radius: 12px; }
