@@ -114,7 +114,7 @@ position/relative                matched 12  offset    0.00  size    0.00  diffe
 position/z_index                 matched 19  offset    0.00  size    0.00  differing  0  unmatched 0
 table/anonymous                  matched  8  offset    0.00  size    0.00  differing  0  unmatched 0
 table/auto_widths                matched 25  offset    0.00  size    0.00  differing  0  unmatched 0
-table/caption_side               matched 14  offset    0.00  size    0.00  differing  0  unmatched 0
+table/caption_side               matched 20  offset    0.00  size    0.00  differing  0  unmatched 0
 table/cell_baseline              matched 33  offset    0.00  size    0.00  differing  0  unmatched 0
 table/collapse                   matched 50  offset    0.00  size    0.00  differing  0  unmatched 0
 table/columns                    matched 63  offset    0.00  size    0.00  differing  0  unmatched 0

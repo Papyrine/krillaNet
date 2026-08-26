@@ -103,7 +103,7 @@ static class TableLayout
         var top = 0f;
 
         if (grid.Caption is {} caption &&
-            style.CaptionSide == CaptionSideKind.Top)
+            caption.Style.CaptionSide == CaptionSideKind.Top)
         {
             top = BlockLayout.Layout(caption, contentX, contentY, contentWidth, fonts);
         }
@@ -124,7 +124,7 @@ static class TableLayout
         // against Chrome, where a bottom caption sits exactly as far under the last row as a top
         // one sits above the first.
         if (grid.Caption is {} below &&
-            style.CaptionSide == CaptionSideKind.Bottom)
+            below.Style.CaptionSide == CaptionSideKind.Bottom)
         {
             contentHeight += BlockLayout.Layout(
                 below,

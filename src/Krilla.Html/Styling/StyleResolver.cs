@@ -287,11 +287,13 @@ static class StyleResolver
                 .Equals("collapse", StringComparison.OrdinalIgnoreCase)
                 ? BorderCollapseKind.Collapse
                 : parent.BorderCollapse,
-            CaptionSide = declaration.GetPropertyValue("caption-side")
-                .Trim()
-                .Equals("bottom", StringComparison.OrdinalIgnoreCase)
-                ? CaptionSideKind.Bottom
-                : CaptionSideKind.Top,
+            // Inherited, because CSS says so and because that is the only way a declaration on the
+            // TABLE reaches the caption it is written for. It is read off the caption's own box,
+            // so `caption { caption-side: bottom }` and `<caption align="bottom">` — which is
+            // exactly that declaration — work as well as the usual spelling on the table.
+            CaptionSide = ParseCaptionSide(
+                declaration.GetPropertyValue("caption-side"),
+                parent.CaptionSide),
             ListStylePosition = ParseListPosition(
                 declaration.GetPropertyValue("list-style-position"),
                 parent.ListStylePosition),
@@ -440,6 +442,14 @@ static class StyleResolver
     /// is measured and painted — font, colour, alignment, white space — is inherited. So the
     /// parent's resolved style is not an approximation here, it is the answer.
     /// </remarks>
+    static CaptionSideKind ParseCaptionSide(string value, CaptionSideKind inherited) =>
+        value.Trim().ToLowerInvariant() switch
+        {
+            "bottom" => CaptionSideKind.Bottom,
+            "top" => CaptionSideKind.Top,
+            _ => inherited
+        };
+
     public static ComputedStyle ForText(ComputedStyle parent) =>
         parent;
 
