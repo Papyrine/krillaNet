@@ -1,4 +1,4 @@
-# All scenarios (133)
+# All scenarios (135)
 
 The browser reference (left) beside the page Krilla.Html produced (right). `AE` is the fraction of pixels that differ and `SSIM` is structural similarity; neither is asserted. The worst offset is the largest positional disagreement in CSS pixels between the rendered element geometry and the browser's, and is the number to watch — it reaches zero exactly when the layout is right.
 
@@ -14,6 +14,7 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [block/bevelled_borders](#block-bevelled_borders)
 - [block/borders](#block-borders)
 - [block/border_radius](#block-border_radius)
+- [block/border_radius_sides](#block-border_radius_sides)
 - [block/border_styles](#block-border_styles)
 - [block/box_model](#block-box_model)
 - [block/box_sizing](#block-box_sizing)
@@ -61,6 +62,7 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [image/sized](#image-sized)
 - [image/svg](#image-svg)
 - [inline/backgrounds](#inline-backgrounds)
+- [inline/background_radius](#inline-background_radius)
 - [inline/font_size_em](#inline-font_size_em)
 - [inline/font_style](#inline-font_style)
 - [inline/font_weight](#inline-font_weight)
@@ -466,6 +468,68 @@ sizes is the clamp applied per side rather than to the box.
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0005 · SSIM 1.0000** |
 | <img src="block/border_radius/reference_0001.png" width="480"> | <img src="block/border_radius/result%23page_0001.verified.png" width="480"> |
+
+
+## block/border_radius_sides
+
+# block/border_radius_sides
+
+`border-radius` on a box whose border is **not** one uniform ring. The radius was honoured on the
+fill underneath and lost on the frame over it, so a callout with `border-left` and a radius came out
+with a rounded background inside square corners — and the diagnostic reported it rather than the
+painter drawing it.
+
+## How it is drawn
+
+Not by building the curve into each side's outline. That would mean splitting an arc at the corner
+and solving for where two edges of different widths hand over, per corner, per band.
+
+Instead the trapezium each mitred edge already fills becomes a **clip**, and the full rounded ring
+is drawn through it in that side's colour. Two things fall out for free:
+
+- The diagonal bounding the trapezium — outer corner to inner corner — is where a browser
+  transitions between two adjacent colours, so the split is right without computing it. `#widths`
+  is the row that shows it is not 45° everywhere: with edges of 3, 12, 6 and 9 pixels, each corner
+  hands over on its own angle.
+- The arc is drawn by the same `RoundedBox` a uniform border already used, so there is one
+  implementation of the curve rather than two that could disagree.
+
+A band is the same construction between two nested rounded rectangles, which is why `#groove` — two
+bands per side rather than one — needed nothing extra.
+
+Square borders keep the polygon path untouched. That is what leaves every existing scenario
+identical: the clip is reached only when a radius is actually asked for.
+
+## The rows
+
+| | |
+|---|---|
+| `#one` | One bordered side, the case the diagnostic used to report |
+| `#two` | Two colours meeting on a corner diagonal |
+| `#four` | Four colours, so every corner is a transition |
+| `#widths` | Edges of 3/12/6/9px, where no corner splits at 45° |
+| `#thick` | Radius under the border width, so the inner corner comes to a point |
+| `#groove` | Two bands per side, each a ring of its own |
+
+## Residual
+
+SSIM 0.9988, and every border-coloured differing pixel is a thin seam at a corner transition —
+roughly a pixel wide, where Chromium carries one colour a fraction further around the arc than the
+outer-to-inner diagonal puts it. It is the same mechanism `block/bevelled_borders` records: two
+antialiased fills meeting on a diagonal do not composite to full coverage, and the corner is where
+that shows. The rest of the difference is sub-pixel glyph antialiasing in the six lines of text.
+
+This is the one place in the corpus where a rounded border is not pixel-exact, and it is why the
+report narrowed to **patterned** edges rather than disappearing: a dashed, dotted or double edge is
+stroked along its own centre line and deliberately runs past the corner, so there is no corner there
+for a radius to curve at all.
+
+**Boxes**: 8 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0019 · SSIM 0.9988** |
+| <img src="block/border_radius_sides/reference_0001.png" width="480"> | <img src="block/border_radius_sides/result%23page_0001.verified.png" width="480"> |
 
 
 ## block/border_styles
@@ -2144,6 +2208,70 @@ paragraph edge in `#leading`.
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0002 · SSIM 1.0000** |
 | <img src="inline/backgrounds/reference_0001.png" width="480"> | <img src="inline/backgrounds/result%23page_0001.verified.png" width="480"> |
+
+
+## inline/background_radius
+
+# inline/background_radius
+
+`border-radius` on an inline element, which was read and not honoured — so every `<code>` chip in
+every document came out with square corners, and the diagnostic said so rather than the painter
+drawing it. The scenario measures the case that made it worth doing: a code span with a background
+and a radius is the most common rounded inline there is.
+
+## Why it is not one rectangle
+
+An inline element's background is painted **per line fragment**, and a fragment is not one
+rectangle. It is the opening edge's strip, then each run's own fill, then the closing edge's strip,
+each painted separately and abutting. Rounding those individually puts corners in the **middle** of
+the element, where two pieces meet. So the pieces are unioned per line and the fill goes down once.
+
+The union is taken from the SNAPPED pieces rather than snapped after the fact. That is what keeps
+every other scenario byte-identical: an element with no radius is still painted by exactly the
+arithmetic it was before.
+
+## Which ends are rounded
+
+Only the ends the element itself reaches. `#wrapped` is the row that shows it: the highlight breaks
+across three lines, and the middle fragment is square at **both** ends because the element neither
+began nor finished there. A browser does the same, which is what makes a wrapped highlight read as
+one continuous run of colour rather than three separate pills.
+
+The obvious signal for this is the element's edge tokens, which carry `Leading` and `Trailing`. It
+is the wrong one: those are emitted only when the element has a padding or border to put in one
+(`BoxBuilder.HasSurround`), so they answer for `#chip` and are absent for `#bare`. Asking them
+squares every unpadded highlight at both ends — which is what the first version did, and what the
+`#bare` and `#wrapped` rows caught. Which lines the element occupies answers for both, so that is
+what `InlineSpans` records.
+
+## The rows
+
+| | |
+|---|---|
+| `#chip` | Padding and a radius: the ordinary code span, rounded at both ends |
+| `#bare` | A radius with **no padding**, so there is no edge strip to carry the corner |
+| `#wrapped` | Three fragments — rounded, square, square, rounded — around two line breaks |
+| `#nested` | A rounded element inside another, each filled at its own height |
+| `#pill` | `999px`, which CSS clamps by scaling every radius until each side fits |
+
+## What is still reported
+
+A radius on an inline element that also has a **border**. The fill beneath one is rounded now, but
+the border itself is still up to four rectangles — a fragment has no corners to mitre at the end
+where the line broke — so those corners stay square and `UnsupportedCss.InlineSurround` reports
+them. That is why the report narrowed to `HasBorder` rather than disappearing.
+
+## Residual
+
+SSIM 1.0000, AE 0.0004. Every differing pixel is sub-pixel glyph antialiasing at a line start, the
+same residual several `text/` and `inline/` scenarios carry; none of it is on a corner arc.
+
+**Boxes**: 13 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0004 · SSIM 1.0000** |
+| <img src="inline/background_radius/reference_0001.png" width="480"> | <img src="inline/background_radius/result%23page_0001.verified.png" width="480"> |
 
 
 ## inline/font_size_em
