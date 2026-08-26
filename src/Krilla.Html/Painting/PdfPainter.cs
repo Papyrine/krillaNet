@@ -2177,7 +2177,7 @@ static class PdfPainter
 
             // Wound the other way so the non-zero rule cuts it out, and skipped once the band has
             // closed on itself and there is nothing left to remove.
-            if (innerRect.Width > 0 && innerRect.Height > 0)
+            if (innerRect is {Width: > 0, Height: > 0})
             {
                 radii
                     .Deflate(style.BorderTop * to, style.BorderRight * to, style.BorderBottom * to, style.BorderLeft * to)
@@ -2230,7 +2230,7 @@ static class PdfPainter
     /// upward are genuine antialiased circles. Where between three and four the switch is made is
     /// not measurable, since a browser rounds a border's width to whole pixels first.
     /// </remarks>
-    const float SquareDot = 3;
+    const float squareDot = 3;
 
     static bool Mitred(BorderStyleKind kind) =>
         kind is BorderStyleKind.Solid
@@ -2251,7 +2251,7 @@ static class PdfPainter
     /// </para>
     /// <para>
     /// A dot is the border's width across and repeats at twice it, and its SHAPE depends on how
-    /// big it is: at or below <see cref="SquareDot"/> pixels Chromium draws a crisp square snapped
+    /// big it is: at or below <see cref="squareDot"/> pixels Chromium draws a crisp square snapped
     /// to the pixel grid, and above it an antialiased circle. Both are drawn here, because neither
     /// approximates the other — a circle at 3px is a soft blob where the browser has three solid
     /// pixels, and a square at 12px is a visibly different shape.
@@ -2314,7 +2314,7 @@ static class PdfPainter
             // A SMALL dot is a snapped square rather than a circle, which is what Chromium draws
             // and is not something either shape can approximate: at three pixels it comes out of
             // the browser with no antialiased pixel anywhere in it.
-            if (width <= SquareDot)
+            if (width <= squareDot)
             {
                 Squares(paint, dots.Count, width + dots.Gap);
                 return;

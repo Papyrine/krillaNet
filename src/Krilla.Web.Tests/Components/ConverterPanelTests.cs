@@ -30,8 +30,10 @@ public class ConverterPanelTests : BunitTestContext
     {
         var cut = Render<ConverterPanel>();
 
-        cut.Find(".source-text").Input("<h1>Hello</h1><p>World</p>");
-        await cut.Find(".convert-btn").ClickAsync(new());
+        await cut.Find(".source-text")
+            .InputAsync("<h1>Hello</h1><p>World</p>");
+        await cut.Find(".convert-btn")
+            .ClickAsync(new());
 
         // The starter document uses nothing the engine does not implement, so the pane reports
         // the clean case rather than a list.
@@ -45,8 +47,10 @@ public class ConverterPanelTests : BunitTestContext
     {
         var cut = Render<ConverterPanel>();
 
-        cut.Find(".source-text").Input("<div style='display: flex'><i>a</i><i>b</i></div>");
-        await cut.Find(".convert-btn").ClickAsync(new());
+        await cut.Find(".source-text")
+            .InputAsync("<div style='display: flex'><i>a</i><i>b</i></div>");
+        await cut.Find(".convert-btn")
+            .ClickAsync(new());
 
         var diagnostics = cut.Find(".diagnostics");
         await Assert.That(diagnostics.TextContent).Contains("display");
@@ -59,9 +63,12 @@ public class ConverterPanelTests : BunitTestContext
     {
         var cut = Render<ConverterPanel>();
 
-        cut.Find(".margin-select").Change("96");
-        cut.Find(".source-text").Input(string.Empty);
-        await cut.Find(".convert-btn").ClickAsync(new());
+        await cut.Find(".margin-select")
+            .ChangeAsync("96");
+        await cut.Find(".source-text")
+            .InputAsync(string.Empty);
+        await cut.Find(".convert-btn")
+            .ClickAsync(new());
 
         // An empty document is legal and converts; what matters is that the pane is never left in
         // the "nothing happened" state — either a result or an error is showing.

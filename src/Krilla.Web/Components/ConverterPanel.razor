@@ -26,8 +26,10 @@
             <label>
                 Paper
                 <select class="paper-select" @bind="paper">
-                    <option value="@PaperSize.Letter">Letter</option>
-                    <option value="@PaperSize.A4">A4</option>
+                    @foreach (var sheet in Papers.All)
+                    {
+                        <option value="@sheet.Size">@sheet.Label</option>
+                    }
                 </select>
             </label>
             <label>

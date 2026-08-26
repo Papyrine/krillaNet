@@ -11,7 +11,7 @@ public class LocalAssetHandler : HttpMessageHandler
 {
     protected override Task<HttpResponseMessage> SendAsync(
         HttpRequestMessage request,
-        CancellationToken cancellationToken)
+        Cancel cancel)
     {
         var relative = request.RequestUri!.AbsolutePath.TrimStart('/');
 

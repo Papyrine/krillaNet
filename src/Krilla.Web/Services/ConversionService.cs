@@ -1,12 +1,5 @@
 namespace Krilla.Web.Services;
 
-/// <summary>The paper a conversion goes onto.</summary>
-public enum PaperSize
-{
-    Letter,
-    A4
-}
-
 /// <summary>
 /// The PDF, and everything the engine had to say while producing it.
 /// </summary>
@@ -38,9 +31,15 @@ public class ConversionService(FontStore fonts)
 
         var diagnostics = new List<HtmlDiagnostic>();
 
-        var options = paper == PaperSize.A4 ? HtmlOptions.A4 : HtmlOptions.Letter;
-        options.Fonts = set;
-        options.OnDiagnostic = diagnostics.Add;
+        var sheet = Papers.Find(paper);
+        var options = new HtmlOptions
+        {
+            PageWidth = sheet.Width,
+            PageHeight = sheet.Height,
+            Fonts = set,
+            OnDiagnostic = diagnostics.Add
+        };
+
         options.WithMargin(margin);
 
         // Images are the one thing this app cannot resolve. Nothing may reach the network — that

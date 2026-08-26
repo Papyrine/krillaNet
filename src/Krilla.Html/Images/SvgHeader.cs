@@ -29,7 +29,7 @@ static class SvgHeader
     /// stands in front of it in practice, and bounded so a file that merely happens to contain
     /// the text later is not scanned to its end.
     /// </remarks>
-    const int HeaderBytes = 64 * 1024;
+    const int headerBytes = 64 * 1024;
 
     /// <summary>
     /// Reads the size, or returns false when <paramref name="data"/> is not an SVG.
@@ -131,11 +131,11 @@ static class SvgHeader
             return Decompress(data);
         }
 
-        return Encoding.UTF8.GetString(data, 0, Math.Min(data.Length, HeaderBytes));
+        return Encoding.UTF8.GetString(data, 0, Math.Min(data.Length, headerBytes));
     }
 
     /// <remarks>
-    /// Only the header is inflated, so a compression bomb costs <see cref="HeaderBytes"/> rather
+    /// Only the header is inflated, so a compression bomb costs <see cref="headerBytes"/> rather
     /// than whatever the file claims to expand to.
     /// </remarks>
     static string? Decompress(byte[] data)
@@ -145,7 +145,7 @@ static class SvgHeader
             using var source = new MemoryStream(data);
             using var gzip = new GZipStream(source, CompressionMode.Decompress);
 
-            var buffer = new byte[HeaderBytes];
+            var buffer = new byte[headerBytes];
             var read = gzip.ReadAtLeast(buffer, buffer.Length, throwOnEndOfStream: false);
 
             return Encoding.UTF8.GetString(buffer, 0, read);

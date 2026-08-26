@@ -23,10 +23,11 @@ public class ServiceRegistrationTests
         // ThemePreferenceService rather than stopping at a missing dependency.
         services.AddScoped<IJSRuntime>(_ => new StubJSRuntime());
 
-        services.AddKrillaWeb(_ => new HttpClient(new LocalAssetHandler())
-        {
-            BaseAddress = new("http://localhost/")
-        });
+        services.AddKrillaWeb(_ =>
+            new(new LocalAssetHandler())
+            {
+                BaseAddress = new("http://localhost/")
+            });
 
         return services.BuildServiceProvider(
             new ServiceProviderOptions
@@ -66,7 +67,7 @@ public class ServiceRegistrationTests
 
         public ValueTask<TValue> InvokeAsync<TValue>(
             string identifier,
-            CancellationToken cancellationToken,
+            Cancel cancel,
             object?[]? args) =>
             default;
     }
