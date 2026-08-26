@@ -25,15 +25,55 @@
 static class UnsupportedCss
 {
     /// <summary>
-    /// Properties that are not read at all, each with the value that makes ignoring it correct.
+    /// Properties that are not read at all, each with the values that make ignoring it correct.
     /// </summary>
-    static readonly (string Property, string NoOp, string Reason)[] ignored =
+    /// <remarks>
+    /// <para>
+    /// A LIST of no-ops per property rather than one, because several of these have more than one
+    /// value the engine happens to agree with — and one has a value no author writes. AngleSharp's
+    /// own default stylesheet puts <c>unicode-bidi: embed</c> on every element in every document,
+    /// so a table with one no-op apiece would report the whole corpus.
+    /// </para>
+    /// <para>
+    /// Most of this table came out of one audit, run the way <c>CLAUDE.md</c> describes it: every
+    /// property the cascade hands back, against every property <see cref="StyleResolver"/> reads
+    /// and every string this file mentions. Nothing failed to produce it — which is the point of
+    /// running it — and every entry is a construct a document can use today and be wrong about in
+    /// silence. The three individual transform properties are the ones to notice:
+    /// <c>translate</c>, <c>rotate</c> and <c>scale</c> are not shorthands for <c>transform</c> and
+    /// do not reach it, so a document using the modern spelling moved nothing and was told nothing.
+    /// </para>
+    /// </remarks>
+    static readonly (string Property, string[] NoOps, string Reason)[] ignored =
     [
-        ("font-variant", "normal", "the regular face is used"),
-        ("font-stretch", "normal", "the regular face is used"),
-        ("writing-mode", "horizontal-tb", "laid out horizontally"),
-        ("direction", "ltr", "laid out left to right"),
-        ("column-count", "auto", "laid out in one column")
+        ("font-variant", ["normal"], "the regular face is used"),
+        ("font-stretch", ["normal"], "the regular face is used"),
+        ("font-size-adjust", ["none"], "the face is used at its declared size"),
+        ("font-kerning", ["auto", "normal"], "the text is shaped with the font's kerning"),
+        ("writing-mode", ["horizontal-tb"], "laid out horizontally"),
+        ("direction", ["ltr"], "laid out left to right"),
+        ("unicode-bidi", ["normal", "embed", "isolate"], "laid out in one direction"),
+        ("column-count", ["auto"], "laid out in one column"),
+        ("column-width", ["auto"], "laid out in one column"),
+        ("text-align-last", ["auto"], "the last line is aligned like the rest"),
+        ("text-justify", ["auto", "inter-word"], "justified between words"),
+        ("line-break", ["auto"], "lines break between words as usual"),
+        ("text-wrap", ["auto", "wrap"], "lines break at the last opportunity that fits"),
+        ("white-space-collapse", ["collapse"], "white space is collapsed"),
+        ("mix-blend-mode", ["normal"], "painted over what is under it"),
+        ("background-blend-mode", ["normal"], "the layers are painted over one another"),
+        ("isolation", ["auto"], "no group is isolated"),
+        ("background-attachment", ["scroll", "local"], "positioned against the box"),
+        ("border-image-source", ["none"], "the border is painted from its own colour and style"),
+        ("mask-image", ["none"], "nothing is masked"),
+        ("content-visibility", ["visible"], "laid out and painted"),
+        ("initial-letter", ["normal"], "the first letter is set like the rest"),
+        ("counter-set", [], "the counter keeps the value it had"),
+        ("translate", ["none"], "painted untransformed"),
+        ("rotate", ["none"], "painted untransformed"),
+        ("scale", ["none"], "painted untransformed"),
+        ("perspective", ["none"], "painted flat"),
+        ("transform-style", ["flat"], "painted flat")
     ];
 
     /// <summary>
@@ -127,10 +167,10 @@ static class UnsupportedCss
 
         Display(declaration, name, sink);
 
-        foreach (var (property, noOp, reason) in ignored)
+        foreach (var (property, noOps, reason) in ignored)
         {
             if (Set(declaration, property) is {} value &&
-                value != noOp &&
+                !noOps.Contains(value) &&
                 !IsInitial(value))
             {
                 Diagnostic.Property(sink, name, property, value, reason);

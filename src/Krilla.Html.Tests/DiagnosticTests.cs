@@ -338,6 +338,78 @@ public class DiagnosticTests
         await Assert.That(reports).IsEmpty();
     }
 
+    /// <summary>
+    /// The properties the most recent audit found: read by nothing and listed by nothing.
+    /// </summary>
+    /// <remarks>
+    /// Each one arrives from the cascade, changes what a browser draws, and said nothing at all
+    /// until this — which is the failure mode the table exists to prevent and the reason the audit
+    /// has to be re-run rather than trusted. Nothing failed to produce them; the list is the
+    /// difference between what AngleSharp hands back and what this engine reads.
+    ///
+    /// The three individual transform properties are the ones to notice. <c>translate</c>,
+    /// <c>rotate</c> and <c>scale</c> are not shorthands for <c>transform</c> and do not reach it,
+    /// so a document using the modern spelling moved nothing and was told nothing.
+    /// </remarks>
+    [Test]
+    public async Task ThePropertiesTheAuditFoundAreReported() =>
+        await Verify(
+            await Collect(
+                """
+                <div style="mix-blend-mode: multiply">a</div>
+                <div style="background-blend-mode: multiply">b</div>
+                <div style="isolation: isolate">c</div>
+                <div style="border-image-source: linear-gradient(red, blue)">d</div>
+                <div style="mask-image: url(m.png)">e</div>
+                <div style="column-width: 100px">f</div>
+                <div style="font-size-adjust: 0.5">g</div>
+                <div style="font-kerning: none">h</div>
+                <div style="text-justify: distribute">i</div>
+                <div style="line-break: strict">j</div>
+                <div style="text-align-last: right">k</div>
+                <div style="unicode-bidi: bidi-override">l</div>
+                <div style="transform-style: preserve-3d">m</div>
+                <div style="perspective: 400px">n</div>
+                <div style="background-attachment: fixed">o</div>
+                <div style="text-wrap: balance">p</div>
+                <div style="white-space-collapse: preserve">q</div>
+                <div style="translate: 10px 4px">r</div>
+                <div style="rotate: 45deg">s</div>
+                <div style="scale: 1.5">t</div>
+                <div style="content-visibility: hidden">u</div>
+                <div style="initial-letter: 2">v</div>
+                <div style="counter-set: chapter 3">w</div>
+                """));
+
+    /// <summary>
+    /// The same properties at the values this engine happens to agree with, which stay silent.
+    /// </summary>
+    /// <remarks>
+    /// The half of the table that is easy to get wrong, and the half a corpus cannot check: these
+    /// are values nothing in the corpus writes. <c>unicode-bidi: embed</c> is the one that would
+    /// have reported every element of every document — AngleSharp's own default stylesheet puts it
+    /// there — which is why the table carries a list of no-ops per property rather than one.
+    /// </remarks>
+    [Test]
+    public async Task TheirNoOpValuesAreSilent()
+    {
+        var reports = await Collect(
+            """
+            <div style="mix-blend-mode: normal">a</div>
+            <div style="isolation: auto">b</div>
+            <div style="font-kerning: auto">c</div>
+            <div style="text-justify: inter-word">d</div>
+            <div style="text-wrap: wrap">e</div>
+            <div style="white-space-collapse: collapse">f</div>
+            <div style="background-attachment: local">g</div>
+            <div style="unicode-bidi: embed">h</div>
+            <div style="translate: none; rotate: none; scale: none">i</div>
+            <div style="transform-style: flat; perspective: none">j</div>
+            """);
+
+        await Assert.That(reports).IsEmpty();
+    }
+
     [Test]
     public async Task ADiagnosticReadsAsASentence()
     {
