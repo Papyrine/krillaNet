@@ -25,6 +25,18 @@ public partial class ConverterPanel :
     string? pdfUrl;
     ConversionResult? result;
 
+    // Chrome's built-in PDF viewer reads Adobe's open parameters off the URL fragment. Left to
+    // itself it wraps a preview a few inches wide in a full toolbar and a thumbnail sidebar, and
+    // opens at whatever zoom fits the page height — which in a pane this shape is about 39%, small
+    // enough that the point of a preview is lost. Asking for neither, fitted to the width, leaves
+    // the page itself and nothing else.
+    //
+    // The fragment is kept OFF pdfUrl rather than baked into it, because that is the handle the
+    // download and the revoke both use, and a blob URL carrying a fragment is a different string
+    // from the one URL.revokeObjectURL was given.
+    string? PreviewUrl =>
+        pdfUrl is null ? null : $"{pdfUrl}#toolbar=0&navpanes=0&view=FitH";
+
     // A blob URL is a handle on bytes the browser is holding for us. Each conversion makes a new
     // one, so the previous has to be released or every convert leaks a PDF for the life of the
     // page — which on a page whose whole purpose is repeated conversion adds up quickly.
