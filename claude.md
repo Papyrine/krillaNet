@@ -132,6 +132,16 @@ containing block, `break-before`/`break-after: avoid`, a `tfoot` repeated at the
 its table continues onto, `rgba()` on a border, an outline, a decoration and a collapsed table's
 grid lines, an `inset` box shadow, and `display: block` on a `::before` or `::after`.
 
+And from the eleventh, which was mostly about declarations the parser was swallowing: `string-set`
+and `string()` for running headers, the `page` property and the named `@page` rules it selects,
+`word-wrap` beside `overflow-wrap`, the logical box properties (`margin-inline`, `padding-block`,
+`inline-size` and the rest), `list-style-type: lower-greek` and a literal string, a gradient as an
+inline element's background, and a percentage height on an inline-block or a float.
+between `top` and `bottom`, a percentage `height`/`min-height`/`max-height` against a definite
+containing block, `break-before`/`break-after: avoid`, a `tfoot` repeated at the foot of every page
+its table continues onto, `rgba()` on a border, an outline, a decoration and a collapsed table's
+grid lines, an `inset` box shadow, and `display: block` on a `::before` or `::after`.
+
 Three structural points worth knowing before changing anything:
 
 - **Layout needs the native, for shaping only.** `FontFace` reads its metrics out of the font bytes in managed code and `ImageData` reads image sizes from file headers, but `FontFace.Shape` calls through to krilla's rustybuzz. That crossing is unavoidable — measuring text correctly means shaping it — and it ended the earlier property that layout ran without a Rust toolchain.
@@ -154,7 +164,8 @@ It records two independent measurements, and **asserts neither**:
 - **`reference.boxes.json`** — the browser's `getBoundingClientRect()` per element, against our box tree. Integer-exact, localising ("this paragraph is 14px low" is a defect report), and — the practical reason it leads — computable without the native library, so it works on a machine with no Rust toolchain.
 - **`reference_0001.png`** — pixels, via AbsoluteError and SSIM.
 
-**Box geometry currently sits at zero across all 133 scenarios, with nothing unmatched**, and 97
+**Box geometry currently sits at zero across all 139 scenarios, with nothing unmatched**, and 100
+read SSIM 1.0000.
 read SSIM 1.0000. Several got there by finding a defect first, which is the argument for adding a
 scenario for anything the engine implements rather than only for what it implements well:
 `block/anonymous` found trailing inline content hoisted above a block sibling, `position/fixed`
@@ -219,6 +230,30 @@ Found by measuring against a browser, not by reading. Each cost a whole category
 - **`initial` is a no-op for every property in the `UnsupportedCss` table**, and reporting it is a false positive. It arrives far more often than authors write it, because a shorthand that omits a component sets that component to `initial` — `border: 0` produces a `border-style: initial` nobody typed. Not applied to `display` or `font-size`, whose initial values (`inline`, `medium`) this engine does not honour.
 
 The lesson generalises past the three: a corpus written alongside an engine tests what its author already knows to doubt. One import, of markup written by someone else for a different purpose, reached three blind spots at once. `notes.md` records the two edits made to the source — the font family, and the removal of the form widgets the test itself exempts.
+
+## Traps in margin collapsing
+
+`float/clearance` measures these, exact on all 27 boxes and pixel-identical.
+
+- **A box with no height, no border and no padding does not SEPARATE the margin above it from the
+  margin below.** The two join one collapsed set which is applied once, and applying it twice is
+  what an empty `<div>` between two paragraphs used to do: with 40px above and a 50px margin of its
+  own, everything after it sat 90px down where 50 belongs. The box keeps the position the PARTIAL
+  collapse gave it, which is what a browser reports for it, and the flow position returns to where
+  the margin started.
+- **The same walk already collapsed through such a box when an ANCESTOR asked for its leading
+  margin.** `LeadingMargin` and `TrailingMargin` both step over a self-collapsing child; it was only
+  the sequential placement in `LayoutChildren` that did not, which is why the defect needed a box
+  with nothing in it between two boxes with margins and survived a hundred scenarios.
+- **CLEARANCE takes a box out of that rule**, which is §8.3.1's own wording — two margins are
+  adjoining only when no clearance separates them — so the test is on the clearance actually TAKEN
+  rather than on the declaration. A cleared box that clears nothing collapses through like any
+  other.
+- **Clearance itself was already right in every ordinary arrangement**, including the one the todo
+  suspected: a cleared box whose own margin already carries it past the float keeps that margin in
+  full rather than being pulled back to the float's bottom. Measured, and the useful half of the
+  result.
+
 
 ## Traps in floats
 
@@ -663,6 +698,17 @@ against Chrome on geometry and the first two pixel-identical.
 - **Breaks on out-of-flow boxes are ignored, structurally.** `ForcedBreaks` walks `Children` alone, so a float or an absolute box contributes nothing — which is also CSS's rule, since neither is at a flow position a page could start at. It is worth knowing that this is a property of the walk rather than an explicit test, because a walk extended to `Floats` or `Positioned` for some other reason would silently change it.
 - **An `avoid` at a box edge moves the break to a RECORDED destination, not to a searched one.** The nearest earlier break opportunity is a LINE inside the box, and breaking there splits the very box the property was written to keep whole — background above the break and text below. So `break-after: avoid` points at the declaring box's own top edge and `break-before: avoid` at whatever precedes it in document order, and the two chain, so a run of headings each kept with what follows walks back to the first of them.
 - **`avoid` is a preference, and a move that would empty the page is refused.** A break has to happen somewhere; the alternative to taking it here is not taking it at all. A forced break at the same position wins outright, which is CSS's own precedence.
+- **A trailing margin is not content, and an empty box is.** The root element's margins never
+  collapse (CSS 2.1 §8.3.1), so the bottom margin of whatever ended the document is trapped inside
+  the root's box — `body { margin-bottom: 30px }` makes the root thirty pixels taller than anything
+  in it, and pagination measuring the root's own edge printed a second page with nothing on it. It
+  measures the deepest BOX now, which is why the walk is over boxes rather than over ink: an empty
+  box a thousand pixels tall takes the pages it asks for.
+- **A unit taller than the page is MOVED to a fresh sheet, unless it already starts at the page's
+  top.** The second half is what makes it terminate, and the first is what a browser does with a
+  picture or a table row that fits nowhere. An inline image is the case that exposed it: the
+  block-level one was already right through `Paginator.Unbreakable`, but an inline image hangs off
+  a line and so arrived as a line, which was stepped over and sliced.
 - **Both spellings have to be read.** The cascade does not alias them: a `page-break-after` declaration comes back under that name and nothing comes back under `break-after`. Reading one and not the other halves the documents the feature works on, while every test written in the spelling that was read still passes. The legacy spelling is the one that matters more in practice, being what reporting tools and mail merges emit.
 
 ## Traps in the inline box model
@@ -732,6 +778,17 @@ all four exact on geometry.
 - **`font-size: 3ex` resolves against the PARENT's face**, the same rule `em` follows, because the
   face after the declaration is what is being computed. `ResolveFontSize` is handed the parent's
   font rather than one built from a size it does not have yet.
+- **A named string's value is settled where the ELEMENT is and read where the PAGE is.** `string-set`
+  captures the element's own text, which the box builder has, while `string()`'s answer depends on
+  which sheet is asking, which only pagination knows — so the two are collected in different passes
+  and meet in `RunningStrings`. The rule is `first`: the value assigned by the first element on the
+  page, and otherwise whatever was carried forward, which is what makes a page holding no heading
+  keep the previous one.
+- **A named page is matched by EXTENT, not by assignment**, which gives `page: cover` CSS's
+  inheritance without any of its own: a sheet belongs to the innermost box whose extent covers where
+  that sheet begins, so every descendant of a named box is on named pages for exactly as long as the
+  box lasts. A name outranks every pseudo-class, and an unnamed rule still reaches a named sheet —
+  only a rule for the same slot is beaten.
 - **`@page` cannot have a face at all.** Its geometry is settled before the cascade can be read, and
   which face the root resolves to is a cascade result — so a page sized or margined in `ex` takes
   the approximation, and that is circular rather than lazy.

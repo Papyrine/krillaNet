@@ -102,8 +102,13 @@ A document's `@page` rules decide the paper — size, orientation and margins �
 `counter(page)` and `counter(pages)` are resolved per sheet, the page selectors `:first`, `:left`,
 `:right` and `:blank` all select, and a margin box takes its own declarations rather than
 inheriting from the document. No browser implements any of this, so it is one of the few places
-this converter does more than the reference it is measured against. `string()` and `string-set`
-are the part still missing, and a named page — `@page cover` — selects nothing and is reported.
+this converter does more than the reference it is measured against.
+
+`string-set` and `string()` work too, which is CSS's own way of putting a section's heading into a
+running header — `h2 { string-set: title content() }` beside
+`@top-center { content: string(title) }` heads every page with the section it starts in. So does
+`page: cover` and the `@page cover` rules it selects, for a document whose front matter wants a
+different header from its body.
 
 `orphans` and `widows` constrain where a page breaks, on by default because a browser honours them
 too: a paragraph whose natural break would strand a single line moves whole to the next sheet, and
@@ -117,6 +122,10 @@ Generated content works: `::before` and `::after` with strings, `attr()`, `count
 `::before` and `::after` take a `display` of their own: a block pseudo-element gets a box rather
 than joining its host's line, so `content: ""; display: block; clear: both` makes a container
 enclose its floats the way it always has.
+
+The logical box properties are read — `margin-inline`, `padding-block`, `inline-size` and the
+rest — as is `word-wrap`, the spelling `overflow-wrap` had for a decade before it was renamed and
+the one most documents still carry.
 
 Also `aspect-ratio`, `rgba()` on every colour property — text, backgrounds, borders, outlines,
 decorations and a collapsed table's rules — text and box shadows as offsets including `inset`,

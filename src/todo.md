@@ -14,16 +14,17 @@ it, that is stated, because an unmeasured gap is the more dangerous kind.
 
 ## Where the corpus stands
 
-133 scenarios across 10 categories, 1631 element boxes matched. **Box geometry matches Chrome
-exactly on every one** — worst offset 0.00px, worst size 0.00px, and nothing unmatched — and 97
-read SSIM 1.0000, of which 69 are pixel-identical outright. The other 28 differ on a scattering of
+139 scenarios across 10 categories, 1735 element boxes matched. **Box geometry matches Chrome
+exactly on every one** — worst offset 0.00px, worst size 0.00px, and nothing unmatched — and 100
+read SSIM 1.0000, of which 72 are pixel-identical outright. The other 28 differ on a scattering of
 antialiased pixels, which is what `AE` is there to show.
 
-Thirty-six read below 1.0000. None is a mystery, and none should be "fixed" by regenerating a
+Thirty-nine read below 1.0000. None is a mystery, and none should be "fixed" by regenerating a
 baseline:
 
 | Scenario | AE | SSIM | Cause |
 | --- | --- | --- | --- |
+| `page/tall_image` | 0.0122 | 0.9750 | Chromium's PRINTER drops a margin its own layout keeps, below |
 | `page/table_header` | 0.0119 | 0.9900 | Sub-pixel glyph positioning at 24 and 30px; page three is identical |
 | `table/cell_baseline` | 0.0031 | 0.9926 | Chromium's PRINTER does not apply cell baseline alignment, below |
 | `text/kerning` | 0.0201 | 0.9945 | Sub-pixel glyph positioning, below |
@@ -36,6 +37,7 @@ baseline:
 | `page/fixed_repeat` | 0.0039 | 0.9992 | Sub-pixel glyph positioning |
 | `block/border_styles` | 0.0002 | 0.9995 | A vertical dotted edge, below |
 | `page/break_between_lines` | 0.0017 | 0.9996 | Sub-pixel glyph positioning |
+| `page/trailing_margin` | 0.0024 | 0.9996 | Same |
 | `page/float_break` | 0.0023 | 0.9997 | Same |
 | `text/underline_offset` | 0.0002 | 0.9997 | Glyph edges |
 | `block/min_width` | 0.0009 | 0.9998 | Sub-pixel glyph positioning |
@@ -50,6 +52,7 @@ baseline:
 | `block/outline` | 0.0006 | 0.9999 | Same |
 | `float/overflow_bfc` | 0.0005 | 0.9999 | Same |
 | `image/inline_flow` | 0.0006 | 0.9999 | One antialiased pixel column at an image edge |
+| `inline/gradient` | 0.0055 | 0.9999 | The same ramp quantisation, plus glyph edges |
 | `inline/text_indent` | 0.0005 | 0.9999 | Sub-pixel glyph positioning |
 | `link/fragment` | 0.0001 | 0.9999 | Same |
 | `link/wrapped` | 0.0000 | 0.9999 | Same |
@@ -61,17 +64,20 @@ baseline:
 | `text/text_transform` | 0.0002 | 0.9999 | Same |
 | `ua/blockquote_pre` | 0.0005 | 0.9999 | Same |
 
-Two of these are the BROWSER's rather than this engine's, and both are recorded in their scenario's
-notes: `table/cell_baseline`, where Chromium's printer reserves the taller row that baseline
-alignment demands and then leaves the content against the top of it — disagreeing with the same
-browser's `getBoundingClientRect()` by exactly the offset — and `block/translucent`'s high `AE`,
-which is a one-unit rounding difference in alpha compositing over large flat areas.
+**Three of these are the BROWSER's rather than this engine's**, and each is recorded in its
+scenario's notes. `table/cell_baseline`: Chromium's printer reserves the taller row that cell
+baseline alignment demands and then leaves the content against the top of it, disagreeing with the
+same browser's own `getBoundingClientRect()` by exactly the offset. `page/tall_image`: its printer
+drops the margin above the paragraph after an overflowing picture, which the same layout keeps. And
+`block/translucent`'s high `AE`, which is a one-unit rounding difference in alpha compositing over
+large flat areas. In all three the box comparison is exact, which is what says the disagreement is
+with the printer rather than with the layout.
 
-Six causes cover the rest. Three are property gaps with a fix behind them — a vertical dotted
-edge, `text-decoration-skip-ink` and the gradient quantisation — and each is written up in the
-sections below. The other three are general: **sub-pixel glyph positioning**, **a box edge landing
-on a fractional position**, and **two antialiased edges meeting on a mitre**, which is the same
-shortfall `PaintUniformBorder` avoids for a uniform border by painting one ring.
+Six causes cover the rest. Three are property gaps with a fix behind them — a vertical dotted edge,
+`text-decoration-skip-ink` and the gradient quantisation — and each is written up in the sections
+below. The other three are general: **sub-pixel glyph positioning**, **a box edge landing on a
+fractional position**, and **two antialiased edges meeting on a mitre**, which is the same shortfall
+`PaintUniformBorder` avoids for a uniform border by painting one ring.
 
 ## Unimplemented layout modes
 
@@ -137,12 +143,10 @@ wrong is still unmeasured.
   the colour asked for once the colour is translucent. `block/translucent` keeps its dashed row to
   one side and names the table's junctions for this reason. The same is true of two antialiased
   trapezia meeting on a mitre, which is the residual `block/bevelled_borders` records.
-- **An inline element's background is still a colour only.** A gradient on one, and rounded corners
-  on one, are both reported. Chrome runs the gradient across the CONCATENATED fragments — measured:
-  a span wrapping onto a second line continues the ramp where the first line left off, so the
-  gradient's box is the fragments laid end to end — and rounds only the outer corners of the first
-  and last fragment. Both need the fills grouped per LINE rather than per run, which is how they are
-  painted now.
+- **Rounded corners on an inline element are still square**, and reported. Chrome rounds only the
+  outer corners of the FIRST and LAST fragment, which needs the background fill and the border edges
+  grouped per line fragment rather than per run — the background is per run today, and abuts
+  invisibly only because the fills are square.
 - **A gradient's ramp is quantised differently from Chrome's.** No pixel in `block/gradients`
   differs by more than two of 255 and `#stops` and `#hard` are exactly identical, so this is a
   rounding difference along the ramp rather than a geometry one. Probably not worth chasing; it is
@@ -166,10 +170,15 @@ wrong is still unmeasured.
 
 ## Floats
 
-- **Clearance is applied after the collapsed margin rather than as a quantity of its own.** CSS 2.1
-  §9.5.2 introduces clearance separately and stops the margin collapsing through it. The difference
-  appears only when a cleared box carries a margin large enough to clear the float unaided, which
-  is why `float/clear` stays away from it.
+- **A cleared box that is its parent's FIRST child collapses its top margin out through the
+  parent's top edge**, where CSS 2.1 §8.3.1 stops it: "the top margin of an in-flow block element
+  collapses with its first in-flow block-level child's top margin if the element has no top border,
+  no top padding, **and the child has no clearance**". Measured at 8px, and left out of
+  `float/clearance` rather than committed failing. It is a two-pass problem rather than an
+  oversight: whether that child HAS clearance depends on where the float ends, the float is placed
+  while the parent is laid out, and the parent's position is already settled by the margin this rule
+  would change — which is exactly why §9.5.2 is written in terms of a *hypothetical* position.
+
 - **The band a line is given is sampled over the strut height**, not the line height it turns out
   to have. A line made taller by an image or a larger inline font could overlap a float that begins
   a little below its top edge. Sampling correctly means laying the line out twice, which is why it
@@ -196,26 +205,12 @@ wrong is still unmeasured.
   never does. The guard that refuses a move leaving the page empty then makes the two readings
   identical. Measured rather than reasoned, and left as it is.
 
-- **`string()` and `string-set` are not implemented**, which is CSS's own way of putting a
-  section's heading into a running header. Not reported either, and that is the harder half: the
-  cascade DROPS a `content` declaration carrying `string()`, so it comes back empty and is
-  indistinguishable from a margin box that declared none. `PageMarginBoxTests` pins the limitation
-  so it is not rediscovered as a defect.
-- **A named `@page` selector selects nothing.** `@page cover` matches the elements carrying
-  `page: cover`, and that property is not read. Reported, and dropped rather than applied to every
-  page — a cover sheet's header on every page is worse than none.
 - **The three margin boxes in a strip are not divided between.** CSS Paged Media §5.3 sizes them
   from their content and shares out the remainder; each is given the whole strip here and placed by
   its own alignment. The two agree wherever one box in a strip has content, and differ only when
   two long ones share a strip, where this lets them overlap. Unmeasurable — Chromium implements no
   margin boxes at all, so there is no reference — and not reported, since nothing an author could
   act on distinguishes the readings.
-- **An INLINE image taller than a page is sliced at the page edge**, where Chrome moves it whole to
-  a fresh page and lets it overflow from there. The block-level case is fixed —
-  `Paginator.Unbreakable` lists a replaced element alongside a table row — but an inline image is
-  not a `LayoutBox`, it hangs off the line, so it goes through the line breaker instead and never
-  reaches that list. Unmeasured: `image/svg`'s `#tall` row is block-level, and an inline row for it
-  was removed for exactly this reason rather than committed failing.
 - **An `avoid` at a box edge moves the break to the DECLARING box's own edge**, rather than to the
   nearest earlier break opportunity. Those are not the same point — the nearest opportunity is a
   line inside the box, and breaking there splits the very box the property was written to keep
@@ -249,16 +244,20 @@ the table does NOT cover belongs here:
   aligned on the wrong row's baseline: each is a shape the engine does not produce rather than a
   value it declined to honour, and there is no site in the cascade scan to hang one on. An
   unanchored `position: fixed` box reports only because the declaration itself is a site.
-- **A percentage height inside an inline-block or a table cell still resolves as `auto`.** Both are
-  laid out through paths that thread no containing height, and which of those applies is a layout
-  result rather than a declaration — so reporting it would fire on documents that are perfectly
-  correct, which is the one thing the table must not do.
+- **A percentage height resolving as `auto`** is correct whenever the containing height is
+  indefinite and wrong otherwise, and which of those applies is a layout result rather than a
+  declaration — so reporting it would fire on documents that are perfectly correct, which is the one
+  thing the table must not do.
 - **Origin is not testable.** `ComputeCascadedStyle` does not say whether a declaration came from
   the document or from the default stylesheet, so a UA rule the author never wrote could only be
   kept quiet by naming the element. Nothing needs it today — `hr` was the single case, exempted from
   border-style reporting, and implementing the four bevelled styles removed the entry that would
   have fired. Worth remembering that an exemption by element name is a sign the property is
   unimplemented rather than a sign the report is wrong.
+- **A LOGICAL declaration wins over a physical one**, whatever order they were written in, because
+  the two never reach a common slot and nothing can say which came later. It is the right way round
+  — a physical value is on practically every element of every document, `* { margin: 0 }` being how
+  a stylesheet begins — and it is still not the cascade's rule. The same shape as the entry below.
 - **A pseudo-element's own declarations are separated by VALUE, not by origin**, which is the same
   limitation seen from the other side. Its cascade carries the host's declarations too, so a
   property is treated as the pseudo's when it differs from what the host's cascade says — and a
@@ -283,10 +282,15 @@ work rather than as tidying.
 - **AngleSharp drops some declarations rather than passing the value through**, so they can be
   neither honoured nor reported: `revert`, `text-overflow`, the `min-content`/`max-content`/
   `fit-content` sizing keywords, `aspect-ratio` given a single number, `overflow-wrap: anywhere`,
-  `content` given a `string()`, and `recto`/`verso` on both break spellings. The whole of `@page`
-  except its margins is dropped too — its `size`, its selector, and its margin box at-rules — and
-  is recovered by hand from the stylesheet's own text, because a page size is a whole-document
-  difference and a running header is the reason most documents have the rule.
+  `overflow: clip`, and `recto`/`verso` on both break spellings. Four more were dropped and are now
+  recovered from the stylesheet's own text by `CssSource`: `string-set`, `page`, a `content` value
+  carrying `string()`, and a `::before`'s `display`. The whole of `@page` except its margins goes
+  the same way — its `size`, its selector, and its margin box at-rules.
+- **AngleSharp does not ALIAS two spellings of one property**, which is a quieter version of the
+  same problem: `word-wrap` comes back under its own name and leaves `overflow-wrap` empty, exactly
+  as `page-break-before` does beside `break-before`. Both spellings of both are read now. The
+  logical box properties are the same shape again — `margin-inline` reaches no physical property at
+  all — and are read from their own names.
 - **A generic font family cannot be pinned in the corpus**, because a generic name is not legal as
   an `@font-face` family, so "does `<pre>` default to monospace" is not measurable here.
 - **A `::before` or `::after` rule's `display` is read from the stylesheet's own rules**, because
