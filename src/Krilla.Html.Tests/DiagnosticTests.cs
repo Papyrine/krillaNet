@@ -45,11 +45,12 @@ public class DiagnosticTests
         // an image that is simply absent are the same null, and the first is worth hearing about.
         "block/list_image",
 
-        // A row whose four border edges disagree on a colour, which is the one arrangement left
-        // where a rounded inline element differs from a browser: with no single ring to draw, the
-        // four rectangles are cut to the rounded outline instead, so the OUTER corner rounds and
-        // the inner one stays square. Everything else in the scenario is silent.
-        "inline/border_radius"
+        // inline/border_radius used to be here, for the row whose four border edges disagree on a
+        // colour. With no single ring to draw, its edges were painted as axis-aligned bands cut to
+        // the rounded outline — which rounded the OUTER corner and could not reach the inner one,
+        // part of the ring at a corner lying past the inner rectangle's corner and still short of
+        // the inner arc. The bands are mitre sectors now, which reach it, and the whole scenario is
+        // silent.
     ];
 
     /// <summary>
@@ -173,9 +174,11 @@ public class DiagnosticTests
     /// table. What is left of the borders here is a RADIUS on an edge that is not solid, which is a
     /// different gap — the corner is painted square.
     ///
-    /// The second row is the inline half of the same entry, and it narrowed rather than
-    /// disappearing: an inline element's corners are rounded now, and what is left is the INSIDE of
-    /// one, on the fragment whose edges disagree about a colour and so cannot be drawn as a ring.
+    /// The inline half of the same entry used to be the second row here. It is gone: an inline
+    /// element's radius is honoured whether or not its edges agree on a colour, since the edges
+    /// that cannot be drawn as one ring are drawn as one mitre sector each, cut to that same ring.
+    /// <see cref="ImplementedPropertiesStopReporting"/> keeps the arrangement, now asserting its
+    /// silence.
     /// </remarks>
     [Test]
     public async Task UnsupportedPaintingIsReported() =>
@@ -183,7 +186,6 @@ public class DiagnosticTests
             await Collect(
                 """
                 <div style="border-radius: 4px; border: 2px dashed red">b</div>
-                <p><span style="border: 4px solid red; border-right-color: blue; border-radius: 8px">c</span></p>
                 <div style="text-transform: full-width">f</div>
                 <div style="visibility: collapse">g</div>
                 <div style="transform: rotate3d(1, 1, 0, 45deg)">t</div>
@@ -543,6 +545,7 @@ public class DiagnosticTests
             <p style="height: 40px"><span style="height: 50%">a share of a definite height</span></p>
             <p>A <span style="background: silver; padding: 2px 6px; border-radius: 8px">rounded badge</span>.</p>
             <p>A <span style="border: 2px solid red; border-radius: 8px">rounded frame</span>.</p>
+            <p>A <span style="border: 4px solid red; border-right-color: blue; border-radius: 8px">two-toned frame</span>.</p>
             <div style="break-before: avoid; break-after: avoid">kept with its neighbours</div>
             <table><tr><td style="vertical-align: baseline">on the row's baseline</td></tr></table>
             """);

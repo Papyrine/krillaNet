@@ -1022,18 +1022,6 @@ static class PdfPainter
     }
 
     /// <summary>
-    /// The border around a rounded inline fragment: one ring where the edges share a colour, and
-    /// four rectangles cut to the outline where they do not.
-    /// </summary>
-    /// <remarks>
-    /// The ring is the same construction a block's uniform border takes, and it is what makes a
-    /// thick rounded border read as a ring rather than a tube — the inner corners are the outer
-    /// radii less the edge running along them. The fallback keeps the square path's four
-    /// rectangles and clips them to the rounded outline instead, which rounds the OUTER corner and
-    /// leaves the inner one square. Visible only where a thick border changes colour part way
-    /// round, which nothing in the corpus does and no document sensibly asks for.
-    /// </remarks>
-    /// <summary>
     /// An atomic inline image: its background, its border, and the picture inside both.
     /// </summary>
     /// <remarks>
@@ -1073,6 +1061,27 @@ static class PdfPainter
         PaintImage(surface, image.Image, image.Content);
     }
 
+    /// <summary>
+    /// The border around an inline fragment: one ring where the edges share a colour, and one
+    /// mitre sector per edge, cut to that same ring, where they do not.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// The ring is the construction a block's uniform border takes, and it is what makes a thick
+    /// rounded border read as a ring rather than a tube — the inner corners are the outer radii
+    /// less the edge running along them. Where the edges disagree there is no one ring to fill, so
+    /// the same two contours become the CLIP and each edge fills its own share of what they
+    /// enclose.
+    /// </para>
+    /// <para>
+    /// That share is a sector rather than a band along the side, and the difference is the whole
+    /// of what a rounded inner corner needs: part of the ring at a corner lies past the inner
+    /// rectangle's corner and still short of the inner ARC, so no band covers it and no clip can
+    /// put it back — a clip only takes area away. Splitting instead on the diagonal joining each
+    /// outer corner to the inner one beside it reaches it, and is also where a browser divides a
+    /// corner between two colours.
+    /// </para>
+    /// </remarks>
     static void PaintInlineBorder(Surface surface, ComputedStyle style, Rect rect)
     {
         if (!style.HasBorder)
@@ -1101,41 +1110,125 @@ static class PdfPainter
             return;
         }
 
+        var radii = RoundedBox.Resolve(style, rect);
+        var inner = new Rect(innerLeft, innerTop, innerRight - innerLeft, innerBottom - innerTop);
+
         using var builder = new PathBuilder();
-        RoundedBox.Resolve(style, rect).Trace(builder, rect, clockwise: true);
+        radii.Trace(builder, rect, clockwise: true);
+
+        // Wound the other way, so the non-zero rule cuts the middle out and the clip is the RING
+        // between the two outlines rather than the whole of the outer one. That is what rounds the
+        // INNER corner as well as the outer: the deflation is the same one the ring path takes,
+        // each radius less the edge running along it. Skipped where the border has swallowed the
+        // box whole and there is nothing left to cut.
+        if (inner.Width > 0 && inner.Height > 0)
+        {
+            radii
+                .Deflate(style.BorderTop, style.BorderRight, style.BorderBottom, style.BorderLeft)
+                .Trace(builder, inner, clockwise: false);
+        }
 
         using var outline = builder.Build();
         using var clip = surface.PushClip(outline);
 
-        Edge(style.BorderTopColor, style.BorderTopAlpha, rect.X, rect.Y, rect.Width, style.BorderTop);
-        Edge(
+        // The USED widths, which are the snapped ones on the horizontal pair. Read off the two
+        // rectangles rather than off the style, so an edge and the contour it has to meet are
+        // derived from the same number.
+        var top = inner.Y - rect.Y;
+        var right = rect.Right - inner.Right;
+        var bottom = rect.Bottom - inner.Bottom;
+        var left = inner.X - rect.X;
+
+        // Each edge fills the SECTOR its two mitre diagonals cut out, where it used to fill the
+        // axis-aligned band along its side. The band is what a square inner corner allowed and a
+        // rounded one does not: part of the ring at a corner lies PAST the inner rectangle's
+        // corner and still short of the inner ARC, so no band covers it however the bands are
+        // clipped, and the corner came out square whatever the clip said. A sector reaches it,
+        // and splitting on the diagonal joining each outer corner to the inner one beside it is
+        // also where a browser divides a corner between two colours.
+        Sector(
+            style.BorderTopColor,
+            style.BorderTopAlpha,
+            top,
+            (rect.X, rect.Y),
+            (left, top),
+            (rect.Right, rect.Y),
+            (-right, top),
+            Reach(rect.Height, top, rect.Width, left + right));
+
+        Sector(
             style.BorderBottomColor,
             style.BorderBottomAlpha,
-            rect.X,
-            rect.Bottom - style.BorderBottom,
-            rect.Width,
-            style.BorderBottom);
+            bottom,
+            (rect.X, rect.Bottom),
+            (left, -bottom),
+            (rect.Right, rect.Bottom),
+            (-right, -bottom),
+            Reach(rect.Height, bottom, rect.Width, left + right));
 
-        Edge(style.BorderLeftColor, style.BorderLeftAlpha, rect.X, rect.Y, style.BorderLeft, rect.Height);
-        Edge(
+        Sector(
+            style.BorderLeftColor,
+            style.BorderLeftAlpha,
+            left,
+            (rect.X, rect.Y),
+            (left, top),
+            (rect.X, rect.Bottom),
+            (left, -bottom),
+            Reach(rect.Width, left, rect.Height, top + bottom));
+
+        Sector(
             style.BorderRightColor,
             style.BorderRightAlpha,
-            rect.Right - style.BorderRight,
-            rect.Y,
-            style.BorderRight,
-            rect.Height);
+            right,
+            (rect.Right, rect.Y),
+            (-right, top),
+            (rect.Right, rect.Bottom),
+            (-right, -bottom),
+            Reach(rect.Width, right, rect.Height, top + bottom));
 
-        void Edge(Color? color, float alpha, float x, float y, float w, float h)
+        // One edge's share of the ring: the quadrilateral from its two OUTER corners, run inward
+        // along the diagonal each makes with the inner corner beside it. It starts at the sharp
+        // corner of the border box rather than on the rounded outline because the clip is what
+        // rounds it, and it runs past the inner outline for the same reason.
+        void Sector(
+            Color? color,
+            float alpha,
+            float width,
+            (float X, float Y) a,
+            (float X, float Y) inwardA,
+            (float X, float Y) b,
+            (float X, float Y) inwardB,
+            float reach)
         {
-            if (color is not {} painted || w <= 0 || h <= 0)
+            if (color is not {} painted || width <= 0)
             {
                 return;
             }
 
-            using var path = PdfPath.Rectangle(Rectangle.FromSize(x, y, w, h));
+            using var wedge = new PathBuilder();
+            wedge.MoveTo(a.X, a.Y);
+            wedge.LineTo(a.X + inwardA.X * reach, a.Y + inwardA.Y * reach);
+            wedge.LineTo(b.X + inwardB.X * reach, b.Y + inwardB.Y * reach);
+            wedge.LineTo(b.X, b.Y);
+            wedge.Close();
+
+            using var path = wedge.Build();
             using var paint = Krilla.Paint.Solid(painted);
             surface.SetFill(new Fill(paint, alpha)).DrawPath(path);
         }
+
+        // How far along its diagonals a sector runs, as a multiple of the distance from an outer
+        // corner to the inner one beside it. Far enough to leave the box across its own axis, or
+        // to meet the sector facing it, whichever comes first — the ring lies inside the box, so
+        // the first bound covers all of it, and the second is what keeps the quadrilateral from
+        // folding through itself on a box narrower than its own borders are deep.
+        static float Reach(float depth, float width, float span, float closing) =>
+            MathF.Min(Ratio(depth, width), Ratio(span, closing));
+
+        // Guarded because a sector faced by no border at all closes on nothing, and is bounded by
+        // the box alone.
+        static float Ratio(float have, float per) =>
+            per <= 0 ? float.PositiveInfinity : have / per;
     }
 
     /// <summary>

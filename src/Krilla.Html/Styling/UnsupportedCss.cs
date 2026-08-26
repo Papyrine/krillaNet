@@ -677,31 +677,25 @@ static class UnsupportedCss
         ComputedStyle style,
         Action<HtmlDiagnostic> sink)
     {
-        // Honoured for the background always, and for a border only where the border is painted as
-        // one ring — which needs every edge solid and every edge the same colour. Anything else
-        // falls back to four mitred trapezia, which have square corners, so the radius is honoured
-        // on the fill underneath and lost on the frame over it.
+        // Honoured for the background always, and for a BLOCK-level border only where that border
+        // is painted as one ring — which needs every edge solid and every edge the same colour.
+        // Anything else falls back to four mitred trapezia, which have square corners, so the
+        // radius is honoured on the fill underneath and lost on the frame over it.
         if (!style.HasBorder)
         {
             return;
         }
 
-        var reason = "the border is painted with square corners";
-
+        // An inline element's radius is honoured whatever its edges say. Where they agree on a
+        // colour the border is one ring; where they do not it is one mitre sector per edge, cut to
+        // that same ring — so both corners round either way, and this branch reported the INSIDE of
+        // one until the sectors replaced the axis-aligned bands that could not reach it.
         if (style.Display == DisplayKind.Inline)
         {
-            // An inline element's border is never mitred: a fragment has no corner to mitre at the
-            // end where the line broke, so it is a ring where the edges agree on a colour and four
-            // rectangles cut to the rounded outline where they do not. What a radius loses there is
-            // the INSIDE of the corner rather than the corner itself.
-            if (SameColor(style))
-            {
-                return;
-            }
-
-            reason = "an inline element's border is painted with a square inner corner";
+            return;
         }
-        else if (style.PaintsBorderAsRing)
+
+        if (style.PaintsBorderAsRing)
         {
             return;
         }
@@ -712,55 +706,15 @@ static class UnsupportedCss
                 !IsZero(value) &&
                 !IsInitial(value))
             {
-                Diagnostic.Property(sink, element, corner, value, reason);
+                Diagnostic.Property(
+                    sink,
+                    element,
+                    corner,
+                    value,
+                    "the border is painted with square corners");
                 return;
             }
         }
-    }
-
-    /// <summary>
-    /// Whether every border edge with a width agrees on its colour and opacity.
-    /// </summary>
-    /// <remarks>
-    /// The test <see cref="ComputedStyle.PaintsBorderAsRing"/> makes, less the requirement that all
-    /// four edges be present and solid. Neither applies to an inline element: a wrapped fragment
-    /// has no left or right border at all, and the styles are not drawn there anyway.
-    /// </remarks>
-    static bool SameColor(ComputedStyle style)
-    {
-        (float Width, Color? Color, float Alpha)[] sides =
-        [
-            (style.BorderTop, style.BorderTopColor, style.BorderTopAlpha),
-            (style.BorderRight, style.BorderRightColor, style.BorderRightAlpha),
-            (style.BorderBottom, style.BorderBottomColor, style.BorderBottomAlpha),
-            (style.BorderLeft, style.BorderLeftColor, style.BorderLeftAlpha)
-        ];
-
-        Color? found = null;
-        var alpha = 1f;
-
-        foreach (var (width, color, sideAlpha) in sides)
-        {
-            if (width <= 0)
-            {
-                continue;
-            }
-
-            if (color is not {} painted)
-            {
-                return false;
-            }
-
-            if (found is {} already && (already != painted || alpha != sideAlpha))
-            {
-                return false;
-            }
-
-            found = painted;
-            alpha = sideAlpha;
-        }
-
-        return true;
     }
 
     /// <summary>

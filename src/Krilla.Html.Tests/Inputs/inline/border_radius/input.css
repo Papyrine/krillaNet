@@ -49,8 +49,9 @@ p { width: 300px; margin-bottom: 6px; line-height: 22px; }
   border-radius: 10px;
 }
 
-/* Edges that disagree, so there is no one ring to draw: the four rectangles are cut to the rounded
-   outline instead, which rounds the outer corner and leaves the inner one square. */
+/* Edges that disagree, so there is no one ring to draw: each edge is cut to that ring inside the
+   mitre sector its two diagonals bound. A band along the side cannot do it — part of the ring at a
+   corner lies past the inner rectangle's corner and still short of the inner arc. */
 .two-tone {
   background: #dde6f2;
   padding: 2px 8px;

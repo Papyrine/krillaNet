@@ -178,7 +178,7 @@ It records two independent measurements, and **asserts neither**:
 - **`reference.boxes.json`** — the browser's `getBoundingClientRect()` per element, against our box tree. Integer-exact, localising ("this paragraph is 14px low" is a defect report), and — the practical reason it leads — computable without the native library, so it works on a machine with no Rust toolchain.
 - **`reference_0001.png`** — pixels, via AbsoluteError and SSIM.
 
-**Box geometry currently sits at zero across all 151 scenarios, with nothing unmatched**, and 105
+**Box geometry currently sits at zero across all 151 scenarios, with nothing unmatched**, and 106
 read SSIM 1.0000. Several got there by finding a defect first, which is the argument for adding a
 scenario for anything the engine implements rather than only for what it implements well:
 `block/anonymous` found trailing inline content hoisted above a block sibling, `position/fixed`
@@ -198,7 +198,7 @@ seen on fewer words. FOUR are the browser's rather than this engine's: `table/ce
 its printer drops a margin the same layout keeps; `block/background_repeat` (0.9842), where it blurs
 a spaced background's tile edges; and `block/translucent`'s `AE`, which is a one-unit rounding
 difference in alpha compositing. A scenario reading SSIM 1.0000 is not necessarily
-pixel-identical — thirty-one differ on a scattering of antialiased pixels, which is what `AE` is
+pixel-identical — thirty-two differ on a scattering of antialiased pixels, which is what `AE` is
 there to show. Seventy-four are identical outright.
 
 **The unmatched count is an assertion, not a statistic.** `BaselineHealthTests.EveryElementIsMeasured`
@@ -898,10 +898,28 @@ they came from, which is the point the section below about measurement makes.
   ramp on the run left the padding strip unpainted AND made the ramp that much shorter than the
   browser's — the phase wrong everywhere, not only at the ends. `InlineRamps` measured runs and is
   gone; `InlineFragments` answers both questions.
-- **A rounded inline border is a RING where its edges agree on a colour and four clipped rectangles
-  where they do not.** `UnsupportedCss` cannot reuse `PaintsBorderAsRing` to decide which: that
-  requires all four edges present, and a fragment in the middle of a wrapped element has no left or
-  right border at all.
+- **A rounded inline border is a RING where its edges agree on a colour and one MITRE SECTOR per
+  edge, cut to that same ring, where they do not.** `UnsupportedCss` cannot reuse
+  `PaintsBorderAsRing` to decide which: that requires all four edges present, and a fragment in the
+  middle of a wrapped element has no left or right border at all.
+- **A band along each side cannot draw a rounded INNER corner, and no clip can rescue it.** Part of
+  the ring at a corner lies past the inner rectangle's corner and still short of the inner ARC: at a
+  10px radius over a 4px border, in a box cornered at (14, 208), the point (19, 214) is in the ring
+  and outside every band. A clip only takes area AWAY — so clipping the bands to the ring, which is
+  the obvious fix and the one this reached for first, left the corner exactly as square as before
+  and changed not one pixel of the render. The bands had to become SECTORS, each bounded by the
+  diagonals joining its two outer corners to the inner ones beside them. It reads as a corner
+  problem and is a COVERAGE one.
+- **That diagonal is also where a browser divides a corner between two colours**, so the sectors
+  settled a second difference nobody had attributed: the bands OVERLAPPED at each corner and the
+  last drawn took the whole of it, which put the right edge's colour on both right-hand corners. A
+  sector runs until it leaves the box across its own axis or meets the sector facing it, whichever
+  comes first — the second bound being what stops the quadrilateral folding through itself on a box
+  narrower than its own borders are deep.
+- **What is left is the mitre seam**, two antialiased sectors meeting on a diagonal not compositing
+  to full coverage: eight pixels at a tenth of a shade, the same residual and the same cause as
+  `block/bevelled_borders`. Which is why `PaintUniformBorder` still exists — where the edges DO
+  agree, one ring has no internal seam at all.
 
 ## Traps in the value layer
 
@@ -1445,9 +1463,9 @@ The other thing the audit cannot see is a syntax the resolver does not PARSE. `c
 
 The presentational attributes left the table wholesale, which is the largest single removal it has had: `<table width>`, `cellpadding`, `cellspacing`, `border`, `bgcolor`, `align`, `valign`, `nowrap`, `<hr>`'s four, `<font>`'s three, `<img align/border/hspace/vspace>` and `type` on both kinds of list are all mapped onto CSS now. What is left in `UnsupportedAttributes` reaches no property at all — `rules` and `frame` on a table, and body's three link colours — and an attribute whose VALUE names nothing is reported by `PresentationalHints` itself.
 
-Still reported rather than implemented: `column-count` and `column-width`, `writing-mode`, `direction`, `unicode-bidi`, `font-variant`, `font-stretch`, `font-size-adjust`, `font-kerning`, `text-justify`, `line-break`, `text-wrap: balance` and `pretty`, `white-space-collapse: preserve-spaces`, `mix-blend-mode` and `background-blend-mode`, `isolation`, `background-attachment`, `border-image-source`, `mask-image`, `content-visibility`, `initial-letter`, `perspective` and `transform-style`, a wavy text decoration, `word-break: keep-all`, a blurred or spread shadow, automatic hyphenation, a `position: fixed` box with neither `top` nor `bottom` given, `visibility: collapse` on a table row, an unrecognised `list-style-type`, an unresolved `list-style-image`, a `content` value that names something unreadable, a non-inline `display` on a pseudo-element of an INLINE host, a named `@page` selector, and the INNER corner of a rounded inline element whose border edges disagree about a colour.
+Still reported rather than implemented: `column-count` and `column-width`, `writing-mode`, `direction`, `unicode-bidi`, `font-variant`, `font-stretch`, `font-size-adjust`, `font-kerning`, `text-justify`, `line-break`, `text-wrap: balance` and `pretty`, `white-space-collapse: preserve-spaces`, `mix-blend-mode` and `background-blend-mode`, `isolation`, `background-attachment`, `border-image-source`, `mask-image`, `content-visibility`, `initial-letter`, `perspective` and `transform-style`, a wavy text decoration, `word-break: keep-all`, a blurred or spread shadow, automatic hyphenation, a `position: fixed` box with neither `top` nor `bottom` given, `visibility: collapse` on a table row, an unrecognised `list-style-type`, an unresolved `list-style-image`, a `content` value that names something unreadable, a non-inline `display` on a pseudo-element of an INLINE host, and a named `@page` selector.
 
-The last of those is worth reading twice, because it narrowed rather than disappearing. An inline element's corners are rounded now; what is left is the inside of one, on the fragment that cannot be drawn as a ring. `white-space: break-spaces` came off the list the other way — not implemented, but found to be unreachable: AngleSharp drops it from both the shorthand and the longhand, so nothing can see it to report it.
+The INNER corner of a rounded inline element whose border edges disagree about a colour used to end that list, having narrowed onto it from the whole corner. It is gone too: the edges that cannot be drawn as one ring are drawn as one mitre sector each, cut to that same ring, and `inline/border_radius` reads SSIM 1.0000 and reports nothing. `white-space: break-spaces` came off the list the other way — not implemented, but found to be unreachable: AngleSharp drops it from both the shorthand and the longhand, so nothing can see it to report it.
 
 `border-style` came off it entirely, which is the first property to leave the table by having every value it takes honoured rather than by having one value reasoned about — the four bevelled styles were the last four, and `hr`'s by-name exemption went with them. `break-before` and `break-after` followed, and their test is now an assertion of ABSENCE: every value either takes is honoured, so the case that used to prove the report fires proves it does not.
 

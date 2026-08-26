@@ -2588,9 +2588,25 @@ surround, to its closing edge.
   giving a pill rather than a rectangle with two circular ends.
 - `#six` is a gradient under a rounded fill. The ramp's box is the element's whole advance laid end
   to end, which the rounding does not change: the fragment shows the same slice it showed before.
-- `#seven` is the case with no single ring to draw. Its four edges disagree, so they are painted as
-  four rectangles cut to the rounded outline — which rounds the OUTER corner and leaves the inner
-  one square. That is the one thing left, and it is what still reports.
+- `#seven` is the case with no single ring to draw. Its four edges disagree, so each is painted
+  inside the MITRE SECTOR its two diagonals bound, cut to the same ring `#two` is drawn as.
+
+  It read as a corner problem and was a COVERAGE one. The edges used to be axis-aligned bands along
+  each side, and a band cannot reach a rounded inner corner however it is clipped: part of the ring
+  at a corner lies past the inner rectangle's corner and still short of the inner ARC — (19, 214)
+  here, at a 10px radius over a 4px border on a box cornered at (14, 208). A clip only takes area
+  away, so adding the inner outline to the clip, which is what "round the inner corner" sounds like
+  it needs, changed not one pixel. Sectors reach it.
+
+  The diagonal they split on is also where a browser divides a corner between two colours, so this
+  settled a second difference nobody had attributed: the bands overlapped at each corner and the
+  last one drawn took the whole of it, putting `border-right-color` on both right-hand corners.
+  Eighty pixels of the frame were wrong by up to 210 of 255, and twenty more by up to 71.
+
+  What is left is eight pixels at up to 27 of 255, on the mitre diagonals: two antialiased sectors
+  meeting there do not composite to full coverage, which is the residual `block/bevelled_borders`
+  records for the same reason and the reason a uniform border is still drawn as one ring instead.
+  The scenario reads SSIM 1.0000 and reports nothing.
 
 Painting a fragment as a unit had to leave the paint ORDER alone, and does: a fragment is drawn at
 the first run inside it, which is exactly where the per-run fill it replaces would have happened. So
@@ -2602,7 +2618,7 @@ keeps the painting path it had, which is what the rest of the corpus staying ide
 
 | Reference (Chrome) | Krilla.Html |
 | --- | --- |
-| **Page 1** | **Page 1. AE 0.0018 · SSIM 0.9999** |
+| **Page 1** | **Page 1. AE 0.0018 · SSIM 1.0000** |
 | <img src="inline/border_radius/reference_0001.png" width="480"> | <img src="inline/border_radius/result%23page_0001.verified.png" width="480"> |
 
 
