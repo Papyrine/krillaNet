@@ -1,6 +1,3 @@
-using AngleSharp.Dom;
-using Krilla.Html.Layout;
-
 /// <summary>
 /// Coverage-driven font fallback: which face draws a character the resolved one lacks.
 /// </summary>
@@ -49,10 +46,10 @@ public class FontFallbackTests
         var runs = await Runs($"<p>a{saturn}b</p>", "Liberation Mono");
 
         await Assert.That(runs.Select(_ => _.Face.Family).ToArray())
-            .IsEquivalentTo(new[] {"Liberation Mono", "Liberation Sans", "Liberation Mono"});
+            .IsEquivalentTo(["Liberation Mono", "Liberation Sans", "Liberation Mono"]);
 
         await Assert.That(runs.Select(_ => _.Text).ToArray())
-            .IsEquivalentTo(new[] {"a", saturn, "b"});
+            .IsEquivalentTo(["a", saturn, "b"]);
     }
 
     /// <summary>

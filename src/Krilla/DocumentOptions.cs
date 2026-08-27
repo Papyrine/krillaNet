@@ -1,23 +1,14 @@
-namespace Krilla;
+﻿namespace Krilla;
 
 /// <summary>
 /// The PDF specification version to target.
 /// </summary>
 public enum PdfVersion
 {
-    /// <summary>PDF 1.4.</summary>
     Pdf14 = 0,
-
-    /// <summary>PDF 1.5.</summary>
     Pdf15 = 1,
-
-    /// <summary>PDF 1.6.</summary>
     Pdf16 = 2,
-
-    /// <summary>PDF 1.7.</summary>
     Pdf17 = 3,
-
-    /// <summary>PDF 2.0.</summary>
     Pdf20 = 4
 }
 

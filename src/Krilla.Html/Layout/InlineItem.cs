@@ -55,7 +55,7 @@ sealed record InlineItem(
     bool ForcedBreak = false,
     bool SoftBreak = false,
     ImageData? Image = null,
-    string? Link = null,
+    AnchorLink? Link = null,
     LayoutBox? Box = null,
     IReadOnlyList<ComputedStyle>? Backdrops = null,
     InlineEdgeKind Edge = InlineEdgeKind.None,

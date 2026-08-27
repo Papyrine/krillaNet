@@ -270,9 +270,11 @@ static class StyleResolver
             root,
             parent);
 
+        var display = ParseDisplay(declaration.GetPropertyValue("display"), element.LocalName);
+
         var style = new ComputedStyle
         {
-            Display = ParseDisplay(declaration.GetPropertyValue("display"), element.LocalName),
+            Display = display,
             MarginTop = Length(declaration, "margin-top", font, root),
             MarginRight = Length(declaration, "margin-right", font, root),
             MarginBottom = Length(declaration, "margin-bottom", font, root),
@@ -325,10 +327,10 @@ static class StyleResolver
             BorderRightAlpha = ColorAlpha(declaration, "border-right-color", alpha),
             BorderBottomAlpha = ColorAlpha(declaration, "border-bottom-color", alpha),
             BorderLeftAlpha = ColorAlpha(declaration, "border-left-color", alpha),
-            BorderTopColorIsCurrent = IsCurrentColor(declaration, "top"),
-            BorderRightColorIsCurrent = IsCurrentColor(declaration, "right"),
-            BorderBottomColorIsCurrent = IsCurrentColor(declaration, "bottom"),
-            BorderLeftColorIsCurrent = IsCurrentColor(declaration, "left"),
+            BorderTopColorIsCurrent = IsCurrentColor(declaration, "top", display),
+            BorderRightColorIsCurrent = IsCurrentColor(declaration, "right", display),
+            BorderBottomColorIsCurrent = IsCurrentColor(declaration, "bottom", display),
+            BorderLeftColorIsCurrent = IsCurrentColor(declaration, "left", display),
             BoxSizing = ParseBoxSizing(declaration.GetPropertyValue("box-sizing")),
             Width = Length(declaration, "width", font, root, CssLength.Auto),
             Height = Length(declaration, "height", font, root, CssLength.Auto),
@@ -705,13 +707,30 @@ static class StyleResolver
     /// Whether the edge's colour is <c>currentColor</c>, declared or by default.
     /// </summary>
     /// <remarks>
+    /// <para>
     /// The same three conditions <see cref="BorderColor"/> treats as the initial value, asked
     /// separately because the answer outlives the colour: a bevelled edge is drawn in a fixed pair
     /// of shades in this case rather than in shades derived from what <c>currentColor</c> resolved
     /// to. See <see cref="ComputedStyle.BorderTopColorIsCurrent"/>.
+    /// </para>
+    /// <para>
+    /// A TABLE is the exception, and it is measured rather than reasoned: Chromium draws a table,
+    /// a row, a row group and a cell from the colour <c>currentColor</c> resolved to, and only
+    /// everything else from the fixed pair. A table with <c>color: gray</c> and no border colour
+    /// gets the gray derivation, one with <c>color: #cc3333</c> gets that colour's, and one left at
+    /// the initial black gets what black derives to — where a <c>div</c> in each of those three
+    /// arrangements gets the same fixed pair. Written on the DISPLAY rather than the element name
+    /// so <c>display: table</c> on a <c>div</c> follows it too, which is the distinction Chromium
+    /// itself makes.
+    /// </para>
     /// </remarks>
-    static bool IsCurrentColor(ICssStyleDeclaration declaration, string side)
+    static bool IsCurrentColor(ICssStyleDeclaration declaration, string side, DisplayKind display)
     {
+        if (ComputedStyle.IsTable(display))
+        {
+            return false;
+        }
+
         var value = declaration.GetPropertyValue($"border-{side}-color");
 
         return string.IsNullOrWhiteSpace(value) ||

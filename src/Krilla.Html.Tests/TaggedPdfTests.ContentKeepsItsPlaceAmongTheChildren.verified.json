@@ -1,0 +1,12 @@
+﻿[
+  "Strong [text]",
+  "P [text, Strong, text]",
+  "Link [text, link]",
+  "P [text, Link, text]",
+  "LBody [text]",
+  "LI [LBody]",
+  "L [LI]",
+  "Art [P, P, L]",
+  "Part [Art]",
+  "Document [Part]"
+]

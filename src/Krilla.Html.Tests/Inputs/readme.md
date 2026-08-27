@@ -29,7 +29,7 @@ toolchain. Zero means the box tree agrees with Chrome exactly.
 
 **Pixels** are AbsoluteError and SSIM against the printed reference.
 
-Boxes sit at zero across the whole corpus: all 151 scenarios match Chrome's geometry exactly. Pixels
+Boxes sit at zero across the whole corpus: all 153 scenarios match Chrome's geometry exactly. Pixels
 are close behind — 105 read SSIM 1.0000 and 74 are identical outright.
 
 Several defects reached that state rather than starting there, each found by the scenario named for
@@ -42,7 +42,7 @@ long word to a fresh line and then never offered it for splitting, and `position
 absolute box inside a stacking context twice. Each scenario's `notes.md` records what it found and
 what changed.
 
-The forty-six below 1.0000 come down to named causes. Four of them are the BROWSER's:
+The forty-eight below 1.0000 come down to named causes. Four of them are the BROWSER's:
 `table/cell_baseline` (0.9926), where Chromium's printer reserves the taller row that cell baseline
 alignment demands and then leaves the content against the top of it; `page/tall_image` (0.9750),
 where it drops the margin above the paragraph after an overflowing picture;

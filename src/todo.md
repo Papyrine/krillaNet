@@ -14,12 +14,12 @@ it, that is stated, because an unmeasured gap is the more dangerous kind.
 
 ## Where the corpus stands
 
-151 scenarios across 10 categories, 1964 element boxes matched. **Box geometry matches Chrome
+153 scenarios across 10 categories, 1994 element boxes matched. **Box geometry matches Chrome
 exactly on every one** — worst offset 0.00px, worst size 0.00px, and nothing unmatched — and 105
 read SSIM 1.0000, of which 74 are pixel-identical outright. The other 31 differ on a scattering of
 antialiased pixels, which is what `AE` is there to show.
 
-Forty-six read below 1.0000. None is a mystery, and none should be "fixed" by regenerating a
+Forty-eight read below 1.0000. None is a mystery, and none should be "fixed" by regenerating a
 baseline:
 
 | Scenario | AE | SSIM | Cause |
@@ -33,7 +33,9 @@ baseline:
 | `page/table_footer` | 0.0114 | 0.9984 | Same, at 24 and 30px; page three is identical |
 | `block/shadows` | 0.0057 | 0.9985 | Antialiasing on `#rounded`'s corner; no pixel differs by more than 2 of 255 |
 | `image/svg` | 0.0028 | 0.9988 | Sub-pixel glyph positioning in the `<text>` inside the picture |
+| `block/border_radius_sides` | 0.0019 | 0.9988 | A corner seam where two colours hand over, below |
 | `block/bevelled_borders` | 0.0009 | 0.9990 | Antialiasing where two colours meet on a mitre, below |
+| `table/bevelled_borders` | 0.0005 | 0.9990 | The same mitres |
 | `page/break_avoid` | 0.0045 | 0.9991 | Sub-pixel glyph positioning; pages one and three are identical |
 | `page/fixed_repeat` | 0.0039 | 0.9992 | Sub-pixel glyph positioning |
 | `block/border_styles` | 0.0002 | 0.9995 | A vertical dotted edge, below |
@@ -83,11 +85,12 @@ positions does not. And `block/translucent`'s high `AE`, which is a one-unit rou
 alpha compositing over large flat areas. In all four the box comparison is exact, which is what says
 the disagreement is with the printer rather than with the layout.
 
-Six causes cover the rest. Three are property gaps with a fix behind them — a vertical dotted edge,
-`text-decoration-skip-ink` and the gradient quantisation — and each is written up in the sections
-below. The other three are general: **sub-pixel glyph positioning**, **a box edge landing on a
-fractional position**, and **two antialiased edges meeting on a mitre**, which is the same shortfall
-`PaintUniformBorder` avoids for a uniform border by painting one ring.
+Seven causes cover the rest. Four are property gaps with a fix behind them — a vertical dotted edge,
+`text-decoration-skip-ink`, the gradient quantisation and a rounded corner where two colours hand
+over — and each is written up in the sections below. The other three are general: **sub-pixel glyph
+positioning**, **a box edge landing on a fractional position**, and **two antialiased edges meeting
+on a mitre**, which is the same shortfall `PaintUniformBorder` avoids for a uniform border by
+painting one ring.
 
 ## Unimplemented layout modes
 
@@ -116,30 +119,33 @@ wrong is still unmeasured.
   changed: it touches every scenario carrying text, which is most of them.
 - **No UAX #14 line breaking.** Break opportunities are spaces, hyphens and dashes, either side of
   an atomic inline, and the cuts `word-break`/`overflow-wrap` ask for. CJK has none of those, so it
-  does not wrap at all and overflows instead. Only one scenario in the corpus contains any
-  non-ASCII text at all (`inline/hyphen_breaks`, for its dashes), so nothing measures this — and a
-  scenario cannot be added without a change to the fixtures. The corpus pins its faces so that both
-  sides load the same files, and the Liberation set has no CJK coverage: a scenario would render as
-  `.notdef` here and in a fallback face in the browser, so the comparison would measure the fonts
-  rather than the line breaking.
+  does not wrap at all and overflows instead. REPORTED now, through `UnsupportedText`, so a document
+  in one of those scripts says so — but still unmeasured. Only one scenario in the corpus contains
+  any non-ASCII text at all (`inline/hyphen_breaks`, for its dashes), and a scenario cannot be added
+  without a change to the fixtures. The corpus pins its faces so that both sides load the same
+  files, and the Liberation set has no CJK coverage: a scenario would render as `.notdef` here and
+  in a fallback face in the browser, so the comparison would measure the fonts rather than the line
+  breaking.
 - **No automatic hyphenation.** `hyphens` is reported. Soft hyphens are implemented and measured by
   `text/soft_hyphen`; what is missing is a dictionary deciding where a break may fall.
 - **No bidirectional resolution.** A run is shaped in one direction, so mixed Arabic or Hebrew with
   Latin comes out in the wrong order. `krilla_font_shape` takes a direction already, so the missing
-  piece is the UAX #9 paragraph algorithm above it. Nothing measures it.
+  piece is the UAX #9 paragraph algorithm above it. Reported through `UnsupportedText`; nothing
+  measures it, for the same fixture reason as the line breaking above.
 - **Font fallback searches faces, not the system.** `FontSet.Covering` picks a registered face
   covering a character the resolved one lacks, which is what a caller's own font set can answer. A
   character NO registered face covers still renders as `.notdef` — krilla has no font database, so
   there is nowhere else to look, and reaching the host's installed fonts would end the
-  reproducibility the whole corpus rests on.
-- **A document's own `@font-face` rules are neither read nor reported.** A document that ships its
-  fonts — a mail merge with a corporate face, anything exported from a design tool — silently
-  renders in whatever `HtmlOptions.Fonts` happens to hold. Two things make it more than an
-  afternoon. A font is a document resource with exactly the image policy's exfiltration concern, so
-  it needs a resolver and a policy of its own or a deliberate decision to share the image ones; and
-  `FontSet` is caller-owned and routinely SHARED across conversions — the corpus has one static set
-  for the whole run — so a document's faces have to be an overlay rather than a registration, or
-  one document's fonts leak into the next.
+  reproducibility the whole corpus rests on. It is reported now, which is the useful half: a caller
+  whose set is short a script is told which character it was.
+- **A document's own `@font-face` rules are reported and not read.** A document that ships its
+  fonts — a mail merge with a corporate face, anything exported from a design tool — renders in
+  whatever `HtmlOptions.Fonts` happens to hold, and now says so. Two things make honouring them more
+  than an afternoon. A font is a document resource with exactly the image policy's exfiltration
+  concern, so it needs a resolver and a policy of its own or a deliberate decision to share the
+  image ones; and `FontSet` is caller-owned and routinely SHARED across conversions — the corpus has
+  one static set for the whole run — so a document's faces have to be an overlay rather than a
+  registration, or one document's fonts leak into the next.
 
 ## Boxes and painting
 
@@ -160,24 +166,24 @@ wrong is still unmeasured.
   end so that no junction is left unpainted — both are deliberate, and both composite to more than
   the colour asked for once the colour is translucent. `block/translucent` keeps its dashed row to
   one side and names the table's junctions for this reason. The same is true of two antialiased
-  trapezia meeting on a mitre, which is the residual `block/bevelled_borders` records.
+  trapezia meeting on a mitre, which is the residual both `bevelled_borders` scenarios record.
 - **A rounded inline element whose border edges DISAGREE about a colour keeps a square inner
   corner**, and is reported. With one colour the border is a ring and both edges of the corner are
   rounded; with four the rectangles are cut to the rounded outline instead, which rounds the outer
   edge and leaves the inner one square. `inline/border_radius`'s `#seven` is that case, and it is
-  the only row of the corpus that reports.
+  one of the two rows in the corpus that report — the other being `block/list_image`'s deliberately
+  absent image.
+- **A rounded BLOCK border whose edges disagree about a colour leaves a seam at each corner.** The
+  ring is drawn through the trapezium clip a mitred edge already uses, so the split runs from the
+  outer corner to the inner one — which is where a browser hands over, to within a pixel. Chromium
+  carries one colour a fraction further around the arc, so `block/border_radius_sides` sits at
+  0.9988 with its geometry exact. The same mechanism as the mitre residual above, and not reported:
+  a patterned edge on a rounded corner IS reported, and this is the case where the corner is drawn
+  and is a pixel out.
 - **A gradient's ramp is quantised differently from Chrome's.** No pixel in `block/gradients`
   differs by more than two of 255 and `#stops` and `#hard` are exactly identical, so this is a
   rounding difference along the ramp rather than a geometry one. Probably not worth chasing; it is
   listed so that the high `AE` is recognisable as expected rather than as a regression.
-- **A TABLE whose bevelled border has no declared colour takes shades this cannot derive.**
-  Measured against Chromium with a probe scenario: a `div` with `border-style: outset` and no
-  colour is `#eeeeee` over `#9a9a9a` at every width, which is the pair `Bevel` hardcodes and which
-  `ua/hr` confirms; `border-color: gray` gives `#d4d4d4` over `#2c2c2c`, which is the derivation.
-  A TABLE with the same undeclared colour gives `#a8a8a8` over `#545454`, which is neither — and no
-  single base colour produces that pair under Blink's own lighten and darken, so it is a third rule
-  rather than a different colour. `ua/presentational` declares a border colour to keep the `border`
-  attribute's mapping measurable without it.
 - **A vertical dotted border edge follows a construction this does not reproduce.** A horizontal
   one fits its pattern into the whole side, corner to corner, and the flush rule reproduces it
   exactly; a vertical one does not. On a 30px box Chromium's left edge carries five dots at a pitch
@@ -246,24 +252,23 @@ wrong is still unmeasured.
 
 ## Structure and metadata
 
-`HtmlOptions.Tagged` builds a structure tree now, and everything that is not content is marked as
-an artifact, so no operator puts ink on the page from outside one or the other. What is left:
+`HtmlOptions.Tagged` builds a structure tree now, in reading order, and everything that is not
+content is marked as an artifact, so no operator puts ink on the page from outside one or the other.
+What is left:
 
 - **It is OFF by default.** Turning it on changes the bytes of every document, so it wants a round
-  of its own — and the four entries below are what to settle first.
-- **An element's own text sorts before its children's, not among them.** A paragraph holding a word
-  in bold produces its own spans and then the `<b>`'s, where a reader meets one, then the other,
-  then the first again. Putting them in order needs a span to carry a position in the source, which
-  a selector path does not have.
-- **An `<a href>` is a `Span` rather than a `Link`.** A `Link` tag wants the annotation's own
-  identifier in it, which means `Surface.AddTaggedLink` in place of `AddLink` and a way to get that
-  identifier back to the element — a link is one annotation per LINE FRAGMENT, so there are several
-  per anchor.
-- **A list item holds its content directly.** PDF wants `LI > LBody`, and the marker's `Lbl`
-  alongside it; the marker is an artifact here, which is defensible, and the missing `LBody` is not.
-- **A repeated `position: fixed` box is content on every page.** A repeated table header is an
-  artifact from the second page on, because it is drawn by a path this can suppress tagging in; a
-  fixed box goes through the ordinary walk on every page, so its spans are recorded once per sheet.
+  of its own — and it is the last thing here that is a decision rather than work.
+- **A list item's marker is an artifact, so there is no `Lbl` beside the `LBody`.** A reader is told
+  the item is an item and not what its bullet says, which is right for a disc and wrong for a
+  counter. The marker is drawn by `ListMarkers` at the end of block layout, outside the span the
+  item's own content is recorded under, so giving it a label means recording it against the item and
+  splitting the two on the way out.
+- **A table cell carries no `WithRowSpan`, `WithColumnSpan` or `WithHeaders`.** krilla takes all
+  three and the grid knows all three, so this is plumbing rather than a question — but a spanning
+  cell currently reads as an ordinary one, which is exactly the case a reader most needs told.
+- **No ARIA is read.** A figure takes its `alt`, its `<title>` child or its `title` attribute, and
+  nothing else anywhere takes anything: `aria-label`, `aria-describedby` and `role` are all ignored,
+  and so is `abbr` on a header cell, which is the one PDF has a field for.
 
 ## Diagnostics
 
@@ -272,10 +277,12 @@ browser would, and the invariant it carries is that a conversion reporting nothi
 everything the way a browser would. That invariant is only as good as the table behind it, so what
 the table does NOT cover belongs here:
 
-- **Nothing below the declaration level reports.** Missing UAX #14 line breaking, bidirectional
-  resolution and font fallback are properties of the text, not of a declaration anyone wrote, so no
-  amount of scanning the cascade finds them. A document in Arabic converts silently and wrongly.
-  The same is true of the `ex` and `ch` approximation and of sub-pixel glyph positioning.
+- **Below the declaration level, only three things report.** `UnsupportedText` covers the missing
+  UAX #14 line breaking, the missing bidirectional resolution, and a character no registered face
+  covers — each a property of the CHARACTERS rather than of a declaration anyone wrote, so no amount
+  of scanning the cascade would have found them. What is still silent there is the `ex` and `ch`
+  approximation inside `@page`, and sub-pixel glyph positioning; neither has a character to hang a
+  report on, and the second would fire on every document ever converted.
 - **Structural gaps do not report.** A percentage height inside an inline-block, and a rowspan cell
   aligned on the wrong row's baseline: each is a shape the engine does not produce rather than a
   value it declined to honour, and there is no site in the cascade scan to hang one on. An

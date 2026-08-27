@@ -25,5 +25,12 @@ public enum HtmlDiagnosticKind
     /// <summary>
     /// An <c>&lt;img&gt;</c> whose <c>src</c> produced no image, so nothing was drawn for it.
     /// </summary>
-    UnresolvedImage
+    UnresolvedImage,
+
+    /// <summary>
+    /// Text this engine cannot lay out the way a browser would, for a reason that belongs to the
+    /// CHARACTERS rather than to any declaration: a script it offers no line break inside, a script
+    /// it cannot reorder, or a character no registered font covers.
+    /// </summary>
+    UnsupportedText
 }

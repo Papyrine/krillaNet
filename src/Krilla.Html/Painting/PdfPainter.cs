@@ -1,4 +1,4 @@
-/// <summary>
+﻿/// <summary>
 /// Paints the laid-out box tree onto a krilla surface.
 /// </summary>
 /// <remarks>
@@ -70,7 +70,7 @@ static class PdfPainter
             paper,
             new(0, 0, 0, 0, null, _ => _, tags));
 
-        using var _ = surface.PushTransform(Matrix.Scale(scale, scale));
+        using var _ = surface.PushTransform(Matrix3x2.CreateScale(scale));
 
         PaintContent(surface, root, start, pageEnd, content, scale, links, tags);
 
@@ -141,7 +141,7 @@ static class PdfPainter
         // Shift the document so this page's slice lands at the page's content origin, below
         // whatever band the repeated headers take. One transform for the whole page beats
         // offsetting every coordinate at every call site.
-        using var __ = surface.PushTransform(Matrix.Translate(content.X, shift));
+        using var __ = surface.PushTransform(Matrix3x2.CreateTranslation(content.X, shift));
 
         var slice = new PageSlice(
             pageTop,
@@ -243,7 +243,7 @@ static class PdfPainter
             var band = group.Band;
             var dy = origin + stacked - band.Y;
 
-            using var moved = surface.PushTransform(Matrix.Translate(0, dy));
+            using var moved = surface.PushTransform(Matrix3x2.CreateTranslation(0, dy));
 
             // A whole artifact, and the slice carries no tags into it, which is what stops the
             // repeat from recording a SECOND span against the same cells. A screen reader meeting
@@ -388,13 +388,35 @@ static class PdfPainter
         {
             var dy = page.ToPageOrigin;
 
-            using var repeated = surface.PushTransform(Matrix.Translate(0, dy));
-            using var faded = Fade(surface, box);
+            using var repeated = surface.PushTransform(Matrix3x2.CreateTranslation(0, dy));
 
             // The window is the whole page's content box rather than what the slice has left of
             // it: a fixed box is laid out against the page, so one anchored to the bottom edge
             // sits below anything a reserved band leaves room for.
-            PaintStack(surface, box, page.Repeated(dy, 0, page.PageHeight), collects: true);
+            var window = page.Repeated(dy, 0, page.PageHeight);
+
+            // Every sheet after the first is the same content drawn again, so it is an ARTIFACT —
+            // the rule a repeated table header already follows, reached here from the other
+            // direction. A header is drawn by a path that can suppress tagging wholesale; a fixed
+            // box goes through the ordinary walk on every page, so which sheet this is has to be
+            // asked. It is asked of the TAGS rather than of the page, because a page index reaches
+            // neither this method nor the slice, and the box is one instance laid out once and
+            // drawn per sheet in order — so the first sighting is page one by construction.
+            //
+            // The artifact opens INSIDE the transform, matching `PaintRepeats`, so the span brackets
+            // the drawing rather than the state that positions it.
+            if (page.Tags is {} seen && !seen.FirstSighting(box))
+            {
+                using var artifact = Artifact(surface, page);
+                using var once = Fade(surface, box);
+
+                PaintStack(surface, box, window with {Tags = null}, collects: true);
+                return;
+            }
+
+            using var faded = Fade(surface, box);
+
+            PaintStack(surface, box, window, collects: true);
             return;
         }
 
@@ -1616,7 +1638,7 @@ static class PdfPainter
                 }
 
 
-                PaintLink(surface, run, page.Links, page.ToPage);
+                PaintLink(surface, run, page, page.ToPage);
             }
 
             // Ahead of the images and the atomic inlines, and after the runs, because an edge is
@@ -2381,6 +2403,10 @@ static class PdfPainter
         var innerTop = Snap(Math.Min(outer.Y + style.BorderTop, outer.Bottom));
         var innerBottom = Snap(Math.Max(outer.Bottom - style.BorderBottom, innerTop));
 
+        // Shared by the ring below and by every band: a band is the same ring taken between two
+        // nested rounded rectangles, so the radii are resolved against the border box once.
+        var radii = RoundedBox.Resolve(style, outer);
+
         if (UniformColor(style) is {} uniform && style.PaintsBorderAsRing)
         {
             PaintUniformBorder(
@@ -2442,6 +2468,22 @@ static class PdfPainter
             var (aLeft, aTop, aRight, aBottom) = Nested(from);
             var (bLeft, bTop, bRight, bBottom) = Nested(to);
 
+            // A rounded band is the same trapezium, curved. Rather than build the curve into each
+            // side's outline - which would mean splitting an arc at the corner diagonal and
+            // solving for where two edges of different widths hand over - the trapezium becomes a
+            // CLIP and the full ring is drawn through it in this side's colour. The diagonal that
+            // bounds the trapezium is exactly where a browser transitions between two adjacent
+            // colours, so the split comes out right for free, and the arc is drawn once by the same
+            // RoundedBox that draws a uniform border.
+            //
+            // Square borders keep the polygon path untouched, which is what leaves every existing
+            // scenario identical: the clip is only reached when a radius is actually asked for.
+            if (radii.IsRounded)
+            {
+                RoundedBand(color, alpha, from, to, side, (aLeft, aTop, aRight, aBottom), (bLeft, bTop, bRight, bBottom));
+                return;
+            }
+
             switch (side)
             {
                 case Side.Top:
@@ -2485,6 +2527,58 @@ static class PdfPainter
                         new(bRight, bTop));
                     return;
             }
+        }
+
+        void RoundedBand(
+            Color color,
+            float alpha,
+            float from,
+            float to,
+            Side side,
+            (float Left, float Top, float Right, float Bottom) a,
+            (float Left, float Top, float Right, float Bottom) b)
+        {
+            var wedge = side switch
+            {
+                Side.Top => new Point[] {new(a.Left, a.Top), new(a.Right, a.Top), new(b.Right, b.Top), new(b.Left, b.Top)},
+                Side.Bottom => [new(a.Right, a.Bottom), new(a.Left, a.Bottom), new(b.Left, b.Bottom), new(b.Right, b.Bottom)],
+                Side.Left => [new(a.Left, a.Bottom), new(a.Left, a.Top), new(b.Left, b.Top), new(b.Left, b.Bottom)],
+                _ => [new(a.Right, a.Top), new(a.Right, a.Bottom), new(b.Right, b.Bottom), new(b.Right, b.Top)]
+            };
+
+            using var clip = new PathBuilder();
+            clip.MoveTo(wedge[0]);
+            for (var index = 1; index < wedge.Length; index++)
+            {
+                clip.LineTo(wedge[index]);
+            }
+
+            clip.Close();
+
+            using var wedgePath = clip.Build();
+            using var _ = surface.PushClip(wedgePath);
+
+            using var builder = new PathBuilder();
+
+            var outerRect = new Rect(a.Left, a.Top, a.Right - a.Left, a.Bottom - a.Top);
+            var innerRect = new Rect(b.Left, b.Top, b.Right - b.Left, b.Bottom - b.Top);
+
+            radii
+                .Deflate(style.BorderTop * from, style.BorderRight * from, style.BorderBottom * from, style.BorderLeft * from)
+                .Trace(builder, outerRect, clockwise: true);
+
+            // Wound the other way so the non-zero rule cuts it out, and skipped once the band has
+            // closed on itself and there is nothing left to remove.
+            if (innerRect is {Width: > 0, Height: > 0})
+            {
+                radii
+                    .Deflate(style.BorderTop * to, style.BorderRight * to, style.BorderBottom * to, style.BorderLeft * to)
+                    .Trace(builder, innerRect, clockwise: false);
+            }
+
+            using var path = builder.Build();
+            using var paint = Krilla.Paint.Solid(color);
+            surface.SetFill(new Fill(paint, alpha)).DrawPath(path);
         }
 
         // Clamped the same way the padding box above is, so a border thicker than the box it
@@ -3087,14 +3181,22 @@ static class PdfPainter
     /// annotation at all when it does not — a link that silently goes to the wrong page is worse
     /// than one that is absent.
     /// </para>
+    /// <para>
+    /// With a structure tree, the annotation is added TAGGED and recorded against the anchor's own
+    /// selector, so it lands under the same <c>Link</c> element the anchor's text does — which is
+    /// what PDF asks for and what lets a reader announce the two together. The anchor's selector is
+    /// carried on the run rather than read off it: a run takes the INNERMOST inline element's path,
+    /// so an anchor holding a <c>&lt;b&gt;</c> is named by nothing the run itself carries.
+    /// </para>
     /// </remarks>
-    static void PaintLink(Surface surface, TextRun run, LinkTargets? links, Func<Rect, Rect> toPage)
+    static void PaintLink(Surface surface, TextRun run, PageSlice page, Func<Rect, Rect> toPage)
     {
-        if (run.Link is not {Length: > 0} href || run.Width <= 0)
+        if (run.Link is not {Href.Length: > 0} anchor || run.Width <= 0)
         {
             return;
         }
 
+        var href = anchor.Href;
         var ascent = run.Face.Ascent(run.Style.FontSize);
         var descent = run.Face.Descent(run.Style.FontSize);
         var area = toPage(new(run.X, run.Y - ascent, run.Width, ascent + descent));
@@ -3102,14 +3204,28 @@ static class PdfPainter
 
         if (!href.StartsWith('#'))
         {
+            if (page.Tags is {} external)
+            {
+                external.Record(anchor.Selector, surface.AddTaggedLink(bounds, href));
+                return;
+            }
+
             surface.AddLink(bounds, href);
             return;
         }
 
-        if (links is not null && links.TryResolve(href[1..], out var page, out var target))
+        if (page.Links is not {} links || !links.TryResolve(href[1..], out var index, out var target))
         {
-            surface.AddLink(bounds, page, target);
+            return;
         }
+
+        if (page.Tags is {} tags)
+        {
+            tags.Record(anchor.Selector, surface.AddTaggedLink(bounds, index, target));
+            return;
+        }
+
+        surface.AddLink(bounds, index, target);
     }
 
     /// <summary>

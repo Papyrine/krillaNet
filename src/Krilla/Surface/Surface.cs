@@ -1,3 +1,4 @@
+﻿// ReSharper disable RedundantUnsafeContext
 namespace Krilla;
 
 /// <summary>
@@ -311,7 +312,7 @@ public sealed partial class Surface
     /// </remarks>
     public Surface DrawImage(PdfImage image, Rectangle bounds)
     {
-        using (PushTransform(Matrix.Translate(bounds.Left, bounds.Top)))
+        using (PushTransform(Matrix3x2.CreateTranslation(bounds.Left, bounds.Top)))
         {
             Status.Check(
                 KrillaNative.krilla_surface_draw_image(
@@ -350,7 +351,7 @@ public sealed partial class Surface
         bool embedText = true,
         float filterScale = 4)
     {
-        using (PushTransform(Matrix.Translate(bounds.Left, bounds.Top)))
+        using (PushTransform(Matrix3x2.CreateTranslation(bounds.Left, bounds.Top)))
         {
             Status.Check(
                 KrillaNative.krilla_surface_draw_svg(
@@ -369,7 +370,7 @@ public sealed partial class Surface
     /// <summary>
     /// Concatenates a transform, until the returned layer is disposed.
     /// </summary>
-    public Layer PushTransform(Matrix transform)
+    public Layer PushTransform(Matrix3x2 transform)
     {
         Status.Check(
             KrillaNative.krilla_surface_push_transform(Handle, token, transform.ToNative()),
@@ -416,7 +417,7 @@ public sealed partial class Surface
     /// <summary>
     /// The current transformation matrix.
     /// </summary>
-    public Matrix CurrentTransform
+    public Matrix3x2 CurrentTransform
     {
         get
         {

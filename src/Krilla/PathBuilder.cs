@@ -13,9 +13,6 @@ public sealed class PathBuilder :
     IntPtr handle;
     bool built;
 
-    /// <summary>
-    /// Creates an empty builder.
-    /// </summary>
     public PathBuilder()
     {
         KrillaNative.EnsureLoaded();

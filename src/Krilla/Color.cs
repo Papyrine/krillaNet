@@ -32,9 +32,6 @@ public readonly record struct Color
 
     internal byte C3 { get; }
 
-    /// <summary>
-    /// Creates an RGB colour.
-    /// </summary>
     public static Color Rgb(byte red, byte green, byte blue) =>
         new(SpaceRgb, red, green, blue, 0);
 
@@ -44,9 +41,6 @@ public readonly record struct Color
     public static Color Gray(byte lightness) =>
         new(SpaceLuma, lightness, 0, 0, 0);
 
-    /// <summary>
-    /// Creates a CMYK colour.
-    /// </summary>
     /// <remarks>
     /// PDF/A requires an ICC profile for CMYK content; without one, a document using CMYK
     /// fails archival validation when it is finished.

@@ -11,6 +11,5 @@ public enum TableHeaderScope
     /// <summary>The cells in its column.</summary>
     Column = 1,
 
-    /// <summary>Both.</summary>
     Both = 2
 }

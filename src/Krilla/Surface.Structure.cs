@@ -1,4 +1,4 @@
-namespace Krilla;
+﻿namespace Krilla;
 
 public sealed partial class Surface
 {
@@ -64,6 +64,31 @@ public sealed partial class Surface
                 (nuint) utf8.Length,
                 0,
                 default,
+                out var identifier),
+            "Adding a tagged link");
+        return new(identifier);
+    }
+
+    /// <summary>
+    /// Adds a link to a position within the document and returns an identifier for placing it in
+    /// the tag tree.
+    /// </summary>
+    /// <remarks>
+    /// <paramref name="pageIndex"/> may name a page that does not exist yet.
+    /// </remarks>
+    public TagIdentifier AddTaggedLink(Rectangle bounds, int pageIndex, Point target = default)
+    {
+        ArgumentOutOfRangeException.ThrowIfNegative(pageIndex);
+
+        Status.Check(
+            KrillaNative.krilla_page_add_tagged_link(
+                Handle,
+                token,
+                bounds.ToNative(),
+                [],
+                0,
+                (uint) pageIndex,
+                target.ToNative(),
                 out var identifier),
             "Adding a tagged link");
         return new(identifier);
@@ -230,7 +255,7 @@ public sealed partial class Surface
         Action<Surface> draw,
         float width,
         float height,
-        Matrix? transform = null)
+        Matrix3x2? transform = null)
     {
         using var stream = Capture(draw);
 
@@ -238,7 +263,7 @@ public sealed partial class Surface
             KrillaNative.krilla_paint_new_pattern(
                 Handle,
                 stream.Handle,
-                (transform ?? Matrix.Identity).ToNative(),
+                (transform ?? Matrix3x2.Identity).ToNative(),
                 width,
                 height,
                 out var paint),
@@ -253,7 +278,7 @@ public sealed partial class Surface
     {
         ArgumentOutOfRangeException.ThrowIfNegative(pageIndex);
 
-        using (PushTransform(Matrix.Translate(bounds.Left, bounds.Top)))
+        using (PushTransform(Matrix3x2.CreateTranslation(bounds.Left, bounds.Top)))
         {
             Status.Check(
                 KrillaNative.krilla_surface_draw_pdf_page(

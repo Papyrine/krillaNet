@@ -315,8 +315,7 @@ pub fn size_of_kind(kind: i32) -> usize {
 
 // Layout is ABI. These assertions turn an accidental field reorder or type change into a
 // compile error, which is considerably cheaper than the managed-side memory corruption it
-// would otherwise cause. The pointer-bearing structs are asserted for 64-bit only, since
-// that is the whole shipped RID matrix.
+// would otherwise cause.
 const _: () = {
     use std::mem::{align_of, offset_of, size_of};
 
@@ -339,7 +338,31 @@ const _: () = {
     assert!(offset_of!(KrillaPageSettings, media_box) == 8);
     assert!(offset_of!(KrillaPageSettings, present) == 88);
 
-    assert!(size_of::<usize>() == 8, "only 64-bit targets are shipped");
+    assert!(
+        size_of::<usize>() == 8 || size_of::<usize>() == 4,
+        "the shipped targets are 64-bit, plus 32-bit browser-wasm"
+    );
+};
+
+// `KrillaStroke` is the only struct here that carries a pointer, so it is the only one whose
+// layout follows the target's pointer width. Both widths are asserted rather than just the
+// common one: `browser-wasm` is 32-bit and the other eight RIDs are 64-bit, and the managed
+// mirror spells these two fields `IntPtr` and `nuint`, which are pointer-sized on both and so
+// follow along without an edit. Asserting only the 64-bit layout would leave the wasm one
+// unchecked — and this is the struct where an unchecked layout corrupts the managed heap
+// rather than throwing.
+#[cfg(target_pointer_width = "64")]
+const _: () = {
+    use std::mem::{align_of, offset_of, size_of};
+
     assert!(size_of::<KrillaStroke>() == 40 && align_of::<KrillaStroke>() == 8);
+    assert!(offset_of!(KrillaStroke, dash_array) == 24);
+};
+
+#[cfg(target_pointer_width = "32")]
+const _: () = {
+    use std::mem::{align_of, offset_of, size_of};
+
+    assert!(size_of::<KrillaStroke>() == 32 && align_of::<KrillaStroke>() == 4);
     assert!(offset_of!(KrillaStroke, dash_array) == 24);
 };

@@ -1,4 +1,4 @@
-namespace Krilla.Html.Diagnostics;
+﻿namespace Krilla.Html.Diagnostics;
 
 /// <summary>
 /// Extracts element geometry from a laid-out tree, for comparison against a browser.
@@ -56,7 +56,7 @@ public static class BoxDump
         // Recursive rather than over `Descendants()`, because a transform has to accumulate down
         // the tree: a transformed box inside a transformed one carries both, and a flat walk has
         // nowhere to keep the matrix that says so.
-        void Walk(LayoutBox box, Matrix? inherited)
+        void Walk(LayoutBox box, Matrix3x2? inherited)
         {
             var matrix = inherited;
 
@@ -166,7 +166,7 @@ public static class BoxDump
             Rect bounds,
             IReadOnlyList<InlineBackdrop>? ancestors,
             float baseline,
-            Matrix? matrix)
+            Matrix3x2? matrix)
         {
             if (selector is null)
             {
@@ -240,7 +240,7 @@ public static class BoxDump
     /// would make every transformed element in the corpus look like a defect, and would leave the
     /// transform arithmetic measured by nothing but pixels.
     /// </remarks>
-    static Rect Visual(Rect rect, Matrix? matrix)
+    static Rect Visual(Rect rect, Matrix3x2? matrix)
     {
         if (matrix is {} applied)
         {

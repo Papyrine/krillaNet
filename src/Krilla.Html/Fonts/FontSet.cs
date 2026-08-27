@@ -200,6 +200,31 @@ public sealed class FontSet :
         return primary;
     }
 
+    /// <summary>
+    /// Whether ANY registered face can draw <paramref name="codepoint"/>.
+    /// </summary>
+    /// <remarks>
+    /// The question <see cref="Covering"/> cannot answer, because it returns the primary face when
+    /// nothing covers a character and a caller cannot tell that from a hit. False here means the
+    /// character will be drawn as <c>.notdef</c> whatever family the document names — which is a
+    /// whole-word difference nothing on the page explains, so it is reported.
+    /// </remarks>
+    public bool AnyCovers(int codepoint)
+    {
+        foreach (var family in order)
+        {
+            foreach (var face in families[family])
+            {
+                if (face.Covers(codepoint))
+                {
+                    return true;
+                }
+            }
+        }
+
+        return false;
+    }
+
     string? ResolveGeneric(string family) =>
         family.ToLowerInvariant() switch
         {

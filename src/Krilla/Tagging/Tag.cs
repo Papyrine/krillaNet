@@ -1,4 +1,4 @@
-﻿namespace Krilla;
+namespace Krilla;
 
 /// <summary>
 /// A node in the document's logical structure tree.
@@ -12,7 +12,15 @@ public sealed class Tag :
     IDisposable
 {
     IntPtr handle;
-    readonly List<Tag> children = [];
+
+    // Children and content in ONE list, because their ORDER relative to each other is the reading
+    // order: a paragraph holding a word in bold is text, then the bold, then more text. Keeping
+    // two lists — or pushing content eagerly and children at the end — puts every child after
+    // everything its parent said itself, which is right only for a parent that says nothing.
+    readonly List<Node> nodes = [];
+
+    /// <summary>A child tag, or a span of content, in the order it was added.</summary>
+    readonly record struct Node(Tag? Child, TagIdentifier Identifier);
 
     Tag(IntPtr handle) =>
         this.handle = handle;
@@ -26,9 +34,6 @@ public sealed class Tag :
         }
     }
 
-    /// <summary>
-    /// Creates a tag of the given structural role.
-    /// </summary>
     public static Tag Create(TagKind kind)
     {
         KrillaNative.EnsureLoaded();
@@ -98,9 +103,6 @@ public sealed class Tag :
         return new(handle);
     }
 
-    /// <summary>
-    /// Creates a formula with alternative text.
-    /// </summary>
     public static Tag Formula(string? altText)
     {
         KrillaNative.EnsureLoaded();
@@ -219,11 +221,13 @@ public sealed class Tag :
     /// <summary>
     /// Places a span of tagged content, or a tagged annotation, under this tag.
     /// </summary>
+    /// <remarks>
+    /// Recorded here and applied when the tree is attached to a document, so that it keeps its
+    /// place among the children added around it.
+    /// </remarks>
     public Tag Add(TagIdentifier identifier)
     {
-        Status.Check(
-            KrillaNative.krilla_tag_push_identifier(Handle, identifier.Slot),
-            "Adding content to a tag");
+        nodes.Add(new(null, identifier));
         return this;
     }
 
@@ -238,17 +242,26 @@ public sealed class Tag :
     /// </remarks>
     public Tag Add(Tag child)
     {
-        children.Add(child);
+        nodes.Add(new(child, default));
         return child;
     }
 
     /// <summary>
-    /// Applies the recorded nesting to the native handles, depth-first.
+    /// Applies the recorded content and nesting to the native handles, depth-first and in the
+    /// order they were added.
     /// </summary>
     internal void Flatten()
     {
-        foreach (var child in children)
+        foreach (var (child, identifier) in nodes)
         {
+            if (child is null)
+            {
+                Status.Check(
+                    KrillaNative.krilla_tag_push_identifier(Handle, identifier.Slot),
+                    "Adding content to a tag");
+                continue;
+            }
+
             child.Flatten();
 
             Status.Check(
@@ -298,12 +311,12 @@ public sealed class Tag :
     /// <inheritdoc />
     public void Dispose()
     {
-        foreach (var child in children)
+        foreach (var (child, _) in nodes)
         {
-            child.Dispose();
+            child?.Dispose();
         }
 
-        children.Clear();
+        nodes.Clear();
 
         if (handle == IntPtr.Zero)
         {

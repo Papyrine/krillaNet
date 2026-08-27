@@ -45,6 +45,13 @@ public class DiagnosticTests
         // an image that is simply absent are the same null, and the first is worth hearing about.
         "block/list_image",
 
+        // A row that measures the NON-BREAKING hyphen, U+2011, which no Liberation face covers — so
+        // it really is drawn as .notdef here, and the coverage report is right. The scenario is
+        // pixel-identical all the same, because the reference browser is pinned to the same font
+        // files and draws the same .notdef; outside the corpus a browser would reach a system face
+        // and this document would differ, which is what the report is for.
+        "inline/hyphen_breaks"
+
         // inline/border_radius used to be here, for the row whose four border edges disagree on a
         // colour. With no single ring to draw, its edges were painted as axis-aligned bands cut to
         // the rounded outline — which rounded the OUTER corner and could not reach the inner one,
@@ -587,6 +594,66 @@ public class DiagnosticTests
         await Assert.That(lines).Contains(_ => _.Contains("box-shadow"));
         await Assert.That(lines).Contains(_ => _.Contains("column-count"));
         await Assert.That(lines).Contains(_ => _.Contains("list-style-type"));
+    }
+
+    /// <summary>
+    /// Text this engine cannot lay out correctly reports, though no declaration is involved.
+    /// </summary>
+    /// <remarks>
+    /// The class of gap both audits are blind to: they compare CSS against CSS, and line breaking,
+    /// bidirectional reordering and font coverage belong to the CHARACTERS. A document in Japanese
+    /// or Arabic used to convert silently and wrongly.
+    /// </remarks>
+    [Test]
+    public async Task TextTheEngineCannotLayOutIsReported()
+    {
+        var lines = (await Collect(
+                """
+                <p lang="ja">日本語のテキストです。</p>
+                <p lang="he">שלום עולם</p>
+                <p lang="ar">مرحبا بالعالم</p>
+                """))
+            .Select(_ => _.ToString())
+            .ToList();
+
+        await Assert.That(lines).Contains(_ => _.Contains("line breaking"));
+        await Assert.That(lines).Contains(_ => _.Contains("bidirectional text"));
+        await Assert.That(lines).Contains(_ => _.Contains("font coverage"));
+
+        // Once per run of text, not once per character.
+        await Assert.That(lines.Count(_ => _.Contains("line breaking"))).IsEqualTo(1);
+        await Assert.That(lines.Count(_ => _.Contains("bidirectional text"))).IsEqualTo(2);
+    }
+
+    /// <summary>
+    /// Latin text a registered face covers reports nothing, whatever punctuation it carries.
+    /// </summary>
+    /// <remarks>
+    /// The half that keeps the scan honest: it runs over every text node in every document, so a
+    /// range drawn one code point too wide would report the corpus.
+    /// </remarks>
+    [Test]
+    public async Task OrdinaryTextIsSilent()
+    {
+        var reports = await Collect(
+            "<p>Ordinary text — with an en dash, a “quote”, a café, ½ and ©.</p>");
+
+        await Assert.That(reports).IsEmpty();
+    }
+
+    /// <summary>
+    /// A document that ships its own fonts is told they are not loaded.
+    /// </summary>
+    [Test]
+    public async Task FontFaceRulesAreReported()
+    {
+        var lines = (await Collect(
+                "<p>Text</p>",
+                "@font-face { font-family: \"Corporate\"; src: url(corporate.woff2); }"))
+            .Select(_ => _.ToString())
+            .ToList();
+
+        await Assert.That(lines).Contains(_ => _.Contains("@font-face") && _.Contains("Corporate"));
     }
 
     static async Task<List<HtmlDiagnostic>> Collect(string body, string? css = null)

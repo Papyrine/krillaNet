@@ -1,4 +1,4 @@
-/// <summary>The transform functions this engine applies.</summary>
+﻿/// <summary>The transform functions this engine applies.</summary>
 enum TransformKind
 {
     /// <summary>Moves the box.</summary>
@@ -274,10 +274,11 @@ sealed record CssTransform(
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Composed left to right, which for column vectors means the product in written order and so
-    /// the RIGHTMOST function reaching a point first: <c>translate(30px) rotate(15deg)</c> rotates
-    /// the box about the origin and then moves it, rather than moving it and rotating about where
-    /// it started.
+    /// Composed left to right, so the RIGHTMOST function reaches a point first:
+    /// <c>translate(30px) rotate(15deg)</c> rotates the box about the origin and then moves it,
+    /// rather than moving it and rotating about where it started. <see cref="Matrix3x2"/> takes ROW
+    /// vectors, so that is the product in REVERSE written order — which is why the loop below
+    /// multiplies each function onto the LEFT of what it has so far.
     /// </para>
     /// <para>
     /// The whole thing is conjugated by the origin — moved there, applied, moved back — because
@@ -285,21 +286,23 @@ sealed record CssTransform(
     /// own <c>transform-origin</c>, which defaults to its centre.
     /// </para>
     /// </remarks>
-    public Matrix Resolve(Rect border)
+    public Matrix3x2 Resolve(Rect border)
     {
-        var matrix = Matrix.Identity;
+        var matrix = Matrix3x2.Identity;
 
         foreach (var function in Functions)
         {
-            matrix = Multiply(matrix, Single(function, border));
+            matrix = Single(function, border) * matrix;
         }
 
         var originX = border.X + OriginX.Resolve(border.Width);
         var originY = border.Y + OriginY.Resolve(border.Height);
 
-        return Multiply(
-            Multiply(Matrix.Translate(originX, originY), matrix),
-            Matrix.Translate(-originX, -originY));
+        // A product of row-vector matrices reads in the order a point meets them: to the origin,
+        // through the functions, and back.
+        return Matrix3x2.CreateTranslation(-originX, -originY) *
+               matrix *
+               Matrix3x2.CreateTranslation(originX, originY);
     }
 
     /// <summary>
@@ -311,51 +314,52 @@ sealed record CssTransform(
     /// scenario using one shows a difference that is not a defect. It also makes the geometry
     /// comparison a real check of the arithmetic above rather than an exemption from it.
     /// </remarks>
-    public static Rect Bounds(Matrix matrix, Rect border)
+    public static Rect Bounds(Matrix3x2 matrix, Rect border)
     {
         var (left, top, right, bottom) = (float.MaxValue, float.MaxValue, float.MinValue, float.MinValue);
 
-        foreach (var (x, y) in new[]
+        foreach (var corner in new Vector2[]
                  {
-                     (border.X, border.Y),
-                     (border.Right, border.Y),
-                     (border.Right, border.Bottom),
-                     (border.X, border.Bottom)
+                     new(border.X, border.Y),
+                     new(border.Right, border.Y),
+                     new(border.Right, border.Bottom),
+                     new(border.X, border.Bottom)
                  })
         {
-            var px = matrix.ScaleX * x + matrix.SkewX * y + matrix.TranslateX;
-            var py = matrix.SkewY * x + matrix.ScaleY * y + matrix.TranslateY;
+            var point = Vector2.Transform(corner, matrix);
 
-            left = MathF.Min(left, px);
-            top = MathF.Min(top, py);
-            right = MathF.Max(right, px);
-            bottom = MathF.Max(bottom, py);
+            left = MathF.Min(left, point.X);
+            top = MathF.Min(top, point.Y);
+            right = MathF.Max(right, point.X);
+            bottom = MathF.Max(bottom, point.Y);
         }
 
         return new(left, top, right - left, bottom - top);
     }
 
     /// <summary>One function's own matrix, before the origin is applied.</summary>
-    static Matrix Single(TransformFunction function, Rect border)
+    static Matrix3x2 Single(TransformFunction function, Rect border)
     {
         switch (function.Kind)
         {
             case TransformKind.Translate:
-                return Matrix.Translate(
+                return Matrix3x2.CreateTranslation(
                     function.X.Resolve(border.Width),
                     function.Y.Resolve(border.Height));
 
             case TransformKind.Scale:
-                return Matrix.Scale(function.A, function.B);
+                return Matrix3x2.CreateScale(function.A, function.B);
 
             case TransformKind.Rotate:
-                return Matrix.Rotate(function.A);
+                return Matrix3x2.CreateRotation(float.DegreesToRadians(function.A));
 
             case TransformKind.Skew:
-                var ax = MathF.Tan(function.A * MathF.PI / 180f);
-                var ay = MathF.Tan(function.B * MathF.PI / 180f);
-                return new(1, ay, ax, 1, 0, 0);
+                return Matrix3x2.CreateSkew(
+                    float.DegreesToRadians(function.A),
+                    float.DegreesToRadians(function.B));
 
+            // A matrix given outright, whose six arguments are Matrix3x2's six components in
+            // order: a and b the first row, c and d the second, e and f the translation.
             default:
                 return new(
                     function.A,
@@ -375,18 +379,8 @@ sealed record CssTransform(
     /// carries both. The painter gets this for free by nesting its pushes; anything walking the
     /// tree itself has to compose them, which is what this is for.
     /// </remarks>
-    public static Matrix Combine(Matrix ancestor, Matrix own) =>
-        Multiply(ancestor, own);
-
-    /// <summary>The product of two affine matrices, <paramref name="left"/> applied last.</summary>
-    static Matrix Multiply(Matrix left, Matrix right) =>
-        new(
-            left.ScaleX * right.ScaleX + left.SkewX * right.SkewY,
-            left.SkewY * right.ScaleX + left.ScaleY * right.SkewY,
-            left.ScaleX * right.SkewX + left.SkewX * right.ScaleY,
-            left.SkewY * right.SkewX + left.ScaleY * right.ScaleY,
-            left.ScaleX * right.TranslateX + left.SkewX * right.TranslateY + left.TranslateX,
-            left.SkewY * right.TranslateX + left.ScaleY * right.TranslateY + left.TranslateY);
+    public static Matrix3x2 Combine(Matrix3x2 ancestor, Matrix3x2 own) =>
+        own * ancestor;
 
     /// <summary>One function, or null when it is not one this engine applies.</summary>
     static TransformFunction? Function(

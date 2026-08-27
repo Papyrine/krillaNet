@@ -9,6 +9,10 @@
     <PackageReference Include="ProjectDefaults" PrivateAssets="all" />
     <PackageReference Include="Microsoft.Sbom.Targets" PrivateAssets="all" Condition="'$(CI)' == 'true'" />
     <None Include="nuget-readme.md" Pack="true" PackagePath="\" />
+    <!-- Consumer-side wiring for browser-wasm, and the only build logic this package ships.
+         Distinct from Krilla.Native.targets, which shells out to cargo and must never be
+         packed; see the header comment in each. -->
+    <None Include="buildTransitive\Krilla.targets" Pack="true" PackagePath="buildTransitive\" />
     <!-- The package is a binary distribution of ~94 statically linked Rust crates. Krilla's
          own MIT licence cannot relicense them, so their notices ship alongside it. -->
     <None Include="THIRD-PARTY-NOTICES.md" Pack="true" PackagePath="\" Condition="Exists('THIRD-PARTY-NOTICES.md')" />

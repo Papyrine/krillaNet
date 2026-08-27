@@ -33,7 +33,7 @@ static class BoxBuilder
         IElement element,
         ComputedStyle style,
         DocumentContext context,
-        string? link)
+        AnchorLink? link)
     {
         var blocks = new List<LayoutBox>();
         var inlines = new List<InlineItem>();
@@ -96,7 +96,7 @@ static class BoxBuilder
         // has no line here to hang it from, and `Marker` has already given it a counter marker to
         // fall back to.
         if (box.Marker is null &&
-            style is {Display: DisplayKind.ListItem, MarkerImage: {} marker} &&
+            style is {Display: DisplayKind.ListItem, MarkerImage: { } marker} &&
             inlines.Count > 0)
         {
             inlines.Insert(
@@ -205,7 +205,7 @@ static class BoxBuilder
         List<InlineItem> inlines,
         List<FloatChild> floats,
         List<FloatChild> positioned,
-        string? link)
+        AnchorLink? link)
     {
         var source = element.GetAttribute("src");
 
@@ -215,7 +215,7 @@ static class BoxBuilder
             return;
         }
 
-        if (context.Images.Resolve(source, out var reason) is not {} image)
+        if (context.Images.Resolve(source, out var reason) is not { } image)
         {
             // Worth reporting even though a browser with a broken src also draws nothing: here the
             // cause is as likely to be policy or the resolver as a genuinely missing file, and
@@ -252,7 +252,7 @@ static class BoxBuilder
         List<InlineItem> inlines,
         List<FloatChild> floats,
         List<FloatChild> positioned,
-        string? link)
+        AnchorLink? link)
     {
         if (context.Images.Inline(element) is not {} image)
         {
@@ -275,7 +275,7 @@ static class BoxBuilder
         List<InlineItem> inlines,
         List<FloatChild> floats,
         List<FloatChild> positioned,
-        string? link)
+        AnchorLink? link)
     {
         var sized = WithAttributeSize(element, style);
         var selector = SelectorPath.For(element);
@@ -321,12 +321,12 @@ static class BoxBuilder
         var width = style.Width;
         var height = style.Height;
 
-        if (width.IsAuto && Attribute(element, "width") is {} attributeWidth)
+        if (width.IsAuto && Attribute(element, "width") is { } attributeWidth)
         {
             width = attributeWidth;
         }
 
-        if (height.IsAuto && Attribute(element, "height") is {} attributeHeight)
+        if (height.IsAuto && Attribute(element, "height") is { } attributeHeight)
         {
             height = attributeHeight;
         }
@@ -395,7 +395,7 @@ static class BoxBuilder
         List<InlineItem> inlines,
         List<FloatChild> floats,
         List<FloatChild> positioned,
-        string? link,
+        AnchorLink? link,
         ListNumbering numbering)
     {
         if (node is IText text)
@@ -407,6 +407,21 @@ static class BoxBuilder
                 parentStyle);
             if (content.Length > 0)
             {
+                // The one report with nothing in the cascade to hang it on. A script this engine
+                // offers no line break inside, a script it cannot reorder, and a character no
+                // registered face covers are all properties of the CHARACTERS, so the two audits
+                // that compare CSS against CSS cannot see any of them — and a document in Arabic or
+                // Japanese converted silently and wrongly. Here rather than in layout because this
+                // is where a text node becomes content, and it runs only for a listening caller.
+                if (context.Reports)
+                {
+                    UnsupportedText.Report(
+                        context.OnDiagnostic,
+                        context.Fonts,
+                        text.ParentElement?.LocalName ?? "#text",
+                        content);
+                }
+
                 inlines.Add(new(content, StyleResolver.ForText(parentStyle), null, Link: link));
             }
 
@@ -491,7 +506,7 @@ static class BoxBuilder
         }
 
         if (style is {Display: DisplayKind.Inline or DisplayKind.InlineBlock} and
-                     ({IsFloating: true} or {IsAbsolute: true}))
+            ({IsFloating: true} or {IsAbsolute: true}))
         {
             style = style with {Display = DisplayKind.Block};
         }
@@ -501,7 +516,7 @@ static class BoxBuilder
         if (element.LocalName.Equals("a", StringComparison.OrdinalIgnoreCase) &&
             element.GetAttribute("href") is {Length: > 0} href)
         {
-            link = href;
+            link = new(href, SelectorPath.For(element));
         }
 
         // A line break carries no text and no box of its own; it ends the line it is on. Handled
@@ -742,9 +757,15 @@ static class BoxBuilder
     static bool Belongs(DisplayKind child, DisplayKind parent) =>
         parent switch
         {
-            DisplayKind.Table => child is DisplayKind.TableCaption or DisplayKind.TableHeaderGroup or
-                DisplayKind.TableRowGroup or DisplayKind.TableFooterGroup or DisplayKind.TableRow,
-            DisplayKind.TableHeaderGroup or DisplayKind.TableRowGroup or DisplayKind.TableFooterGroup =>
+            DisplayKind.Table => child is
+                DisplayKind.TableCaption or
+                DisplayKind.TableHeaderGroup or
+                DisplayKind.TableRowGroup or
+                DisplayKind.TableFooterGroup or
+                DisplayKind.TableRow,
+            DisplayKind.TableHeaderGroup or
+                DisplayKind.TableRowGroup or
+                DisplayKind.TableFooterGroup =>
                 child == DisplayKind.TableRow,
             DisplayKind.TableRow => child == DisplayKind.TableCell,
             _ => true
@@ -825,7 +846,7 @@ static class BoxBuilder
         ComputedStyle host,
         DocumentContext context,
         List<InlineItem> inlines,
-        string? link,
+        AnchorLink? link,
         List<LayoutBox>? blocks = null)
     {
         if (StyleResolver.ResolvePseudo(element, pseudo, host, context) is not var (style, content))
@@ -902,7 +923,7 @@ static class BoxBuilder
                     // Resolved through the same store an <img src> and a background url() go
                     // through, so a stylesheet naming an image is bound by the same policy. An
                     // image that does not resolve contributes nothing, as one in the markup does.
-                    if (context.Images.Resolve(item.Text, out var reason) is {} image)
+                    if (context.Images.Resolve(item.Text, out var reason) is { } image)
                     {
                         target.Add(new("", style, null, Image: image, Link: link));
                     }
@@ -1022,17 +1043,25 @@ static class BoxBuilder
     /// </remarks>
     static void Columns(IElement element, ComputedStyle style, DocumentContext context)
     {
-        var span = int.TryParse(
-            element.GetAttribute("span"),
-            NumberStyles.Integer,
-            CultureInfo.InvariantCulture,
-            out var declared) && declared > 0
-            ? declared
-            : 1;
+        int span;
+        if (int.TryParse(
+                element.GetAttribute("span"),
+                NumberStyles.Integer,
+                CultureInfo.InvariantCulture,
+                out var declared) && declared > 0)
+        {
+            span = declared;
+        }
+        else
+        {
+            span = 1;
+        }
 
         // Appended to whatever this table has collected so far, and attached to the table box once
         // every child has been walked.
-        context.PendingColumnBoxes.Add(new(
+        context.PendingColumnBoxes
+            .Add(
+                new(
             SelectorPath.For(element),
             context.PendingColumns.Count,
             span));

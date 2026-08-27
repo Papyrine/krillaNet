@@ -2,7 +2,7 @@ name: rust
 
 # Correctness gates for the native shim. Deliberately separate from the RID build matrix in
 # native.yml: these run on every push and finish in a couple of minutes, whereas the matrix
-# cross-compiles eight targets and only needs to run for a release.
+# cross-compiles nine targets and only needs to run for a release.
 
 on:
   push:
@@ -43,6 +43,19 @@ jobs:
 
       - name: Test
         run: cargo test --locked
+
+      - name: Check browser-wasm
+        # browser-wasm is the only 32-bit target shipped, and the only one whose ABI layout a
+        # 64-bit build cannot check: the pointer-width assertions in types.rs are compiled out
+        # everywhere else. native.yml proves the target properly, by linking and running it,
+        # but that leg needs emsdk and only runs for a release — so a regression here would sit
+        # in main until somebody tagged.
+        #
+        # `cargo check` never invokes a linker, so this needs no emscripten at all. A target
+        # download and about a minute buys the assertion on every push.
+        run: |
+          rustup target add wasm32-unknown-emscripten
+          cargo check -p krilla-capi --locked --target wasm32-unknown-emscripten
 
       - name: Exports are guarded
         # Every export must go through the ffi!/ffi_doc! macros, which wrap the body in

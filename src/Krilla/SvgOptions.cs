@@ -27,9 +27,6 @@ public sealed class SvgOptions :
 {
     IntPtr handle;
 
-    /// <summary>
-    /// Creates options with no fonts registered.
-    /// </summary>
     public SvgOptions()
     {
         KrillaNative.EnsureLoaded();

@@ -1,4 +1,4 @@
-# All scenarios (151)
+# All scenarios (153)
 
 The browser reference (left) beside the page Krilla.Html produced (right). `AE` is the fraction of pixels that differ and `SSIM` is structural similarity; neither is asserted. The worst offset is the largest positional disagreement in CSS pixels between the rendered element geometry and the browser's, and is the number to watch — it reaches zero exactly when the layout is right.
 
@@ -15,6 +15,7 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [block/bevelled_borders](#block-bevelled_borders)
 - [block/borders](#block-borders)
 - [block/border_radius](#block-border_radius)
+- [block/border_radius_sides](#block-border_radius_sides)
 - [block/border_styles](#block-border_styles)
 - [block/box_model](#block-box_model)
 - [block/box_sizing](#block-box_sizing)
@@ -119,6 +120,7 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [position/z_index](#position-z_index)
 - [table/anonymous](#table-anonymous)
 - [table/auto_widths](#table-auto_widths)
+- [table/bevelled_borders](#table-bevelled_borders)
 - [table/caption_side](#table-caption_side)
 - [table/cell_baseline](#table-cell_baseline)
 - [table/collapse](#table-collapse)
@@ -550,6 +552,68 @@ sizes is the clamp applied per side rather than to the box.
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0005 · SSIM 1.0000** |
 | <img src="block/border_radius/reference_0001.png" width="480"> | <img src="block/border_radius/result%23page_0001.verified.png" width="480"> |
+
+
+## block/border_radius_sides
+
+# block/border_radius_sides
+
+`border-radius` on a box whose border is **not** one uniform ring. The radius was honoured on the
+fill underneath and lost on the frame over it, so a callout with `border-left` and a radius came out
+with a rounded background inside square corners — and the diagnostic reported it rather than the
+painter drawing it.
+
+## How it is drawn
+
+Not by building the curve into each side's outline. That would mean splitting an arc at the corner
+and solving for where two edges of different widths hand over, per corner, per band.
+
+Instead the trapezium each mitred edge already fills becomes a **clip**, and the full rounded ring
+is drawn through it in that side's colour. Two things fall out for free:
+
+- The diagonal bounding the trapezium — outer corner to inner corner — is where a browser
+  transitions between two adjacent colours, so the split is right without computing it. `#widths`
+  is the row that shows it is not 45° everywhere: with edges of 3, 12, 6 and 9 pixels, each corner
+  hands over on its own angle.
+- The arc is drawn by the same `RoundedBox` a uniform border already used, so there is one
+  implementation of the curve rather than two that could disagree.
+
+A band is the same construction between two nested rounded rectangles, which is why `#groove` — two
+bands per side rather than one — needed nothing extra.
+
+Square borders keep the polygon path untouched. That is what leaves every existing scenario
+identical: the clip is reached only when a radius is actually asked for.
+
+## The rows
+
+| | |
+|---|---|
+| `#one` | One bordered side, the case the diagnostic used to report |
+| `#two` | Two colours meeting on a corner diagonal |
+| `#four` | Four colours, so every corner is a transition |
+| `#widths` | Edges of 3/12/6/9px, where no corner splits at 45° |
+| `#thick` | Radius under the border width, so the inner corner comes to a point |
+| `#groove` | Two bands per side, each a ring of its own |
+
+## Residual
+
+SSIM 0.9988, and every border-coloured differing pixel is a thin seam at a corner transition —
+roughly a pixel wide, where Chromium carries one colour a fraction further around the arc than the
+outer-to-inner diagonal puts it. It is the same mechanism `block/bevelled_borders` records: two
+antialiased fills meeting on a diagonal do not composite to full coverage, and the corner is where
+that shows. The rest of the difference is sub-pixel glyph antialiasing in the six lines of text.
+
+This is the one place in the corpus where a rounded border is not pixel-exact, and it is why the
+report narrowed to **patterned** edges rather than disappearing: a dashed, dotted or double edge is
+stroked along its own centre line and deliberately runs past the corner, so there is no corner there
+for a radius to curve at all.
+
+**Boxes**: 8 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0019 · SSIM 0.9988** |
+| <img src="block/border_radius_sides/reference_0001.png" width="480"> | <img src="block/border_radius_sides/result%23page_0001.verified.png" width="480"> |
 
 
 ## block/border_styles
@@ -4206,6 +4270,44 @@ word in each cell is the longest.
 | --- | --- |
 | **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
 | <img src="table/auto_widths/reference_0001.png" width="480"> | <img src="table/auto_widths/result%23page_0001.verified.png" width="480"> |
+
+
+## table/bevelled_borders
+
+# table/bevelled_borders
+
+`border-style: outset` on a table, which is what `<table border="1">` still maps to and so is the
+place the bevelled styles turn up in real documents rather than in stylesheets.
+
+Two rules were found here, both by probing Chromium and neither derivable from the specification —
+CSS leaves every shade of these four styles to the user agent.
+
+**A table derives its shades from `currentColor`; a block does not.** A `div` whose border colour is
+`currentColor` — declared or absent — is drawn in a fixed pair of greys, `#eeeeee` over `#9a9a9a`,
+whatever its own `color` says; `block/bevelled_borders`' `#current` row measures that. A table in
+the same state derives instead: `color: #808080` gives `#d4d4d4` over `#2c2c2c`, `color: #cc3333`
+gives `#ff3f3f` over `#781e1e`, and the initial black gives `#a8a8a8` over `#545454`. Measured on a
+table, a row, a cell and a header cell, and against a `div` in each of the three arrangements.
+`StyleResolver` settles it, by refusing the "colour is current" flag to anything laid out by the
+table algorithm.
+
+**A colour too dark to darken steps UP.** Darkening black leaves black, so the bevel would have the
+same colour on both halves and disappear. Chromium's answer is to lighten once where the dark shade
+belongs and twice where the light one does, which is where `#545454` and `#a8a8a8` come from — the
+first is Blink's own lightened-black constant and the second is that lightened again.
+
+The threshold is on relative LUMINANCE rather than on the brightest channel, which took a probe to
+settle: `#212121` takes the ordinary pair and `#000021` steps up, and those two share a brightest
+channel of 33. Bracketed by measurement to between 0.014444 (`#202020`, which steps up) and 0.014552
+(`#00007c`, which does not) — a band 0.7% wide, inside which any constant reproduces all forty-odd
+colours sampled. Chromium's own number is not recoverable from outside it.
+
+**Boxes**: 22 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0005 · SSIM 0.9990** |
+| <img src="table/bevelled_borders/reference_0001.png" width="480"> | <img src="table/bevelled_borders/result%23page_0001.verified.png" width="480"> |
 
 
 ## table/caption_side

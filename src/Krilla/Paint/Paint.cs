@@ -1,4 +1,4 @@
-namespace Krilla;
+﻿namespace Krilla;
 
 /// <summary>
 /// What a fill or stroke paints with: a solid colour, or one of the three gradient kinds.
@@ -31,9 +31,6 @@ public sealed class Paint :
         }
     }
 
-    /// <summary>
-    /// Creates a solid-colour paint.
-    /// </summary>
     public static Paint Solid(Color color)
     {
         KrillaNative.EnsureLoaded();
@@ -58,7 +55,7 @@ public sealed class Paint :
         float y2,
         IReadOnlyList<GradientStop> stops,
         SpreadMethod spread = SpreadMethod.Pad,
-        Matrix? transform = null,
+        Matrix3x2? transform = null,
         bool antiAlias = true)
     {
         KrillaNative.EnsureLoaded();
@@ -70,7 +67,7 @@ public sealed class Paint :
                 y1,
                 x2,
                 y2,
-                (transform ?? Matrix.Identity).ToNative(),
+                (transform ?? Matrix3x2.Identity).ToNative(),
                 (int) spread,
                 antiAlias,
                 native,
@@ -98,7 +95,7 @@ public sealed class Paint :
         float endRadius,
         IReadOnlyList<GradientStop> stops,
         SpreadMethod spread = SpreadMethod.Pad,
-        Matrix? transform = null,
+        Matrix3x2? transform = null,
         bool antiAlias = true)
     {
         KrillaNative.EnsureLoaded();
@@ -112,7 +109,7 @@ public sealed class Paint :
                 endX,
                 endY,
                 endRadius,
-                (transform ?? Matrix.Identity).ToNative(),
+                (transform ?? Matrix3x2.Identity).ToNative(),
                 (int) spread,
                 antiAlias,
                 native,
@@ -123,9 +120,6 @@ public sealed class Paint :
         return new(handle);
     }
 
-    /// <summary>
-    /// Creates a sweep gradient about a centre point.
-    /// </summary>
     /// <remarks>
     /// Angles are in degrees, starting from the right and increasing counter-clockwise.
     /// </remarks>
@@ -136,7 +130,7 @@ public sealed class Paint :
         float endAngle,
         IReadOnlyList<GradientStop> stops,
         SpreadMethod spread = SpreadMethod.Pad,
-        Matrix? transform = null,
+        Matrix3x2? transform = null,
         bool antiAlias = true)
     {
         KrillaNative.EnsureLoaded();
@@ -148,7 +142,7 @@ public sealed class Paint :
                 centerY,
                 startAngle,
                 endAngle,
-                (transform ?? Matrix.Identity).ToNative(),
+                (transform ?? Matrix3x2.Identity).ToNative(),
                 (int) spread,
                 antiAlias,
                 native,
