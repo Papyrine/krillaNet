@@ -159,7 +159,10 @@ public static class HtmlConverter
         // After every page has closed, which is when the spans painted on them resolve — and the
         // tree is built from the DOM rather than from what was painted, because the painter emits
         // content in Appendix E's phases and a reader follows document order.
-        using var tree = tags?.Build(document, Text(document.DocumentElement.GetAttribute("lang")));
+        using var tree = tags?.Build(
+            document,
+            Text(document.DocumentElement.GetAttribute("lang")),
+            root);
 
         if (tree is not null)
         {

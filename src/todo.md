@@ -247,21 +247,21 @@ wrong is still unmeasured.
 
 `HtmlOptions.Tagged` builds a structure tree now, in reading order, and everything that is not
 content is marked as an artifact, so no operator puts ink on the page from outside one or the other.
-What is left:
+A cell says how far it spans and which headers describe it, a counter marker is the item's `Lbl`,
+and `role`, `aria-label`, `aria-labelledby` and `aria-describedby` are read. What is left:
 
 - **It is OFF by default.** Turning it on changes the bytes of every document, so it wants a round
   of its own — and it is the last thing here that is a decision rather than work.
-- **A list item's marker is an artifact, so there is no `Lbl` beside the `LBody`.** A reader is told
-  the item is an item and not what its bullet says, which is right for a disc and wrong for a
-  counter. The marker is drawn by `ListMarkers` at the end of block layout, outside the span the
-  item's own content is recorded under, so giving it a label means recording it against the item and
-  splitting the two on the way out.
-- **A table cell carries no `WithRowSpan`, `WithColumnSpan` or `WithHeaders`.** krilla takes all
-  three and the grid knows all three, so this is plumbing rather than a question — but a spanning
-  cell currently reads as an ordinary one, which is exactly the case a reader most needs told.
-- **No ARIA is read.** A figure takes its `alt`, its `<title>` child or its `title` attribute, and
-  nothing else anywhere takes anything: `aria-label`, `aria-describedby` and `role` are all ignored,
-  and so is `abbr` on a header cell, which is the one PDF has a field for.
+- **`aria-hidden` is not read**, and it is the one ARIA attribute left that changes what a reader
+  meets rather than what it is called. A document hiding a decorative run from a screen reader
+  still has that run tagged as content here. Honouring it is not a mapping but a PAINTING change:
+  the run has to open an artifact span instead of a content one, so the hidden-ness of an ancestor
+  has to reach `PdfPainter` the way `visibility` does. Nothing measures it.
+- **`<th abbr>` lands in `/Alt` rather than in `/Short`.** PDF 2.0 has a field meaning exactly what
+  HTML's attribute means — an abbreviated form of the header, announced where repeating the whole
+  of it would be tedious — and krilla exposes no setter for it, so the short form is announced in
+  place of the content everywhere instead of only where the header is referenced. A one-line
+  addition to `rust/crates/krilla-capi/src/api/tag.rs` if krilla's own `TableCell` grows it.
 
 ## Diagnostics
 

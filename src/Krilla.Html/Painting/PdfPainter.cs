@@ -1393,14 +1393,6 @@ static class PdfPainter
     }
 
     /// <summary>
-    /// Rounds to the nearest whole pixel, halves upward.
-    /// </summary>
-    /// <remarks>
-    /// Explicitly halves-up rather than through <see cref="MathF.Round(float)"/>, whose default is
-    /// banker's rounding — which would send exactly one edge in a thousand the other way from the
-    /// browser and leave a column of colour nobody could account for.
-    /// </remarks>
-    /// <summary>
     /// Opens a marked-content span for <paramref name="selector"/>, to be closed by disposing the
     /// result.
     /// </summary>
@@ -1415,13 +1407,29 @@ static class PdfPainter
             : default;
 
     /// <summary>
+    /// Opens a span for a list item's MARKER, to be closed by disposing the result.
+    /// </summary>
+    /// <remarks>
+    /// PDF's <c>Lbl</c>, which is content rather than decoration: a reader announcing "3" before an
+    /// item is saying which item it is, where announcing "bullet" would only repeat what the list's
+    /// own tag already said. So only a counter marker comes through here — a symbol is drawn as a
+    /// shape and stays an artifact — and the identifier is recorded apart from the item's own text,
+    /// because the two hang from different nodes of the item.
+    /// </remarks>
+    static TagSpan Label(Surface surface, PageSlice page, string? selector) =>
+        page.Tags is {} tags && selector is {} named
+            ? new(surface, tags, named, surface.BeginText(), marker: true)
+            : Artifact(surface, page);
+
+    /// <summary>
     /// Opens an ARTIFACT span, to be closed by disposing the result.
     /// </summary>
     /// <remarks>
     /// <para>
     /// Everything a reader is not meant to meet: a background, a border, an outline, a collapsed
-    /// table's grid lines, a list marker, a text shadow, and a repeated table header — which is
-    /// content, but content already read once on the page before.
+    /// table's grid lines, a SYMBOL list marker, a text shadow, and a repeated table header — which
+    /// is content, but content already read once on the page before. A COUNTER marker is not among
+    /// them; it says which item this is, so it goes through <see cref="Label"/> instead.
     /// </para>
     /// <para>
     /// PDF/UA asks for every operator to be either inside a structure element or inside one of
@@ -1447,7 +1455,8 @@ static class PdfPainter
         Surface? surface,
         DocumentTags? tags,
         string? selector,
-        TagIdentifier identifier) :
+        TagIdentifier identifier,
+        bool marker = false) :
         IDisposable
     {
         public void Dispose()
@@ -1459,12 +1468,31 @@ static class PdfPainter
 
             surface.EndTagged();
 
-            // An artifact has no element to belong to and no place in the tree — which is the
-            // whole of what makes it an artifact, so its identifier is deliberately dropped.
-            tags?.Record(selector!, identifier);
+            if (tags is null)
+            {
+                // An artifact has no element to belong to and no place in the tree — which is the
+                // whole of what makes it an artifact, so its identifier is deliberately dropped.
+                return;
+            }
+
+            if (marker)
+            {
+                tags.RecordMarker(selector!, identifier);
+                return;
+            }
+
+            tags.Record(selector!, identifier);
         }
     }
 
+    /// <summary>
+    /// Rounds to the nearest whole pixel, halves upward.
+    /// </summary>
+    /// <remarks>
+    /// Explicitly halves-up rather than through <see cref="MathF.Round(float)"/>, whose default is
+    /// banker's rounding — which would send exactly one edge in a thousand the other way from the
+    /// browser and leave a column of colour nobody could account for.
+    /// </remarks>
     static float Snap(float value) =>
         MathF.Floor(value + 0.5f);
 
@@ -2989,16 +3017,18 @@ static class PdfPainter
             return;
         }
 
-        // The marker is an artifact whatever shape it takes. A numbered one is real glyphs, and a
-        // reader announcing “1.” before every item would be announcing what the list tag already
-        // says, which is why CSS calls it a marker and PDF puts it outside the tree.
-        using var _ = Artifact(surface, page);
-
+        // A counter marker is the item's LABEL — PDF's `Lbl`, which is content — while a disc, a
+        // circle and a square are artifacts: a reader announcing "bullet" before every item would
+        // be announcing what the list's own tag already said, where "3." says which item this is.
         if (marker.Run is {} run)
         {
+            using var label = Label(surface, page, box.Selector);
+
             PaintRun(surface, run);
             return;
         }
+
+        using var _ = Artifact(surface, page);
 
         var bounds = marker.Bounds;
         var color = box.Style.Color;

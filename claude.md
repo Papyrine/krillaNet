@@ -168,6 +168,15 @@ and the diagnostics reached below the declaration level for the first time: a sc
 offers no line break inside, text it cannot reorder, a character no registered face covers, and a
 document's own `@font-face` rules.
 
+And from the fifteenth, which stayed inside the tag tree and was about what a reader is told beyond
+a role. A table cell now says how far it reaches and which header cells describe it — the span read
+from the LAYOUT rather than off the attribute, since `rowspan="0"` is a number only the grid knows,
+and the `headers` association wired in a second pass so a reference to a cell that produced no
+content is dropped rather than left dangling. A counter list marker became the item's `Lbl` where a
+bullet stays an artifact. And ARIA is read for the first time: `role` outranks the element that
+carries it, `aria-label` and `aria-labelledby` name it, `aria-describedby` describes it,
+`<abbr title>` expands it, and a table's `summary` reaches `/Summary`.
+
 Three structural points worth knowing before changing anything:
 
 - **Layout needs the native, for shaping only.** `FontFace` reads its metrics out of the font bytes in managed code and `ImageData` reads image sizes from file headers, but `FontFace.Shape` calls through to krilla's rustybuzz. That crossing is unavoidable — measuring text correctly means shaping it — and it ended the earlier property that layout ran without a Rust toolchain.
@@ -1491,8 +1500,54 @@ element box — the same position `link/` is in, and the same answer.
   anchor's own selector carried on the run: a run takes the INNERMOST inline element's path, so an
   anchor wrapping a `<b>` is named by nothing the run carries. `AnchorLink` carries both, and
   `Surface.AddTaggedLink` grew the internal-destination overload a `#fragment` needs.
-- **A list item wants `LI > LBody`**, and the `Lbl` beside it is deliberately absent: the marker is
-  painted as an artifact here, so an empty label would be worse than none.
+- **A list item wants `LI > LBody`**, and a `Lbl` beside it for a COUNTER marker only. A disc, a
+  circle and a square are drawn as shapes and stay artifacts: a reader announcing "bullet" before
+  every item would be announcing what the list's own tag already said, where "3." says which item
+  this is. The two are recorded in different dictionaries rather than sorted apart afterwards,
+  because they hang from different nodes of the item — and the marker is painted at the END of
+  block layout, from outside the walk that puts the item's own text down, so the split costs
+  nothing.
+- **An item's marker is painted AHEAD of its own lines**, so `First` has to consider it. Without
+  that, an item whose text is entirely inside child elements reports its first ink as the child's
+  and sorts among its parent's spans by the wrong number.
+- **A cell's SPAN is a layout result and its HEADERS are not**, which is why they are collected from
+  different places. `rowspan="0"` means "to the end of the rows" and a span reaching past the last
+  row is clamped to it, both resolved by `TableGrid` while the table is placed — so reading the
+  attribute would let a reader be told a cell covers three rows while the page shows two.
+  `TableAssociations` builds the grid a SECOND time for this, which cannot drift because
+  `TableGrid.Build` is a pure function of the box tree. A `headers` attribute is nothing but the
+  author's own words and is read from the DOM.
+- **A dangling `/Headers` is worse than no association at all.** PDF resolves the array through the
+  document's id tree, so a reference to an id nothing published lands a reader on nowhere, where an
+  absent one falls back to the cell's own column. Which cells published an id is only known once the
+  walk has run — a `headers` attribute may name a cell the walk has not reached, and a cell that
+  produced no content produces no tag — so the wiring is a second pass over the tree rather than
+  part of building it.
+- **krilla refuses a span on anything that is not a cell**, so whether a `<td>` IS one has to come
+  from the TAG rather than from the element's name: `role="presentation"` makes it a `NonStruct`,
+  and setting a span on that throws. `TagNode` carries the answer, for the same reason it carries
+  whether the tag is a list item.
+- **krilla prefixes a tag id with `U`**, so an HTML `id="pop"` appears in the PDF as `/ID(Upop)` and
+  in `/Headers[(Upop)]`. Consistent on both sides, so nothing here has to know — worth knowing only
+  because grepping a PDF for the document's own id finds nothing.
+- **`role` is a LIST, and the first RECOGNISED one wins.** It is a fallback chain written for
+  readers that do not know the newest name, so taking the first entry rather than the first match
+  would drop `role="doc-footnote note"` on the floor. An unrecognised role falls back to the
+  element's own meaning rather than to nothing, which is ARIA's own rule and the safe direction:
+  `role="tooltip"` on a paragraph should still produce a paragraph.
+- **`role="presentation"` is `NonStruct`**, which says the same thing from PDF's side: the element's
+  own semantics are removed and its content stays where it was.
+- **`aria-label` beats `aria-labelledby` here, and ARIA's own name computation has it the other way
+  round.** Deliberate: `aria-labelledby` resolves to the referenced elements' TEXT, which is exactly
+  what a PDF reader already has, so an explicit label is the one saying something the page does not.
+- **`/Alt` is the only field a reader is given**, so a name and a description share it — an element
+  carrying both writes `name. description`. An `aria-describedby` that reached nowhere would be a
+  conversion silently dropping the attribute.
+- **`<abbr title>` and `<th abbr>` point in OPPOSITE directions.** `title` is the LONG form of a
+  short word, which is exactly PDF's `/E`; `abbr` is the SHORT form of a long header, which PDF 2.0
+  has `/Short` for and krilla does not expose. Writing the second into `/E` would have a reader
+  announce the short form in place of the long — the opposite of what the field means — so it goes
+  to `/Alt` instead.
 
 ## The diagnostic table is only as good as its audit
 

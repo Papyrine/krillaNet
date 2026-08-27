@@ -1,4 +1,4 @@
-namespace Krilla.Html.Structure;
+﻿namespace Krilla.Html.Structure;
 
 /// <summary>
 /// The document's logical structure tree, collected while the pages are painted and built once
@@ -20,8 +20,9 @@ namespace Krilla.Html.Structure;
 /// walking the DOM, which is reading order by construction.
 /// </para>
 /// <para>
-/// What is tagged is the text and the pictures. Everything else is marked as an ARTIFACT rather
-/// than left out — a background, a border, an outline, a collapsed table's grid lines, a list
+/// What is tagged is the text and the pictures, plus a counter list marker, which is the one piece
+/// of generated decoration a reader needs told. Everything else is marked as an ARTIFACT rather
+/// than left out — a background, a border, an outline, a collapsed table's grid lines, a symbol
 /// marker, a text shadow, a repeated table header and a running margin box — because PDF/UA asks
 /// for every operator to be inside one or the other, and content in neither is content a reader
 /// may read out at a position nobody chose. krilla's marked content does not nest, which is why
@@ -32,6 +33,9 @@ namespace Krilla.Html.Structure;
 sealed class DocumentTags
 {
     readonly Dictionary<string, List<Span>> byElement = new(StringComparer.Ordinal);
+    readonly Dictionary<string, List<Span>> byMarker = new(StringComparer.Ordinal);
+    readonly Dictionary<string, Tag> cells = new(StringComparer.Ordinal);
+    TableAssociations? associations;
     int next;
 
     /// <summary>One recorded span, and where in the painting it was opened.</summary>
@@ -45,18 +49,35 @@ sealed class DocumentTags
     /// One element usually has several: a paragraph is one span per line, and a heading that
     /// straddles a page break has spans on both sheets.
     /// </remarks>
-    public void Record(string selector, TagIdentifier identifier)
+    public void Record(string selector, TagIdentifier identifier) =>
+        Record(byElement, selector, identifier);
+
+    /// <summary>
+    /// Notes that <paramref name="identifier"/> is the MARKER of the list item at
+    /// <paramref name="selector"/>.
+    /// </summary>
+    /// <remarks>
+    /// Kept apart from the item's own content because PDF keeps the two apart: an <c>LI</c> holds
+    /// an optional <c>Lbl</c> for the marker and an <c>LBody</c> for everything else, and a reader
+    /// announces them differently. The marker is painted at the END of block layout, from outside
+    /// the walk that puts the item's own text down, so the split costs nothing but a second
+    /// dictionary.
+    /// </remarks>
+    public void RecordMarker(string selector, TagIdentifier identifier) =>
+        Record(byMarker, selector, identifier);
+
+    void Record(Dictionary<string, List<Span>> into, string selector, TagIdentifier identifier)
     {
-        if (!byElement.TryGetValue(selector, out var identifiers))
+        if (!into.TryGetValue(selector, out var identifiers))
         {
-            byElement[selector] = identifiers = [];
+            into[selector] = identifiers = [];
         }
 
         identifiers.Add(new(identifier, next++));
     }
 
     /// <summary>Whether anything was recorded at all.</summary>
-    public bool IsEmpty => byElement.Count == 0;
+    public bool IsEmpty => byElement.Count == 0 && byMarker.Count == 0;
 
     readonly HashSet<object> sighted = [];
 
@@ -75,16 +96,23 @@ sealed class DocumentTags
     /// <summary>
     /// Builds the tree, or returns null when the document produced no tagged content.
     /// </summary>
+    /// <param name="document">The document, walked in reading order.</param>
+    /// <param name="language">The document's language, as a BCP 47 tag.</param>
+    /// <param name="root">
+    /// The laid-out root box, from which a table cell's resolved spans are read.
+    /// </param>
     /// <remarks>
     /// The caller owns the result and must dispose it after
     /// <see cref="KrillaDocument.SetTagTree"/>.
     /// </remarks>
-    public TagTree? Build(IDocument document, string? language)
+    public TagTree? Build(IDocument document, string? language, LayoutBox root)
     {
-        if (IsEmpty || document.DocumentElement is not {} root)
+        if (IsEmpty || document.DocumentElement is not {} element)
         {
             return null;
         }
+
+        associations = TableAssociations.Build(root);
 
         var tree = new TagTree();
 
@@ -92,8 +120,14 @@ sealed class DocumentTags
         {
             tree.WithLanguage(language);
 
-            if (Walk(root) is {} top)
+            if (Walk(element) is {} top)
             {
+                // After the walk, because a `headers` attribute may name a cell anywhere in the
+                // table — including one the walk has not reached yet — and a reference to a cell
+                // that produced no content at all is a dangling one. Both questions are answered
+                // by what the walk actually built, so they can only be asked once it has.
+                Link();
+
                 tree.Add(top);
                 return tree;
             }
@@ -119,7 +153,10 @@ sealed class DocumentTags
     /// </remarks>
     Tag? Walk(IElement element)
     {
-        byElement.TryGetValue(SelectorPath.For(element), out var own);
+        var path = SelectorPath.For(element);
+
+        byElement.TryGetValue(path, out var own);
+        byMarker.TryGetValue(path, out var marker);
 
         List<(Tag Tag, int Order)>? children = null;
 
@@ -131,13 +168,13 @@ sealed class DocumentTags
             }
         }
 
-        if (own is null && children is null)
+        if (own is null && marker is null && children is null)
         {
             return null;
         }
 
-        var self = Create(element);
-        var parent = Body(self, element);
+        var node = Create(element, path);
+        var parent = Body(node, marker, own is not null || children is not null);
 
         // The children stay in DOM order and the element's OWN spans are merged in among them, by
         // the order the two were PAINTED in. Within CSS 2.1 Appendix E's inline content phase the
@@ -167,7 +204,7 @@ sealed class DocumentTags
             parent.Add(own![index++].Identifier);
         }
 
-        return self;
+        return node.Tag;
     }
 
     /// <summary>
@@ -177,10 +214,18 @@ sealed class DocumentTags
     int First(IElement element)
     {
         var first = int.MaxValue;
+        var path = SelectorPath.For(element);
 
-        if (byElement.TryGetValue(SelectorPath.For(element), out var own) && own.Count > 0)
+        // The marker as well as the text, because it is drawn AHEAD of the item's own lines — so
+        // an item whose text is all in child elements still first put ink where its bullet went.
+        if (byMarker.TryGetValue(path, out var marker) && marker.Count > 0)
         {
-            first = own[0].Order;
+            first = marker[0].Order;
+        }
+
+        if (byElement.TryGetValue(path, out var own) && own.Count > 0)
+        {
+            first = Math.Min(first, own[0].Order);
         }
 
         foreach (var child in element.Children)
@@ -192,29 +237,161 @@ sealed class DocumentTags
     }
 
     /// <summary>
+    /// Associates each cell with the header cells its <c>headers</c> attribute names.
+    /// </summary>
+    /// <remarks>
+    /// A reference to a cell the walk skipped is dropped rather than written. PDF resolves
+    /// <c>/Headers</c> through the document's id tree, and an id nothing published is a reference
+    /// to nowhere — worse than the association being absent, because a reader following it lands
+    /// on nothing rather than falling back to the cell's own column.
+    /// </remarks>
+    void Link()
+    {
+        foreach (var (path, tag) in cells)
+        {
+            if (associations!.Headers(path) is not {Count: > 0} named)
+            {
+                continue;
+            }
+
+            var ids = new List<string>();
+
+            foreach (var target in named)
+            {
+                if (cells.ContainsKey(SelectorPath.For(target)) && target.Id is {Length: > 0} id)
+                {
+                    ids.Add(id);
+                }
+            }
+
+            if (ids.Count > 0)
+            {
+                tag.WithHeaders(ids);
+            }
+        }
+    }
+
+    /// <summary>
     /// The node an element's content actually hangs from, which for a list item is an
     /// <see cref="TagKind.ListBody"/> nested inside it.
     /// </summary>
     /// <remarks>
     /// PDF's list model is <c>LI</c> holding an optional <c>Lbl</c> — the marker — and an
-    /// <c>LBody</c> holding everything else, and a reader announces the two differently. The marker
-    /// is painted as an artifact here, so the <c>Lbl</c> is left out rather than made empty; the
-    /// <c>LBody</c> is not optional and its absence was the part with nothing to be said for it.
+    /// <c>LBody</c> holding everything else, and a reader announces the two differently. The
+    /// <c>Lbl</c> is present exactly when the marker put glyphs on the page, which is the counter
+    /// styles: a disc, a circle and a square are drawn as shapes and stay artifacts, since a reader
+    /// announcing a bullet before every item would be announcing what the list's own tag says.
     /// </remarks>
-    static Tag Body(Tag tag, IElement element)
+    static Tag Body(TagNode node, List<Span>? marker, bool content)
     {
-        // Reached only for an element that produced content, since a barren one is skipped before
-        // this — so the body is never the empty group PDF has no use for.
-        if (element.LocalName != "li")
+        // A `Lbl` outside an `LI` is not a structure PDF has, so an item whose `role` took its
+        // item-ness away keeps the marker's glyphs as ordinary content of whatever it did become.
+        // Dropping them instead would leave marked content on the page that no structure element
+        // references, which is the one thing tagging is meant to make impossible.
+        if (!node.Item)
         {
-            return tag;
+            foreach (var span in marker ?? [])
+            {
+                node.Tag.Add(span.Identifier);
+            }
+
+            return node.Tag;
         }
 
-        return tag.Add(TagKind.ListBody);
+        if (marker is not null)
+        {
+            var label = node.Tag.Add(TagKind.ListLabel);
+
+            foreach (var span in marker)
+            {
+                label.Add(span.Identifier);
+            }
+        }
+
+        // An item with a marker and nothing else is the one arrangement that reaches here with no
+        // content — a barren element is skipped before this, and a marker is not barren — so the
+        // `LBody` is left off rather than written empty, which is a group PDF has no use for.
+        return content ? node.Tag.Add(TagKind.ListBody) : node.Tag;
     }
 
     /// <summary>
-    /// The structural role HTML gives <paramref name="element"/>.
+    /// The structure element <paramref name="element"/> produces, described and associated.
+    /// </summary>
+    TagNode Create(IElement element, string path)
+    {
+        var node = AriaSemantics.Role(element) ?? Native(element);
+
+        Describe(node.Tag, element);
+
+        if (node.Cell)
+        {
+            Associate(node.Tag, element, path);
+        }
+
+        return node;
+    }
+
+    /// <summary>
+    /// What a reader is told about the content beyond its role.
+    /// </summary>
+    /// <remarks>
+    /// <c>/Alt</c> is the only field a PDF reader is given for either a name or a description, so
+    /// an element carrying both puts them there together — a description that reached nowhere would
+    /// be an <c>aria-describedby</c> the conversion silently dropped. A picture already took its
+    /// name at construction, and re-setting the same string is what makes that harmless.
+    /// </remarks>
+    static void Describe(Tag tag, IElement element)
+    {
+        var name = AriaSemantics.Name(element);
+        var description = AriaSemantics.Description(element);
+
+        if (description is not null)
+        {
+            tag.WithAltText(name is null ? description : $"{name}. {description}");
+        }
+        else if (name is not null)
+        {
+            tag.WithAltText(name);
+        }
+
+        if (AriaSemantics.Expansion(element) is {} expanded)
+        {
+            tag.WithExpanded(expanded);
+        }
+    }
+
+    /// <summary>
+    /// Gives a table cell the shape it occupies and the id anything referencing it will use.
+    /// </summary>
+    /// <remarks>
+    /// A span of one is left unwritten: it is the default, so writing it says nothing and costs an
+    /// entry in every cell of every table.
+    /// </remarks>
+    void Associate(Tag tag, IElement element, string path)
+    {
+        if (associations!.Spans(path) is {} span)
+        {
+            if (span.Rows > 1)
+            {
+                tag.WithRowSpan(span.Rows);
+            }
+
+            if (span.Columns > 1)
+            {
+                tag.WithColumnSpan(span.Columns);
+            }
+        }
+
+        if (associations.IsHeader(path) && element.Id is {Length: > 0} id)
+        {
+            tag.WithId(id);
+        }
+
+        cells[path] = tag;
+    }
+
+    /// <summary>
+    /// The structural role HTML itself gives <paramref name="element"/>.
     /// </summary>
     /// <remarks>
     /// The fallback is <see cref="TagKind.Span"/> rather than <see cref="TagKind.Div"/>, because a
@@ -222,71 +399,68 @@ sealed class DocumentTags
     /// and the elements that reach the fallback are overwhelmingly inline ones a document invented
     /// for styling.
     /// </remarks>
-    static Tag Create(IElement element)
+    static TagNode Native(IElement element)
     {
         // An anchor WITH an href is a link and one without is not — HTML's own distinction, and the
         // one a reader acts on. The annotation lands here alongside the text, because `PaintLink`
         // records it against the anchor's own selector rather than the run's.
         if (element.LocalName == "a" && element.GetAttribute("href") is {Length: > 0})
         {
-            return Tag.Create(TagKind.Link);
+            return new(Tag.Create(TagKind.Link));
         }
 
         return element.LocalName switch
         {
-            "h1" => Tag.Heading(1, element.TextContent.Trim()),
-            "h2" => Tag.Heading(2, element.TextContent.Trim()),
-            "h3" => Tag.Heading(3, element.TextContent.Trim()),
-            "h4" => Tag.Heading(4, element.TextContent.Trim()),
-            "h5" => Tag.Heading(5, element.TextContent.Trim()),
-            "h6" => Tag.Heading(6, element.TextContent.Trim()),
-            "ol" => Tag.List(Numbering(element)),
-            "ul" or "menu" => Tag.List(ListNumbering.Disc),
-            "th" => Tag.TableHeader(Scope(element)),
-            "img" or "svg" or "figure" => Tag.Figure(Alt(element)),
-            "html" => Tag.Create(TagKind.Part),
-            "body" or "main" or "article" => Tag.Create(TagKind.Article),
-            "section" or "nav" or "aside" or "header" or "footer" => Tag.Create(TagKind.Section),
-            "div" or "form" or "fieldset" or "dl" or "dd" or "dt" => Tag.Create(TagKind.Div),
-            "p" or "address" or "pre" => Tag.Create(TagKind.Paragraph),
-            "blockquote" => Tag.Create(TagKind.BlockQuote),
-            "q" => Tag.Create(TagKind.InlineQuote),
-            "li" => Tag.Create(TagKind.ListItem),
-            "table" => Tag.Create(TagKind.Table),
-            "thead" => Tag.Create(TagKind.TableHead),
-            "tbody" => Tag.Create(TagKind.TableBody),
-            "tfoot" => Tag.Create(TagKind.TableFoot),
-            "tr" => Tag.Create(TagKind.TableRow),
-            "td" => Tag.Create(TagKind.TableCell),
-            "caption" or "figcaption" => Tag.Create(TagKind.Caption),
-            "code" or "kbd" or "samp" or "var" => Tag.Create(TagKind.Code),
-            "strong" or "b" => Tag.Create(TagKind.Strong),
-            "em" or "i" or "cite" or "dfn" => Tag.Create(TagKind.Emphasis),
-            "time" => Tag.Create(TagKind.DateTime),
-            _ => Tag.Create(TagKind.Span)
+            "h1" => new(Tag.Heading(1, element.TextContent.Trim())),
+            "h2" => new(Tag.Heading(2, element.TextContent.Trim())),
+            "h3" => new(Tag.Heading(3, element.TextContent.Trim())),
+            "h4" => new(Tag.Heading(4, element.TextContent.Trim())),
+            "h5" => new(Tag.Heading(5, element.TextContent.Trim())),
+            "h6" => new(Tag.Heading(6, element.TextContent.Trim())),
+            "ol" => new(Tag.List(Numbering(element))),
+            "ul" or "menu" => new(Tag.List(ListNumbering.Disc)),
+            "th" => new(Tag.TableHeader(Scope(element)), Cell: true),
+            "img" or "svg" or "figure" => new(Tag.Figure(AriaSemantics.Picture(element))),
+            "html" => new(Tag.Create(TagKind.Part)),
+            "body" or "main" or "article" => new(Tag.Create(TagKind.Article)),
+            "section" or "nav" or "aside" or "header" or "footer" => new(Tag.Create(TagKind.Section)),
+            "div" or "form" or "fieldset" or "dl" or "dd" or "dt" => new(Tag.Create(TagKind.Div)),
+            "p" or "address" or "pre" => new(Tag.Create(TagKind.Paragraph)),
+            "blockquote" => new(Tag.Create(TagKind.BlockQuote)),
+            "q" => new(Tag.Create(TagKind.InlineQuote)),
+            "li" => new(Tag.Create(TagKind.ListItem), Item: true),
+            "table" => new(Summarised(element)),
+            "thead" => new(Tag.Create(TagKind.TableHead)),
+            "tbody" => new(Tag.Create(TagKind.TableBody)),
+            "tfoot" => new(Tag.Create(TagKind.TableFoot)),
+            "tr" => new(Tag.Create(TagKind.TableRow)),
+            "td" => new(Tag.Create(TagKind.TableCell), Cell: true),
+            "caption" or "figcaption" => new(Tag.Create(TagKind.Caption)),
+            "code" or "kbd" or "samp" or "var" => new(Tag.Create(TagKind.Code)),
+            "strong" or "b" => new(Tag.Create(TagKind.Strong)),
+            "em" or "i" or "cite" or "dfn" => new(Tag.Create(TagKind.Emphasis)),
+            "time" => new(Tag.Create(TagKind.DateTime)),
+            _ => new(Tag.Create(TagKind.Span))
         };
     }
 
-    /// <summary>
-    /// What a screen reader announces in place of a picture.
-    /// </summary>
+    /// <summary>A table, carrying the prose description of its own shape if it has one.</summary>
     /// <remarks>
-    /// An <c>&lt;svg&gt;</c> has no <c>alt</c>, so its <c>&lt;title&gt;</c> child is read instead —
-    /// which is where SVG itself puts the same information.
+    /// <c>&lt;table summary&gt;</c> is obsolete in HTML5 and is exactly what PDF's <c>/Summary</c>
+    /// is for — a sentence saying how the grid is arranged, for a reader that cannot see it. The
+    /// obsolescence is not a reason to drop it: the documents this converter is pointed at come
+    /// disproportionately from reporting tools, which are also the last things still emitting it.
     /// </remarks>
-    static string? Alt(IElement element)
+    static Tag Summarised(IElement element)
     {
-        if (element.GetAttribute("alt") is {Length: > 0} alt)
+        var tag = Tag.Create(TagKind.Table);
+
+        if (element.GetAttribute("summary") is {Length: > 0} summary)
         {
-            return alt;
+            tag.WithSummary(summary);
         }
 
-        if (element.QuerySelector("title") is {} title && title.TextContent.Trim() is {Length: > 0} text)
-        {
-            return text;
-        }
-
-        return element.GetAttribute("title") is {Length: > 0} attribute ? attribute : null;
+        return tag;
     }
 
     /// <summary>The markers an ordered list shows, as a reader announces them.</summary>
