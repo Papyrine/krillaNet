@@ -1143,7 +1143,7 @@ static class PdfPainter
         // INNER corner as well as the outer: the deflation is the same one the ring path takes,
         // each radius less the edge running along it. Skipped where the border has swallowed the
         // box whole and there is nothing left to cut.
-        if (inner.Width > 0 && inner.Height > 0)
+        if (inner is { Width: > 0, Height: > 0 })
         {
             radii
                 .Deflate(style.BorderTop, style.BorderRight, style.BorderBottom, style.BorderLeft)

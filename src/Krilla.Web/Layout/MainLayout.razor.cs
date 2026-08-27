@@ -1,5 +1,3 @@
-using System.Reflection;
-
 namespace Krilla.Web.Layout;
 
 public partial class MainLayout : IDisposable
