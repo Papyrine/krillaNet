@@ -1,4 +1,4 @@
-# Krilla.Html todo
+﻿# Krilla.Html todo
 
 What is still missing or wrong in the HTML converter, measured against Chrome by the corpus in
 `src/Krilla.Html.Tests/Inputs`. Nothing here describes work that has landed.
@@ -15,11 +15,11 @@ it, that is stated, because an unmeasured gap is the more dangerous kind.
 ## Where the corpus stands
 
 153 scenarios across 10 categories, 1994 element boxes matched. **Box geometry matches Chrome
-exactly on every one** — worst offset 0.00px, worst size 0.00px, and nothing unmatched — and 105
-read SSIM 1.0000, of which 74 are pixel-identical outright. The other 31 differ on a scattering of
+exactly on every one** — worst offset 0.00px, worst size 0.00px, and nothing unmatched — and 106
+read SSIM 1.0000, of which 74 are pixel-identical outright. The other 32 differ on a scattering of
 antialiased pixels, which is what `AE` is there to show.
 
-Forty-eight read below 1.0000. None is a mystery, and none should be "fixed" by regenerating a
+Forty-seven read below 1.0000. None is a mystery, and none should be "fixed" by regenerating a
 baseline:
 
 | Scenario | AE | SSIM | Cause |
@@ -55,7 +55,6 @@ baseline:
 | `block/outline` | 0.0006 | 0.9999 | Same |
 | `float/overflow_bfc` | 0.0005 | 0.9999 | Same |
 | `image/inline_flow` | 0.0006 | 0.9999 | One antialiased pixel column at an image edge |
-| `inline/border_radius` | 0.0018 | 0.9999 | Antialiasing on the rounded corners, plus glyph edges |
 | `inline/gradient` | 0.0111 | 0.9999 | Ramp quantisation, plus glyph edges |
 | `inline/nowrap` | 0.0010 | 0.9999 | Sub-pixel glyph positioning |
 | `inline/text_indent` | 0.0005 | 0.9999 | Same |
@@ -167,12 +166,6 @@ wrong is still unmeasured.
   the colour asked for once the colour is translucent. `block/translucent` keeps its dashed row to
   one side and names the table's junctions for this reason. The same is true of two antialiased
   trapezia meeting on a mitre, which is the residual both `bevelled_borders` scenarios record.
-- **A rounded inline element whose border edges DISAGREE about a colour keeps a square inner
-  corner**, and is reported. With one colour the border is a ring and both edges of the corner are
-  rounded; with four the rectangles are cut to the rounded outline instead, which rounds the outer
-  edge and leaves the inner one square. `inline/border_radius`'s `#seven` is that case, and it is
-  one of the two rows in the corpus that report — the other being `block/list_image`'s deliberately
-  absent image.
 - **A rounded BLOCK border whose edges disagree about a colour leaves a seam at each corner.** The
   ring is drawn through the trapezium clip a mitred edge already uses, so the split runs from the
   outer corner to the inner one — which is where a browser hands over, to within a pixel. Chromium
@@ -383,7 +376,7 @@ work rather than as tidying.
 
 - **The corpus references are generated on one platform.** Regenerating on the machine that
   produced them is known to be byte-identical, so the generator is at least deterministic — but
-  that is the lesser half. The claim that matters is still untested: generating all 151 on a second
+  that is the lesser half. The claim that matters is still untested: generating all 153 on a second
   machine, with a different Chromium build, and diffing the PNGs. Until then a platform-specific
   difference would look like a layout regression.
 - **`Krilla.Html` is never packed or published by CI.** It packs perfectly well locally — the

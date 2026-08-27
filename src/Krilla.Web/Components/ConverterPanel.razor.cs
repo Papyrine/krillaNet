@@ -1,4 +1,4 @@
-using Microsoft.AspNetCore.Components.Forms;
+﻿using Microsoft.AspNetCore.Components.Forms;
 
 namespace Krilla.Web.Components;
 
@@ -78,9 +78,32 @@ public partial class ConverterPanel :
         }
     }
 
+    // A failure has to take the previous conversion's result with it. Left alone, pdfUrl and
+    // result still hold the last successful document, so the pane shows "Conversion failed"
+    // beside a Download button that saves a DIFFERENT file — which is worse than showing nothing.
+    async Task FailAsync(string message)
+    {
+        await ReleasePdfAsync();
+        result = null;
+        error = message;
+    }
+
     async Task LoadSampleAsync()
     {
-        html = await Http.GetStringAsync("sample/sample.html");
+        try
+        {
+            html = await Http.GetStringAsync("sample/sample.html");
+        }
+        catch (Exception exception)
+        {
+            // The sample is a static asset of this app, so a failure here is a deployment problem
+            // rather than a document problem — and it still has to land in the pane. Allowed to
+            // escape the handler it reaches the browser console and nothing else, leaving the
+            // button looking exactly as though it did nothing at all.
+            await FailAsync(exception.Message);
+            return;
+        }
+
         await ConvertAsync();
     }
 
@@ -99,7 +122,7 @@ public partial class ConverterPanel :
         }
         catch (IOException exception)
         {
-            error = exception.Message;
+            await FailAsync(exception.Message);
             return;
         }
 

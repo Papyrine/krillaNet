@@ -1,15 +1,31 @@
-// The app's JavaScript: theme persistence, the footer's payload/RAM figures, and the blob-URL
+﻿// The app's JavaScript: theme persistence, the footer's payload/RAM figures, and the blob-URL
 // plumbing the PDF preview and download need. Everything else is C#.
 
+// Every access is wrapped, because localStorage THROWS rather than returning null when the
+// browser is refusing site data — a third-party-storage block, or Safari in private mode. This is
+// a static page whose only stored state is a theme name, and an unguarded read runs inside the
+// layout's OnInitializedAsync, so the whole app failed to start over a preference it can perfectly
+// well do without. Best-effort in both directions: a reader who blocks storage gets the default
+// theme and a toggle that works for the life of the page.
 window.statePreference = {
     get: function (key) {
-        return localStorage.getItem(key);
+        try {
+            return localStorage.getItem(key);
+        } catch {
+            return null;
+        }
     },
     set: function (key, value) {
-        localStorage.setItem(key, value);
+        try {
+            localStorage.setItem(key, value);
+        } catch {
+        }
     },
     remove: function (key) {
-        localStorage.removeItem(key);
+        try {
+            localStorage.removeItem(key);
+        } catch {
+        }
     }
 };
 
@@ -83,10 +99,22 @@ window.themeManager = {
     applyTheme: function (themeName) {
         document.documentElement.setAttribute('data-theme', themeName.toLowerCase());
     },
+    // The theme a reader gets before they have chosen one. Defaulting to light regardless left a
+    // reader whose system is in dark mode staring at a white page until they found the toggle,
+    // which is the one group that has already stated a preference. Named to match ThemeType, so
+    // the C# side can parse it straight back.
+    preferredTheme: function () {
+        return window.matchMedia?.('(prefers-color-scheme: dark)').matches ? 'Dark' : 'Light';
+    },
+    // Runs from index.html BEFORE Blazor boots, so the first paint is already the right theme
+    // rather than a flash of light that corrects itself once the runtime has downloaded.
+    // ThemePreferenceService resolves the same answer the same way, so the two agree.
     initializeTheme: function () {
-        const savedTheme = localStorage.getItem('selectedTheme');
-        if (savedTheme) {
-            document.documentElement.setAttribute('data-theme', savedTheme.toLowerCase());
+        let saved = null;
+        try {
+            saved = localStorage.getItem('selectedTheme');
+        } catch {
         }
+        window.themeManager.applyTheme(saved || window.themeManager.preferredTheme());
     }
 };

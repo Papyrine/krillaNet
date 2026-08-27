@@ -1,4 +1,4 @@
-namespace Krilla.Web.Services;
+﻿namespace Krilla.Web.Services;
 
 /// <summary>
 /// Fetches the faces a conversion draws with and builds the <see cref="FontSet"/> from them.
@@ -32,18 +32,34 @@ public class FontStore(HttpClient client)
         "LiberationMono-Regular.ttf"
     ];
 
-    FontSet? set;
+    Task<FontSet>? pending;
 
     /// <summary>
     /// The faces, fetched and parsed on first use.
     /// </summary>
-    public async Task<FontSet> GetAsync()
+    /// <remarks>
+    /// The TASK is cached rather than the set it produces, and that is what makes the caching
+    /// above true. Two conversions overlap readily — the Sample button starts one while a Convert
+    /// is still in flight — and a field holding the finished set is still null for both of them
+    /// until the first completes, so both fetch 2.4 MB of faces and both build a
+    /// <see cref="FontSet"/> that owns native handles, one of which is then orphaned. A cached
+    /// task means the second caller awaits the first's download instead.
+    /// </remarks>
+    public Task<FontSet> GetAsync()
     {
-        if (set is not null)
+        // A faulted or cancelled attempt is deliberately not kept: six separate downloads, any of
+        // which can fail transiently, and a page that answered every later conversion with the
+        // first failure would need a reload to recover.
+        if (pending is { IsFaulted: false, IsCanceled: false })
         {
-            return set;
+            return pending;
         }
 
+        return pending = BuildAsync();
+    }
+
+    async Task<FontSet> BuildAsync()
+    {
         // Fetched together rather than in sequence: six requests one after another is six
         // round trips, and the browser will run them in parallel for free.
         var downloads = Faces.Select(_ => client.GetByteArrayAsync($"fonts/{_}"));
@@ -62,6 +78,6 @@ public class FontStore(HttpClient client)
         built.Serif = "Liberation Serif";
         built.Monospace = "Liberation Mono";
 
-        return set = built;
+        return built;
     }
 }

@@ -1,3 +1,5 @@
+﻿using System.Diagnostics;
+
 namespace Krilla.Web.Services;
 
 /// <summary>
@@ -49,7 +51,11 @@ public class ConversionService(FontStore fonts)
         // A data: URI still works, since its bytes are already in the document.
         options.ImageResolver = _ => null;
 
-        var started = DateTime.UtcNow;
+        // Stopwatch rather than DateTime.UtcNow: this is a DURATION, and the wall clock is not
+        // monotonic. An NTP correction or a daylight-saving shift landing mid-conversion produces
+        // a figure that is wrong by an hour or negative outright, and the pane prints it as
+        // milliseconds. UtcNow's resolution is also coarser than what is being measured here.
+        var started = Stopwatch.GetTimestamp();
 
         // Off the UI thread only in the sense that the await lets the "converting" state paint
         // first. The runtime is single-threaded (see the csproj), so the work itself still runs
@@ -58,6 +64,6 @@ public class ConversionService(FontStore fonts)
 
         var pdf = await HtmlConverter.ConvertAsync(html, options);
 
-        return new(pdf, diagnostics, DateTime.UtcNow - started);
+        return new(pdf, diagnostics, Stopwatch.GetElapsedTime(started));
     }
 }

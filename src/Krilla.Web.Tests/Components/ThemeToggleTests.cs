@@ -1,4 +1,4 @@
-namespace Krilla.Web.Tests.Components;
+﻿namespace Krilla.Web.Tests.Components;
 
 public class ThemeToggleTests : BunitTestContext
 {
@@ -35,12 +35,22 @@ public class ThemeToggleTests : BunitTestContext
         await Assert.That(newTheme).IsEqualTo(ThemeType.Dark);
     }
 
+    // The accessible name has to CONTAIN the visible text, which is WCAG 2.5.3 (Label in Name) —
+    // a voice-control user says what they can see. A static "Toggle theme" replaced the visible
+    // "Dark"/"Light" instead, so both themes are asserted here rather than one: a label that does
+    // not follow the state is exactly the regression that reintroduces the failure.
     [Test]
-    public async Task Button_HasAriaLabel()
+    [Arguments(ThemeType.Light, "Dark", "Switch to dark theme")]
+    [Arguments(ThemeType.Dark, "Light", "Switch to light theme")]
+    public async Task Button_AriaLabelContainsVisibleText(ThemeType theme, string visible, string expected)
     {
         var cut = Render<ThemeToggle>(_ => _
-            .Add(_ => _.CurrentTheme, ThemeType.Light));
+            .Add(_ => _.CurrentTheme, theme));
 
-        await Assert.That(cut.Find(".theme-toggle-btn").GetAttribute("aria-label")).IsEqualTo("Toggle theme");
+        var button = cut.Find(".theme-toggle-btn");
+
+        await Assert.That(button.GetAttribute("aria-label")).IsEqualTo(expected);
+        await Assert.That(button.TextContent).Contains(visible);
+        await Assert.That(button.GetAttribute("aria-label")!.ToLowerInvariant()).Contains(visible.ToLowerInvariant());
     }
 }

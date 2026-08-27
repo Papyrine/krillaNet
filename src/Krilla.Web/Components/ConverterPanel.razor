@@ -1,4 +1,4 @@
-@inject ConversionService Conversion
+﻿@inject ConversionService Conversion
 @inject HttpClient Http
 @inject IJSRuntime JSRuntime
 
@@ -7,12 +7,16 @@
     <section class="source-panel">
         <div class="panel-head">
             <h2>HTML</h2>
+            @* Both are disabled while a conversion runs, for the same reason the Convert button
+               is. They start a conversion of their own, and two in flight at once interleave:
+               each overwrites pdfUrl with its own blob, so the loser's URL is never revoked and
+               whichever finishes LAST wins the pane regardless of which was asked for second. *@
             <div class="source-actions">
                 <label class="file-btn">
                     Open file
-                    <InputFile OnChange="LoadFileAsync" accept=".html,.htm,text/html" id="source-file" />
+                    <InputFile OnChange="LoadFileAsync" accept=".html,.htm,text/html" id="source-file" disabled="@busy" />
                 </label>
-                <button class="sample-btn" type="button" @onclick="LoadSampleAsync">Sample</button>
+                <button class="sample-btn" type="button" @onclick="LoadSampleAsync" disabled="@busy">Sample</button>
             </div>
         </div>
 
