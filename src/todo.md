@@ -19,60 +19,63 @@ exactly on every one** — worst offset 0.00px, worst size 0.00px, and nothing u
 read SSIM 1.0000, of which 79 are pixel-identical outright. The other 33 differ on a scattering of
 antialiased pixels, which is what `AE` is there to show.
 
-Fifty read below 1.0000. None is a mystery, and none should be "fixed" by regenerating a
-baseline:
+Fifty read below 1.0000, and none should be "fixed" by regenerating a baseline. They used to be
+described as having no mysteries among them; that is no longer true, and the change is a result
+rather than a regression. Every row that said "sub-pixel glyph positioning" was repeating a cause
+nothing had measured. Measuring it refuted it, replaced it for the scenarios carrying text above
+16px, and left the rest honestly unattributed:
 
 | Scenario | AE | SSIM | Cause |
 | --- | --- | --- | --- |
 | `page/tall_image` | 0.0122 | 0.9750 | Chromium's PRINTER drops a margin its own layout keeps, below |
 | `block/background_repeat` | 0.0167 | 0.9842 | Chromium's PRINTER blurs a SPACED background's tile edges, below |
-| `page/table_header` | 0.0049 | 0.9900 | Sub-pixel glyph positioning at 24 and 30px; page three is identical |
+| `page/table_header` | 0.0049 | 0.9900 | Width truncation, below; drifts 0.28px at 24 and 30px |
 | `table/cell_baseline` | 0.0031 | 0.9926 | Chromium's PRINTER does not apply cell baseline alignment, below |
-| `text/kerning` | 0.0201 | 0.9945 | Sub-pixel glyph positioning, below |
-| `text/ligatures` | 0.0099 | 0.9982 | Same |
-| `page/table_footer` | 0.0114 | 0.9984 | Same, at 24 and 30px; page three is identical |
+| `text/kerning` | 0.0201 | 0.9945 | PDFium truncates krilla's fractional `/W` widths, below |
+| `text/ligatures` | 0.0099 | 0.9982 | The same width truncation; drifts 0.36px |
+| `page/table_footer` | 0.0114 | 0.9984 | Width truncation, below; drifts 0.22px |
 | `block/shadows` | 0.0057 | 0.9985 | Antialiasing on `#rounded`'s corner; no pixel differs by more than 2 of 255 |
-| `image/svg` | 0.0028 | 0.9988 | Sub-pixel glyph positioning in the `<text>` inside the picture |
+| `image/svg` | 0.0028 | 0.9988 | UNATTRIBUTED — no line drift, cause not yet measured |
 | `block/border_radius_sides` | 0.0019 | 0.9988 | A corner seam where two colours hand over, below |
 | `block/bevelled_borders` | 0.0009 | 0.9990 | Antialiasing where two colours meet on a mitre, below |
 | `table/bevelled_borders` | 0.0005 | 0.9990 | The same mitres |
-| `page/break_avoid` | 0.0045 | 0.9991 | Sub-pixel glyph positioning; pages one and three are identical |
-| `page/fixed_repeat` | 0.0039 | 0.9992 | Sub-pixel glyph positioning |
-| `flex/min_size` | 0.0012 | 0.9994 | Sub-pixel glyph positioning across the two overflowing words |
+| `page/break_avoid` | 0.0045 | 0.9991 | Width truncation, below; drifts 0.39px |
+| `page/fixed_repeat` | 0.0039 | 0.9992 | Width truncation, below; drifts 0.14px |
+| `flex/min_size` | 0.0012 | 0.9994 | UNATTRIBUTED — no line drift, cause not yet measured |
 | `block/border_styles` | 0.0002 | 0.9995 | A vertical dotted edge, below |
 | `flex/basic` | 0.0000 | 0.9996 | Forty pixels in one column: a box edge at x=352.5, below |
-| `page/break_between_lines` | 0.0017 | 0.9996 | Sub-pixel glyph positioning |
-| `page/trailing_margin` | 0.0024 | 0.9996 | Same |
-| `block/counters` | 0.0013 | 0.9997 | Same |
-| `page/float_break` | 0.0023 | 0.9997 | Same |
+| `page/break_between_lines` | 0.0017 | 0.9996 | Width truncation, below; drifts 0.15px |
+| `page/trailing_margin` | 0.0024 | 0.9996 | Width truncation, below; drifts 0.10px |
+| `block/counters` | 0.0013 | 0.9997 | UNATTRIBUTED — no line drift, cause not yet measured |
+| `page/float_break` | 0.0023 | 0.9997 | UNATTRIBUTED — no line drift, cause not yet measured |
 | `text/underline_offset` | 0.0002 | 0.9997 | Glyph edges |
-| `block/min_width` | 0.0009 | 0.9998 | Sub-pixel glyph positioning |
+| `block/min_width` | 0.0009 | 0.9998 | UNATTRIBUTED — no line drift, cause not yet measured |
 | `page/break_inside` | 0.0012 | 0.9998 | Same, on page two; page one is identical |
-| `page/multi_page_flow` | 0.0016 | 0.9998 | Same |
-| `page/orphans_widows` | 0.0019 | 0.9998 | Same; pages one and three are identical |
-| `text/align_last` | 0.0013 | 0.9998 | Same |
+| `page/multi_page_flow` | 0.0016 | 0.9998 | Width truncation, below; drifts 0.12px |
+| `page/orphans_widows` | 0.0019 | 0.9998 | Width truncation, below; drifts 0.35px |
+| `text/align_last` | 0.0013 | 0.9998 | UNATTRIBUTED — no line drift, cause not yet measured |
 | `text/word_spacing` | 0.0009 | 0.9998 | Same, across the widened spaces |
 | `block/box_sizing` | 0.0004 | 0.9999 | Same, on the one line beside a float |
-| `block/list_image` | 0.0006 | 0.9999 | Same |
-| `block/outline` | 0.0006 | 0.9999 | Same |
-| `float/overflow_bfc` | 0.0005 | 0.9999 | Same |
+| `block/list_image` | 0.0006 | 0.9999 | UNATTRIBUTED — no line drift, cause not yet measured |
+| `block/outline` | 0.0006 | 0.9999 | UNATTRIBUTED — no line drift, cause not yet measured |
+| `float/overflow_bfc` | 0.0005 | 0.9999 | UNATTRIBUTED — no line drift, cause not yet measured |
 | `image/inline_flow` | 0.0006 | 0.9999 | One antialiased pixel column at an image edge |
 | `inline/gradient` | 0.0111 | 0.9999 | Ramp quantisation, plus glyph edges |
-| `inline/nowrap` | 0.0010 | 0.9999 | Sub-pixel glyph positioning |
-| `inline/text_indent` | 0.0005 | 0.9999 | Same |
-| `link/fragment` | 0.0001 | 0.9999 | Same |
-| `link/wrapped` | 0.0000 | 0.9999 | Same |
-| `page/flex_break` | 0.0004 | 0.9999 | Sub-pixel glyph positioning on page two; page one is identical |
-| `page/tall_block` | 0.0004 | 0.9999 | Same |
+| `inline/nowrap` | 0.0010 | 0.9999 | UNATTRIBUTED — no line drift, cause not yet measured |
+| `inline/text_indent` | 0.0005 | 0.9999 | UNATTRIBUTED — no line drift, cause not yet measured |
+| `link/fragment` | 0.0001 | 0.9999 | UNATTRIBUTED — no line drift, cause not yet measured |
+| `link/wrapped` | 0.0000 | 0.9999 | UNATTRIBUTED — no line drift, cause not yet measured |
+| `page/flex_break` | 0.0004 | 0.9999 | UNATTRIBUTED — no line drift, cause not yet measured |
+| `page/tall_block` | 0.0004 | 0.9999 | UNATTRIBUTED — no line drift, cause not yet measured |
 | `position/absolute` | 0.0005 | 0.9999 | One pixel column where two backgrounds meet at a fractional edge |
 | `text/decoration_style` | 0.0002 | 0.9999 | `text-decoration-skip-ink`, deliberate, below |
-| `text/font_size_keywords` | 0.0006 | 0.9999 | Sub-pixel glyph positioning |
-| `text/letter_spacing` | 0.0005 | 0.9999 | Same |
-| `text/text_transform` | 0.0002 | 0.9999 | Same |
-| `text/word_break_opportunity` | 0.0002 | 0.9999 | Same |
-| `ua/blockquote_pre` | 0.0005 | 0.9999 | Same |
-| `ua/presentational` | 0.0016 | 0.9999 | Corner mitres, plus glyph edges on the right-aligned heading |
-| `ua/presentational_text` | 0.0006 | 0.9999 | Bevelled corners, two antialiased bullets, and glyph edges |
+| `text/font_size_keywords` | 0.0006 | 0.9999 | UNATTRIBUTED — no line drift, cause not yet measured |
+| `text/letter_spacing` | 0.0005 | 0.9999 | UNATTRIBUTED — no line drift, cause not yet measured |
+| `text/text_transform` | 0.0002 | 0.9999 | UNATTRIBUTED — no line drift, cause not yet measured |
+| `text/word_break_opportunity` | 0.0002 | 0.9999 | Width truncation, below; drifts 0.18px |
+| `ua/blockquote_pre` | 0.0005 | 0.9999 | UNATTRIBUTED — no line drift, cause not yet measured |
+| `ua/presentational` | 0.0016 | 0.9999 | Corner mitres, plus width truncation at 0.13px |
+| `ua/presentational_text` | 0.0006 | 0.9999 | Bevelled corners, two antialiased bullets, plus width truncation |
 | `block/gradients` | 0.0500 | 0.9999 | Quantisation along the ramp; no pixel differs by more than 2 of 255, and the `AE` means nothing here |
 
 **Four of these are the BROWSER's rather than this engine's**, and each is recorded in its
@@ -87,12 +90,19 @@ positions does not. And `block/translucent`'s high `AE`, which is a one-unit rou
 alpha compositing over large flat areas. In all four the box comparison is exact, which is what says
 the disagreement is with the printer rather than with the layout.
 
-Seven causes cover the rest. Four are property gaps with a fix behind them — a vertical dotted edge,
+Four of the rest are property gaps with a fix behind them — a vertical dotted edge,
 `text-decoration-skip-ink`, the gradient quantisation and a rounded corner where two colours hand
-over — and each is written up in the sections below. The other three are general: **sub-pixel glyph
-positioning**, **a box edge landing on a fractional position**, and **two antialiased edges meeting
-on a mitre**, which is the same shortfall `PaintUniformBorder` avoids for a uniform border by
-painting one ring.
+over — and each is written up in the sections below. Two more are `text/kerning` and
+`text/ligatures`, which are PDFium truncating krilla's fractional `/W` widths, measured and written
+up under **Text**. Two are general: **a box edge landing on a fractional position**, and **two
+antialiased edges meeting on a mitre**, which is the same shortfall `PaintUniformBorder` avoids for
+a uniform border by painting one ring.
+
+**Everything else in the table is now UNATTRIBUTED.** Those rows said "sub-pixel glyph positioning"
+and that cause has been measured and refuted; nothing has yet measured what they really are. Each
+is small — most differ on a few hundred pixels out of 861,696 — but "the same glyph positioning seen
+on fewer words" is no longer an answer, and the honest state of the table is that a dozen rows are
+waiting for the same treatment `text/kerning` got.
 
 ## Unimplemented layout modes
 
@@ -116,13 +126,39 @@ layout mode falling back to a block.
 
 ## Text
 
-- **Sub-pixel glyph positioning.** The largest residual left: `text/kerning` differs on 2% of
-  pixels, and no whole-pixel shift improves it, so it is not an offset. The suspicion is
-  accumulated float error against Chrome's `LayoutUnit`, a fixed-point 1/64px — and that suspicion
-  now has evidence behind it rather than being a guess, because quantising lengths to 1/64 is what
-  took `inline/vertical_align` from 0.9969 to pixel-identical. Positioning each glyph from a
-  rounded-to-1/64 running origin is the thing to try, and it should be measured before anything is
-  changed: it touches every scenario carrying text, which is most of them.
+- **PDFium truncates the fractional `/W` glyph widths krilla writes.** This entry used to read
+  "sub-pixel glyph positioning", blamed accumulated float error against Chrome's 1/64px
+  `LayoutUnit`, and proposed positioning each glyph from a rounded-to-1/64 running origin. All three
+  are wrong, and the proposed experiment would have changed nothing — which is worth keeping as a
+  reminder that a residual with a stated cause is still a guess until something measures the cause.
+
+  What is actually happening: the glyph positions the two PDFs ASK FOR are identical, to within six
+  millionths of a pixel across a whole page, and so are the outlines and their hinting instructions,
+  byte for byte. Chromium's printer writes an explicit `Td` before every glyph; krilla writes one
+  `TJ` array per run and leans on the font's `/W` widths for the base advance. PDFium truncates a
+  fractional `/W` to an integer, so at 2048 units per em every glyph loses up to a thousandth of an
+  em and the loss accumulates — 1.09px by the end of a line of 32px text.
+
+  Proved by rewriting the `/W` array with the widths already FLOORED, which renders byte-identically
+  to the unmodified file: zero differing pixels, only possible if PDFium was flooring them anyway.
+  Rounding them instead takes `text/kerning` from 17,339 differing pixels to 2,239.
+
+  **The fix is upstream and there is nothing to do here.** krilla writes the fractional width and
+  computes its `TJ` adjustments against the full-precision advance, so the two agree and the PDF is
+  correct for any renderer that honours `/W`; it is PDFium that is lossy, and PDFium is what Chrome
+  views PDFs with. The fix is to write `/W` as integers AND derive the adjustments from those
+  integers, so the corrections absorb the rounding. krilla is pinned at `=0.8.2`, which is the
+  newest published version, so this wants an upstream report rather than a bump.
+
+  **It explains some of the table and not all of it.** The error is proportional to the font size,
+  and measuring the end-of-line drift on every differing scenario sorts them cleanly: `text/kerning`
+  drifts 0.90px, `block/border_styles` 0.66, `page/break_avoid` 0.39, `text/ligatures` 0.36,
+  `page/orphans_widows` 0.35, `page/table_header` 0.28, `page/table_footer` 0.22, and a further
+  handful between 0.10 and 0.15 — every one of them a scenario carrying text above 16px. The
+  scenarios whose text is all 16px measure **0.000px** of drift end to end and still differ on
+  several hundred pixels, with the same distribution of small deltas at glyph edges. Those are
+  unexplained: the cause they were attributed to has been refuted and nothing has yet measured what
+  replaced it.
 - **No UAX #14 line breaking.** Break opportunities are spaces, hyphens and dashes, either side of
   an atomic inline, and the cuts `word-break`/`overflow-wrap` ask for. CJK has none of those, so it
   does not wrap at all and overflows instead. REPORTED now, through `UnsupportedText`, so a document

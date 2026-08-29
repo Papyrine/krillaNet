@@ -219,12 +219,14 @@ on a section with no columns, `page/table_break` found a break taken at the line
 belonged and once flattened onto the page, `flex/direction` found a column container's items at zero
 width, and `page/flex_break` refuted the rule it was written to confirm. Each is written up in its own `notes.md`. The remaining pixel residuals each have a named cause rather than
 a mystery: `block/border_styles` (0.9995) is a vertical dotted edge Chromium constructs differently,
-`text/kerning` (0.9945) and `text/ligatures` (0.9982) are sub-pixel glyph positioning,
+`text/kerning` (0.9945) and `text/ligatures` (0.9982) are PDFium truncating krilla's fractional
+`/W` glyph widths, measured and written up below,
 `block/bevelled_borders` and `table/bevelled_borders` (0.9990) are antialiasing where two
 colours meet on a mitre,
 `text/decoration_style` (0.9999) is `text-decoration-skip-ink`, `image/inline_flow` (0.9999) is
-antialiasing on an image edge at a fractional position, and the rest are the same glyph positioning
-seen on fewer words. FOUR are the browser's rather than this engine's: `table/cell_baseline`
+antialiasing on an image edge at a fractional position, and the rest are UNATTRIBUTED — they were
+recorded as the same glyph positioning seen on fewer words, and that cause has since been measured
+and refuted for every scenario whose text is 16px. FOUR are the browser's rather than this engine's: `table/cell_baseline`
 (0.9926), where Chromium's printer disagrees with its own layout; `page/tall_image` (0.9750), where
 its printer drops a margin the same layout keeps; `block/background_repeat` (0.9842), where it blurs
 a spaced background's tile edges; and `block/translucent`'s `AE`, which is a one-unit rounding
@@ -537,6 +539,44 @@ so they used to reach the cascade as nothing at all and were merely reported.
   `PresentationalHints` itself. Which values those are is a question only the CSS parser can answer,
   since the cascade normalises `silver` into an `rgba()` long before anything here would see it, so
   the reporting pass writes its candidates into a declaration nothing reads.
+
+## Traps in what the corpus's pixels actually measure
+
+`text/kerning` sat at SSIM 0.9945 for a long time with its cause recorded as **sub-pixel glyph
+positioning**, suspected to be accumulated float error against Chrome's 1/64px `LayoutUnit`, and
+the todo recommended positioning each glyph from a rounded-to-1/64 running origin. Every part of
+that was wrong, and the recommended experiment would have changed nothing. Thirty-odd other
+scenarios had been given the same cause by analogy.
+
+- **The glyph positions the two PDFs ASK FOR are identical.** Computed out of both content streams,
+  the worst disagreement anywhere on the page is six MILLIONTHS of a pixel. So is every outline,
+  byte for byte, hinting instructions included — and `gasp`, the one table Chromium's subset carries
+  and krilla's does not, changes nothing: hiding it from Chromium's own file renders identically.
+- **PDFium TRUNCATES a fractional `/W` glyph width to an integer.** Chromium's printer writes an
+  explicit `Td` before every glyph, so its file does not care; krilla writes one `TJ` array per run
+  and leans on `/W` for the base advance, so ours does. Liberation Sans at 2048 units per em gives
+  widths like 666.9922 and 943.84766, every glyph loses up to a thousandth of an em, and the loss
+  ACCUMULATES along the run.
+- **Proved by writing the widths already FLOORED**, which renders byte-identically to the
+  unmodified file — zero differing pixels, which is only possible if PDFium was flooring them
+  anyway. That is the test worth copying: not "does my fix improve it" but "does the file the
+  renderer is BEHAVING as though it read render the same as the file it was given".
+- **The error is proportional to the FONT SIZE**, which is what sorts the corpus. 32px text drifts
+  0.90px end to end, 24 and 30px text between 0.2 and 0.4, and text at 16px drifts 0.000px and
+  still differs on several hundred pixels. So the cause explains the scenarios with large text and
+  none of the rest, and pretending otherwise is how the original mistake was made.
+- **It is upstream and there is nothing to do here.** krilla writes the fractional width and derives
+  its `TJ` kerning adjustments from the full-precision advance, so the two agree and the PDF is
+  correct for any renderer that honours `/W`. PDFium is the lossy one — and PDFium is what Chrome
+  views PDFs with, so it is worth reporting rather than shrugging at. The fix is to write `/W` as
+  integers AND derive the adjustments from those integers. Rounding the widths WITHOUT recomputing
+  the adjustments makes almost every scenario worse, measured, because it moves the intended
+  positions instead of the rendered ones.
+- **The lesson is one this file already recorded and the corpus did not apply.** `ua/hr`'s notes had
+  called a residual "the shading of Chrome's `inset` against a solid line" when the truth was that
+  the rule was not drawn at all, and the entry above it says so: **a residual with a stated cause is
+  still a guess until something measures the cause.** Repeating a plausible cause across thirty
+  scenarios does not make it evidence — it makes one guess look like a pattern.
 
 ## Traps in flexbox
 
