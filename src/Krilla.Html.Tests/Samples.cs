@@ -77,7 +77,7 @@ public class Samples
         options.OnDiagnostic = diagnostic => Console.WriteLine(diagnostic);
 
         // <@font-face> src: Corporate — not read, so the document's own font is not loaded
-        // <div> display: flex — laid out as a block
+        // <div> display: grid — laid out as a block
         // <div> column-count: 2 — laid out in one column
         // <table> rules: all — not applied, because presentational attributes are not mapped onto CSS
         // <img> src: logo.png — did not resolve to an image, so no box was generated
@@ -94,7 +94,7 @@ public class Samples
         await HtmlConverter.ConvertAsync(
             """
             <style>@font-face { font-family: "Corporate"; src: url(corporate.woff2) }</style>
-            <div style="display: flex">Flexed</div>
+            <div style="display: grid">Gridded</div>
             <div style="column-count: 2">Columned</div>
             <table rules="all"><tr><td>Ruled</td></tr></table>
             <img src="logo.png">
@@ -105,7 +105,7 @@ public class Samples
         await Assert.That(reported).IsEquivalentTo(
         [
             "<@font-face> src: Corporate — not read, so the document's own font is not loaded",
-            "<div> display: flex — laid out as a block",
+            "<div> display: grid — laid out as a block",
             "<div> column-count: 2 — laid out in one column",
             "<table> rules: all — not applied, because presentational attributes are not mapped onto CSS",
             "<img> src: logo.png — did not resolve to an image, so no box was generated",

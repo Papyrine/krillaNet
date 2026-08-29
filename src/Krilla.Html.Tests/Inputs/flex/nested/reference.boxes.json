@@ -1,0 +1,191 @@
+[
+  {
+    "selector": "html",
+    "x": 0,
+    "y": 0,
+    "width": 816,
+    "height": 242
+  },
+  {
+    "selector": "html > body:nth-child(2)",
+    "x": 0,
+    "y": 0,
+    "width": 816,
+    "height": 228
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(1)",
+    "x": 0,
+    "y": 0,
+    "width": 460,
+    "height": 20
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(1) > div:nth-child(1)",
+    "x": 0,
+    "y": 0,
+    "width": 140,
+    "height": 20
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(1) > div:nth-child(2)",
+    "x": 140,
+    "y": 0,
+    "width": 320,
+    "height": 20
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(1) > div:nth-child(2) > div:nth-child(1)",
+    "x": 140,
+    "y": 0,
+    "width": 103.33,
+    "height": 20
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(1) > div:nth-child(2) > div:nth-child(2)",
+    "x": 253.33,
+    "y": 0,
+    "width": 206.67,
+    "height": 20
+  },
+  {
+    "selector": "html > body:nth-child(2) > p:nth-child(2)",
+    "x": 0,
+    "y": 34,
+    "width": 816,
+    "height": 20
+  },
+  {
+    "selector": "html > body:nth-child(2) > p:nth-child(2) > span:nth-child(1)",
+    "x": 73.16,
+    "y": 34,
+    "width": 66,
+    "height": 20
+  },
+  {
+    "selector": "html > body:nth-child(2) > p:nth-child(2) > span:nth-child(1) > span:nth-child(1)",
+    "x": 73.16,
+    "y": 34,
+    "width": 30,
+    "height": 20
+  },
+  {
+    "selector": "html > body:nth-child(2) > p:nth-child(2) > span:nth-child(1) > span:nth-child(2)",
+    "x": 109.16,
+    "y": 34,
+    "width": 30,
+    "height": 20
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(3)",
+    "x": 0,
+    "y": 54,
+    "width": 460,
+    "height": 20
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(3) > div:nth-child(1)",
+    "x": 69.27,
+    "y": 54,
+    "width": 100,
+    "height": 20
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(4)",
+    "x": 0,
+    "y": 88,
+    "width": 460,
+    "height": 20
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(4) > div:nth-child(1)",
+    "x": 0,
+    "y": 88,
+    "width": 150,
+    "height": 20
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(4) > div:nth-child(2)",
+    "x": 150,
+    "y": 88,
+    "width": 310,
+    "height": 20
+  },
+  {
+    "selector": "html > body:nth-child(2) > table:nth-child(5)",
+    "x": 0,
+    "y": 122,
+    "width": 460,
+    "height": 32
+  },
+  {
+    "selector": "html > body:nth-child(2) > table:nth-child(5) > tbody:nth-child(1)",
+    "x": 2,
+    "y": 124,
+    "width": 456,
+    "height": 28
+  },
+  {
+    "selector": "html > body:nth-child(2) > table:nth-child(5) > tbody:nth-child(1) > tr:nth-child(1)",
+    "x": 2,
+    "y": 124,
+    "width": 456,
+    "height": 28
+  },
+  {
+    "selector": "html > body:nth-child(2) > table:nth-child(5) > tbody:nth-child(1) > tr:nth-child(1) > td:nth-child(1)",
+    "x": 2,
+    "y": 124,
+    "width": 259.23,
+    "height": 28
+  },
+  {
+    "selector": "html > body:nth-child(2) > table:nth-child(5) > tbody:nth-child(1) > tr:nth-child(1) > td:nth-child(1) > div:nth-child(1)",
+    "x": 6,
+    "y": 128,
+    "width": 251.23,
+    "height": 20
+  },
+  {
+    "selector": "html > body:nth-child(2) > table:nth-child(5) > tbody:nth-child(1) > tr:nth-child(1) > td:nth-child(1) > div:nth-child(1) > div:nth-child(1)",
+    "x": 6,
+    "y": 128,
+    "width": 60,
+    "height": 20
+  },
+  {
+    "selector": "html > body:nth-child(2) > table:nth-child(5) > tbody:nth-child(1) > tr:nth-child(1) > td:nth-child(1) > div:nth-child(1) > div:nth-child(2)",
+    "x": 74,
+    "y": 128,
+    "width": 60,
+    "height": 20
+  },
+  {
+    "selector": "html > body:nth-child(2) > table:nth-child(5) > tbody:nth-child(1) > tr:nth-child(1) > td:nth-child(2)",
+    "x": 263.23,
+    "y": 124,
+    "width": 194.77,
+    "height": 28
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(6)",
+    "x": 0,
+    "y": 168,
+    "width": 460,
+    "height": 60
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(6) > div:nth-child(1)",
+    "x": 0,
+    "y": 168,
+    "width": 120,
+    "height": 60
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(6) > div:nth-child(2)",
+    "x": 358,
+    "y": 178,
+    "width": 90,
+    "height": 24
+  }
+]

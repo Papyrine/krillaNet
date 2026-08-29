@@ -1,4 +1,4 @@
-# All scenarios (153)
+# All scenarios (162)
 
 The browser reference (left) beside the page Krilla.Html produced (right). `AE` is the fraction of pixels that differ and `SSIM` is structural similarity; neither is asserted. The worst offset is the largest positional disagreement in CSS pixels between the rendered element geometry and the browser's, and is the number to watch — it reaches zero exactly when the layout is right.
 
@@ -48,6 +48,14 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [block/translucent](#block-translucent)
 - [block/viewport_units](#block-viewport_units)
 - [block/visibility](#block-visibility)
+- [flex/align](#flex-align)
+- [flex/basic](#flex-basic)
+- [flex/column](#flex-column)
+- [flex/direction](#flex-direction)
+- [flex/justify](#flex-justify)
+- [flex/min_size](#flex-min_size)
+- [flex/nested](#flex-nested)
+- [flex/wrap](#flex-wrap)
 - [float/basic](#float-basic)
 - [float/clear](#float-clear)
 - [float/clearance](#float-clearance)
@@ -102,6 +110,7 @@ The browser reference (left) beside the page Krilla.Html produced (right). `AE` 
 - [page/break_between_lines](#page-break_between_lines)
 - [page/break_inside](#page-break_inside)
 - [page/fixed_repeat](#page-fixed_repeat)
+- [page/flex_break](#page-flex_break)
 - [page/float_break](#page-float_break)
 - [page/multi_page_flow](#page-multi_page_flow)
 - [page/orphans_widows](#page-orphans_widows)
@@ -1918,6 +1927,328 @@ as `display: none`. If `#child` disappears, the check has been put on the box in
 | <img src="block/visibility/reference_0001.png" width="480"> | <img src="block/visibility/result%23page_0001.verified.png" width="480"> |
 
 
+## flex/align
+
+# flex/align
+
+The cross axis: `align-items`, `align-self`, stretching and its bounds, baseline alignment, and the
+auto margins that outrank all of them. Geometry-exact on all 24 boxes and pixel-identical to Chrome.
+
+- **`#stretch`** is the initial value, and it is why a row of cards comes out level however much
+  text each holds. The two one-line items are as tall as the two-line one.
+- **`#items`** places fixed-height items in a taller line three ways, with one item overriding its
+  container through `align-self`.
+- **`#baseline`** lines up three different font sizes on their first baselines. The row's height is
+  then the deepest baseline plus the furthest descent BELOW any baseline — a sum no single item
+  accounts for, which is the same rule a table row's height follows reached from a different
+  specification. `#k4` has no line at all, so its baseline is synthesised from its border box and it
+  hangs from the shared baseline by its whole height; without that rule an empty item drops out of
+  the group and the row is a different height.
+- **`#margins`** is the precedence. An auto margin on the cross axis absorbs the line's leftover
+  space and beats `align-items`, which is set to `flex-start` here precisely so that honouring the
+  margin and ignoring it give different answers.
+- **`#capped`** is the clamp on stretching. A stretched cross size is still bounded by the item's
+  own `max-height`, and omitting that clamp costs nothing visible until it matters: without it
+  `#p1` fills the container and the declaration reaches nothing at all.
+
+**Boxes**: 24 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| <img src="flex/align/reference_0001.png" width="480"> | <img src="flex/align/result%23page_0001.verified.png" width="480"> |
+
+
+## flex/basic
+
+# flex/basic
+
+The flexible-length resolution: CSS Flexbox §9.7, which is the part of flexbox that is an
+algorithm rather than a table of positions. Six rows, each isolating one thing the loop has to get
+right.
+
+- **`#grow`** is `flex: 1` against `flex: 2` beside a fixed 90px item. The two share the 510 the
+  fixed one leaves, one to two, at 170 and 340. What makes it a real test is the BASIS: `flex: 1`
+  expands to `1 1 0%`, so both start from zero and the ratio is over the whole 510. An
+  implementation that reads the omitted basis as `auto` sizes them from their own words instead and
+  gets two numbers that look plausible and are not related to the ratio at all — which is exactly
+  what AngleSharp's expansion invites, since it hands back the omitted components as empty strings.
+- **`#shrink`** is the scaled shrink factor. 300 of content in 200 of room, with `flex-shrink: 1`
+  on a 200px item and `2` on a 100px one: the factors are scaled by each item's own base size, so
+  1×200 and 2×100 carry equal weight and the two give up 50 each. Sharing the shortfall by the raw
+  factors gives 33 and 67, which reads as reasonable and is wrong.
+- **`#basis`** is three ways of naming a base size that none of them flexes away from — a
+  percentage, a `width` reached through `flex-basis: auto`, and content.
+- **`#none`** is `flex: none`, which AngleSharp drops from the cascade ENTIRELY: no longhand comes
+  back at all, so it is recovered from the stylesheet's own text. Without that it is silently the
+  initial values, which differ from `0 0 auto` in the shrink factor alone — invisible until the row
+  overflows.
+- **`#bounds`** is what makes §9.7 a loop rather than one division, and it found two defects. Three
+  items at `flex: 1` each want 200 of the 600; one is capped at 140 and one floored at 200, and the
+  60 the cap released has to go back to the others, which end at 230 apiece.
+
+  The first defect was the FREEZE: the specification freezes the items whose own clamp moved them,
+  and this froze the items whose size exceeded their base — which is every item that grew at all,
+  so the first pass froze the lot and the released space went nowhere. The second was the remaining
+  free space, which has to be measured against each unfrozen item's BASE size and was being
+  measured against whatever the previous pass had clamped it to; that made the sixty pixels
+  invisible a second time, and the row came out at 140, 200 and 33 with two thirds of the container
+  empty.
+- **`#halves`** is the sub-one factor rule: grow factors summing below one hand out only that
+  fraction of the free space, so the row is deliberately left unfilled.
+
+**Residual**: SSIM 0.9996 on FORTY pixels, all of them one column at x=352 — `#b3`'s right edge,
+which lands at 352.5 because its max-content width is 82.5. A box edge at a fractional position,
+the same residual `position/absolute` records, and not a geometry difference: all 23 boxes are
+exact.
+
+**Boxes**: 23 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 0.9996** |
+| <img src="flex/basic/reference_0001.png" width="480"> | <img src="flex/basic/result%23page_0001.verified.png" width="480"> |
+
+
+## flex/column
+
+# flex/column
+
+A column container is the same algorithm with the axes exchanged, and it is where an implementation
+that special-cased rows falls over. Four columns side by side, so each one's vertical arrangement is
+legible against the others. Geometry-exact on all 19 boxes and pixel-identical to Chrome.
+
+- **`#auto`** is the case a column implementation is most likely to get right by accident, and the
+  one the other three are measured against. A column container with an auto height has an
+  INDEFINITE main size, so nothing grows, nothing shrinks and nothing wraps: the items stack at
+  their content heights and the container comes to their sum.
+- **`#fixed`** is the same container given a definite height, at which point the main axis becomes
+  flexible exactly as a row's width always is. 200 of room less a fixed 30 leaves 170 to share one
+  to two.
+- **`#spread`** runs `justify-content` DOWN the column, so `space-between` puts the first item at
+  the top and the last flush with the foot.
+- **`#across`** is the axis exchange itself: the cross axis of a column container is horizontal, so
+  `align-items` decides WIDTH here. Which is what makes `stretch` the reason a column's children
+  fill it, and why `#w2` and `#w3` shrink to their own content instead.
+
+The scenario does NOT catch the zero-width bug `flex/direction` found, and that is worth recording:
+every item here is sized by its content, so the cross size is settled on the branch that computes a
+natural height. An item with a DECLARED height skips that branch, and the width it never received
+was zero.
+
+**Boxes**: 19 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| <img src="flex/column/reference_0001.png" width="480"> | <img src="flex/column/result%23page_0001.verified.png" width="480"> |
+
+
+## flex/direction
+
+# flex/direction
+
+The four values of `flex-direction`, each with the same three items in the same source order.
+Geometry-exact on all 21 boxes and pixel-identical to Chrome.
+
+What changes between them is which edge the items are packed against and which way the main axis
+runs — not the order of the boxes in the document, which is what `order` changes and what
+`flex/nested` measures separately.
+
+- **`#rrev`** deliberately leaves 190px of slack, because `row-reverse` is indistinguishable from
+  "the same row with the list reversed" whenever the items fill the container exactly. It packs
+  against the RIGHT edge, so the row ends flush with the container rather than starting flush with
+  it.
+- **`#crev`** is the same thing vertically: item 1 at the bottom, the stack ending flush with the
+  container's foot.
+- **`#rrevjust`** is the composition that is easiest to get backwards. A reversed main axis reverses
+  what `justify-content` means as well, so `flex-end` is the LEFT edge here — the two compose rather
+  than cancelling.
+
+**It found the column bug.** A column container's items were coming out at ZERO width, and only
+those with a declared height — which is the arrangement most likely to be written. The cross size
+of a column item is its WIDTH, and it was being settled only on the branch that needed it to
+measure a natural height; an item whose main size was declared skipped that branch and kept the
+zero it was constructed with. Every later step then used it: the layout, the re-layout at the flexed
+height, and the placement. `flex/column` did not catch it because every item there is sized by its
+content, which is the branch that worked.
+
+**Boxes**: 21 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| <img src="flex/direction/reference_0001.png" width="480"> | <img src="flex/direction/result%23page_0001.verified.png" width="480"> |
+
+
+## flex/justify
+
+# flex/justify
+
+Nine distributions of the same three items along the main axis. Geometry-exact on all 38 boxes and
+pixel-identical to Chrome.
+
+All three `space-*` values are here rather than one standing in for the rest, because they differ
+ONLY in what happens at the EDGES — none, half a share, a whole share — and that is precisely the
+part most likely to come out subtly wrong when each is written on its own. On 480 of container and
+240 of items: `space-between` puts nothing at the edges and 120 between each pair, `space-around`
+puts 40 at each edge and 80 between, and `space-evenly` puts 60 everywhere.
+
+- **`#evenly`** is also what proves the recovery from the stylesheet's own text works.
+  `space-evenly` is a CSS Box Alignment keyword rather than a Flexbox one, and AngleSharp drops it
+  from the cascade outright — the declaration comes back empty and is indistinguishable from one
+  nobody wrote, which is the shape a value can be neither honoured NOR reported in. Without the
+  recovery this row renders as `flex-start` and is byte-identical to `#start`, which is the silence
+  the corpus exists to break. `start`, `end` and `normal` are dropped the same way on all
+  three alignment properties.
+- **`#gapped`** is a gap and a distribution together: the gap is a floor the distribution adds to
+  rather than something it replaces.
+- **`#pushed`** is the precedence. An auto margin absorbs ALL the free space before
+  `justify-content` is consulted, so the `space-around` on this row reaches nothing and B is pushed
+  to the far end. The two are written together by mistake often enough to be worth pinning.
+- **`#over`** is negative free space. Every distribution puts it at the END rather than sharing it,
+  so `space-between` packs to the start and the first item stays visible. Splitting the overflow —
+  which is what a naive `free / 2` for `center` does on its own — pushes the first item off the
+  start edge, and that reads as a centring bug in exactly the case where centring was impossible.
+
+**Boxes**: 38 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| <img src="flex/justify/reference_0001.png" width="480"> | <img src="flex/justify/result%23page_0001.verified.png" width="480"> |
+
+
+## flex/min_size
+
+# flex/min_size
+
+The automatic minimum size, CSS Flexbox §4.5 — the rule that makes `flex-shrink` usable at all, and
+the one that has to be reached through a property whose value is `auto` rather than through anything
+the document wrote. `min-width`'s initial value IS `auto`, and everywhere outside a flex container
+it behaves exactly as the zero this engine used to default it to, which is why the change to the
+default disturbed nothing.
+
+- **`#floored`** is the rule itself. Both items ask for a basis of zero and a share of 150 each, and
+  both are floored at their own longest word — so the row OVERFLOWS its 300px container rather than
+  squeezing two unbreakable words to nothing. An implementation without the rule gives two 150px
+  items with the text hanging out of each, which looks like a text-overflow difference rather than
+  the sizing difference it is.
+- **`#released`** is `min-width: 0`, which is how a stylesheet opts out of the floor and is the
+  single most common line of CSS written to work around flexbox. Here the items really do take 150
+  each.
+- **`#declared`** is a declared `min-width` replacing the automatic one outright, at 80 and 220 —
+  and it is the row that found the freeze defect in the flexible-length loop. Both items ask for 150
+  and one is floored at 220; the 70 that floor takes has to come off the other, and the loop was
+  freezing every item that had grown at all rather than the one whose own clamp had moved it, so the
+  released space went nowhere and both came out at 150.
+- **`#narrow`** is the SPECIFIED size suggestion: the automatic minimum is the SMALLER of what the
+  item asked for and what its content needs, so an item declaring 60px against a longer word takes
+  the declaration. Reading it as the content minimum alone makes a deliberately narrow item wide
+  again.
+- **`#wrapping`** is the control. Ordinary text has a min-content width of its longest WORD, which
+  is short, so this row shrinks to its share and wraps and the floor never fires — which is what
+  says the rule is about unbreakable content rather than about text in general.
+
+**Residual**: SSIM 0.9994 on 993 pixels, all of them inside the two overflowing words in `#floored`
+and `#released`. Sub-pixel glyph positioning, the same cause as `text/kerning`, and not a geometry
+difference: all 17 boxes are exact.
+
+**Boxes**: 17 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0012 · SSIM 0.9994** |
+| <img src="flex/min_size/reference_0001.png" width="480"> | <img src="flex/min_size/result%23page_0001.verified.png" width="480"> |
+
+
+## flex/nested
+
+# flex/nested
+
+What a flex container does to the boxes AROUND it rather than to its own arrangement: how it nests,
+how it joins a line, what it does to children that would otherwise be inline or out of flow, and how
+something outside it sizes it. Geometry-exact on all 27 boxes and SSIM 1.0000.
+
+- **`#nested`** is a flex container that is itself a flex item, which is how a real layout is built.
+- **`#chip`** is `inline-flex`: an atomic inline that sits on a line the way an inline-block does
+  and lays its own contents out as flex. Its width is shrink-to-fit, which goes through the flex
+  container's own intrinsic sizing — the SUM of its items plus the gaps, where an ordinary block
+  wants the LARGEST of its children. Reading one as the other makes this chip exactly one letter
+  wide, and nothing about the arrangement inside it would look wrong.
+- **`#anon`** is anonymous flex items. Every child of a flex container is an item, so a run of bare
+  text becomes one — two runs here, either side of a real block, which is three items. The
+  whitespace-only runs between the elements generate no item at all, or every indented document
+  would grow blank columns. It needed the box builder to close a run of inline content in a flex
+  container even with no block sibling to close it at; without that the container is an inline
+  container, the flex layout sees no children whatever, and the text vanishes.
+- **`#floaty`** is `float` on a flex item, which CSS Flexbox §3 says creates no float. Honouring the
+  declaration takes the box out of `Children` and into `Floats`, at which point the flex container
+  arranges everything except it and nothing places it at all — silent content loss from one
+  declaration CSS says to ignore.
+- **`#grid`** is a flex container inside a table cell, which has to size the cell through the
+  intrinsic pass rather than by laying anything out.
+- **`#anchored`** is an absolutely positioned child, which is NOT a flex item: it takes no part in
+  the arrangement and its static position is the container's content-box origin.
+
+CSS puts that static position where the child would be "if it were the sole flex item", which runs
+it through `justify-content` and `align-items`; this uses the content origin instead. The two agree
+wherever the container's alignment is the initial value and wherever the child declares both
+offsets, which is every arrangement anyone writes — and this one declares `top` and `right`, so the
+scenario cannot tell them apart. Recorded in the todo.
+
+**Boxes**: 27 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0001 · SSIM 1.0000** |
+| <img src="flex/nested/reference_0001.png" width="480"> | <img src="flex/nested/result%23page_0001.verified.png" width="480"> |
+
+
+## flex/wrap
+
+# flex/wrap
+
+Wrapping, the gaps between lines and items, and `align-content`. Geometry-exact on all 26 boxes and
+pixel-identical to Chrome.
+
+- **`#plain`** is the line collection: three 90px items fit in 320 and the fourth starts a second
+  line.
+- **`#gapped`** is the row that matters, and it is here because of an AngleSharp bug rather than a
+  CSS one. `gap: 10px 24px` is TEN between the lines and TWENTY-FOUR between the items — CSS writes
+  the shorthand row-first — and the cascade hands it back as `column-gap: 10px` beside
+  `row-gap: 24px`, which is the same picture rotated. Both numbers are present and both are wrong,
+  so nothing downstream can notice; the value is recovered from the stylesheet's own text instead.
+  With the transposition in force this row wraps two-up with a 10px gutter rather than three-up with
+  a 24px one, which is a different arrangement rather than a different number.
+- **`#single`** is the one-value form, which is the way the shorthand is nearly always written and
+  the one case AngleSharp gets right — it leaves `row-gap` empty, which means "the same as the
+  other" and is what the fallback reads.
+- **`#spread`** is `align-content: space-between`, which shares the leftover CROSS space between the
+  LINES. It needs a container taller than its content and reaches nothing without one, which is the
+  single most confusing thing about the property: it is not `align-items` and it does not centre a
+  lone line.
+- **`#reversed`** is `wrap-reverse`, which stacks the lines the other way so the FIRST line sits at
+  the bottom. The items within each line keep their order, which is the whole of what separates it
+  from `row-reverse`.
+
+This scenario is what caught the comment bug in `CssSource`. Both `#gapped` and `justify/#evenly`
+are recovered from the stylesheet's own text, and both silently stopped being recovered the moment
+the rules above them were commented — `Prelude` reads back from a block's opening brace to the
+previous `;`, `{` or `}`, so a comment written above a rule became part of that rule's selector
+list and the rule then matched nothing. Which is to say the scan worked on an undocumented
+stylesheet and not on a documented one, and a stylesheet worth recovering a declaration from is
+exactly the kind that carries comments. `CssSource` strips them now, and so does the `@page` scan,
+which counts braces and would be moved by a `/* } */`.
+
+**Boxes**: 26 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0000 · SSIM 1.0000** |
+| <img src="flex/wrap/reference_0001.png" width="480"> | <img src="flex/wrap/result%23page_0001.verified.png" width="480"> |
+
+
 ## float/basic
 
 What a float does to the text beside it, and what it deliberately does not do to the boxes.
@@ -3604,6 +3935,49 @@ record a difference it has decided not to match.
 | <img src="page/fixed_repeat/reference_0002.png" width="480"> | <img src="page/fixed_repeat/result%23page_0002.verified.png" width="480"> |
 | **Page 3** | **Page 3. AE 0.0012 · SSIM 0.9998** |
 | <img src="page/fixed_repeat/reference_0003.png" width="480"> | <img src="page/fixed_repeat/result%23page_0003.verified.png" width="480"> |
+
+
+## page/flex_break
+
+# page/flex_break
+
+What a page boundary does to a flex container. Geometry-exact on all 14 boxes; page one is
+pixel-identical and page two reads 0.9999.
+
+The row runs 950..1070 with the boundary at 1056, so it straddles by fourteen pixels — the
+arrangement `page/table_break` establishes for a table, asked of the construct that looks most like
+a table row and is not one.
+
+**It was written to confirm a rule and refuted it instead**, which is the useful outcome. A flex
+line is items side by side, so a break through the middle of one seemed certain to leave the shorter
+items' backgrounds on the page before and their content on the page after — the exact argument that
+makes a table ROW unbreakable — and the line was recorded as an unbreakable unit on that reasoning.
+Measured, Chromium does the opposite: it FRAGMENTS the container at the page edge, drawing
+950..1056 on page one and the remaining fourteen pixels on page two. Which is CSS Flexbox §11's own
+rule, a row flex container's items being broken in parallel.
+
+Treating the line as a unit read 0.9683 and 0.9013 against that. Deleting the rule — the recorded
+bands, the branch in `Paginator`, and the list on `LayoutBox` — took page one to identical, because
+the ordinary line-based candidates already give the browser's answer: no line inside any item
+straddles 1056, so the break falls at the page edge, which is exactly where Chromium puts it.
+
+- **`#straddle`** is that row.
+- **`#after`** is the line following it, which moves whole because nothing in it straddles anything.
+- **`#stack`** is a COLUMN container, whose items are stacked the way a block's children are — so a
+  break between two of them is an ordinary break and the container is not moved whole. It is here
+  because the deleted rule recorded nothing for a column container, and the reason it gave for that
+  is the reason the rule should not have existed for a row one either.
+
+**Residual**: 0.9999 on page two, 319 pixels across one band of text. Sub-pixel glyph positioning.
+
+**Boxes**: 14 matched, worst offset 0.00px, worst size 0.00px.
+
+| Reference (Chrome) | Krilla.Html |
+| --- | --- |
+| **Page 1** | **Page 1. AE 0.0002 · SSIM 1.0000** |
+| <img src="page/flex_break/reference_0001.png" width="480"> | <img src="page/flex_break/result%23page_0001.verified.png" width="480"> |
+| **Page 2** | **Page 2. AE 0.0004 · SSIM 0.9999** |
+| <img src="page/flex_break/reference_0002.png" width="480"> | <img src="page/flex_break/result%23page_0002.verified.png" width="480"> |
 
 
 ## page/float_break

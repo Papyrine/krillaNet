@@ -1,0 +1,58 @@
+body { font-family: "Liberation Sans"; font-size: 14px; line-height: 20px; }
+
+.box {
+  display: flex;
+  width: 560px;
+  margin-bottom: 14px;
+  background-color: #f2eee8;
+}
+
+.tall { height: 120px; }
+
+.box > div { width: 120px; background-color: #d8c9a8; }
+.box > div:nth-child(2) { background-color: #bda87c; }
+.box > div:nth-child(3) { background-color: #9c8654; }
+.box > div:nth-child(4) { background-color: #6f5d38; }
+
+/*
+  `stretch` is the INITIAL value, which is why a row of cards comes out level however much text
+  each holds — the two one-line items here are as tall as the two-line one. Only an item with an
+  AUTO cross size stretches, which is what the capped row below separates out.
+*/
+#stretch { }
+
+/* The three that place a fixed-height item in a taller line, plus one overriding its container. */
+#items > div { height: 30px; }
+#items { align-items: flex-start; }
+#a2 { align-self: center; }
+#a3 { align-self: flex-end; }
+#a4 { align-self: center; }
+
+/*
+  Baseline alignment lines up the items' FIRST baselines, so three different font sizes sit on one
+  line and the row is as tall as the deepest baseline plus the furthest descent below it — a sum no
+  single item accounts for. #k4 has no line at all, so its baseline is synthesised from its border
+  box and it hangs from the shared baseline by its whole height.
+*/
+#baseline { align-items: baseline; }
+#k1 { font-size: 30px; line-height: 36px; }
+#k2 { font-size: 11px; line-height: 14px; }
+#k3 { font-size: 18px; line-height: 24px; }
+#k4 { height: 26px; }
+
+/*
+  An auto margin on the CROSS axis absorbs the line's leftover space and takes precedence over
+  `align-items` — which is set to `flex-start` here precisely so that honouring the margin and
+  ignoring it give different answers. Both auto centres.
+*/
+#margins { align-items: flex-start; }
+#margins > div { height: 30px; }
+#m1 { margin-bottom: auto; }
+#m2 { margin-top: auto; margin-bottom: auto; }
+#m3 { margin-top: auto; }
+
+/*
+  Stretching is bounded by the item's own maximum, which is easy to leave out: without the clamp
+  #p1 fills the container and the property reaches nothing.
+*/
+#p1 { max-height: 50px; }

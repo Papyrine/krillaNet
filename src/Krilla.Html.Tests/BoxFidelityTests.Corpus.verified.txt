@@ -45,6 +45,14 @@ block/transform                  matched 17  offset    0.00  size    0.00  diffe
 block/translucent                matched 18  offset    0.00  size    0.00  differing  0  unmatched 0
 block/viewport_units             matched  7  offset    0.00  size    0.00  differing  0  unmatched 0
 block/visibility                 matched  8  offset    0.00  size    0.00  differing  0  unmatched 0
+flex/align                       matched 24  offset    0.00  size    0.00  differing  0  unmatched 0
+flex/basic                       matched 23  offset    0.00  size    0.00  differing  0  unmatched 0
+flex/column                      matched 19  offset    0.00  size    0.00  differing  0  unmatched 0
+flex/direction                   matched 21  offset    0.00  size    0.00  differing  0  unmatched 0
+flex/justify                     matched 38  offset    0.00  size    0.00  differing  0  unmatched 0
+flex/min_size                    matched 17  offset    0.00  size    0.00  differing  0  unmatched 0
+flex/nested                      matched 27  offset    0.00  size    0.00  differing  0  unmatched 0
+flex/wrap                        matched 26  offset    0.00  size    0.00  differing  0  unmatched 0
 float/basic                      matched 12  offset    0.00  size    0.00  differing  0  unmatched 0
 float/clear                      matched 14  offset    0.00  size    0.00  differing  0  unmatched 0
 float/clearance                  matched 34  offset    0.00  size    0.00  differing  0  unmatched 0
@@ -99,6 +107,7 @@ page/break_before                matched  5  offset    0.00  size    0.00  diffe
 page/break_between_lines         matched  4  offset    0.00  size    0.00  differing  0  unmatched 0
 page/break_inside                matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
 page/fixed_repeat                matched 19  offset    0.00  size    0.00  differing  0  unmatched 0
+page/flex_break                  matched 14  offset    0.00  size    0.00  differing  0  unmatched 0
 page/float_break                 matched  5  offset    0.00  size    0.00  differing  0  unmatched 0
 page/multi_page_flow             matched  8  offset    0.00  size    0.00  differing  0  unmatched 0
 page/orphans_widows              matched  6  offset    0.00  size    0.00  differing  0  unmatched 0

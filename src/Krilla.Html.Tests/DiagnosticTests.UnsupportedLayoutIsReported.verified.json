@@ -2,12 +2,6 @@
   {
     "Element": "div",
     "Name": "display",
-    "Value": "flex",
-    "Reason": "laid out as a block"
-  },
-  {
-    "Element": "div",
-    "Name": "display",
     "Value": "grid",
     "Reason": "laid out as a block"
   },

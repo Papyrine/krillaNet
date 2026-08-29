@@ -1,0 +1,49 @@
+body { font-family: "Liberation Sans"; font-size: 14px; line-height: 20px; }
+
+/* Four columns side by side, so each one's own vertical arrangement is legible against the others. */
+.pair { display: flex; column-gap: 20px; align-items: flex-start; }
+
+.col {
+  display: flex;
+  flex-direction: column;
+  width: 170px;
+  background-color: #eaf0ea;
+}
+
+.col > div { background-color: #a9c4a4; }
+.col > div:nth-child(2) { background-color: #7fa578; }
+.col > div:nth-child(3) { background-color: #55804d; }
+
+/*
+  A column container with an AUTO height has an indefinite main size, so nothing grows, nothing
+  shrinks and nothing wraps: the items stack at their content heights and the container comes to
+  their sum. That is the case a column implementation is most likely to get right by accident and
+  the one every other row here is measured against.
+*/
+#auto { row-gap: 8px; }
+
+/*
+  A definite height makes the main axis flexible, exactly as a row's width always is. 200 of room
+  less the fixed 30 leaves 170 to share one-to-two between the first two.
+*/
+#fixed { height: 200px; }
+#f1 { flex: 1; }
+#f2 { flex: 2; }
+#f3 { height: 30px; flex-shrink: 0; }
+
+/*
+  `justify-content` runs DOWN a column, so `space-between` puts the first item at the top and the
+  last flush with the foot. The gaps between are what is left over.
+*/
+#spread { height: 200px; justify-content: space-between; }
+#spread > div { height: 30px; }
+
+/*
+  The CROSS axis of a column container is horizontal, so `align-items` decides WIDTH here — which
+  is what makes `stretch` the reason a column's children fill it. #w2 and #w3 shrink to their own
+  content instead.
+*/
+#across { height: 130px; row-gap: 6px; }
+#w1 { align-self: stretch; }
+#w2 { align-self: flex-start; }
+#w3 { align-self: center; }

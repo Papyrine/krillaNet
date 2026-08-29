@@ -148,6 +148,19 @@ static class BlockLayout
         {
             contentHeight = imageHeight;
         }
+        else if (style.IsFlexContainer)
+        {
+            // A flex container's own box is an ordinary block box, so everything above and below
+            // this branch applies to it unchanged — the width resolution, the margins, the
+            // `min-height` clamp, the relative offset. Only the arrangement of the children is
+            // different, which is why this replaces one step rather than taking over the way a
+            // table does.
+            //
+            // Its floats are placed by nobody, because it has none: `float` does not apply to a
+            // flex item, and `BoxBuilder` keeps them out of `Floats` rather than leaving them for
+            // this to ignore.
+            contentHeight = FlexLayout.Layout(box, contentX, contentY, contentWidth, fonts, inner);
+        }
         else if (box.IsInlineContainer)
         {
             // Every float this box declares is placed before its lines are flowed, because each
@@ -937,6 +950,10 @@ static class BlockLayout
         box.Image is null &&
         box.Style.AspectRatio <= 0 &&
         box.Style.Display != DisplayKind.Table &&
+        // Nor a flex container, whose children hold its margins apart even where each of them is
+        // empty: margins do not collapse inside one, so a flex container holding two empty items
+        // is as tall as their margins where a block holding the same two is not.
+        !box.Style.IsFlexContainer &&
         box.Style.BorderWidthY == 0 &&
         box.Style.PaddingTop.Resolve(containingWidth) == 0 &&
         box.Style.PaddingBottom.Resolve(containingWidth) == 0 &&

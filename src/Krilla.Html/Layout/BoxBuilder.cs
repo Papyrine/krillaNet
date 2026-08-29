@@ -113,7 +113,12 @@ static class BoxBuilder
 
         // A run with no block after it never met a boundary to be closed at. Only when a block
         // turned up at all: with none, the container is all-inline and the runs stay runs.
-        if (blocks.Count > 0)
+        //
+        // A FLEX container is the exception, and has to be: every child of one is a flex item, so
+        // a run of text in a flex container becomes an anonymous item rather than a line the
+        // container lays out itself. Without this a flex container holding nothing but words is an
+        // inline container, `FlexLayout` sees no children at all, and the text vanishes.
+        if (blocks.Count > 0 || style.IsFlexContainer)
         {
             CloseRun(blocks, inlines, style);
         }
@@ -511,6 +516,24 @@ static class BoxBuilder
             style = style with {Display = DisplayKind.Block};
         }
 
+        // A flex ITEM is blockified, and it does not float: CSS Flexbox §3 says `float` and
+        // `clear` create neither floating nor clearance for one. Both matter for the same reason —
+        // a flex container arranges its children itself, so a child that contributed runs to a
+        // line or took itself out of flow would be arranged by nobody and would never be
+        // positioned at all.
+        //
+        // An absolutely positioned child is NOT a flex item, so it keeps whatever the rule above
+        // gave it and is placed by `AbsoluteLayout` as usual.
+        if (parentStyle.IsFlexContainer && !style.IsAbsolute)
+        {
+            style = style with
+            {
+                Float = FloatKind.None,
+                Clear = ClearKind.None,
+                Display = Blockify(style.Display)
+            };
+        }
+
         // An anchor sets the link for its whole subtree. Nested anchors are invalid HTML and
         // AngleSharp's parser unnests them, so the innermost simply wins here.
         if (element.LocalName.Equals("a", StringComparison.OrdinalIgnoreCase) &&
@@ -752,6 +775,23 @@ static class BoxBuilder
             stray.Clear();
         }
     }
+
+    /// <summary>
+    /// The block-level display an inline-level one becomes when its parent lays it out itself.
+    /// </summary>
+    /// <remarks>
+    /// CSS Display §2.7. Only the OUTER half of the display changes: an <c>inline-flex</c> becomes
+    /// a <c>flex</c> rather than a block, so a flex container nested in another still arranges its
+    /// own children. Everything already block-level, <c>list-item</c> and the table displays
+    /// included, is left exactly as it is.
+    /// </remarks>
+    static DisplayKind Blockify(DisplayKind display) =>
+        display switch
+        {
+            DisplayKind.Inline or DisplayKind.InlineBlock => DisplayKind.Block,
+            DisplayKind.InlineFlex => DisplayKind.Flex,
+            _ => display
+        };
 
     /// <summary>Whether a child's display is one its parent's table role can hold.</summary>
     static bool Belongs(DisplayKind child, DisplayKind parent) =>

@@ -14,12 +14,12 @@ it, that is stated, because an unmeasured gap is the more dangerous kind.
 
 ## Where the corpus stands
 
-153 scenarios across 10 categories, 1994 element boxes matched. **Box geometry matches Chrome
-exactly on every one** — worst offset 0.00px, worst size 0.00px, and nothing unmatched — and 106
-read SSIM 1.0000, of which 74 are pixel-identical outright. The other 32 differ on a scattering of
+162 scenarios across 11 categories, 2203 element boxes matched. **Box geometry matches Chrome
+exactly on every one** — worst offset 0.00px, worst size 0.00px, and nothing unmatched — and 112
+read SSIM 1.0000, of which 79 are pixel-identical outright. The other 33 differ on a scattering of
 antialiased pixels, which is what `AE` is there to show.
 
-Forty-seven read below 1.0000. None is a mystery, and none should be "fixed" by regenerating a
+Fifty read below 1.0000. None is a mystery, and none should be "fixed" by regenerating a
 baseline:
 
 | Scenario | AE | SSIM | Cause |
@@ -38,7 +38,9 @@ baseline:
 | `table/bevelled_borders` | 0.0005 | 0.9990 | The same mitres |
 | `page/break_avoid` | 0.0045 | 0.9991 | Sub-pixel glyph positioning; pages one and three are identical |
 | `page/fixed_repeat` | 0.0039 | 0.9992 | Sub-pixel glyph positioning |
+| `flex/min_size` | 0.0012 | 0.9994 | Sub-pixel glyph positioning across the two overflowing words |
 | `block/border_styles` | 0.0002 | 0.9995 | A vertical dotted edge, below |
+| `flex/basic` | 0.0000 | 0.9996 | Forty pixels in one column: a box edge at x=352.5, below |
 | `page/break_between_lines` | 0.0017 | 0.9996 | Sub-pixel glyph positioning |
 | `page/trailing_margin` | 0.0024 | 0.9996 | Same |
 | `block/counters` | 0.0013 | 0.9997 | Same |
@@ -60,6 +62,7 @@ baseline:
 | `inline/text_indent` | 0.0005 | 0.9999 | Same |
 | `link/fragment` | 0.0001 | 0.9999 | Same |
 | `link/wrapped` | 0.0000 | 0.9999 | Same |
+| `page/flex_break` | 0.0004 | 0.9999 | Sub-pixel glyph positioning on page two; page one is identical |
 | `page/tall_block` | 0.0004 | 0.9999 | Same |
 | `position/absolute` | 0.0005 | 0.9999 | One pixel column where two backgrounds meet at a fractional edge |
 | `text/decoration_style` | 0.0002 | 0.9999 | `text-decoration-skip-ink`, deliberate, below |
@@ -99,13 +102,17 @@ corpus to measure — and every one reports through `HtmlOptions.OnDiagnostic`, 
 one says so at conversion time rather than only looking wrong afterwards.
 
 A report is not a substitute for a scenario: it says the construct was not rendered properly, not
-by how much. **No scenario in the corpus contains `display: flex` or `display: grid`**, so how
-wrong is still unmeasured.
+by how much. **No scenario in the corpus contains `display: grid`**, so how wrong that one is
+remains unmeasured.
 
-- **Flexbox**, then **grid**. The most valuable remaining piece by a wide margin, and the block
-  substrate they want — tables, floats, positioned boxes, stacking contexts and `overflow`
-  formatting contexts — is all underneath them now.
+- **Grid.** The most valuable remaining piece, and the substrate is now more than block: flexbox
+  brought the axis mapping, the line collection and the free-space distribution that a grid's track
+  sizing wants, and `IntrinsicWidths` already answers for a container whose children are sized
+  together rather than one at a time.
 - **Multi-column.** `column-count` and `column-width` are reported and lay out as one column.
+
+Flexbox came off this list. What is left of it is below, under **Flexbox**, and none of it is a
+layout mode falling back to a block.
 
 ## Text
 
@@ -185,6 +192,38 @@ wrong is still unmeasured.
   the side reproduces it — the end of such an edge carries a solid square no dot in the sequence
   accounts for, which is the shape of Blink filling a rect at each endpoint of a dashed line and
   dashing between them. `block/border_styles` records it and is otherwise exact.
+
+## Flexbox
+
+Implemented and measured: eight scenarios in `flex/`, plus `page/flex_break`, all geometry-exact
+against Chrome. What is left is small and each entry says whether anything measures it.
+
+- **An absolutely positioned child's static position is the container's content-box ORIGIN.** CSS
+  puts it where the child would be "if it were the sole flex item", which runs it through
+  `justify-content` and `align-items`; this uses the origin. The two agree wherever the container's
+  alignment is the initial value and wherever the child declares both offsets, which is every
+  arrangement anyone writes — so `flex/nested`'s `#anchored` cannot tell them apart, and nothing
+  else can either. Not reported, there being no declaration to hang it on: the child's own offsets
+  are honoured exactly as declared.
+- **A column item with a DECLARED height takes its declaration as the content size suggestion.**
+  CSS Flexbox §4.5 wants the smaller of the specified suggestion and the MIN-CONTENT size, and the
+  natural height this reuses is the one that layout already produced — which for a declared height
+  is the declaration. So such an item will not shrink below its declared height even where its
+  content would allow it. Measuring the other answer needs a second layout with the declaration
+  suppressed, and nothing in the corpus reaches it.
+- **The three margin-box-style edge cases of `align-content` on a single-line container are
+  untested.** `align-content` is applied whenever the container may wrap, which is CSS's own rule —
+  a `flex-wrap: wrap` container holding one line IS multi-line — and `flex/wrap`'s `#spread` is the
+  only scenario that exercises it, with two lines.
+- **`visibility: collapse` on a flex item is not implemented**, the same way it is not for a table
+  row and for the same measured reason: Chrome disagrees with itself between its screen layout and
+  its printer, so no engine behaviour is exact on both of the corpus's measurements.
+- **Fragmentation is the ordinary line-based one.** `page/flex_break` measures it and it agrees with
+  Chromium, because CSS Flexbox §11 fragments a row container's items in parallel and the engine's
+  existing candidates already fall at the same place. What is NOT implemented is the rest of §11:
+  `break-inside` on a flex ITEM is honoured through the ordinary path, but a flex line does not
+  reserve room for itself, so a container whose items each carry `break-inside: avoid` and which
+  straddles a boundary breaks between the items rather than moving the line.
 
 ## Tables
 
@@ -339,10 +378,21 @@ work rather than as tidying.
   `white-space-collapse: break-spaces`, `background-position` given four components,
   `caption-side: inline-start`, `text-justify: none` and `inter-character`, `filter`, `clip-path`,
   `shape-outside`, `zoom`, `text-emphasis`, `background-clip: text`, `text-underline-position`,
-  `font-variant-caps` and `font-variant-ligatures`. Four more were dropped and are now recovered
-  from the stylesheet's own text by `CssSource`: `string-set`, `page`, a `content` value carrying
-  `string()`, and a `::before`'s `display`. The whole of `@page` except its margins goes the same
+  `font-variant-caps` and `font-variant-ligatures`, and — from the flex round — `flex-basis` given
+  `min-content`, `max-content` or `fit-content`. SIX more were dropped and are now recovered from
+  the stylesheet's own text by `CssSource`: `string-set`, `page`, a `content` value carrying
+  `string()`, a `::before`'s `display`, `flex: none`, and the CSS Box Alignment keywords —
+  `start`, `end`, `normal` and `space-evenly` — on `justify-content`, `align-items`,
+  `align-content` and `align-self`. The whole of `@page` except its margins goes the same
   way — its `size`, its selector, and its margin box at-rules.
+- **AngleSharp TRANSPOSES `gap`'s two values.** CSS writes the shorthand
+  `gap: <row-gap> <column-gap>`; the cascade hands back the first value as `column-gap` and the
+  second as `row-gap`, which is the picture rotated rather than a number out. It cannot be
+  recognised from the cascade either — what comes back is byte-for-byte what an author writing both
+  longhands column-first produces — so the shorthand is recovered from the stylesheet's own text,
+  and only for a document that contains one. The one-value form is correct as it stands, leaving
+  `row-gap` empty, which means "the same as the other". `flex/wrap`'s `#gapped` is what measures it.
+
 - **AngleSharp does not ALIAS two spellings of one property**, nor expand a shorthand into
   longhands the engine reads, which is a quieter version of the same problem: `word-wrap` comes back
   under its own name and leaves `overflow-wrap` empty, exactly as `page-break-before` does beside

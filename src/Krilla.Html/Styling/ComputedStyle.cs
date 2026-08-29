@@ -1,4 +1,4 @@
-namespace Krilla.Html.Styling;
+﻿namespace Krilla.Html.Styling;
 
 /// <summary>How a box participates in layout.</summary>
 enum DisplayKind
@@ -69,7 +69,122 @@ enum DisplayKind
     /// Present so the box builder can drop them deliberately rather than laying their (empty)
     /// content out as blocks. Their <c>width</c> contribution to column sizing is not read yet.
     /// </remarks>
-    TableColumn
+    TableColumn,
+
+    /// <summary>
+    /// A flex container, which arranges its children along an axis rather than stacking them.
+    /// </summary>
+    /// <remarks>
+    /// Like <see cref="Table"/>, one of the two values that changes how DESCENDANTS are laid out
+    /// rather than only the box carrying it — and unlike it, the container's own box model is an
+    /// ordinary block's. Only the arrangement of the children differs, which is why
+    /// <see cref="FlexLayout"/> replaces one step of <see cref="BlockLayout"/>
+    /// instead of taking over from it the way <see cref="TableLayout"/> does.
+    /// </remarks>
+    Flex,
+
+    /// <summary>An <c>inline-flex</c>: an atomic inline whose contents lay out as flex.</summary>
+    /// <remarks>
+    /// The same relationship to <see cref="Flex"/> that <see cref="InlineBlock"/> has to
+    /// <see cref="Block"/>: it occupies one unbreakable box on a line, and what is inside it is
+    /// laid out by the flex algorithm.
+    /// </remarks>
+    InlineFlex
+}
+
+/// <summary>Which axis a flex container's items are arranged along, and in which direction.</summary>
+/// <remarks>
+/// Only the horizontal writing mode is implemented, so a row is horizontal and a column vertical
+/// outright rather than through a writing-mode indirection. The reverse values change where the
+/// items START, not merely their order — <c>row-reverse</c> packs them against the right edge —
+/// which is what distinguishes them from <c>order</c>.
+/// </remarks>
+enum FlexDirectionKind
+{
+    /// <summary>Left to right.</summary>
+    Row,
+
+    /// <summary>Right to left.</summary>
+    RowReverse,
+
+    /// <summary>Top to bottom.</summary>
+    Column,
+
+    /// <summary>Bottom to top.</summary>
+    ColumnReverse
+}
+
+/// <summary>Whether a flex container puts its items on more than one line.</summary>
+enum FlexWrapKind
+{
+    /// <summary>One line, however far the items overflow it.</summary>
+    NoWrap,
+
+    /// <summary>As many lines as needed, stacked along the cross axis.</summary>
+    Wrap,
+
+    /// <summary>The same, with the lines stacked in the opposite direction.</summary>
+    WrapReverse
+}
+
+/// <summary>
+/// How leftover space is distributed along an axis, for <c>justify-content</c> and
+/// <c>align-content</c>.
+/// </summary>
+/// <remarks>
+/// One enum for both, because they are the same distribution applied to different axes — the only
+/// difference is that <c>align-content</c> also accepts <see cref="Stretch"/>, which
+/// <c>justify-content</c> has no meaning for and which folds onto <see cref="Start"/> there.
+/// </remarks>
+enum ContentDistributionKind
+{
+    /// <summary>Packed against the start edge, leaving the space at the end.</summary>
+    Start,
+
+    /// <summary>Packed against the end edge.</summary>
+    End,
+
+    /// <summary>Packed together in the middle.</summary>
+    Center,
+
+    /// <summary>The space shared out BETWEEN the items, none at either edge.</summary>
+    SpaceBetween,
+
+    /// <summary>Half a share at each edge and a whole share between each pair.</summary>
+    SpaceAround,
+
+    /// <summary>Equal shares at the edges and between each pair.</summary>
+    SpaceEvenly,
+
+    /// <summary>The lines grow to fill the container. <c>align-content</c> only.</summary>
+    Stretch
+}
+
+/// <summary>
+/// Where an item sits on the cross axis, for <c>align-items</c> and <c>align-self</c>.
+/// </summary>
+enum AlignKind
+{
+    /// <summary>
+    /// Take the container's value. <c>align-self</c>'s initial value, and not reachable on
+    /// <c>align-items</c>.
+    /// </summary>
+    Auto,
+
+    /// <summary>Grow to fill the line's cross size, when the cross size is auto.</summary>
+    Stretch,
+
+    /// <summary>Against the line's start edge.</summary>
+    Start,
+
+    /// <summary>Against the line's end edge.</summary>
+    End,
+
+    /// <summary>Centred in the line.</summary>
+    Center,
+
+    /// <summary>First baselines aligned with the other baseline-aligned items on the line.</summary>
+    Baseline
 }
 
 /// <summary>How a table's column widths are decided.</summary>
@@ -1449,8 +1564,8 @@ sealed record ComputedStyle
     /// </summary>
     /// <remarks>
     /// <para>
-    /// Only <c>overflow</c> answers here. A float, an inline-block and a table cell establish one
-    /// too, and each reaches it structurally instead — by being laid out through a call that
+    /// Only <c>overflow</c> and <c>display: flex</c> answer here. A float, an inline-block and a
+    /// table cell establish one too, and each reaches it structurally instead — by being laid out through a call that
     /// passes no <see cref="FloatContext"/> — because each is already on a path of its own. This
     /// property is for the one case that is an ordinary in-flow block and has to be recognised
     /// from its style.
@@ -1462,8 +1577,15 @@ sealed record ComputedStyle
     /// text block beside it is the pre-flexbox way to lay out a media object, and the text block
     /// is given <c>overflow: hidden</c> for exactly this effect.
     /// </para>
+    /// <para>
+    /// A flex container establishes one as well, and for a reason of its own rather than by
+    /// analogy: a flex item is neither a block in normal flow nor an inline, so a float from
+    /// outside has nothing to shorten and a float declared inside has no line to sit beside.
+    /// </para>
     /// </remarks>
-    public bool EstablishesContext => Overflow != OverflowKind.Visible;
+    public bool EstablishesContext =>
+        Overflow != OverflowKind.Visible ||
+        IsFlexContainer;
 
     /// <summary>Whether this box is taken out of flow by positioning.</summary>
     public bool IsAbsolute => Position is PositionKind.Absolute or PositionKind.Fixed;
@@ -1498,7 +1620,78 @@ sealed record ComputedStyle
     /// <summary>
     /// Whether this box is laid out as one unbreakable box on a line rather than in flow.
     /// </summary>
-    public bool IsAtomicInline => Display == DisplayKind.InlineBlock;
+    /// <remarks>
+    /// An <c>inline-flex</c> as well as an <c>inline-block</c>. The two differ in how their
+    /// contents are arranged and not at all in how the box itself joins a line, which is the whole
+    /// of what this property is asked.
+    /// </remarks>
+    public bool IsAtomicInline => Display is DisplayKind.InlineBlock or DisplayKind.InlineFlex;
+
+    /// <summary>Whether this box arranges its children by the flex algorithm.</summary>
+    public bool IsFlexContainer => Display is DisplayKind.Flex or DisplayKind.InlineFlex;
+
+    /// <summary>Which axis a flex container lays its items along. Not inherited.</summary>
+    public FlexDirectionKind FlexDirection { get; init; } = FlexDirectionKind.Row;
+
+    /// <summary>Whether a flex container wraps onto more than one line. Not inherited.</summary>
+    public FlexWrapKind FlexWrap { get; init; } = FlexWrapKind.NoWrap;
+
+    /// <summary>How a flex container distributes leftover MAIN-axis space. Not inherited.</summary>
+    public ContentDistributionKind JustifyContent { get; init; } = ContentDistributionKind.Start;
+
+    /// <summary>Where a flex container's items sit on the CROSS axis. Not inherited.</summary>
+    public AlignKind AlignItems { get; init; } = AlignKind.Stretch;
+
+    /// <summary>
+    /// How a multi-line flex container distributes leftover CROSS-axis space between its lines.
+    /// Not inherited.
+    /// </summary>
+    /// <remarks>
+    /// Reaches nothing on a single-line container, which is CSS's own rule and worth stating
+    /// because the property looks as though it should centre a lone line and does not.
+    /// </remarks>
+    public ContentDistributionKind AlignContent { get; init; } = ContentDistributionKind.Stretch;
+
+    /// <summary>
+    /// This item's own cross-axis alignment, overriding its container's. Not inherited.
+    /// </summary>
+    public AlignKind AlignSelf { get; init; } = AlignKind.Auto;
+
+    /// <summary>How much of the leftover main-axis space this item takes a share of.</summary>
+    public float FlexGrow { get; init; }
+
+    /// <summary>How much of a main-axis shortfall this item gives up a share of.</summary>
+    /// <remarks>
+    /// One rather than zero, which is the asymmetry at the heart of the property: items grow only
+    /// when asked and shrink by default, so a row of fixed-width boxes narrower than its container
+    /// leaves a gap and the same row wider than its container squeezes.
+    /// </remarks>
+    public float FlexShrink { get; init; } = 1;
+
+    /// <summary>
+    /// The main size this item starts from, before any growing or shrinking.
+    /// </summary>
+    /// <remarks>
+    /// <c>auto</c> defers to the main-axis size property — <c>width</c> in a row container and
+    /// <c>height</c> in a column one — and that in turn may be auto, at which point the item's
+    /// max-content size is the basis.
+    /// </remarks>
+    public CssLength FlexBasis { get; init; } = CssLength.Auto;
+
+    /// <summary>Where this item sorts among its siblings, lowest first. Not inherited.</summary>
+    /// <remarks>
+    /// A visual reordering only: it changes paint and layout order and nothing about the document,
+    /// so the box tree keeps document order and the flex algorithm sorts a view of it. Ties keep
+    /// document order, which needs the sort to be stable — the same requirement
+    /// <c>z-index</c> has, for the same reason.
+    /// </remarks>
+    public int Order { get; init; }
+
+    /// <summary>The gap between flex lines, along the cross axis.</summary>
+    public CssLength RowGap { get; init; } = CssLength.Zero;
+
+    /// <summary>The gap between adjacent items on one flex line.</summary>
+    public CssLength ColumnGap { get; init; } = CssLength.Zero;
 
     /// <summary>Which side this box floats to.</summary>
     public FloatKind Float { get; init; } = FloatKind.None;

@@ -51,7 +51,13 @@ percentages, dashed, dotted and double borders, `border-radius`, `opacity`, `tra
 `z-index` and the stacking contexts that come with it, linear and
 radial gradients, `outline`, `object-fit` and `object-position`, both border models, `empty-cells`,
 images — raster and SVG alike — and links — `<a href>` becomes a real PDF link annotation, and a `#fragment` becomes an
-internal jump to wherever that element paginated to. Flexbox and grid lay out as plain blocks.
+internal jump to wherever that element paginated to.
+
+Flexbox too, in full: all four directions, wrapping, `flex-grow`, `flex-shrink` and `flex-basis`
+with the whole of the flexible-length resolution behind them, `justify-content`, `align-items`,
+`align-content` and `align-self`, `order`, `gap`, auto margins on both axes, baseline alignment,
+and the automatic minimum size that stops a shrinking item collapsing below its own longest word.
+Grid still lays out as a plain block.
 
 Values resolve as CSS asks: `calc()`, the viewport units, and the whole length unit table. An inline
 element gets its own box model — background, padding, border and horizontal margins, one fragment
@@ -192,7 +198,7 @@ into a report:
 options.OnDiagnostic = diagnostic => Console.WriteLine(diagnostic);
 
 // <@font-face> src: Corporate — not read, so the document's own font is not loaded
-// <div> display: flex — laid out as a block
+// <div> display: grid — laid out as a block
 // <div> column-count: 2 — laid out in one column
 // <table> rules: all — not applied, because presentational attributes are not mapped onto CSS
 // <img> src: logo.png — did not resolve to an image, so no box was generated

@@ -1,0 +1,20 @@
+body { font-family: "Liberation Sans"; font-size: 16px; line-height: 24px; }
+
+#spacer { height: 950px; background-color: #eaeaea; }
+
+.row { display: flex; width: 600px; column-gap: 12px; background-color: #e6ecf2; }
+.row > div { flex: 1; background-color: #b6c8da; }
+.row > div:nth-child(2) { background-color: #8aa5c0; }
+.row > div:nth-child(3) { background-color: #5d7f9f; }
+
+.col {
+  display: flex;
+  flex-direction: column;
+  width: 600px;
+  row-gap: 10px;
+  background-color: #eef2e6;
+}
+
+.col > div { background-color: #c0d3a8; }
+.col > div:nth-child(2) { background-color: #9cb87f; }
+.col > div:nth-child(3) { background-color: #7a9b5c; }

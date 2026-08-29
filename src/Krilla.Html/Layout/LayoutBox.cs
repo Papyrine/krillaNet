@@ -81,6 +81,12 @@ sealed class LayoutBox
     public List<CollapsedLine>? CollapsedLines { get; set; }
 
     /// <summary>Child boxes, in document order.</summary>
+    /// <remarks>
+    /// Document order even for a flex container whose items declare <c>order</c>. That property is
+    /// a VISUAL reordering, so <see cref="FlexLayout"/> sorts a view of this list and leaves the
+    /// tree alone — which keeps the tag tree, the box dump and the link resolution reading the
+    /// document rather than the picture.
+    /// </remarks>
     public List<LayoutBox> Children { get; } = [];
 
     /// <summary>

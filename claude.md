@@ -102,7 +102,7 @@ Mirrors Morph.PDFium: `KrillaNative.*.cs` partials of one `static partial class`
 ### The HTML converter (`src/Krilla.Html`)
 
 Three stages, each inspectable on its own: AngleSharp parses and runs the cascade, `Layout/` turns the styled tree into positioned boxes, and `Painting/PdfPainter` draws those boxes through `Krilla.Surface`. Implemented: block and inline layout, inline-block, tables, floats, relative and absolute positioning, the box model including `box-sizing`, collapsing margins, line breaking, alignment, pagination including forced page breaks, `overflow` clipping and the block formatting context that comes with it, `visibility`, `text-transform`, letter and word spacing, the `font-size` keywords, all three text decorations, `vertical-align` on inline boxes, dashed, dotted and double borders, `border-radius`, `opacity`, `transform`, `z-index` and the stacking contexts that come with it, linear and
-radial gradients, `outline`, `object-fit`, `caption-side`, `list-style-position`, both border models including `border-collapse`, raster and SVG images, links, and list markers. Flex and grid lay out as plain blocks — deliberately, so unimplemented CSS shows up in the corpus as a geometry difference rather than as missing content nothing measures.
+radial gradients, `outline`, `object-fit`, `caption-side`, `list-style-position`, both border models including `border-collapse`, raster and SVG images, links, and list markers. Grid lays out as a plain block — deliberately, so unimplemented CSS shows up in the corpus as a geometry difference rather than as missing content nothing measures.
 
 And, from the paged-media and structure work: a document's `@page` rules decide the paper unless
 `HtmlOptions.HonourPageRules` says otherwise, media queries resolve against PRINT, sided forced
@@ -177,6 +177,14 @@ bullet stays an artifact. And ARIA is read for the first time: `role` outranks t
 carries it, `aria-label` and `aria-labelledby` name it, `aria-describedby` describes it,
 `<abbr title>` expands it, and a table's `summary` reaches `/Summary`.
 
+And from the sixteenth, which was one feature rather than a sweep: FLEXBOX, in full. All four
+directions, all three wrapping modes, `flex-grow`, `flex-shrink` and `flex-basis` with the whole of
+CSS Flexbox §9.7's flexible-length resolution behind them, `justify-content`, `align-items`,
+`align-content` and `align-self`, `order`, `gap`, auto margins on both axes, baseline alignment, and
+the automatic minimum size that stops a shrinking item collapsing below its own longest word.
+`inline-flex` joins a line the way an inline-block does. It cost four AngleSharp workarounds and one
+fix to a scan that had been quietly broken by comments for as long as it had existed.
+
 Three structural points worth knowing before changing anything:
 
 - **Layout needs the native, for shaping only.** `FontFace` reads its metrics out of the font bytes in managed code and `ImageData` reads image sizes from file headers, but `FontFace.Shape` calls through to krilla's rustybuzz. That crossing is unavoidable — measuring text correctly means shaping it — and it ended the earlier property that layout ran without a Rust toolchain.
@@ -184,7 +192,7 @@ Three structural points worth knowing before changing anything:
 - **An absolute box is positioned in a second pass.** `AbsoluteLayout` runs after flow, because an absolute box is measured against an ancestor that is sized by flowing the very children that may declare it. `LayoutBox.Positioned` holds them against the box that DECLARED them — which is what knows their static position, where flow would have put them and where they go when their offsets are auto — while the containing block is found by walking the ancestor chain in that second pass.
 - **A float is out of flow but not out of the tree.** `LayoutBox.Floats` holds them, apart from `Children`, each with the index of the in-flow child it was declared before — a float starts at the flow position it was written at, not at the top of its container. Keeping them out of `Children` preserves the rule that a block container is all-block or all-inline, which a float inside a paragraph would otherwise break. `Descendants()`, `Translate` and the painter all still walk them.
 - **Images do not fetch over the network**, and that is a security default rather than a missing feature — converting an untrusted document would otherwise issue requests to whatever hosts it names. `HtmlOptions.ImageResolver` is where a caller takes that decision explicitly, and `LocalImages`/`WebImages` (`ImagePolicy`) bound what any resolver may load. The policy is checked in `ImageStore.Resolve` *before* the resolver runs, which is the whole point: a caller-supplied resolver that fetches is the one with something to constrain, and a refused source is never requested. `data:` is ungated — its bytes are already in the document.
-- **`OnDiagnostic` reports only the deliberate sites, never every unrecognised declaration.** The signal worth having is "recognised, and not rendered the way a browser would" — `display: flex`, a presentational attribute, an image that resolved to nothing. Reporting unknown CSS too would bury that under the `cursor` and `content` an ordinary stylesheet carries, and would cost the invariant its meaning: **a conversion that reports nothing laid out every construct in the document the way a browser would.** `UnsupportedCss` holds the table of what to report and `UnsupportedAttributes` the presentational attributes; both run only when `DocumentContext.Reports` is true, because the scan costs a cascade lookup per property per element and a caller who is not subscribed should not pay for it. Two rules keep the false-positive rate at zero, and both were arrived at by finding the false positives first: a value that is a **no-op** is silent (`float: none` in a reset stylesheet renders exactly as asked), and so is anything the **default stylesheet** supplies rather than the document. Origin cannot be tested directly; `ComputeCascadedStyle` does not expose it, the same limitation `Inputs/flatten.css` works around — and there is nothing exempted by name any more. `hr` was the single case that needed it, exempted from border-style reporting because AngleSharp's built-in sheet makes every plain `<hr>` `inset`; implementing the four bevelled styles removed the entry that would have fired, and with it the exemption. **An exemption by element name is a sign the property is unimplemented, not a sign the report is wrong**, which is worth knowing before adding a second one.
+- **`OnDiagnostic` reports only the deliberate sites, never every unrecognised declaration.** The signal worth having is "recognised, and not rendered the way a browser would" — `display: grid`, a presentational attribute, an image that resolved to nothing. Reporting unknown CSS too would bury that under the `cursor` and `content` an ordinary stylesheet carries, and would cost the invariant its meaning: **a conversion that reports nothing laid out every construct in the document the way a browser would.** `UnsupportedCss` holds the table of what to report and `UnsupportedAttributes` the presentational attributes; both run only when `DocumentContext.Reports` is true, because the scan costs a cascade lookup per property per element and a caller who is not subscribed should not pay for it. Two rules keep the false-positive rate at zero, and both were arrived at by finding the false positives first: a value that is a **no-op** is silent (`float: none` in a reset stylesheet renders exactly as asked), and so is anything the **default stylesheet** supplies rather than the document. Origin cannot be tested directly; `ComputeCascadedStyle` does not expose it, the same limitation `Inputs/flatten.css` works around — and there is nothing exempted by name any more. `hr` was the single case that needed it, exempted from border-style reporting because AngleSharp's built-in sheet makes every plain `<hr>` `inset`; implementing the four bevelled styles removed the entry that would have fired, and with it the exemption. **An exemption by element name is a sign the property is unimplemented, not a sign the report is wrong**, which is worth knowing before adding a second one.
 
 ### The corpus (`src/Krilla.Html.Tests/Inputs`)
 
@@ -199,7 +207,7 @@ It records two independent measurements, and **asserts neither**:
 - **`reference.boxes.json`** — the browser's `getBoundingClientRect()` per element, against our box tree. Integer-exact, localising ("this paragraph is 14px low" is a defect report), and — the practical reason it leads — computable without the native library, so it works on a machine with no Rust toolchain.
 - **`reference_0001.png`** — pixels, via AbsoluteError and SSIM.
 
-**Box geometry currently sits at zero across all 153 scenarios, with nothing unmatched**, and 106
+**Box geometry currently sits at zero across all 162 scenarios, with nothing unmatched**, and 112
 read SSIM 1.0000. Several got there by finding a defect first, which is the argument for adding a
 scenario for anything the engine implements rather than only for what it implements well:
 `block/anonymous` found trailing inline content hoisted above a block sibling, `position/fixed`
@@ -208,7 +216,8 @@ on a section with no columns, `page/table_break` found a break taken at the line
 `inline/vertical_align_length` found that the corpus could not see an inline element at all, and
 `text/word_break` found a word moved to a fresh line and then never offered for splitting, and
 `position/z_index` found an absolute box inside a stacking context painted twice — once where it
-belonged and once flattened onto the page. Each is written up in its own `notes.md`. The remaining pixel residuals each have a named cause rather than
+belonged and once flattened onto the page, `flex/direction` found a column container's items at zero
+width, and `page/flex_break` refuted the rule it was written to confirm. Each is written up in its own `notes.md`. The remaining pixel residuals each have a named cause rather than
 a mystery: `block/border_styles` (0.9995) is a vertical dotted edge Chromium constructs differently,
 `text/kerning` (0.9945) and `text/ligatures` (0.9982) are sub-pixel glyph positioning,
 `block/bevelled_borders` and `table/bevelled_borders` (0.9990) are antialiasing where two
@@ -256,6 +265,20 @@ Found by measuring against a browser, not by reading. Each cost a whole category
 - **AngleSharp does not resolve the `font-size` keywords**, so `medium`, `large`, `smaller` and the rest arrive at `ResolveFontSize` as written rather than as lengths. The trap is in what an unparseable value falls back to: `CssLength.Zero` is an **absolute** length, so it took the `LengthKind.Absolute` branch and returned a font size of 0 — which is not a smaller size, it is an invisible one, and `font-size: large` therefore deleted the text of the element carrying it. The fallback is `CssLength.None` so the `_` branch can catch it. Any new parse whose fallback is meant to mean "unparseable" needs a kind the switch above it does not otherwise handle. `<small>` and `<big>` never hit this, because the cascade resolves the default stylesheet's sizes for those into real lengths first — which is what kept it hidden.
 - **AngleSharp rewrites a gradient's corner keyword as a flat `45deg`.** `to top right` names an angle that depends on the box's proportions — the gradient line is perpendicular to the diagonal joining the other two corners, so in a wide, short box it is nearly `to top`. The cascade collapses it to 45° before the engine sees it, which is right only for a square box. It cannot be reported either, being indistinguishable from an angle the author wrote. `GradientPaint.Resolve` keeps the correct resolution against the day the value survives, and `block/gradients` had the row that measured it removed for this reason.
 - **AngleSharp DROPS some declarations rather than passing the value through**, which is a different failure from mis-resolving one and a worse one to debug: the cascaded style comes back *empty*, indistinguishable from a property nobody declared. So the value can be neither honoured nor reported, and the gap is invisible from this side. Found so far: the `revert` keyword, `text-overflow`, the `min-content`/`max-content`/`fit-content` sizing keywords, `recto` and `verso` on both break spellings, `aspect-ratio` given a single number rather than a ratio, `overflow-wrap: anywhere`, `content` given a `string()`, and the whole of `@page` except its margins — its `size`, its selector, and its margin box at-rules, which have no object at all. `unset` survives, and `calc()` and the viewport units survive verbatim — so the rule is not "anything modern". The ones worth working around were `@page`'s, recovered from the stylesheet's own text because a page size is a whole-document difference and a running header is the reason most documents have the rule; the rest are recorded and left.
+- **A COMMENT defeats every scan of a stylesheet's own text**, and it defeated them silently. Three
+  things read CSS as text rather than through the object model — `CssSource.Declarations` for the
+  properties the parser drops, `CssSource.Declaration` for a margin box's `content`, and
+  `PageRules`' brace-matching walk over `@page` — and a comment can break all three: it can hold a
+  brace and move a block's extent, hold a colon and change what a declaration's value looks like,
+  and, the one that actually bit, sit ABOVE a rule and become part of that rule's selector.
+  `Prelude` reads back from a block's opening brace to the previous `;`, `{` or `}`, so a documented
+  rule is matched against a selector list with a paragraph of English in front of it, and it matches
+  nothing. Which means the scans worked on an undocumented stylesheet and stopped working on a
+  documented one — and a stylesheet worth recovering a declaration from is exactly the kind that
+  carries comments. `CssSource.WithoutComments` strips them, replacing each with a SPACE because a
+  CSS comment separates tokens (`a/**/b` is two identifiers). It still reads no strings, so a `/*`
+  inside a quoted value starts a comment; that exposure is narrowed rather than removed, the
+  alternative being a second CSS parser.
 - **AngleSharp does not apply presentational attributes.** HTML maps `<table width>`, `<td bgcolor>`, `<p align>` and the rest onto CSS as declarations in an origin between the user-agent sheet and the author's; AngleSharp performs none of that mapping, so they reach the cascade as nothing at all. `PresentationalHints` performs it, writing into the declaration `ComputeCascadedStyle` just returned — which is a fresh mutable object per call rather than a view onto the cascade, and is the whole reason this is possible at all. See *Traps in the presentational attributes* for what the missing origin costs. Documents converted to PDF come disproportionately from reporting tools and mail merges, which emit exactly this markup.
 
 ## Traps found by importing an external test
@@ -514,6 +537,139 @@ so they used to reach the cascade as nothing at all and were merely reported.
   `PresentationalHints` itself. Which values those are is a question only the CSS parser can answer,
   since the cascade normalises `silver` into an `rgba()` long before anything here would see it, so
   the reporting pass writes its candidates into a declaration nothing reads.
+
+## Traps in flexbox
+
+`flex/` holds eight scenarios and `page/flex_break` a ninth; all nine are geometry-exact against
+Chrome. Unlike almost everything else here, flexbox IS specified in usable detail, so the rules
+below are the specification's rather than measurements taken off a browser — and the corpus is what
+says the specification was read correctly, which on four counts it had not been.
+
+- **A flex container does NOT take over from `BlockLayout` the way a table does.** Its own box is an
+  ordinary block box — same width resolution, same margins, same `min-height` clamp, same relative
+  offset, same list marker — and only the ARRANGEMENT of its children differs. So `FlexLayout`
+  replaces one step of `BlockLayout.Layout`, the step that stacks the children, and inherits every
+  other rule already measured against Chrome. A table cannot do that, its own width being a result
+  of sizing its columns. Getting this the other way round means restating twenty rules and
+  rediscovering their traps.
+- **Everything is written in MAIN and CROSS terms, mapped once.** The axes are settled at the top of
+  `Layout` and nothing below asks which `flex-direction` is in force, which is what lets one
+  implementation carry all four — and what keeps `column` from being the afterthought it usually is.
+  The mapping back to a rectangle happens in `Place` and nowhere else, which is also the only place
+  the two REVERSE directions mean anything: a reversed axis is a subtraction there, and
+  `wrap-reverse` is the same subtraction on the cross axis, so the two compose without either
+  knowing about the other.
+- **A column item's CROSS size is its width, and it has to be settled whether or not its main size
+  was declared.** It was settled only on the branch that needed it to measure a natural height, so
+  every column item with a declared HEIGHT came out at a width of zero — a whole column of invisible
+  boxes, in the arrangement most likely to be written. `flex/column` could not see it, every item
+  there being sized by its content; `flex/direction` found it on its first render.
+- **§9.7's loop freezes the items whose own CLAMP moved them**, not the items whose size exceeds
+  their base. Reading the total violation's sign against each item's size instead freezes every item
+  that grew at all, so the first pass freezes the lot and the space a cap released goes nowhere.
+- **And the remaining free space is measured against each unfrozen item's BASE size**, never against
+  whatever the previous pass clamped it to. Counting the clamped size makes the space a clamp
+  released invisible a second time — the pass that freed sixty pixels by capping one item then has
+  sixty to share rather than the four hundred and sixty that are really left. Both of these are one
+  line each and both are entirely plausible readings; `flex/basic`'s `#bounds` is the row that
+  separates them, and it needs an item hitting a maximum AND an item hitting a minimum in the same
+  line.
+- **Growing and shrinking are not symmetric.** Growing shares the free space in proportion to the
+  grow factors alone; shrinking scales each factor by the item's own INNER base size first, so a
+  wide item gives up more than a narrow one carrying the same `flex-shrink`. Without the scaling a
+  row of differently sized items loses the same number of pixels from each and the small ones vanish
+  first. It is the one place the algorithm leaves border boxes, and §9.7 says so explicitly.
+- **The automatic minimum size is what makes `flex-shrink` usable**, and it is reached through a
+  property whose value is `auto` rather than through anything the document wrote. `min-width`'s
+  initial value IS `auto`, so changing the engine's default from zero to `auto` is a correction
+  rather than a hack — and it disturbed nothing, because every site that reads the property goes
+  through `ResolveOrNull` or tests for an absolute length and `auto` falls out of both. Its two
+  halves are the CONTENT size suggestion (the min-content size) and the SPECIFIED one (the declared
+  main size), and it is the SMALLER of them: reading it as the content minimum alone makes a
+  deliberately narrow item wide again.
+- **A flex LINE is not a table row, and that was measured rather than reasoned.** It looks like one
+  — items side by side, so a break through the middle seems certain to leave the shorter items'
+  backgrounds on the page before and their content on the page after — and it was written as an
+  unbreakable unit on exactly that argument. Chromium FRAGMENTS a row container at the page edge
+  instead, which is CSS Flexbox §11's own rule, its items being broken in parallel. Deleting the
+  rule took `page/flex_break`'s first page from 0.9683 to identical, because the ordinary
+  line-based candidates already give the browser's answer.
+- **Every child of a flex container is an ITEM, including a run of bare text.** So a flex container's
+  inline content has to be closed into anonymous items even with no block sibling to close it at;
+  without that the container is an inline container, the flex layout sees no children whatever, and
+  the text vanishes. Whitespace-only runs still generate nothing, or every indented document would
+  grow blank columns.
+- **A flex item is blockified and does not float.** `float` and `clear` create neither floating nor
+  clearance for one (§3), and honouring the declaration takes the box into `LayoutBox.Floats`, at
+  which point the flex container arranges everything except it and NOTHING places it — silent
+  content loss from one declaration CSS says to ignore. Blockification changes only the outer half
+  of the display, so an `inline-flex` item becomes a `flex` rather than a block.
+- **An auto margin absorbs ALL the free space before `justify-content` is consulted**, on both axes.
+  A container declaring `space-between` beside an item declaring `margin-left: auto` honours the
+  margin and packs everything else to the start, which is why the two are so often written together
+  by mistake.
+- **Negative free space goes to the END rather than being shared.** `space-between` on an
+  overflowing line packs to the start and the first item stays visible — the same rule
+  `position/auto_margins` records for an over-constrained absolute box, reached from a different
+  specification.
+- **`align-content` reaches nothing on a single-line container**, which is CSS's own rule and the one
+  thing about the property that surprises people: centring a lone line is `align-items`' business.
+  A `flex-wrap: wrap` container holding one line is still MULTI-line, though, so the gate is on the
+  wrapping mode rather than on the line count.
+- **`align-items: baseline` needs the cross axis to be the block axis**, a baseline being a
+  horizontal line, so in a column container it behaves as `flex-start`. That is CSS's own fallback
+  rather than a simplification. An item with no line box has its baseline SYNTHESISED from its
+  border box, so an empty item aligns by its bottom border edge instead of dropping out of the
+  group.
+- **A line's cross size is the deepest baseline plus the furthest descent below any baseline**, a
+  sum no single item accounts for — the same rule a table row's height follows, reached from a
+  different specification.
+- **`order` is a VISUAL reordering, so the box tree keeps document order** and the algorithm sorts a
+  view of it. That is what keeps the tag tree, the box dump and the link resolution reading the
+  document rather than the picture. The sort has to be STABLE, ties falling back to document order —
+  the same requirement `z-index` carries, and unstable is correct on every arrangement where no two
+  items share a value.
+- **The item is translated to an ABSOLUTE position, not by the difference from where it sits.**
+  Every item is laid out with an assigned main size, so its border box starts at the origin — except
+  where the item is relatively positioned, in which case `BlockLayout` has already shifted it and
+  translating by the difference would cancel exactly the offset the property asked for.
+- **A flex container's intrinsic width is the SUM of its children where a block's is the largest of
+  them**, which is what an `inline-flex` on a line, a shrink-to-fit float and a table cell all need.
+  Reading one as the other makes an inline-flex chip exactly one item wide, and nothing about the
+  arrangement inside it looks wrong.
+
+## Traps in the flex properties, which AngleSharp mostly does not pass through
+
+Four workarounds, and each was found by putting one declaration at a time through the cascade and
+printing what came back — the same audit `CLAUDE.md` recommends below, run before a line of layout
+was written rather than after.
+
+- **The `flex` shorthand's omitted components come back present-but-EMPTY, and empty means the
+  SHORTHAND's default rather than the property's.** `flex: 1` is `1 1 0%`, and it arrives as
+  `flex-grow: 1` beside two empty strings — so reading those as undeclared gives a basis of `auto`,
+  which sizes the item by its own content instead of letting it share the line equally. That is the
+  whole of what `flex: 1` is written for, and it is a different layout rather than a different
+  number. An empty string is not distinguishable from an absent property by value, and `GetProperty`
+  is no help — it returns an object for every property in CSS — so the block is ENUMERATED. Only for
+  a flex item, which is what keeps the scan off the rest of the document.
+- **`flex: none` is dropped entirely** — no longhand comes back at all — so it is recovered from the
+  stylesheet's own text. `flex: initial` needs none of that: it arrives as three literal `initial`s
+  and expands to the values they fall back to anyway.
+- **`gap`'s two values are TRANSPOSED.** CSS writes it `gap: <row-gap> <column-gap>`; the cascade
+  hands the first back as `column-gap` and the second as `row-gap`, which is the picture rotated.
+  It cannot be recognised from the cascade either, being byte-for-byte what an author writing both
+  longhands column-first produces, so the shorthand is recovered from the source. The ONE-value form
+  is right as it stands, leaving `row-gap` empty, which means "the same as the other".
+- **The CSS Box Alignment keywords are dropped**: `start`, `end`, `normal` and `space-evenly` on all
+  of `justify-content`, `align-items`, `align-content` and `align-self`. Only the Flexbox Level 1
+  spellings survive. Those are worth escaping rather than recording, being what a stylesheet written
+  this decade uses — so the source is consulted where the cascade said nothing, which is the one
+  case a dropped declaration can be inferred from. It carries one limitation of its own: a document
+  mixing a dropped keyword with a surviving one in two rules leaves the surviving one winning the
+  cascade, so the source is never consulted and the author's real answer is still lost.
+- **Which gap is which depends on the direction.** For a row container the gap between items is
+  `column-gap` and the gap between lines is `row-gap`; for a column container the two exchange. The
+  properties name an AXIS, not a role.
 
 ## Traps in tables
 
@@ -1581,6 +1737,8 @@ Still reported rather than implemented: `column-count` and `column-width`, `writ
 The INNER corner of a rounded inline element whose border edges disagree about a colour used to end that list, having narrowed onto it from the whole corner. It is gone too: the edges that cannot be drawn as one ring are drawn as one mitre sector each, cut to that same ring, and `inline/border_radius` reads SSIM 1.0000 and reports nothing. `white-space: break-spaces` came off the list the other way — not implemented, but found to be unreachable: AngleSharp drops it from both the shorthand and the longhand, so nothing can see it to report it.
 
 `border-style` came off it entirely, which is the first property to leave the table by having every value it takes honoured rather than by having one value reasoned about — the four bevelled styles were the last four, and `hr`'s by-name exemption went with them. `break-before` and `break-after` followed, and their test is now an assertion of ABSENCE: every value either takes is honoured, so the case that used to prove the report fires proves it does not.
+
+`display: flex` and `inline-flex` left the same way, which is the largest single value to leave the `displays` allowlist: a document arranging itself with flexbox is laid out with flexbox now, so the entry that used to lead `UnsupportedLayoutIsReported` moved to `ImplementedPropertiesStopReporting` to assert its silence. `display: grid` is what is left of that entry. Worth knowing that the flex round added NOTHING to the table — every value of every flex property is honoured, and what could not be honoured could not be reported either, AngleSharp having dropped the declaration before anything here could see it.
 
 Two entries came OFF that list by being measured rather than implemented, which is its own kind of result. `border-style: hidden` inside a collapsed table was documented as unimplementable — the width was folded to zero before anything could tell it from an absent border — and became a two-line change once `hidden` was kept as a style of its own; `table/collapse` is pixel-identical with it. And `visibility: collapse` on a table row was written, measured, and reverted: Chrome disagrees with ITSELF, its screen layout zeroing the row's track while its printed page puts everything after it twenty pixels further down, so no engine behaviour can be exact on both of the corpus's measurements.
 

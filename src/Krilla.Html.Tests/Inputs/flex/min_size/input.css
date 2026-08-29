@@ -1,0 +1,50 @@
+body { font-family: "Liberation Sans"; font-size: 14px; line-height: 20px; }
+
+.box {
+  display: flex;
+  width: 300px;
+  margin-bottom: 14px;
+  background-color: #f4eef0;
+}
+
+.box > div { background-color: #dcbcc6; }
+.box > div:nth-child(2) { background-color: #bd8b9a; }
+
+/*
+  The automatic minimum size, CSS Flexbox §4.5 — the rule that makes `flex-shrink` usable. Both
+  items ask for a basis of zero and a share of 150 each, and both are floored at their own longest
+  word, so the row OVERFLOWS its 300px container rather than squeezing two unbreakable words to
+  nothing. An implementation without the rule gives two 150px items with the text hanging out of
+  each, which looks like a text-overflow difference rather than the sizing difference it is.
+*/
+#floored > div { flex: 1; }
+
+/*
+  `min-width: 0` is how a stylesheet opts OUT of that floor, and it is the single most common line
+  of CSS written to work around flexbox. Here the items really do take 150 each and the words
+  overflow their own boxes.
+*/
+#released > div { flex: 1; min-width: 0; }
+
+/*
+  A declared `min-width` replaces the automatic one outright, being an explicit answer to the same
+  question — so these come out at 80 and 220 rather than at their word widths.
+*/
+#declared > div { flex: 1; }
+#c1 { min-width: 80px; }
+#c2 { min-width: 220px; }
+
+/*
+  The SPECIFIED size suggestion: an item declaring a size narrower than its longest word takes the
+  declaration, so the automatic minimum is the SMALLER of what was asked for and what the content
+  needs. Reading it as the content minimum alone makes a deliberately narrow item wide again.
+*/
+#narrow > div { flex: 1; }
+#d1 { width: 60px; }
+
+/*
+  Ordinary wrapping text has a min-content width of its longest WORD, which is short — so this row
+  shrinks to its share and wraps, and the floor above never fires. Which is what says the rule is
+  about unbreakable content rather than about text in general.
+*/
+#wrapping > div { flex: 1; }

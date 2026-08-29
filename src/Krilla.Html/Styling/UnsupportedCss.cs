@@ -156,7 +156,8 @@ static class UnsupportedCss
     [
         "none", "inline", "inline-block", "block", "list-item",
         "table", "inline-table", "table-caption", "table-header-group", "table-row-group",
-        "table-footer-group", "table-row", "table-cell", "table-column", "table-column-group"
+        "table-footer-group", "table-row", "table-cell", "table-column", "table-column-group",
+        "flex", "inline-flex"
     ];
 
     public static void Report(

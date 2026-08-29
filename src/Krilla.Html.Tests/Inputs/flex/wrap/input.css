@@ -1,0 +1,39 @@
+body { font-family: "Liberation Sans"; font-size: 14px; line-height: 20px; }
+
+.box {
+  display: flex;
+  flex-wrap: wrap;
+  width: 320px;
+  margin-bottom: 14px;
+  background-color: #eef2ec;
+}
+
+.i { width: 90px; height: 26px; background-color: #a8c4a0; }
+.i:nth-child(even) { background-color: #7fa876; }
+
+/* Three fit per line at 270 of 320; the fourth starts a second line. */
+#plain { }
+
+/*
+  `gap: 10px 24px` is TEN between the lines and TWENTY-FOUR between the items — CSS writes the
+  shorthand row-first. Two items per line here, since 90 + 24 + 90 = 204 fits and a third would
+  need 318 plus a gap. Read column-first instead and this row comes out three-up with a 10px
+  gutter, which is a different picture rather than a different number.
+*/
+#gapped { gap: 10px 24px; }
+
+/* One value sets both, which is the form the shorthand is nearly always written in. */
+#single { gap: 16px; }
+
+/*
+  `align-content` shares the leftover CROSS space between the LINES, which is why it needs a
+  container taller than its content and does nothing without one. Two lines of 26 in 140 leaves 88
+  to share.
+*/
+#spread { height: 140px; align-content: space-between; }
+
+/*
+  `wrap-reverse` stacks the lines the other way, so the FIRST line sits at the bottom. The items
+  within each line keep their order, which is what separates it from `row-reverse`.
+*/
+#reversed { width: 200px; flex-wrap: wrap-reverse; }

@@ -1,0 +1,53 @@
+body { font-family: "Liberation Sans"; font-size: 14px; line-height: 20px; }
+
+.box {
+  display: flex;
+  width: 480px;
+  margin-bottom: 10px;
+  background-color: #e8eef2;
+}
+
+.box > div { width: 80px; height: 24px; background-color: #9fbdd0; }
+.box > div:nth-child(2) { background-color: #6e9ab4; }
+.box > div:nth-child(3) { background-color: #47738d; }
+
+/*
+  Six distributions of the same 240 of leftover space between the same three items. The three
+  `space-*` values differ ONLY in what happens at the edges — none, half a share, a whole share —
+  which is the whole of what separates them and is why all three are here rather than one standing
+  in for the rest.
+*/
+#start { justify-content: flex-start; }
+#end { justify-content: flex-end; }
+#centre { justify-content: center; }
+#between { justify-content: space-between; }
+#around { justify-content: space-around; }
+
+/*
+  `space-evenly` is a CSS Box Alignment keyword rather than a Flexbox one, and AngleSharp drops it
+  from the cascade outright — so this row is also what proves the recovery from the stylesheet's
+  own text works. Without it the row renders as `flex-start` and is indistinguishable from the
+  first one.
+*/
+#evenly { justify-content: space-evenly; }
+
+/*
+  A gap and a distribution together: the gap is a floor the distribution adds to rather than
+  something it replaces, so the items here are at least 20 apart AND the remainder is shared.
+*/
+#gapped { justify-content: space-between; column-gap: 20px; }
+
+/*
+  An auto margin absorbs ALL the free space before `justify-content` is consulted, so the
+  declaration on this row reaches nothing at all and B is pushed to the far end. The two are
+  written together by mistake often enough to be worth pinning.
+*/
+#pushed { justify-content: space-around; }
+#pushed > div:nth-child(2) { margin-left: auto; }
+
+/*
+  Overflowing. Every distribution puts negative free space at the END rather than sharing it, so
+  the first item stays visible and `space-between` packs to the start.
+*/
+#over { justify-content: space-between; width: 180px; }
+#over > div { flex-shrink: 0; }

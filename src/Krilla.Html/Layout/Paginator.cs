@@ -482,6 +482,13 @@ static class Paginator
             // page before, which `image/svg` caught on its first render. An image taller than a
             // whole page still overflows rather than descending forever, by the same height guard
             // in `NextTop` that a too-tall row relies on.
+            //
+            // A flex LINE is deliberately NOT one of these, though it looks like a table row and
+            // was written as one first. Measured, Chromium fragments a row flex container across a
+            // page boundary rather than moving the line whole — CSS Flexbox §11's own rule, its
+            // items being broken in parallel — so the ordinary line-based candidates are what
+            // agree with it, and `page/flex_break` reads 0.9013 on its second page with the line
+            // treated as a unit.
             if (box.Style.Display == DisplayKind.TableRow ||
                 box.Style.BreakInside == BreakKind.Avoid ||
                 box.Image is not null)

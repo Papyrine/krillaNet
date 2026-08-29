@@ -158,12 +158,20 @@ public class DiagnosticTests
         await Assert.That(pdf).IsNotEmpty();
     }
 
+    /// <summary>
+    /// What layout still reports.
+    /// </summary>
+    /// <remarks>
+    /// <c>display: flex</c> used to lead this list and does not any more — it is laid out by the
+    /// flex algorithm rather than as a block, so the entry came off the table and the arrangement
+    /// moved to <see cref="ImplementedPropertiesStopReporting"/> to assert its silence. What is
+    /// left of the layout modes is <c>grid</c>, which still lays out as a block and still says so.
+    /// </remarks>
     [Test]
     public async Task UnsupportedLayoutIsReported() =>
         await Verify(
             await Collect(
                 """
-                <div style="display: flex"><span>a</span></div>
                 <div style="display: grid"><span>b</span></div>
                 <div style="position: fixed">e</div>
                 <table style="border-collapse: collapse"><tr><td>f</td></tr></table>
@@ -555,6 +563,14 @@ public class DiagnosticTests
             <p>A <span style="border: 4px solid red; border-right-color: blue; border-radius: 8px">two-toned frame</span>.</p>
             <div style="break-before: avoid; break-after: avoid">kept with its neighbours</div>
             <table><tr><td style="vertical-align: baseline">on the row's baseline</td></tr></table>
+            <div style="display: flex; justify-content: space-between; align-items: center; gap: 8px">
+              <div style="flex: 1">a share of the row</div>
+              <div style="flex: none; order: -1; align-self: flex-end">sized by its content</div>
+            </div>
+            <div style="display: flex; flex-direction: column; flex-wrap: wrap; height: 60px">
+              <div style="flex-basis: 20px; flex-grow: 1; flex-shrink: 0">a column</div>
+            </div>
+            <p>An <span style="display: inline-flex; column-gap: 4px"><span>atomic</span><span>row</span></span>.</p>
             """);
 
         await Assert.That(reports).IsEmpty();

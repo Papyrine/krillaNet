@@ -106,6 +106,15 @@ static class IntrinsicWidths
             return TableLayout.Intrinsic(box, fonts);
         }
 
+        // And so does a flex container, for the same reason and with the opposite arithmetic: a
+        // row of items wants the SUM of what its children want where a block wants the largest of
+        // them. Reading one as the other is how a flex container inside a table cell or a float
+        // comes out exactly one item wide.
+        if (box.Style.IsFlexContainer)
+        {
+            return FlexLayout.Intrinsic(box, fonts);
+        }
+
         if (box.Image is {} image)
         {
             var width = ReplacedSizing.Resolve(box.Style, image, 0, box.Style.SurroundX(0), box.Style.SurroundY(0)).Width;

@@ -1,4 +1,4 @@
-/// <summary>
+﻿/// <summary>
 /// Turns AngleSharp.Css's cascade result into a <see cref="ComputedStyle"/>.
 /// </summary>
 /// <remarks>
@@ -272,6 +272,12 @@ static class StyleResolver
 
         var display = ParseDisplay(declaration.GetPropertyValue("display"), element.LocalName);
 
+        // Both need to know whether a property was DECLARED rather than merely what its value is,
+        // which no single call on the declaration can answer — so both are settled here, where the
+        // one scan that can answer it is paid for at most once per element.
+        var flex = ParseFlex(declaration, parent, element, context, font, root);
+        var gaps = ParseGaps(declaration, element, context, font, root);
+
         var style = new ComputedStyle
         {
             Display = display,
@@ -335,9 +341,14 @@ static class StyleResolver
             Width = Length(declaration, "width", font, root, CssLength.Auto),
             Height = Length(declaration, "height", font, root, CssLength.Auto),
             MaxWidth = Length(declaration, "max-width", font, root, CssLength.None),
-            MinWidth = Length(declaration, "min-width", font, root),
+            // `auto`, which is the property's real initial value and which everywhere outside a
+            // flex container behaves exactly as the zero this used to default to: every site that
+            // reads it goes through `ResolveOrNull` or tests for an absolute length, and `auto`
+            // falls out of both. A flex ITEM is where the two part company — there `auto` means
+            // the content-based minimum that keeps `flex-shrink` from squashing a word.
+            MinWidth = Length(declaration, "min-width", font, root, CssLength.Auto),
             MaxHeight = Length(declaration, "max-height", font, root, CssLength.None),
-            MinHeight = Length(declaration, "min-height", font, root),
+            MinHeight = Length(declaration, "min-height", font, root, CssLength.Auto),
             // Inherited, so an absent declaration takes the parent's rather than zero.
             TextIndent = Length(declaration, "text-indent", font, root, parent.TextIndent),
             BackgroundColor = CssValues.ParseColor(declaration.GetPropertyValue("background-color")),
@@ -435,7 +446,27 @@ static class StyleResolver
             Top = Length(declaration, "top", font, root, CssLength.Auto),
             Right = Length(declaration, "right", font, root, CssLength.Auto),
             Bottom = Length(declaration, "bottom", font, root, CssLength.Auto),
-            Left = Length(declaration, "left", font, root, CssLength.Auto)
+            Left = Length(declaration, "left", font, root, CssLength.Auto),
+            FlexDirection = ParseFlexDirection(declaration.GetPropertyValue("flex-direction")),
+            FlexWrap = ParseFlexWrap(declaration.GetPropertyValue("flex-wrap")),
+            JustifyContent = ParseDistribution(
+                Aligned(declaration, element, context, "justify-content"),
+                ContentDistributionKind.Start),
+            AlignItems = ParseAlign(
+                Aligned(declaration, element, context, "align-items"),
+                AlignKind.Stretch),
+            AlignContent = ParseDistribution(
+                Aligned(declaration, element, context, "align-content"),
+                ContentDistributionKind.Stretch),
+            AlignSelf = ParseAlign(
+                Aligned(declaration, element, context, "align-self"),
+                AlignKind.Auto),
+            FlexGrow = flex.Grow,
+            FlexShrink = flex.Shrink,
+            FlexBasis = flex.Basis,
+            Order = ParseOrder(declaration.GetPropertyValue("order")),
+            RowGap = gaps.Row,
+            ColumnGap = gaps.Column
         };
 
         // After the style, not before: the scan reports against what the element resolved to, and
@@ -806,6 +837,8 @@ static class StyleResolver
             "table-row" => DisplayKind.TableRow,
             "table-cell" => DisplayKind.TableCell,
             "table-column" or "table-column-group" => DisplayKind.TableColumn,
+            "flex" => DisplayKind.Flex,
+            "inline-flex" => DisplayKind.InlineFlex,
             // Nothing in the cascade said, so the element's own default decides. AngleSharp.Css
             // has no display for the inline elements, and treating that silence as `block` puts
             // every <b> and <span> on a line of its own.
@@ -816,6 +849,291 @@ static class StyleResolver
             // nothing measures.
             _ => DisplayKind.Block
         };
+
+    /// <summary>
+    /// One alignment property's declared value, from the cascade or from the stylesheet's own text
+    /// when the cascade dropped it.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// AngleSharp knows only the CSS Flexbox Level 1 keyword set. The CSS Box Alignment additions —
+    /// <c>start</c>, <c>end</c>, <c>normal</c> and <c>space-evenly</c> — are dropped at parse time,
+    /// so a rule declaring one contributes nothing at all and the property comes back empty. That
+    /// is the shape a value can be neither honoured NOR reported in, and it is worth escaping here
+    /// rather than recording: those spellings are what a stylesheet written this decade uses, and
+    /// the difference between <c>space-evenly</c> and the <c>flex-start</c> it silently becomes is
+    /// the whole layout.
+    /// </para>
+    /// <para>
+    /// Consulted only where the cascade said NOTHING, which is the one case a dropped declaration
+    /// can be inferred from. It carries <see cref="DocumentContext.Declared"/>'s limitations —
+    /// specificity is not compared, media queries are not evaluated, an inline <c>style</c>
+    /// attribute is not seen — and one of its own: a document mixing a dropped keyword with a
+    /// surviving one in two rules leaves the surviving one winning the cascade, so the source is
+    /// never consulted and the author's real answer is still lost. Which is what happens today
+    /// regardless, so the fallback strictly improves on it.
+    /// </para>
+    /// </remarks>
+    static string Aligned(
+        ICssStyleDeclaration declaration,
+        IElement element,
+        DocumentContext context,
+        string property)
+    {
+        var value = declaration.GetPropertyValue(property);
+
+        if (value.Trim().Length > 0)
+        {
+            return value;
+        }
+
+        return context.Declared(element, property) ?? "";
+    }
+
+    static FlexDirectionKind ParseFlexDirection(string value) =>
+        value.Trim().ToLowerInvariant() switch
+        {
+            "row-reverse" => FlexDirectionKind.RowReverse,
+            "column" => FlexDirectionKind.Column,
+            "column-reverse" => FlexDirectionKind.ColumnReverse,
+            _ => FlexDirectionKind.Row
+        };
+
+    static FlexWrapKind ParseFlexWrap(string value) =>
+        value.Trim().ToLowerInvariant() switch
+        {
+            "wrap" => FlexWrapKind.Wrap,
+            "wrap-reverse" => FlexWrapKind.WrapReverse,
+            _ => FlexWrapKind.NoWrap
+        };
+
+    /// <summary>
+    /// One <c>justify-content</c> or <c>align-content</c> value.
+    /// </summary>
+    /// <remarks>
+    /// Only the CSS Flexbox Level 1 spellings arrive. AngleSharp drops <c>start</c>, <c>end</c>,
+    /// <c>normal</c> and <c>space-evenly</c> outright — the declaration comes back empty and is
+    /// indistinguishable from one nobody wrote — so those can be neither honoured NOR reported,
+    /// which puts them beside <c>revert</c> and <c>text-overflow</c>. They are still spelled out
+    /// below against the day the parser passes them through.
+    /// </remarks>
+    static ContentDistributionKind ParseDistribution(string value, ContentDistributionKind fallback) =>
+        value.Trim().ToLowerInvariant() switch
+        {
+            "flex-start" or "start" or "left" => ContentDistributionKind.Start,
+            "flex-end" or "end" or "right" => ContentDistributionKind.End,
+            "center" => ContentDistributionKind.Center,
+            "space-between" => ContentDistributionKind.SpaceBetween,
+            "space-around" => ContentDistributionKind.SpaceAround,
+            "space-evenly" => ContentDistributionKind.SpaceEvenly,
+            "stretch" => ContentDistributionKind.Stretch,
+            _ => fallback
+        };
+
+    /// <inheritdoc cref="ParseDistribution"/>
+    static AlignKind ParseAlign(string value, AlignKind fallback) =>
+        value.Trim().ToLowerInvariant() switch
+        {
+            "auto" => AlignKind.Auto,
+            "stretch" => AlignKind.Stretch,
+            "flex-start" or "start" or "self-start" => AlignKind.Start,
+            "flex-end" or "end" or "self-end" => AlignKind.End,
+            "center" => AlignKind.Center,
+            "baseline" or "first baseline" => AlignKind.Baseline,
+            _ => fallback
+        };
+
+    /// <summary><c>order</c>, which is an integer and takes zero for anything else.</summary>
+    static int ParseOrder(string value) =>
+        int.TryParse(value.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var order)
+            ? order
+            : 0;
+
+    /// <summary>The three components of <c>flex</c>, however the document spelled them.</summary>
+    readonly record struct FlexTriple(float Grow, float Shrink, CssLength Basis);
+
+    /// <summary>
+    /// <c>flex-grow</c>, <c>flex-shrink</c> and <c>flex-basis</c>, from the longhands or from the
+    /// shorthand that expanded into them.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// Two AngleSharp behaviours have to be worked around here, and both change the layout rather
+    /// than a shade of it.
+    /// </para>
+    /// <para>
+    /// The first: a component the <c>flex</c> shorthand OMITS comes back present-but-EMPTY, and an
+    /// empty value means the SHORTHAND's default rather than the property's. <c>flex: 1</c> is
+    /// <c>1 1 0%</c>, and it arrives as <c>flex-grow: 1</c> beside two empty strings — so reading
+    /// those as undeclared gives shrink 1 (right, by luck) and basis <c>auto</c> (wrong, and a
+    /// different layout: the item is then sized by its own content instead of sharing the line
+    /// equally, which is the whole of what <c>flex: 1</c> is written for). An empty string is not
+    /// distinguishable from an absent property by value, which is why <see cref="Declared"/>
+    /// enumerates the block instead.
+    /// </para>
+    /// <para>
+    /// The second: <c>flex: none</c> is dropped ENTIRELY — no longhand comes back at all — so it
+    /// is recovered from the stylesheet's own text, the route <c>string-set</c> and <c>page</c>
+    /// already take. Only when nothing else declared any of the three, which is what keeps that
+    /// scan off every document that does not use the keyword. <c>flex: initial</c> needs none of
+    /// it: the value arrives as three literal <c>initial</c>s, and what it expands to is the
+    /// initial values this returns for them anyway.
+    /// </para>
+    /// <para>
+    /// Read only for a flex ITEM. Every one of these properties is ignored on anything else by CSS
+    /// itself, and gating on the parent is what keeps the enumeration off the other ninety-nine
+    /// hundredths of a document.
+    /// </para>
+    /// </remarks>
+    static FlexTriple ParseFlex(
+        ICssStyleDeclaration declaration,
+        ComputedStyle parent,
+        IElement element,
+        DocumentContext context,
+        CssFont font,
+        CssRoot root)
+    {
+        var initial = new FlexTriple(0, 1, CssLength.Auto);
+
+        if (!parent.IsFlexContainer)
+        {
+            return initial;
+        }
+
+        var grow = declaration.GetPropertyValue("flex-grow").Trim();
+        var shrink = declaration.GetPropertyValue("flex-shrink").Trim();
+        var basis = declaration.GetPropertyValue("flex-basis").Trim();
+
+        if (grow.Length == 0 && shrink.Length == 0 && basis.Length == 0)
+        {
+            // Either nothing was declared, or all three were and the parser dropped them — which
+            // is what `flex: none` does. Only the source can tell those apart.
+            if (Declared(declaration, "flex-basis") ||
+                context.Declared(element, "flex") is not {} shorthand)
+            {
+                return initial;
+            }
+
+            return shorthand.Trim().Equals("none", StringComparison.OrdinalIgnoreCase)
+                ? new(0, 0, CssLength.Auto)
+                : initial;
+        }
+
+        return new(
+            Factor(grow, declaration, "flex-grow", 0),
+            Factor(shrink, declaration, "flex-shrink", 1),
+            basis.Length > 0
+                ? CssValues.ParseLength(basis, font, root, CssLength.Auto)
+                : Declared(declaration, "flex-basis")
+                    ? CssLength.Zero
+                    : CssLength.Auto);
+    }
+
+    /// <summary>
+    /// One of the two flex factors: the number declared, the SHORTHAND's own default where the
+    /// shorthand omitted it, and the property's initial value where nobody declared it at all.
+    /// </summary>
+    static float Factor(string value, ICssStyleDeclaration declaration, string property, float absent)
+    {
+        if (value.Length > 0)
+        {
+            // A negative factor is invalid and takes the initial value, which is CSS's rule for
+            // both of them.
+            return float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var factor) &&
+                   factor >= 0
+                ? factor
+                : absent;
+        }
+
+        return Declared(declaration, property) ? 1 : absent;
+    }
+
+    /// <summary>Whether the block carries <paramref name="property"/> at all, empty or not.</summary>
+    /// <remarks>
+    /// The one question <c>GetPropertyValue</c> cannot answer: it returns an empty string for a
+    /// property nobody declared and for one a shorthand left blank alike, and here those two mean
+    /// different things. <c>GetProperty</c> is no help either — it hands back an object for every
+    /// property in CSS, declared or not — so the block is enumerated.
+    /// </remarks>
+    static bool Declared(ICssStyleDeclaration declaration, string property)
+    {
+        for (var index = 0; index < declaration.Length; index++)
+        {
+            if (string.Equals(declaration[index], property, StringComparison.OrdinalIgnoreCase))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    /// <summary>The gap between flex lines, and between the items on one.</summary>
+    readonly record struct Gaps(CssLength Row, CssLength Column);
+
+    /// <summary>
+    /// <c>row-gap</c> and <c>column-gap</c>, from the longhands or from the <c>gap</c> that
+    /// expanded into them.
+    /// </summary>
+    /// <remarks>
+    /// <para>
+    /// AngleSharp expands <c>gap</c> with its two values TRANSPOSED. CSS writes it
+    /// <c>gap: &lt;row-gap&gt; &lt;column-gap&gt;</c>, so <c>gap: 8px 20px</c> is 8 between the
+    /// lines and 20 between the items on one; the cascade hands back <c>column-gap: 8px</c> beside
+    /// <c>row-gap: 20px</c>, which is that picture rotated. Written directly the longhands are
+    /// correct, and the ONE-value form is correct too — it leaves <c>row-gap</c> empty, which
+    /// means "the same as the other" and is what the fallback at the end reads.
+    /// </para>
+    /// <para>
+    /// So only the two-value shorthand is wrong, and it cannot be recognised from the cascade: what
+    /// comes back is byte-for-byte what an author writing both longhands column-first produces. It
+    /// is recovered from the stylesheet's own text instead, and only for a document that contains a
+    /// <c>gap</c> declaration at all.
+    /// </para>
+    /// </remarks>
+    static Gaps ParseGaps(
+        ICssStyleDeclaration declaration,
+        IElement element,
+        DocumentContext context,
+        CssFont font,
+        CssRoot root)
+    {
+        var row = declaration.GetPropertyValue("row-gap").Trim();
+        var column = declaration.GetPropertyValue("column-gap").Trim();
+
+        if (row.Length == 0 && column.Length == 0)
+        {
+            return new(CssLength.Zero, CssLength.Zero);
+        }
+
+        // Written whole, so the source is the only place the author's own order survives.
+        if (context.Declared(element, "gap") is {} shorthand)
+        {
+            var parts = shorthand.Split(
+                (char[]?) null,
+                StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+
+            if (parts.Length > 0)
+            {
+                var first = Gap(parts[0], font, root);
+
+                return new(first, parts.Length > 1 ? Gap(parts[1], font, root) : first);
+            }
+        }
+
+        return new(
+            row.Length > 0 ? Gap(row, font, root) : Gap(column, font, root),
+            column.Length > 0 ? Gap(column, font, root) : Gap(row, font, root));
+    }
+
+    /// <summary>
+    /// One gap length. <c>normal</c> is zero, which is what it means for a flex container rather
+    /// than the font-derived gap it means between columns.
+    /// </summary>
+    static CssLength Gap(string value, CssFont font, CssRoot root) =>
+        CssValues.ParseLength(value, font, root, CssLength.Zero) is {IsAuto: false, IsNone: false} length
+            ? length
+            : CssLength.Zero;
 
     /// <summary>
     /// How a box is positioned. Not inherited.

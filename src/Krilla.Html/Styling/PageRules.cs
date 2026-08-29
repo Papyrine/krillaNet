@@ -179,7 +179,10 @@ sealed class PageRules
             yield break;
         }
 
-        var text = owner.TextContent;
+        // Through the same comment strip `CssSource` uses. This scan counts braces to find a
+        // rule's extent, and a comment holding one — `/* } */` — moves the end of every @page
+        // block after it.
+        var text = CssSource.WithoutComments(owner.TextContent);
         var index = 0;
 
         while (true)

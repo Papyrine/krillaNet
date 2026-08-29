@@ -1,0 +1,100 @@
+[
+  {
+    "selector": "html",
+    "x": 0,
+    "y": 0,
+    "width": 816,
+    "height": 1186
+  },
+  {
+    "selector": "html > body:nth-child(2)",
+    "x": 0,
+    "y": 0,
+    "width": 816,
+    "height": 1186
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(1)",
+    "x": 0,
+    "y": 0,
+    "width": 816,
+    "height": 950
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(2)",
+    "x": 0,
+    "y": 950,
+    "width": 600,
+    "height": 120
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(2) > div:nth-child(1)",
+    "x": 0,
+    "y": 950,
+    "width": 192,
+    "height": 120
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(2) > div:nth-child(2)",
+    "x": 204,
+    "y": 950,
+    "width": 192,
+    "height": 120
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(2) > div:nth-child(3)",
+    "x": 408,
+    "y": 950,
+    "width": 192,
+    "height": 120
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(3)",
+    "x": 0,
+    "y": 1070,
+    "width": 600,
+    "height": 24
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(3) > div:nth-child(1)",
+    "x": 0,
+    "y": 1070,
+    "width": 294,
+    "height": 24
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(3) > div:nth-child(2)",
+    "x": 306,
+    "y": 1070,
+    "width": 294,
+    "height": 24
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(4)",
+    "x": 0,
+    "y": 1094,
+    "width": 600,
+    "height": 92
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(4) > div:nth-child(1)",
+    "x": 0,
+    "y": 1094,
+    "width": 600,
+    "height": 24
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(4) > div:nth-child(2)",
+    "x": 0,
+    "y": 1128,
+    "width": 600,
+    "height": 24
+  },
+  {
+    "selector": "html > body:nth-child(2) > div:nth-child(4) > div:nth-child(3)",
+    "x": 0,
+    "y": 1162,
+    "width": 600,
+    "height": 24
+  }
+]

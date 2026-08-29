@@ -1,0 +1,41 @@
+body { font-family: "Liberation Sans"; font-size: 14px; line-height: 20px; }
+
+.box, .tall {
+  display: flex;
+  width: 400px;
+  margin-bottom: 14px;
+  background-color: #f0ecf2;
+}
+
+.tall { height: 150px; width: 200px; }
+
+.i { width: 70px; height: 24px; background-color: #c0aecb; }
+.i:nth-child(2) { background-color: #9c82ac; }
+.i:nth-child(3) { background-color: #77588c; }
+
+/*
+  The four directions, each with the same three items in the same source order. What changes is
+  which edge the items are packed against and which way the main axis runs — not the order of the
+  boxes in the document, which is what `order` changes instead.
+*/
+#row { flex-direction: row; }
+
+/*
+  `row-reverse` packs against the RIGHT edge, so item 1 is rightmost and the row ends flush with
+  the container rather than starting flush with it. Reading it as "the same row with the list
+  reversed" gives the same picture only when the items fill the container exactly, which is why
+  this one deliberately leaves 190px of slack.
+*/
+#rrev { flex-direction: row-reverse; }
+
+#col { flex-direction: column; }
+
+/* `column-reverse` puts item 1 at the BOTTOM, and the stack ends flush with the container's foot. */
+#crev { flex-direction: column-reverse; }
+
+/*
+  A reversed main axis reverses what `justify-content` means as well: `flex-end` is the LEFT edge
+  here. The two compose rather than cancelling, which is the arrangement most likely to be got
+  backwards.
+*/
+#rrevjust { flex-direction: row-reverse; justify-content: flex-end; }

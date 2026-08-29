@@ -1,0 +1,56 @@
+body { font-family: "Liberation Sans"; font-size: 14px; line-height: 20px; }
+
+.row {
+  display: flex;
+  width: 600px;
+  margin-bottom: 12px;
+  background-color: #eceff4;
+}
+
+.row > div { background-color: #b8c6db; }
+.row > div:nth-child(2) { background-color: #8fa8c8; }
+.row > div:nth-child(3) { background-color: #6a86ab; }
+
+/*
+  `flex: 1` is `1 1 0%`, so #g1 and #g2 start from a basis of ZERO and share the 510 the fixed
+  item leaves in a one-to-two ratio: 170 and 340. Sizing them from their own text instead — which
+  is what a basis of `auto` gives — puts them at their word widths and is the difference this row
+  exists to pin.
+*/
+#g1 { flex: 1; }
+#g2 { flex: 2; }
+#g3 { width: 90px; flex-shrink: 0; }
+
+/*
+  Over-full by 100. The shortfall is shared in proportion to the SCALED shrink factor — the
+  declared factor times the item's own base size — so #s1 at 1x200 and #s2 at 2x100 have equal
+  weight and give up 50 each. Sharing by the raw factor instead takes 33 and 67, which looks
+  entirely reasonable until it is measured.
+*/
+#shrink > div { }
+#s1 { width: 200px; flex-shrink: 1; }
+#s2 { width: 100px; flex-shrink: 2; }
+
+/* Three ways of naming a base size, none of them flexing. */
+#b1 { flex: 0 0 25%; }
+#b2 { width: 120px; flex: 0 0 auto; }
+#b3 { flex: 0 0 auto; }
+
+/* `flex: none` is `0 0 auto`: sized by its content and neither growing nor shrinking. */
+#n1 { flex: none; }
+#n2 { flex: 1; }
+
+/*
+  The flexible-length loop's clamping pass. #x1 wants a third of 600 and is capped at 140, #x2
+  wants a third and is floored at 200, and the space neither could take goes back to #x3 — which
+  is what makes this a LOOP rather than one proportional division.
+*/
+#bounds > div { flex: 1; }
+#x1 { max-width: 140px; }
+#x2 { min-width: 200px; }
+
+/*
+  Grow factors summing below one hand out only that fraction of the free space, so the row is
+  deliberately not filled: 600 of room, 300 of basis, and half the remaining 300 shared.
+*/
+#halves > div { flex-grow: 0.25; flex-basis: 150px; }

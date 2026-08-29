@@ -1,0 +1,58 @@
+body { font-family: "Liberation Sans"; font-size: 14px; line-height: 20px; }
+
+.outer {
+  display: flex;
+  width: 460px;
+  margin-bottom: 14px;
+  background-color: #eceef4;
+}
+
+.inner { display: flex; background-color: #cfd4e6; }
+
+.outer > div { background-color: #aab3d2; }
+.outer > div:nth-child(2) { background-color: #7f8cba; }
+
+/* A flex container that is itself a flex item, which is how a real layout is built. */
+#left { width: 140px; }
+#right { flex: 1; column-gap: 10px; }
+#r1 { flex: 1; }
+#r2 { flex: 2; }
+
+/*
+  `inline-flex` is an atomic inline: it sits on a line the way an inline-block does and lays its own
+  contents out as flex. Its width is shrink-to-fit, which goes through the flex container's own
+  intrinsic sizing — the SUM of its items rather than the largest of them, which is what an
+  ordinary block would give and would make this chip exactly one letter wide.
+*/
+#chip { display: inline-flex; column-gap: 6px; background-color: #cfd4e6; }
+#chip > span { width: 30px; background-color: #7f8cba; }
+
+/*
+  Every child of a flex container is a flex ITEM, so a run of bare text becomes an anonymous one.
+  Two runs here, either side of a real block, which is three items — and whitespace-only runs
+  between elements generate no item at all, or every indented document would grow blank columns.
+*/
+#anon > div { width: 100px; }
+
+/*
+  `float` does not apply to a flex item (CSS Flexbox §3), so #ff is an ordinary item beside #fg
+  rather than a float the container flows around. Honouring the declaration would take the box out
+  of the flex container's own arrangement, and nothing would place it at all.
+*/
+#ff { float: left; width: 150px; }
+#fg { flex: 1; }
+
+/* A flex container inside a table cell, which has to size the cell through the intrinsic pass. */
+#grid { width: 460px; margin-bottom: 14px; background-color: #eceef4; }
+#grid td { padding: 4px; background-color: #dfe3ee; }
+#incell { column-gap: 8px; }
+#incell > div { width: 60px; background-color: #7f8cba; }
+
+/*
+  An absolutely positioned child of a flex container is NOT a flex item: it takes no part in the
+  arrangement, and its static position is the container's content-box origin. The container is
+  relatively positioned so the offsets have something of its own to resolve against.
+*/
+#anchored { position: relative; height: 60px; }
+#host { width: 120px; }
+#pinned { position: absolute; top: 10px; right: 12px; width: 90px; height: 24px; background-color: #55618c; }

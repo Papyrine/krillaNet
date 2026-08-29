@@ -44,6 +44,6 @@ Images resolve from `data:` URIs and files relative to `BaseUrl` — including a
 stylesheet, which goes through the same resolver and the same policies. Nothing is fetched over the
 network unless a caller supplies `HtmlOptions.ImageResolver`.
 
-Flexbox and grid lay out as plain blocks. `HtmlOptions.OnDiagnostic` reports every construct that
+Flexbox is implemented; grid lays out as a plain block. `HtmlOptions.OnDiagnostic` reports every construct that
 is recognised and not rendered the way a browser would, so a conversion that reports nothing laid
 out the whole document correctly.
