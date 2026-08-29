@@ -561,10 +561,15 @@ scenarios had been given the same cause by analogy.
   unmodified file — zero differing pixels, which is only possible if PDFium was flooring them
   anyway. That is the test worth copying: not "does my fix improve it" but "does the file the
   renderer is BEHAVING as though it read render the same as the file it was given".
-- **The error is proportional to the FONT SIZE**, which is what sorts the corpus. 32px text drifts
-  0.90px end to end, 24 and 30px text between 0.2 and 0.4, and text at 16px drifts 0.000px and
-  still differs on several hundred pixels. So the cause explains the scenarios with large text and
-  none of the rest, and pretending otherwise is how the original mistake was made.
+- **PDFium truncates for BOTH producers, so what matters is when Skia stops relying on `/W`.** For
+  a plain paragraph Chromium writes bare `Tj` operators and leans on the widths exactly as krilla
+  does — both truncate identically and the renders MATCH, which is why `ua/paragraphs` is
+  pixel-identical. Where the text is KERNED, Skia switches to an explicit `Td` before every glyph
+  and becomes immune while krilla does not. So the cause explains the two scenarios written to
+  exercise kerning and ligatures and nothing else, and the residuals elsewhere are still
+  unattributed. Two attempts to measure its blast radius across the corpus were both wrong — an ink
+  centroid contaminated by coloured backgrounds, and an arithmetic walk that mis-attributed widths
+  in multi-font documents — which is worth knowing before trusting a third.
 - **It is upstream and there is nothing to do here.** krilla writes the fractional width and derives
   its `TJ` kerning adjustments from the full-precision advance, so the two agree and the PDF is
   correct for any renderer that honours `/W`. PDFium is the lossy one — and PDFium is what Chrome

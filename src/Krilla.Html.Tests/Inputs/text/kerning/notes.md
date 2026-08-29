@@ -32,7 +32,11 @@ is to write `/W` as integers AND derive the adjustments from those integers, so 
 absorb the rounding and the position is right whether the renderer truncates or not. krilla is
 pinned at 0.8.2, which is the newest published version.
 
-The error is proportional to the FONT SIZE, which is why this scenario and `text/ligatures` show it
-and the 16px scenarios do not — measured, a 16px line drifts by 0.000px end to end. So this
-explains the two worst text residuals in the corpus and none of the others, whatever the rest of
-them turn out to be.
+Why it shows HERE and not across the whole corpus is the useful half. PDFium truncates for both
+producers, so this is not something krilla does and Chromium avoids. What differs is when Skia stops
+relying on `/W`: for a plain paragraph Chromium writes bare `Tj` operators and leans on the widths
+exactly as krilla does, so both truncate identically and the renders match — `ua/paragraphs` is that
+case and is pixel-identical. Where the text is KERNED, Skia switches to an explicit `Td` before
+every glyph and becomes immune, while krilla stays on one `TJ` array whose base advance still comes
+from `/W`. Which is why the corpus shows this in the two scenarios written to exercise kerning and
+ligatures and nowhere else.

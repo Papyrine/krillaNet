@@ -29,30 +29,30 @@ nothing had measured. Measuring it refuted it, replaced it for the scenarios car
 | --- | --- | --- | --- |
 | `page/tall_image` | 0.0122 | 0.9750 | Chromium's PRINTER drops a margin its own layout keeps, below |
 | `block/background_repeat` | 0.0167 | 0.9842 | Chromium's PRINTER blurs a SPACED background's tile edges, below |
-| `page/table_header` | 0.0049 | 0.9900 | Width truncation, below; drifts 0.28px at 24 and 30px |
+| `page/table_header` | 0.0049 | 0.9900 | UNATTRIBUTED — no line drift, cause not yet measured |
 | `table/cell_baseline` | 0.0031 | 0.9926 | Chromium's PRINTER does not apply cell baseline alignment, below |
 | `text/kerning` | 0.0201 | 0.9945 | PDFium truncates krilla's fractional `/W` widths, below |
-| `text/ligatures` | 0.0099 | 0.9982 | The same width truncation; drifts 0.36px |
-| `page/table_footer` | 0.0114 | 0.9984 | Width truncation, below; drifts 0.22px |
+| `text/ligatures` | 0.0099 | 0.9982 | The same width truncation, below |
+| `page/table_footer` | 0.0114 | 0.9984 | UNATTRIBUTED — no line drift, cause not yet measured |
 | `block/shadows` | 0.0057 | 0.9985 | Antialiasing on `#rounded`'s corner; no pixel differs by more than 2 of 255 |
 | `image/svg` | 0.0028 | 0.9988 | UNATTRIBUTED — no line drift, cause not yet measured |
 | `block/border_radius_sides` | 0.0019 | 0.9988 | A corner seam where two colours hand over, below |
 | `block/bevelled_borders` | 0.0009 | 0.9990 | Antialiasing where two colours meet on a mitre, below |
 | `table/bevelled_borders` | 0.0005 | 0.9990 | The same mitres |
-| `page/break_avoid` | 0.0045 | 0.9991 | Width truncation, below; drifts 0.39px |
-| `page/fixed_repeat` | 0.0039 | 0.9992 | Width truncation, below; drifts 0.14px |
+| `page/break_avoid` | 0.0045 | 0.9991 | UNATTRIBUTED — no line drift, cause not yet measured |
+| `page/fixed_repeat` | 0.0039 | 0.9992 | UNATTRIBUTED — no line drift, cause not yet measured |
 | `flex/min_size` | 0.0012 | 0.9994 | UNATTRIBUTED — no line drift, cause not yet measured |
 | `block/border_styles` | 0.0002 | 0.9995 | A vertical dotted edge, below |
 | `flex/basic` | 0.0000 | 0.9996 | Forty pixels in one column: a box edge at x=352.5, below |
-| `page/break_between_lines` | 0.0017 | 0.9996 | Width truncation, below; drifts 0.15px |
-| `page/trailing_margin` | 0.0024 | 0.9996 | Width truncation, below; drifts 0.10px |
+| `page/break_between_lines` | 0.0017 | 0.9996 | UNATTRIBUTED — no line drift, cause not yet measured |
+| `page/trailing_margin` | 0.0024 | 0.9996 | UNATTRIBUTED — no line drift, cause not yet measured |
 | `block/counters` | 0.0013 | 0.9997 | UNATTRIBUTED — no line drift, cause not yet measured |
 | `page/float_break` | 0.0023 | 0.9997 | UNATTRIBUTED — no line drift, cause not yet measured |
 | `text/underline_offset` | 0.0002 | 0.9997 | Glyph edges |
 | `block/min_width` | 0.0009 | 0.9998 | UNATTRIBUTED — no line drift, cause not yet measured |
 | `page/break_inside` | 0.0012 | 0.9998 | Same, on page two; page one is identical |
-| `page/multi_page_flow` | 0.0016 | 0.9998 | Width truncation, below; drifts 0.12px |
-| `page/orphans_widows` | 0.0019 | 0.9998 | Width truncation, below; drifts 0.35px |
+| `page/multi_page_flow` | 0.0016 | 0.9998 | UNATTRIBUTED — no line drift, cause not yet measured |
+| `page/orphans_widows` | 0.0019 | 0.9998 | UNATTRIBUTED — no line drift, cause not yet measured |
 | `text/align_last` | 0.0013 | 0.9998 | UNATTRIBUTED — no line drift, cause not yet measured |
 | `text/word_spacing` | 0.0009 | 0.9998 | Same, across the widened spaces |
 | `block/box_sizing` | 0.0004 | 0.9999 | Same, on the one line beside a float |
@@ -72,10 +72,10 @@ nothing had measured. Measuring it refuted it, replaced it for the scenarios car
 | `text/font_size_keywords` | 0.0006 | 0.9999 | UNATTRIBUTED — no line drift, cause not yet measured |
 | `text/letter_spacing` | 0.0005 | 0.9999 | UNATTRIBUTED — no line drift, cause not yet measured |
 | `text/text_transform` | 0.0002 | 0.9999 | UNATTRIBUTED — no line drift, cause not yet measured |
-| `text/word_break_opportunity` | 0.0002 | 0.9999 | Width truncation, below; drifts 0.18px |
+| `text/word_break_opportunity` | 0.0002 | 0.9999 | UNATTRIBUTED — no line drift, cause not yet measured |
 | `ua/blockquote_pre` | 0.0005 | 0.9999 | UNATTRIBUTED — no line drift, cause not yet measured |
-| `ua/presentational` | 0.0016 | 0.9999 | Corner mitres, plus width truncation at 0.13px |
-| `ua/presentational_text` | 0.0006 | 0.9999 | Bevelled corners, two antialiased bullets, plus width truncation |
+| `ua/presentational` | 0.0016 | 0.9999 | Corner mitres, plus glyph edges |
+| `ua/presentational_text` | 0.0006 | 0.9999 | Bevelled corners, two antialiased bullets, and glyph edges |
 | `block/gradients` | 0.0500 | 0.9999 | Quantisation along the ramp; no pixel differs by more than 2 of 255, and the `AE` means nothing here |
 
 **Four of these are the BROWSER's rather than this engine's**, and each is recorded in its
@@ -101,8 +101,10 @@ a uniform border by painting one ring.
 **Everything else in the table is now UNATTRIBUTED.** Those rows said "sub-pixel glyph positioning"
 and that cause has been measured and refuted; nothing has yet measured what they really are. Each
 is small — most differ on a few hundred pixels out of 861,696 — but "the same glyph positioning seen
-on fewer words" is no longer an answer, and the honest state of the table is that a dozen rows are
-waiting for the same treatment `text/kerning` got.
+on fewer words" is no longer an answer, and the honest state of the table is that twenty rows are
+waiting for the same treatment `text/kerning` got. The one thing now known about them is what they
+are NOT: the `/W` truncation cancels wherever both producers lean on the widths, so it cannot be
+the explanation for a scenario whose text is not kerned.
 
 ## Unimplemented layout modes
 
@@ -150,15 +152,25 @@ layout mode falling back to a block.
   integers, so the corrections absorb the rounding. krilla is pinned at `=0.8.2`, which is the
   newest published version, so this wants an upstream report rather than a bump.
 
-  **It explains some of the table and not all of it.** The error is proportional to the font size,
-  and measuring the end-of-line drift on every differing scenario sorts them cleanly: `text/kerning`
-  drifts 0.90px, `block/border_styles` 0.66, `page/break_avoid` 0.39, `text/ligatures` 0.36,
-  `page/orphans_widows` 0.35, `page/table_header` 0.28, `page/table_footer` 0.22, and a further
-  handful between 0.10 and 0.15 — every one of them a scenario carrying text above 16px. The
-  scenarios whose text is all 16px measure **0.000px** of drift end to end and still differ on
-  several hundred pixels, with the same distribution of small deltas at glyph edges. Those are
-  unexplained: the cause they were attributed to has been refuted and nothing has yet measured what
-  replaced it.
+  **Why it shows in two scenarios and not in a hundred**, which is the part that took longest and
+  is the most useful thing here. PDFium truncates for BOTH producers — the drift is not something
+  krilla does and Chromium avoids. What differs is when Skia stops relying on `/W`: for a plain
+  paragraph Chromium writes bare `Tj` operators and leans on the widths exactly as krilla does, so
+  both sides truncate identically and the renders MATCH. `ua/paragraphs` is that case, and it is
+  pixel-identical. Where the text is kerned, Skia switches to an explicit `Td` before every glyph
+  and becomes immune, while krilla stays on one `TJ` array whose base advance still comes from
+  `/W` — and the two part company. Which is why the corpus shows this in `text/kerning` and
+  `text/ligatures`, the two scenarios written to exercise kerning and ligatures, and nowhere else.
+
+  Two earlier attempts to measure the blast radius across the corpus were both wrong and are worth
+  recording so nobody repeats them: an ink-centroid comparison was contaminated by the coloured
+  paragraph backgrounds, which contribute to every column and pin the centroid however far the
+  glyphs move; and an arithmetic walk over every content stream mis-attributed widths in documents
+  carrying more than one font. The only number here that is sound is `text/kerning`'s, and it was
+  arrived at three independent ways that agree.
+
+  So the rows below marked UNATTRIBUTED are still unattributed. They are not this, because this
+  cancels wherever both producers rely on the widths.
 - **No UAX #14 line breaking.** Break opportunities are spaces, hyphens and dashes, either side of
   an atomic inline, and the cuts `word-break`/`overflow-wrap` ask for. CJK has none of those, so it
   does not wrap at all and overflows instead. REPORTED now, through `UnsupportedText`, so a document
