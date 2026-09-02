@@ -23,6 +23,7 @@
     -->
     <PackageLicenseFile>license.txt</PackageLicenseFile>
     <Papyrine_SponsorshipLicenseIgnored>true</Papyrine_SponsorshipLicenseIgnored>
+    <Verify_SponsorshipLicenseIgnored>true</Verify_SponsorshipLicenseIgnored>
   </PropertyGroup>
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)..\license.txt" Pack="true" PackagePath="" Visible="false" />
