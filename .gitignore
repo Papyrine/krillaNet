@@ -17,3 +17,4 @@ rust/target/
 # Native binaries, produced by cargo locally or downloaded from CI artifacts.
 # Never committed: see docs/native-api-coverage.md for why.
 src/Krilla/runtimes/
+*.lnk
