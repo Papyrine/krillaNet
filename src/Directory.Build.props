@@ -2,13 +2,7 @@
 <Project>
   <Import Project="Krilla.Native.props" />
   <PropertyGroup>
-    <!--
-      SC023 comes from Morph.PDFium, pulled in transitively by Verify.PDFium in the test
-      project. That is a *consumer-side* reminder from another Papyrine package, unrelated to
-      this repository having dropped its own SponsorCheck reference; it pairs with the
-      Papyrine_SponsorshipLicenseIgnored property below.
-    -->
-    <NoWarn>CS1591;NU1608;SC023</NoWarn>
+    <NoWarn>CS1591;NU1608</NoWarn>
     <Version>0.1.3</Version>
     <LangVersion>preview</LangVersion>
     <AssemblyVersion>0.1.0</AssemblyVersion>
@@ -23,7 +17,8 @@
     -->
     <PackageLicenseFile>license.txt</PackageLicenseFile>
     <Papyrine_SponsorshipLicenseIgnored>true</Papyrine_SponsorshipLicenseIgnored>
-    <Verify_SponsorshipLicenseIgnored>true</Verify_SponsorshipLicenseIgnored>
+    <Verify_SponsorshipExemption>OpenSource</Verify_SponsorshipExemption>
+    <Verify_SponsorshipExemptionUntil>2027-08</Verify_SponsorshipExemptionUntil>
   </PropertyGroup>
   <ItemGroup>
     <None Include="$(MSBuildThisFileDirectory)..\license.txt" Pack="true" PackagePath="" Visible="false" />
