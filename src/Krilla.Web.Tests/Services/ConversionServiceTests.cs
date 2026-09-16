@@ -48,7 +48,7 @@ public class ConversionServiceTests
     public async Task UnsupportedCssIsReported()
     {
         var result = await Service().ConvertAsync(
-            "<div style='display: flex'><span>a</span><span>b</span></div>",
+            "<div style='display: grid'><span>a</span><span>b</span></div>",
             PaperSize.Letter,
             48);
 

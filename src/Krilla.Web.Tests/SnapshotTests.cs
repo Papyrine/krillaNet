@@ -101,7 +101,7 @@ public class SnapshotTests
         await Assert.That(source).StartsWith("blob:");
     }
 
-    // The engine's own report, end to end. `display: flex` lays out as a plain block and says so,
+    // The engine's own report, end to end. `display: grid` lays out as a plain block and says so,
     // so the pane lists it — which also proves diagnostics survive the trimmer.
     [Test]
     public async Task UnsupportedCssIsListed()
@@ -110,7 +110,7 @@ public class SnapshotTests
         await page.GotoAsync($"http://localhost:{port}/");
         await SettleAsync(page);
 
-        await page.FillAsync(".source-text", "<div style='display: flex'><i>a</i><i>b</i></div>");
+        await page.FillAsync(".source-text", "<div style='display: grid'><i>a</i><i>b</i></div>");
         await page.ClickAsync(".convert-btn");
 
         var diagnostics = await page.WaitForSelectorAsync(

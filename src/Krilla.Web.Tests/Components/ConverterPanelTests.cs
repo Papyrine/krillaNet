@@ -48,7 +48,7 @@ public class ConverterPanelTests : BunitTestContext
         var cut = Render<ConverterPanel>();
 
         await cut.Find(".source-text")
-            .InputAsync("<div style='display: flex'><i>a</i><i>b</i></div>");
+            .InputAsync("<div style='display: grid'><i>a</i><i>b</i></div>");
         await cut.Find(".convert-btn")
             .ClickAsync(new());
 
