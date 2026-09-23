@@ -57,7 +57,7 @@ Two MSBuild switches exist for CI and are worth knowing locally:
 
 ## CI
 
-GitHub Actions throughout — unlike the rest of Papyrine, this repository has no AppVeyor pipeline. AppVeyor is Windows-only, and the managed layer here needs testing on Linux and macOS too.
+GitHub Actions throughout. Unlike the rest of Papyrine, whose builds run on a single OS, the managed layer here needs testing on Linux and macOS too.
 
 Four workflows, each with a distinct job:
 
