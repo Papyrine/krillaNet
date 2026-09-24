@@ -3,7 +3,7 @@
   <Import Project="Krilla.Native.props" />
   <PropertyGroup>
     <NoWarn>CS1591;NU1608</NoWarn>
-    <Version>0.1.3</Version>
+    <Version>0.2.0</Version>
     <LangVersion>preview</LangVersion>
     <AssemblyVersion>0.1.0</AssemblyVersion>
     <Description>Creates PDF files via the krilla Rust library</Description>
