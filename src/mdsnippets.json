@@ -5,6 +5,5 @@
   "Convention": "InPlaceOverwrite",
   "ValidateContent": true,
   "ExcludeSnippetFiles": [ "*.verified.txt", "*.received.txt" ],
-  "ExcludeMarkdownFiles": [ "todo.md" ],
-  "ExcludeDirectories": [ "target" ]
+  "ExcludeMarkdownFiles": [ "todo.md" ]
 }
