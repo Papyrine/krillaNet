@@ -1,29 +1,44 @@
-name: build
+name: Build
 
-# Builds and tests the managed side on every platform that has a hosted runner.
+# Builds and tests the managed side on every platform that has a hosted runner, builds the
+# natives for all nine RIDs, packs them into the one Krilla package, proves that package loads on
+# every platform it claims to support, and on a tag publishes it to nuget.org using Trusted
+# Publishing (OIDC) — no long-lived API key is stored.
 #
-# This replaces the AppVeyor pipeline this repository started with. AppVeyor was Windows-only,
-# so it could only ever prove the managed layer worked on one platform; the same job here runs
-# on Linux and macOS too, which is where a marshalling or path assumption is most likely to
-# break.
+# The `build` matrix deliberately does *not* invoke cargo directly. `dotnet build` triggers the
+# KrillaBuildNative target in src/Krilla.Native.targets, which locates cargo, applies the
+# per-platform RUSTFLAGS and copies the result into runtimes/. Driving the build that way means
+# this workflow also tests the MSBuild wiring, on all three platforms. The packages those legs
+# produce carry the host RID only and are never published.
 #
-# Deliberately does *not* invoke cargo directly. `dotnet build` triggers the KrillaBuildNative
-# target in src/Krilla.Native.targets, which locates cargo, applies the per-platform RUSTFLAGS
-# and copies the result into runtimes/. Driving the build that way means this workflow also
-# tests the MSBuild wiring — the part of the repository with no precedent elsewhere in
-# Papyrine, and therefore the part most worth exercising on all three platforms.
+# The publishable package comes from the `natives` (native.yml, the nine-RID matrix) -> `pack` ->
+# smoke chain. The smoke jobs cover the eight loadable RIDs. browser-wasm is not among them and
+# cannot be: there is nothing to load, the archive is linked into a consumer's own wasm module.
+# Its equivalent proof runs inside native.yml, which links the archive and runs the result under
+# node before uploading it.
 #
-# The eight-RID release matrix lives in native.yml, and the packages produced here carry the
-# host RID only. See the artifact step at the end.
+# Trusted publishing needs a nuget.org policy naming this repository and this workflow file
+# (build.yml), and the `nuget` environment.
 
 on:
   push:
+    branches: [main]
+    tags: ['*']
   pull_request:
   workflow_dispatch:
 
+# Read only by default. The publish job asks for the OIDC token it needs itself.
+permissions:
+  contents: read
+
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
-  DOTNET_NOLOGO: true
   DOTNET_CLI_TELEMETRY_OPTOUT: true
+  DOTNET_SKIP_FIRST_TIME_EXPERIENCE: true
+  DOTNET_NOLOGO: true
   CARGO_TERM_COLOR: always
 
 jobs:
@@ -39,12 +54,22 @@ jobs:
           - { os: macos-15, name: macos }
 
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout
+        uses: actions/checkout@v7
 
       - name: Set up .NET
-        uses: actions/setup-dotnet@v4
+        uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
+
+      # Keyed on everything that decides the package graph. restore-keys lets a changed graph start
+      # from the previous cache rather than empty.
+      - name: Cache NuGet packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('global.json', '**/Directory.Packages.props', '**/Directory.Build.props', '**/*.csproj', '**/*.fsproj') }}
+          restore-keys: nuget-${{ runner.os }}-
 
       - name: Cache cargo
         uses: Swatinem/rust-cache@v2
@@ -52,10 +77,18 @@ jobs:
           workspaces: rust
           key: build-${{ matrix.name }}
 
+      # The tag is the version: tag 1.2.3 (or v1.2.3) builds 1.2.3. Other builds use the
+      # Version in src/Directory.Build.props. IntegrationTests reads $(Version) too, so it is
+      # passed to every build that packs or restores the package.
+      - name: Resolve the version from the tag
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: echo "VERSION_ARGUMENT=-p:Version=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+
       - name: Build
         # Packs as a side effect: ProjectDefaults sets GeneratePackageOnBuild=true for Release
         # package projects, so ./nugets is populated by the end of this step.
-        run: dotnet build src --configuration Release
+        run: dotnet build src --configuration Release ${{ env.VERSION_ARGUMENT }}
 
       - name: Test
         # TUnit, not VSTest — `dotnet test` is unsupported on the .NET 10 SDK.
@@ -64,30 +97,324 @@ jobs:
       - name: Build integration tests
         # Consumes the nupkg just produced, which is what proves runtimes/<rid>/native/
         # resolves out of a real package rather than across a project reference.
-        run: dotnet build IntegrationTests --configuration Release
+        run: dotnet build IntegrationTests --configuration Release ${{ env.VERSION_ARGUMENT }}
 
       - name: Run integration tests
         run: dotnet run --project IntegrationTests/IntegrationTests --configuration Release --no-build
 
-      - name: Upload snapshot diffs
+      - name: Upload received on failure
         # Verify writes .received.* beside the .verified.* baseline when a snapshot differs.
         # Without these a failure on a platform nobody has locally is close to undebuggable.
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: received-${{ matrix.name }}
           path: '**/*.received.*'
           if-no-files-found: ignore
-          retention-days: 7
+          retention-days: 14
 
-      - name: Upload package
+      - name: Upload host RID package
         # Host RID only, so this is for local inspection and must never be published. The
-        # publishable package is built by publish-nuget.yml from the full native matrix, and
-        # nuget.org Trusted Publishing means no API key exists to push this one with anyway.
+        # publishable package is the `nupkgs` artifact from the pack job below.
         if: matrix.os == 'ubuntu-latest'
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: nupkg-host-rid-only
           path: nugets/*.nupkg
           if-no-files-found: error
           retention-days: 7
+
+  natives:
+    uses: ./.github/workflows/native.yml
+
+  pack:
+    needs: natives
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v6
+        with:
+          path: ~/.nuget/packages
+          key: nuget-${{ runner.os }}-${{ hashFiles('global.json', '**/Directory.Packages.props', '**/Directory.Build.props', '**/*.csproj', '**/*.fsproj') }}
+          restore-keys: nuget-${{ runner.os }}-
+
+      - name: Download natives
+        uses: actions/download-artifact@v8
+        with:
+          pattern: native-*
+          path: natives
+
+      - name: Lay out runtimes
+        # download-artifact writes each artifact into its own directory named for the
+        # artifact, so native-linux-x64/libkrilla_capi.so becomes
+        # runtimes/linux-x64/native/libkrilla_capi.so — the layout NuGet's RID asset
+        # resolution understands.
+        run: |
+          set -euo pipefail
+          for dir in natives/native-*; do
+            rid="${dir#natives/native-}"
+            mkdir -p "src/Krilla/runtimes/$rid/native"
+            cp "$dir"/* "src/Krilla/runtimes/$rid/native/"
+            echo "$rid: $(ls -1 "src/Krilla/runtimes/$rid/native")"
+          done
+
+      - name: Resolve the version from the tag
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: echo "VERSION_ARGUMENT=-p:Version=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+
+      - name: Build and pack
+        # A plain build *is* the pack step: ProjectDefaults sets GeneratePackageOnBuild=true
+        # for Release package projects, so Krilla packs at the end of its own build into
+        # ./nugets. `dotnet pack` on a solution is deliberately avoided — it races with
+        # GeneratePackageOnBuild (NU5026), and disabling that to dodge the race would skip
+        # ProjectDefaults' GenerateNuspec hook and strip the package metadata.
+        #
+        # KrillaRequireAllNatives turns a missing RID from a warning into a hard error, so a
+        # partial matrix can never produce a publishable package.
+        #
+        # KrillaSkipCargo because the natives already exist; without it the build would try to
+        # cargo-build the host RID and overwrite the artifact just downloaded.
+        run: >
+          dotnet build src/Krilla/Krilla.csproj
+          --configuration Release
+          -p:KrillaRequireAllNatives=true
+          -p:KrillaSkipCargo=true
+          -p:ContinuousIntegrationBuild=true
+          ${{ env.VERSION_ARGUMENT }}
+
+      - name: Verify package contents
+        # Cheap, and it catches a whole class of packaging regression that would otherwise only
+        # surface as a runtime load failure on a consumer's machine.
+        run: |
+          set -euo pipefail
+          nupkg=$(ls nugets/*.nupkg)
+          echo "Inspecting $nupkg"
+          unzip -l "$nupkg"
+
+          for rid in win-x64 win-arm64 linux-x64 linux-arm64 linux-musl-x64 linux-musl-arm64 osx-x64 osx-arm64 browser-wasm; do
+            if ! unzip -l "$nupkg" | grep -q "runtimes/$rid/native/"; then
+              echo "::error::the package is missing a native for $rid"
+              exit 1
+            fi
+          done
+
+          # The wasm archive is inert without this: nothing else puts a NativeFileReference in
+          # front of the consumer's Emscripten link step, so a package that lost this file
+          # would restore, build, and then fail at the first P/Invoke.
+          if ! unzip -l "$nupkg" | grep -q "buildTransitive/Krilla.targets"; then
+            echo "::error::the package is missing buildTransitive/Krilla.targets, so browser-wasm consumers would link nothing"
+            exit 1
+          fi
+
+      - name: Upload packages
+        if: success()
+        uses: actions/upload-artifact@v7
+        with:
+          name: nupkgs
+          path: nugets/*.nupkg
+          if-no-files-found: error
+          retention-days: 30
+
+  # Restores the real package on each platform and runs it. This is the only step that can
+  # catch a native built against too new a glibc, or a musl binary that linked its own libc —
+  # both invisible on the machine that produced them.
+  smoke:
+    needs: pack
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - { os: windows-latest, name: win-x64 }
+          - { os: ubuntu-latest, name: linux-x64 }
+          - { os: macos-15, name: osx-arm64 }
+          # macos-13 was retired; macos-15-intel is GitHub's replacement Intel label and the
+          # only remaining way to run osx-x64 natively. If the Intel labels go too, run this
+          # leg under Rosetta on an arm64 runner instead: install the x64 .NET SDK and invoke
+          # the tests under `arch -x86_64`. Dropping the leg entirely would leave osx-x64
+          # shipped but never executed.
+          - { os: macos-15-intel, name: osx-x64 }
+    name: smoke ${{ matrix.name }}
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Download package
+        uses: actions/download-artifact@v8
+        with:
+          name: nupkgs
+          path: nugets
+
+      - name: Resolve the version from the tag
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: echo "VERSION_ARGUMENT=-p:Version=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+
+      - name: Run integration tests
+        run: |
+          dotnet build IntegrationTests --configuration Release ${{ env.VERSION_ARGUMENT }}
+          dotnet run --project IntegrationTests/IntegrationTests --configuration Release --no-build
+
+      - name: Upload received on failure
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: received-smoke-${{ matrix.name }}
+          path: '**/*.received.*'
+          if-no-files-found: ignore
+          retention-days: 14
+
+  # Containers rather than runners, because the distributions that matter for the glibc floor
+  # and the musl split have no hosted runner.
+  smoke-containers:
+    needs: pack
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          # Proves the musl build, which .NET's RID graph will never substitute for glibc.
+          - { image: 'mcr.microsoft.com/dotnet/sdk:10.0-alpine', name: 'alpine (musl)' }
+          # Older glibc than the runner's: the check the 2.17 floor exists for. .NET 10 ships
+          # no Debian image at all -- `bookworm-slim` existed for 9.0 and `trixie-slim` only for
+          # the 10.0 previews -- and the images that remain are no older than the runner
+          # (`noble` is its glibc exactly, `azurelinux3.0` one minor version below). So this leg
+          # runs a bare distribution image and installs the SDK on top. 2.35 is the oldest glibc
+          # .NET 10 supports, which makes it the lowest floor this check can meaningfully use.
+          - { image: 'ubuntu:22.04', name: 'ubuntu 22.04 (glibc 2.35)', bare: true }
+    name: smoke ${{ matrix.name }}
+    container: ${{ matrix.image }}
+    steps:
+      # A bare distribution image carries neither the SDK nor what installing one needs. git is
+      # for actions/checkout, which otherwise falls back to a tarball download, and libicu for
+      # .NET's globalization, which fails to start without it. The mcr images have all of this.
+      - name: Install SDK prerequisites
+        if: matrix.bare
+        run: |
+          apt-get update
+          apt-get install -y --no-install-recommends ca-certificates curl git libicu70
+
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      # global.json rather than a pinned version, so this leg rolls forward with every other one.
+      - name: Set up .NET
+        if: matrix.bare
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Download package
+        uses: actions/download-artifact@v8
+        with:
+          name: nupkgs
+          path: nugets
+
+      # sh rather than bash: the Alpine image has no bash.
+      - name: Resolve the version from the tag
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: sh
+        run: echo "VERSION_ARGUMENT=-p:Version=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+
+      - name: Run integration tests
+        run: |
+          dotnet build IntegrationTests --configuration Release ${{ env.VERSION_ARGUMENT }}
+          dotnet run --project IntegrationTests/IntegrationTests --configuration Release --no-build
+
+  # browser-wasm cannot be smoke-tested the way the other eight are: there is no process to
+  # start and no library to load. Whether the ARCHIVE is good was settled in native.yml, which
+  # links it and runs the result under node before uploading it. What is left is the
+  # PACKAGING — that a real consumer restoring this exact nupkg is handed the archive — and
+  # that is what this proves.
+  #
+  # A job of its own rather than a leg of `smoke`, because it needs the wasm-tools workload:
+  # a browser-wasm project does not merely fail to build without it, it fails to RESTORE, with
+  # NETSDK1147 raised by the SDK's own workload import before any of this package is reached.
+  # Installing that on the four smoke runners to test one RID would be most of their runtime.
+  smoke-wasm:
+    needs: pack
+    name: smoke browser-wasm
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up .NET
+        uses: actions/setup-dotnet@v6
+        with:
+          global-json-file: global.json
+
+      - name: Download package
+        uses: actions/download-artifact@v8
+        with:
+          name: nupkgs
+          path: nugets
+
+      - name: Install wasm-tools
+        run: dotnet workload install wasm-tools
+
+      - name: Resolve the version from the tag
+        if: startsWith(github.ref, 'refs/tags/')
+        shell: bash
+        run: echo "VERSION_ARGUMENT=-p:Version=${GITHUB_REF_NAME#v}" >> "$GITHUB_ENV"
+
+      - name: Verify the package reaches a WebAssembly link step
+        working-directory: IntegrationTests/WasmConsumer
+        # Invoked by path, not through the solution: IntegrationTests.slnx deliberately
+        # excludes this project so that `dotnet build IntegrationTests` in the jobs above does
+        # not demand the workload on runners with no use for it.
+        #
+        # Both targets matter. The first is the feature; the second is the guard, since an
+        # import that fired unconditionally would hand a wasm archive to every ordinary build
+        # and nothing else here would notice.
+        run: |
+          set -euo pipefail
+          dotnet restore ${{ env.VERSION_ARGUMENT }}
+          dotnet msbuild -t:VerifyKrillaWasmNative ${{ env.VERSION_ARGUMENT }}
+          dotnet msbuild -t:VerifyKrillaNativeIsWasmOnly -p:RuntimeIdentifier=win-x64 ${{ env.VERSION_ARGUMENT }}
+
+  # Trusted publishing: no stored API key. nuget.org validates GitHub's OIDC token against the
+  # policy naming this repository and this workflow file, and returns a key good for an hour.
+  # Waits on every job, so a package only ships once every platform has loaded it.
+  publish:
+    needs: [build, pack, smoke, smoke-containers, smoke-wasm]
+    environment: nuget
+    if: startsWith(github.ref, 'refs/tags/')
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: read
+      id-token: write
+    steps:
+      - name: Download packages
+        uses: actions/download-artifact@v8
+        with:
+          name: nupkgs
+          path: packages
+
+      - name: NuGet login
+        id: login
+        uses: NuGet/login@v1
+        with:
+          user: SimonCropp
+
+      - name: Push to nuget.org
+        run: >
+          dotnet nuget push "packages/**/*.nupkg"
+          --api-key ${{ steps.login.outputs.NUGET_API_KEY }}
+          --source https://api.nuget.org/v3/index.json
+          --skip-duplicate

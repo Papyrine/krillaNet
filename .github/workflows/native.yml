@@ -1,7 +1,7 @@
 name: native
 
 # Cross-compiles krilla-capi for every shipped RID and uploads one artifact per target.
-# Called by publish-nuget.yml, and runnable on its own to check the matrix without releasing.
+# Called by build.yml, and runnable on its own to check the matrix without releasing.
 #
 # Eight legs produce a cdylib the .NET loader opens by name. The ninth, browser-wasm, produces
 # a STATIC archive instead, because WebAssembly has no loader to open one — it is linked into
@@ -104,7 +104,7 @@ jobs:
             emsdk: 3.1.56
 
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
 
       - name: Add Rust target
         run: rustup target add ${{ matrix.target }}
@@ -344,7 +344,7 @@ jobs:
           grep -qx "magic %PDF-" <<< "$output" || { echo "::error::the archive linked but krilla produced no PDF"; exit 1; }
 
       - name: Upload
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: native-${{ matrix.rid }}
           path: rust/target/${{ matrix.target }}/release/${{ matrix.file }}
