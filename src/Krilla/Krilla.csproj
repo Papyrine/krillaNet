@@ -7,7 +7,7 @@
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="ProjectDefaults" PrivateAssets="all" />
-    <PackageReference Include="Microsoft.Sbom.Targets" PrivateAssets="all" Condition="'$(CI)' == 'true'" />
+    <PackageReference Include="Sbom" PrivateAssets="all" />
     <None Include="nuget-readme.md" Pack="true" PackagePath="\" />
     <!-- Consumer-side wiring for browser-wasm, and the only build logic this package ships.
          Distinct from Krilla.Native.targets, which shells out to cargo and must never be
