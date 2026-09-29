@@ -81,8 +81,15 @@ static class PageMarginSlots
     /// by anything but this table, and an author writing the other spelling gets a running header
     /// rather than silence.
     /// </remarks>
-    public static PageMarginSlot? Parse(string name) =>
-        names.TryGetValue(name.Trim(), out var slot) ? slot : null;
+    public static PageMarginSlot? Parse(string name)
+    {
+        if (names.TryGetValue(name.Trim(), out var slot))
+        {
+            return slot;
+        }
+
+        return null;
+    }
 
     /// <summary>
     /// The rectangle a slot occupies, in CSS pixels from the page's top-left corner.

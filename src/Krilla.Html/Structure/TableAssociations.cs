@@ -104,14 +104,28 @@ sealed class TableAssociations
     }
 
     /// <summary>How many rows and columns the cell at <paramref name="path"/> covers, or null.</summary>
-    public (int Rows, int Columns)? Spans(string path) =>
-        spans.TryGetValue(path, out var span) ? span : null;
+    public (int Rows, int Columns)? Spans(string path)
+    {
+        if (spans.TryGetValue(path, out var span))
+        {
+            return span;
+        }
+
+        return null;
+    }
 
     /// <summary>
     /// The header cells the cell at <paramref name="path"/> names, in the order it named them.
     /// </summary>
-    public IReadOnlyList<IElement> Headers(string path) =>
-        headers.TryGetValue(path, out var found) ? found : [];
+    public IReadOnlyList<IElement> Headers(string path)
+    {
+        if (headers.TryGetValue(path, out var found))
+        {
+            return found;
+        }
+
+        return [];
+    }
 
     /// <summary>
     /// Whether anything in the document names the cell at <paramref name="path"/> as its header.

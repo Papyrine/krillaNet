@@ -181,7 +181,12 @@ static class CssSource
         var end = text.IndexOfAny([';', '}'], colon);
         var declared = (end < 0 ? text[(colon + 1)..] : text[(colon + 1)..end]).Trim();
 
-        return declared.Length == 0 ? null : declared;
+        if (declared.Length == 0)
+        {
+            return null;
+        }
+
+        return declared;
     }
 
     /// <summary>

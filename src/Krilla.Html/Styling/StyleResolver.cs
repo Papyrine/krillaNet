@@ -657,7 +657,12 @@ static class StyleResolver
                 declaration.GetPropertyValue(mapping.Shorthand).Trim() is {Length: > 0} pair)
             {
                 var parts = pair.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                return parts.Length > 1 && mapping.Second ? parts[1] : parts[0];
+                if (parts.Length > 1 && mapping.Second)
+                {
+                    return parts[1];
+                }
+
+                return parts[0];
             }
         }
 
@@ -944,10 +949,15 @@ static class StyleResolver
         };
 
     /// <summary><c>order</c>, which is an integer and takes zero for anything else.</summary>
-    static int ParseOrder(string value) =>
-        int.TryParse(value.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var order)
-            ? order
-            : 0;
+    static int ParseOrder(string value)
+    {
+        if (int.TryParse(value.Trim(), NumberStyles.Integer, CultureInfo.InvariantCulture, out var order))
+        {
+            return order;
+        }
+
+        return 0;
+    }
 
     /// <summary>The three components of <c>flex</c>, however the document spelled them.</summary>
     readonly record struct FlexTriple(float Grow, float Shrink, CssLength Basis);
@@ -1014,9 +1024,12 @@ static class StyleResolver
                 return initial;
             }
 
-            return shorthand.Trim().Equals("none", StringComparison.OrdinalIgnoreCase)
-                ? new(0, 0, CssLength.Auto)
-                : initial;
+            if (shorthand.Trim().Equals("none", StringComparison.OrdinalIgnoreCase))
+            {
+                return new(0, 0, CssLength.Auto);
+            }
+
+            return initial;
         }
 
         return new(
@@ -1039,13 +1052,21 @@ static class StyleResolver
         {
             // A negative factor is invalid and takes the initial value, which is CSS's rule for
             // both of them.
-            return float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var factor) &&
-                   factor >= 0
-                ? factor
-                : absent;
+            if (float.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var factor) &&
+                    factor >= 0)
+            {
+                return factor;
+            }
+
+            return absent;
         }
 
-        return Declared(declaration, property) ? 1 : absent;
+        if (Declared(declaration, property))
+        {
+            return 1;
+        }
+
+        return absent;
     }
 
     /// <summary>Whether the block carries <paramref name="property"/> at all, empty or not.</summary>
@@ -1130,10 +1151,15 @@ static class StyleResolver
     /// One gap length. <c>normal</c> is zero, which is what it means for a flex container rather
     /// than the font-derived gap it means between columns.
     /// </summary>
-    static CssLength Gap(string value, CssFont font, CssRoot root) =>
-        CssValues.ParseLength(value, font, root, CssLength.Zero) is {IsAuto: false, IsNone: false} length
-            ? length
-            : CssLength.Zero;
+    static CssLength Gap(string value, CssFont font, CssRoot root)
+    {
+        if (CssValues.ParseLength(value, font, root, CssLength.Zero) is {IsAuto: false, IsNone: false} length)
+        {
+            return length;
+        }
+
+        return CssLength.Zero;
+    }
 
     /// <summary>
     /// How a box is positioned. Not inherited.
@@ -1956,7 +1982,12 @@ static class StyleResolver
             return CssValues.ParseAlpha(value);
         }
 
-        return Declares(declaration) ? alpha : parent.DecorationAlpha;
+        if (Declares(declaration))
+        {
+            return alpha;
+        }
+
+        return parent.DecorationAlpha;
     }
 
     static Color? DecorationColour(ICssStyleDeclaration declaration, ComputedStyle parent, Color color)
@@ -2553,7 +2584,12 @@ static class StyleResolver
 
         if (preserves)
         {
-            return wraps ? WhiteSpaceKind.PreWrap : WhiteSpaceKind.Pre;
+            if (wraps)
+            {
+                return WhiteSpaceKind.PreWrap;
+            }
+
+            return WhiteSpaceKind.Pre;
         }
 
         if (breaks)
@@ -2561,6 +2597,11 @@ static class StyleResolver
             return WhiteSpaceKind.PreLine;
         }
 
-        return wraps ? WhiteSpaceKind.Normal : WhiteSpaceKind.NoWrap;
+        if (wraps)
+        {
+            return WhiteSpaceKind.Normal;
+        }
+
+        return WhiteSpaceKind.NoWrap;
     }
 }

@@ -219,7 +219,12 @@ static class AbsoluteLayout
     {
         if (autoStart && autoEnd)
         {
-            return slack < 0 ? (0, slack) : (slack / 2, slack / 2);
+            if (slack < 0)
+            {
+                return (0, slack);
+            }
+
+            return (slack / 2, slack / 2);
         }
 
         if (autoStart)

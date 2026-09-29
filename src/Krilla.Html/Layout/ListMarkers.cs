@@ -251,10 +251,15 @@ static class ListMarkers
     /// half pixels right at 16px. A literal string takes no suffix at all, which is measured: an
     /// arrow style draws the arrow and nothing else.
     /// </remarks>
-    static string Text(ComputedStyle style, ListMarker marker) =>
-        marker.Kind == ListStyleKind.String
-            ? style.ListStyleText ?? ""
-            : Counter(marker.Kind, marker.Ordinal) + counterSuffix;
+    static string Text(ComputedStyle style, ListMarker marker)
+    {
+        if (marker.Kind == ListStyleKind.String)
+        {
+            return style.ListStyleText ?? "";
+        }
+
+        return Counter(marker.Kind, marker.Ordinal) + counterSuffix;
+    }
 
     /// <summary>
     /// The counter text for <paramref name="ordinal"/>, without its suffix.

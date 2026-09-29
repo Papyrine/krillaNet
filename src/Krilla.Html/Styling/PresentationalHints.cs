@@ -495,8 +495,15 @@ static class PresentationalHints
         }
     }
 
-    static string? Spacing(string value) =>
-        Integer(value) is {} spacing ? $"{spacing}px" : null;
+    static string? Spacing(string value)
+    {
+        if (Integer(value) is {} spacing)
+        {
+            return $"{spacing}px";
+        }
+
+        return null;
+    }
 
     /// <summary>
     /// <c>&lt;font face&gt;</c>, which is a comma-separated family list already — but of BARE
@@ -509,13 +516,23 @@ static class PresentationalHints
             .Select(Quoted)
             .ToArray();
 
-        return names.Length == 0 ? null : string.Join(", ", names);
+        if (names.Length == 0)
+        {
+            return null;
+        }
+
+        return string.Join(", ", names);
     }
 
-    static string Quoted(string name) =>
-        name.StartsWith('"') || name.StartsWith('\'')
-            ? name
-            : $"\"{name}\"";
+    static string Quoted(string name)
+    {
+        if (name.StartsWith('"') || name.StartsWith('\''))
+        {
+            return name;
+        }
+
+        return $"\"{name}\"";
+    }
 
     /// <summary>
     /// <c>&lt;font size&gt;</c>, which is a level from 1 to 7 rather than a length, and may be
@@ -593,10 +610,20 @@ static class PresentationalHints
 
         if (text.EndsWith('%'))
         {
-            return Integer(text[..^1]) is {} percent ? $"{percent}%" : null;
+            if (Integer(text[..^1]) is {} percent)
+            {
+                return $"{percent}%";
+            }
+
+            return null;
         }
 
-        return Integer(text) is {} pixels ? $"{pixels}px" : null;
+        if (Integer(text) is {} pixels)
+        {
+            return $"{pixels}px";
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -618,7 +645,12 @@ static class PresentationalHints
             length++;
         }
 
-        return length == 0 ? null : int.Parse(text[..length]);
+        if (length == 0)
+        {
+            return null;
+        }
+
+        return int.Parse(text[..length]);
     }
 
     static string? Align(string value) =>
@@ -667,7 +699,12 @@ static class PresentationalHints
             return null;
         }
 
-        return Hex(text) ? $"#{text}" : text;
+        if (Hex(text))
+        {
+            return $"#{text}";
+        }
+
+        return text;
     }
 
     /// <summary>Whether <paramref name="text"/> is a hash colour written without its hash.</summary>

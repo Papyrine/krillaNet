@@ -895,8 +895,15 @@ static class TableLayout
         cell.Box.Style.VerticalAlign == VerticalAlignKind.Baseline;
 
     /// <summary>How far down a cell's content is moved inside the space its row gives it.</summary>
-    static float Offset(TableGrid grid, TableCell cell, CellHeight height) =>
-        Aligns(cell) ? grid.Rows[cell.Row].Baseline - height.Above : 0;
+    static float Offset(TableGrid grid, TableCell cell, CellHeight height)
+    {
+        if (Aligns(cell))
+        {
+            return grid.Rows[cell.Row].Baseline - height.Above;
+        }
+
+        return 0;
+    }
 
     /// <summary>The height a cell has across the rows it spans, gaps included.</summary>
     static float SpannedHeight(TableGrid grid, TableCell cell, float spacingY)

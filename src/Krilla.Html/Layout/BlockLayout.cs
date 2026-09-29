@@ -867,8 +867,15 @@ static class BlockLayout
         context.ClearTo(child.Style.Clear, hypothetical) > hypothetical;
 
     /// <inheritdoc cref="LeadingMargin"/>
-    static FloatContext? InScope(LayoutBox parent, FloatContext? floats, int index) =>
-        parent.Floats.Any(_ => _.Index <= index) ? null : floats;
+    static FloatContext? InScope(LayoutBox parent, FloatContext? floats, int index)
+    {
+        if (parent.Floats.Any(_ => _.Index <= index))
+        {
+            return null;
+        }
+
+        return floats;
+    }
 
     /// <summary>
     /// The margin that collapses out through <paramref name="box"/>'s bottom edge.

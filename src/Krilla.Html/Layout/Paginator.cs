@@ -726,7 +726,12 @@ static class Paginator
         // advance and the loop in `Paginate` would never terminate.
         if (above < group.Orphans)
         {
-            return group.FirstTop > top ? group.FirstTop : unit.Bounds.Y;
+            if (group.FirstTop > top)
+            {
+                return group.FirstTop;
+            }
+
+            return unit.Bounds.Y;
         }
 
         // Too few BELOW, and enough above. The line that leaves exactly `Widows` below it, when

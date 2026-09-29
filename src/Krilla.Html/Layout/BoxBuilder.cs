@@ -1186,7 +1186,12 @@ static class BoxBuilder
             strings.Add((trimmed[..space].Trim(), Collapsed(text.ToString())));
         }
 
-        return strings.Count == 0 ? null : strings;
+        if (strings.Count == 0)
+        {
+            return null;
+        }
+
+        return strings;
     }
 
     /// <summary>

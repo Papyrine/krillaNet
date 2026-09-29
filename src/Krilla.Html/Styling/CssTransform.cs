@@ -265,7 +265,12 @@ sealed record CssTransform(
                 return null;
             }
 
-            return percent ? value / 100f : value;
+            if (percent)
+            {
+                return value / 100f;
+            }
+
+            return value;
         }
     }
 

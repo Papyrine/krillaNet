@@ -129,7 +129,12 @@ static class AriaSemantics
             return referenced;
         }
 
-        return element.LocalName == "th" ? Text(element.GetAttribute("abbr")) : null;
+        if (element.LocalName == "th")
+        {
+            return Text(element.GetAttribute("abbr"));
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -212,7 +217,12 @@ static class AriaSemantics
             }
         }
 
-        return parts.Count == 0 ? null : string.Join(" ", parts);
+        if (parts.Count == 0)
+        {
+            return null;
+        }
+
+        return string.Join(" ", parts);
     }
 
     /// <summary>The value with its white space collapsed, or null when it holds none.</summary>
@@ -227,6 +237,11 @@ static class AriaSemantics
             " ",
             value.Split((char[]?) null, StringSplitOptions.RemoveEmptyEntries));
 
-        return collapsed.Length == 0 ? null : collapsed;
+        if (collapsed.Length == 0)
+        {
+            return null;
+        }
+
+        return collapsed;
     }
 }

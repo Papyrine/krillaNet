@@ -34,8 +34,18 @@ public partial class ConverterPanel :
     // The fragment is kept OFF pdfUrl rather than baked into it, because that is the handle the
     // download and the revoke both use, and a blob URL carrying a fragment is a different string
     // from the one URL.revokeObjectURL was given.
-    string? PreviewUrl =>
-        pdfUrl is null ? null : $"{pdfUrl}#toolbar=0&navpanes=0&view=FitH";
+    string? PreviewUrl
+    {
+        get
+        {
+            if (pdfUrl is null)
+            {
+                return null;
+            }
+
+            return $"{pdfUrl}#toolbar=0&navpanes=0&view=FitH";
+        }
+    }
 
     // A blob URL is a handle on bytes the browser is holding for us. Each conversion makes a new
     // one, so the previous has to be released or every convert leaks a PDF for the life of the

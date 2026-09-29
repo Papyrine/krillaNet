@@ -12,8 +12,18 @@ public partial class ThemeToggle
     // aria-label of "Toggle theme" REPLACED it for anyone using a screen reader, which is WCAG
     // 2.5.3 (Label in Name): the accessible name has to contain the text shown on the control.
     // It also lost the only thing the label says, namely which way the switch goes.
-    string Label =>
-        CurrentTheme == ThemeType.Light ? "Switch to dark theme" : "Switch to light theme";
+    string Label
+    {
+        get
+        {
+            if (CurrentTheme == ThemeType.Light)
+            {
+                return "Switch to dark theme";
+            }
+
+            return "Switch to light theme";
+        }
+    }
 
     Task ToggleTheme()
     {

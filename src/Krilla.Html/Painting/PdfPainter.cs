@@ -1249,8 +1249,15 @@ static class PdfPainter
 
         // Guarded because a sector faced by no border at all closes on nothing, and is bounded by
         // the box alone.
-        static float Ratio(float have, float per) =>
-            per <= 0 ? float.PositiveInfinity : have / per;
+        static float Ratio(float have, float per)
+        {
+            if (per <= 0)
+            {
+                return float.PositiveInfinity;
+            }
+
+            return have / per;
+        }
     }
 
     /// <summary>
@@ -1297,7 +1304,12 @@ static class PdfPainter
             alpha = sideAlpha;
         }
 
-        return found is {} result ? (result, alpha) : null;
+        if (found is {} result)
+        {
+            return (result, alpha);
+        }
+
+        return null;
     }
 
     /// <summary>
@@ -1401,10 +1413,15 @@ static class PdfPainter
     /// element to belong to — generated content and an anonymous box both reach here with no
     /// selector, and neither is something a reader is meant to meet.
     /// </remarks>
-    static TagSpan Mark(Surface surface, PageSlice page, string? selector, bool text) =>
-        page.Tags is {} tags && selector is {} named
-            ? new(surface, tags, named, text ? surface.BeginText() : surface.BeginContent())
-            : default;
+    static TagSpan Mark(Surface surface, PageSlice page, string? selector, bool text)
+    {
+        if (page.Tags is {} tags && selector is {} named)
+        {
+            return new(surface, tags, named, text ? surface.BeginText() : surface.BeginContent());
+        }
+
+        return default;
+    }
 
     /// <summary>
     /// Opens a span for a list item's MARKER, to be closed by disposing the result.
@@ -1416,10 +1433,15 @@ static class PdfPainter
     /// shape and stays an artifact — and the identifier is recorded apart from the item's own text,
     /// because the two hang from different nodes of the item.
     /// </remarks>
-    static TagSpan Label(Surface surface, PageSlice page, string? selector) =>
-        page.Tags is {} tags && selector is {} named
-            ? new(surface, tags, named, surface.BeginText(), marker: true)
-            : Artifact(surface, page);
+    static TagSpan Label(Surface surface, PageSlice page, string? selector)
+    {
+        if (page.Tags is {} tags && selector is {} named)
+        {
+            return new(surface, tags, named, surface.BeginText(), marker: true);
+        }
+
+        return Artifact(surface, page);
+    }
 
     /// <summary>
     /// Opens an ARTIFACT span, to be closed by disposing the result.
@@ -1443,8 +1465,15 @@ static class PdfPainter
         Surface surface,
         PageSlice page,
         ArtifactKind kind = ArtifactKind.Other,
-        Rectangle? bounds = null) =>
-        page.Tags is null ? default : new(surface, null, null, surface.BeginArtifact(kind, bounds));
+        Rectangle? bounds = null)
+    {
+        if (page.Tags is null)
+        {
+            return default;
+        }
+
+        return new(surface, null, null, surface.BeginArtifact(kind, bounds));
+    }
 
     /// <summary>One open marked-content span, or nothing.</summary>
     /// <remarks>
@@ -2977,14 +3006,24 @@ static class PdfPainter
         var narrow = Spread(fewer + 1);
         var wide = Spread(fewer);
 
-        return MathF.Abs(narrow - wanted) < MathF.Abs(wide - wanted)
-            ? ((int) fewer + 1, narrow)
-            : ((int) fewer, wide);
+        if (MathF.Abs(narrow - wanted) < MathF.Abs(wide - wanted))
+        {
+            return ((int) fewer + 1, narrow);
+        }
+
+        return ((int) fewer, wide);
 
         // One dash at each end and the rest shared out between them. A single dash has no gap to
         // give, so it keeps the requested one and loses the comparison above to the two-dash case.
-        float Spread(float count) =>
-            count <= 1 ? wanted : MathF.Max(0, (length - count * dash) / (count - 1));
+        float Spread(float count)
+        {
+            if (count <= 1)
+            {
+                return wanted;
+            }
+
+            return MathF.Max(0, (length - count * dash) / (count - 1));
+        }
     }
 
     static void FillPolygon(Surface surface, Color color, float alpha, params ReadOnlySpan<Point> points)

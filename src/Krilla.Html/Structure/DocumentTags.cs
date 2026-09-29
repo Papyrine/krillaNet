@@ -311,7 +311,12 @@ sealed class DocumentTags
         // An item with a marker and nothing else is the one arrangement that reaches here with no
         // content — a barren element is skipped before this, and a marker is not barren — so the
         // `LBody` is left off rather than written empty, which is a group PDF has no use for.
-        return content ? node.Tag.Add(TagKind.ListBody) : node.Tag;
+        if (content)
+        {
+            return node.Tag.Add(TagKind.ListBody);
+        }
+
+        return node.Tag;
     }
 
     /// <summary>

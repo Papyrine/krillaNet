@@ -149,7 +149,12 @@ static class Bevel
     {
         var value = channel / 255f;
 
-        return value <= 0.04045f ? value / 12.92f : MathF.Pow((value + 0.055f) / 1.055f, 2.4f);
+        if (value <= 0.04045f)
+        {
+            return value / 12.92f;
+        }
+
+        return MathF.Pow((value + 0.055f) / 1.055f, 2.4f);
     }
 
     /// <summary>
@@ -208,10 +213,20 @@ static class Bevel
     {
         if (current)
         {
-            return dark ? CurrentDark : CurrentLight;
+            if (dark)
+            {
+                return CurrentDark;
+            }
+
+            return CurrentLight;
         }
 
-        return dark ? Darken(color) : Lighten(color);
+        if (dark)
+        {
+            return Darken(color);
+        }
+
+        return Lighten(color);
     }
 
     static Color Apply(float multiplier, float r, float g, float b) =>

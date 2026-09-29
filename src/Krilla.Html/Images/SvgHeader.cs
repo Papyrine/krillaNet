@@ -185,7 +185,12 @@ static class SvgHeader
             {
                 var end = text.IndexOf('>', after);
 
-                return end < 0 ? null : text[after..end];
+                if (end < 0)
+                {
+                    return null;
+                }
+
+                return text[after..end];
             }
 
             index = after;

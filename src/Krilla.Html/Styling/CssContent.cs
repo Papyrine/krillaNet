@@ -222,7 +222,12 @@ static class CssContent
             // A second argument names WHICH value the page takes — `first`, `start`, `last`. Only
             // the default is implemented, and the others are close enough to it that reporting them
             // would be noise: they differ only on a page that sets the string more than once.
-            return parts.Count >= 1 ? new(ContentKind.String, parts[0]) : null;
+            if (parts.Count >= 1)
+            {
+                return new(ContentKind.String, parts[0]);
+            }
+
+            return null;
         }
 
         if (Function(token, "url") is {} url)

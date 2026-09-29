@@ -114,7 +114,12 @@ static class FlexLayout
 
         Place(lines, contentX, contentY, main, cross, row, style);
 
-        return row ? cross : main;
+        if (row)
+        {
+            return cross;
+        }
+
+        return main;
     }
 
     /// <summary>
@@ -521,8 +526,15 @@ static class FlexLayout
         line.Items.Sum(_ => _.OuterMain) + Gaps(line.Items.Count, gap);
 
     /// <summary>A run of <paramref name="count"/> items has one fewer gap between them.</summary>
-    static float Gaps(int count, float gap) =>
-        count > 1 ? (count - 1) * gap : 0;
+    static float Gaps(int count, float gap)
+    {
+        if (count > 1)
+        {
+            return (count - 1) * gap;
+        }
+
+        return 0;
+    }
 
     /// <summary>
     /// Resolves the flexible lengths on one line: CSS Flexbox §9.7.
@@ -1097,8 +1109,15 @@ static class FlexLayout
     /// How an item aligns on the cross axis, with <c>align-self: auto</c> resolved against its
     /// container.
     /// </summary>
-    static AlignKind Alignment(FlexItem item, ComputedStyle container) =>
-        item.Style.AlignSelf == AlignKind.Auto ? container.AlignItems : item.Style.AlignSelf;
+    static AlignKind Alignment(FlexItem item, ComputedStyle container)
+    {
+        if (item.Style.AlignSelf == AlignKind.Auto)
+        {
+            return container.AlignItems;
+        }
+
+        return item.Style.AlignSelf;
+    }
 
     /// <summary>
     /// The same, with the values that only mean something on one axis folded away.
@@ -1121,8 +1140,15 @@ static class FlexLayout
     }
 
     /// <summary>The main-axis extent the lines came to, for a container sized by its content.</summary>
-    static float Extent(List<FlexLine> lines, float gap) =>
-        lines.Count == 0 ? 0 : lines.Max(_ => Used(_, gap));
+    static float Extent(List<FlexLine> lines, float gap)
+    {
+        if (lines.Count == 0)
+        {
+            return 0;
+        }
+
+        return lines.Max(_ => Used(_, gap));
+    }
 
     /// <summary>
     /// Moves every item to where the algorithm put it, mapping main and cross back onto x and y.
