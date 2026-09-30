@@ -20,7 +20,6 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="Verify.TUnit" />
     <PackageReference Include="Verify" />
-    <PackageReference Include="Verify.DiffPlex" />
     <!--
       Morph.PDFium directly rather than Verify.PDFium, which is what Krilla.Tests uses. The corpus
       renders each page itself so it can pin the DPI and switch anti-aliasing off, and only the

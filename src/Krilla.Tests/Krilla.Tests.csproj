@@ -17,7 +17,6 @@
     <PackageReference Include="Microsoft.NET.Test.Sdk" />
     <PackageReference Include="Verify.TUnit" />
     <PackageReference Include="Verify" />
-    <PackageReference Include="Verify.DiffPlex" />
     <!-- Renders produced PDFs to PNG via PDFium so snapshots assert what a reader actually
          draws, not just the bytes krilla emitted. -->
     <PackageReference Include="Verify.PDFium" />
