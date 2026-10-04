@@ -133,7 +133,7 @@ public class ConversionServiceTests
     [Test]
     public async Task SampleDocumentConverts()
     {
-        var html = await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, "sample.html"));
+        var html = await File.ReadAllTextAsync(Path.Combine(AppContext.BaseDirectory, ProjectFiles.sample_html));
 
         var result = await Service().ConvertAsync(html, PaperSize.Letter, 48);
 

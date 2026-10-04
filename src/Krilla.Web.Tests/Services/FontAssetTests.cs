@@ -17,7 +17,7 @@ namespace Krilla.Web.Tests.Services;
 public class FontAssetTests
 {
     static string WwwrootFonts =>
-        Path.Combine(AttributeReader.GetProjectDirectory(), "..", "Krilla.Web", "wwwroot", "fonts");
+        Path.Combine(ProjectFiles.ProjectDirectory, "..", "Krilla.Web", "wwwroot", "fonts");
 
     [Test]
     [MethodDataSource(nameof(Faces))]
