@@ -177,7 +177,7 @@ static class PdfPainter
     /// </remarks>
     static void PaintMargins(Surface surface, List<LayoutBox>? margins, float scale, DocumentTags? tags)
     {
-        if (margins is not {Count: > 0} boxes)
+        if (margins is not {Count: > 0})
         {
             return;
         }
@@ -188,7 +188,7 @@ static class PdfPainter
             rect.Width * scale,
             rect.Height * scale);
 
-        foreach (var box in boxes)
+        foreach (var box in margins)
         {
             var slice = new PageSlice(
                 box.BorderBox.Y,
@@ -1435,9 +1435,10 @@ static class PdfPainter
     /// </remarks>
     static TagSpan Label(Surface surface, PageSlice page, string? selector)
     {
-        if (page.Tags is {} tags && selector is {} named)
+        if (page.Tags is {} tags &&
+            selector != null)
         {
-            return new(surface, tags, named, surface.BeginText(), marker: true);
+            return new(surface, tags, selector, surface.BeginText(), marker: true);
         }
 
         return Artifact(surface, page);

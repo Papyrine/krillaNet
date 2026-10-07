@@ -23,19 +23,7 @@ public class SnapshotTests
 
     [Test]
     public Task FilledRectangle() =>
-        Verify(Draw(_ => _.FillRectangle(new(40, 40, 160, 120), Color.Rgb(220, 40, 40))), "pdf")
-            .Snapshot(
-                """
-                {
-                  PageCount: 1,
-                  Pages: [
-                    {
-                      Width: 200.0,
-                      Height: 200.0
-                    }
-                  ]
-                }
-                """);
+        Verify(Draw(_ => _.FillRectangle(new(40, 40, 160, 120), Color.Rgb(220, 40, 40))), "pdf");
 
     [Test]
     public Task Triangle()
@@ -50,19 +38,7 @@ public class SnapshotTests
                     new(100, 170));
 
                 surface.SetFill(paint).DrawPath(path);
-            }))
-            .Snapshot(
-                """
-                {
-                  PageCount: 1,
-                  Pages: [
-                    {
-                      Width: 200.0,
-                      Height: 200.0
-                    }
-                  ]
-                }
-                """);
+            }));
     }
 
     [Test]
@@ -78,19 +54,7 @@ public class SnapshotTests
                     .SetFill(null)
                     .SetStroke(new Stroke(paint, Width: 6, DashArray: [14, 7], LineJoin: LineJoin.Round))
                     .DrawPath(path);
-            }))
-            .Snapshot(
-                """
-                {
-                  PageCount: 1,
-                  Pages: [
-                    {
-                      Width: 200.0,
-                      Height: 200.0
-                    }
-                  ]
-                }
-                """);
+            }));
     }
 
     [Test]
@@ -108,19 +72,7 @@ public class SnapshotTests
             {
                 using var path = PdfPath.Rectangle(new(0, 0, 200, 200));
                 surface.SetFill(gradient).DrawPath(path);
-            }))
-            .Snapshot(
-                """
-                {
-                  PageCount: 1,
-                  Pages: [
-                    {
-                      Width: 200.0,
-                      Height: 200.0
-                    }
-                  ]
-                }
-                """);
+            }));
     }
 
     [Test]
@@ -140,19 +92,7 @@ public class SnapshotTests
             {
                 using var path = PdfPath.Rectangle(new(0, 0, 200, 200));
                 surface.SetFill(gradient).DrawPath(path);
-            }))
-            .Snapshot(
-                """
-                {
-                  PageCount: 1,
-                  Pages: [
-                    {
-                      Width: 200.0,
-                      Height: 200.0
-                    }
-                  ]
-                }
-                """);
+            }));
     }
 
     [Test]
@@ -171,19 +111,7 @@ public class SnapshotTests
             {
                 using var path = PdfPath.Rectangle(new(0, 0, 200, 200));
                 surface.SetFill(gradient).DrawPath(path);
-            }))
-            .Snapshot(
-                """
-                {
-                  PageCount: 1,
-                  Pages: [
-                    {
-                      Width: 200.0,
-                      Height: 200.0
-                    }
-                  ]
-                }
-                """);
+            }));
     }
 
     [Test]
@@ -204,19 +132,7 @@ public class SnapshotTests
                         surface.FillRectangle(new(80, 80, 180, 180), Color.Rgb(0, 0, 200));
                     }
                 }
-            }))
-            .Snapshot(
-                """
-                {
-                  PageCount: 1,
-                  Pages: [
-                    {
-                      Width: 200.0,
-                      Height: 200.0
-                    }
-                  ]
-                }
-                """);
+            }));
 
     [Test]
     public Task ClipPath() =>
@@ -235,19 +151,7 @@ public class SnapshotTests
                     // Fills the whole page; only the diamond survives.
                     surface.FillRectangle(new(0, 0, 200, 200), Color.Rgb(200, 60, 160));
                 }
-            }))
-            .Snapshot(
-                """
-                {
-                  PageCount: 1,
-                  Pages: [
-                    {
-                      Width: 200.0,
-                      Height: 200.0
-                    }
-                  ]
-                }
-                """);
+            }));
 
     [Test]
     public Task Transforms() =>
@@ -265,19 +169,7 @@ public class SnapshotTests
                             Color.Gray((byte) (40 + step * 30)));
                     }
                 }
-            }))
-            .Snapshot(
-                """
-                {
-                  PageCount: 1,
-                  Pages: [
-                    {
-                      Width: 200.0,
-                      Height: 200.0
-                    }
-                  ]
-                }
-                """);
+            }));
 
     [Test]
     public Task CurvedPath()
@@ -294,19 +186,7 @@ public class SnapshotTests
                     .Build();
 
                 surface.SetFill(paint).DrawPath(path);
-            }))
-            .Snapshot(
-                """
-                {
-                  PageCount: 1,
-                  Pages: [
-                    {
-                      Width: 200.0,
-                      Height: 200.0
-                    }
-                  ]
-                }
-                """);
+            }));
     }
 
     [Test]
@@ -331,19 +211,7 @@ public class SnapshotTests
 
         using var image = PdfImage.FromRgba(pixels, 4, 4);
 
-        return Verify(extension: "pdf", target: Draw(surface => surface.DrawImage(image, new(25, 25, 175, 175))))
-            .Snapshot(
-                """
-                {
-                  PageCount: 1,
-                  Pages: [
-                    {
-                      Width: 200.0,
-                      Height: 200.0
-                    }
-                  ]
-                }
-                """);
+        return Verify(extension: "pdf", target: Draw(surface => surface.DrawImage(image, new(25, 25, 175, 175))));
     }
 
     [Test]

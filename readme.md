@@ -313,7 +313,7 @@ using (var page = document.StartPage(300, 200))
 
 var pdf = document.Finish();
 ```
-<sup><a href='/src/Krilla.Tests/Samples.cs#L55-L76' title='Snippet source file'>snippet source</a> | <a href='#snippet-DrawAPath' title='Start of snippet'>anchor</a></sup>
+<sup><a href='/src/Krilla.Tests/Samples.cs#L43-L64' title='Snippet source file'>snippet source</a> | <a href='#snippet-DrawAPath' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
 
@@ -347,7 +347,7 @@ using (var page = document.StartPage(200, 200))
 
 var pdf = document.Finish();
 ```
-<sup><a href='/src/Krilla.Tests/Samples.cs#L96-L115' title='Snippet source file'>snippet source</a> | <a href='#snippet-FillAndStroke' title='Start of snippet'>anchor</a></sup>
+<sup><a href='/src/Krilla.Tests/Samples.cs#L72-L91' title='Snippet source file'>snippet source</a> | <a href='#snippet-FillAndStroke' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
 
@@ -378,7 +378,7 @@ using (var page = document.StartPage(300, 150))
 
 var pdf = document.Finish();
 ```
-<sup><a href='/src/Krilla.Tests/Samples.cs#L135-L153' title='Snippet source file'>snippet source</a> | <a href='#snippet-GradientFill' title='Start of snippet'>anchor</a></sup>
+<sup><a href='/src/Krilla.Tests/Samples.cs#L99-L117' title='Snippet source file'>snippet source</a> | <a href='#snippet-GradientFill' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
 All stops in a gradient must share one colour space. A mismatch is reported when the document is finished, not when the gradient is created.
@@ -414,7 +414,7 @@ using (var page = document.StartPage(200, 200))
 
 var pdf = document.Finish();
 ```
-<sup><a href='/src/Krilla.Tests/Samples.cs#L173-L192' title='Snippet source file'>snippet source</a> | <a href='#snippet-TransformsAndOpacity' title='Start of snippet'>anchor</a></sup>
+<sup><a href='/src/Krilla.Tests/Samples.cs#L125-L144' title='Snippet source file'>snippet source</a> | <a href='#snippet-TransformsAndOpacity' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
 
@@ -441,7 +441,7 @@ foreach (var index in Enumerable.Range(0, 3))
 
 document.Save("report.pdf");
 ```
-<sup><a href='/src/Krilla.Tests/Samples.cs#L212-L226' title='Snippet source file'>snippet source</a> | <a href='#snippet-MultiplePages' title='Start of snippet'>anchor</a></sup>
+<sup><a href='/src/Krilla.Tests/Samples.cs#L152-L166' title='Snippet source file'>snippet source</a> | <a href='#snippet-MultiplePages' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
 
@@ -484,7 +484,7 @@ using (var page = document.StartPage(120, 120))
 
 var pdf = document.Finish();
 ```
-<sup><a href='/src/Krilla.Tests/Samples.cs#L234-L264' title='Snippet source file'>snippet source</a> | <a href='#snippet-DrawAnImage' title='Start of snippet'>anchor</a></sup>
+<sup><a href='/src/Krilla.Tests/Samples.cs#L174-L204' title='Snippet source file'>snippet source</a> | <a href='#snippet-DrawAnImage' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
 
@@ -518,7 +518,7 @@ using (var page = document.StartPage(PageSettings.A4))
 
 var pdf = document.Finish();
 ```
-<sup><a href='/src/Krilla.Tests/Samples.cs#L284-L305' title='Snippet source file'>snippet source</a> | <a href='#snippet-Metadata' title='Start of snippet'>anchor</a></sup>
+<sup><a href='/src/Krilla.Tests/Samples.cs#L212-L233' title='Snippet source file'>snippet source</a> | <a href='#snippet-Metadata' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
 
@@ -553,7 +553,7 @@ document.SetOutline(chapter, new OutlineItem("Chapter Two", pageIndex: 2));
 
 var pdf = document.Finish();
 ```
-<sup><a href='/src/Krilla.Tests/Samples.cs#L313-L335' title='Snippet source file'>snippet source</a> | <a href='#snippet-Bookmarks' title='Start of snippet'>anchor</a></sup>
+<sup><a href='/src/Krilla.Tests/Samples.cs#L241-L263' title='Snippet source file'>snippet source</a> | <a href='#snippet-Bookmarks' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
 
@@ -589,7 +589,7 @@ using (document.StartPage(PageSettings.A4))
 
 var pdf = document.Finish();
 ```
-<sup><a href='/src/Krilla.Tests/Samples.cs#L343-L366' title='Snippet source file'>snippet source</a> | <a href='#snippet-Links' title='Start of snippet'>anchor</a></sup>
+<sup><a href='/src/Krilla.Tests/Samples.cs#L271-L294' title='Snippet source file'>snippet source</a> | <a href='#snippet-Links' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
 
@@ -620,7 +620,7 @@ document.EmbedFile(
 
 var pdf = document.Finish();
 ```
-<sup><a href='/src/Krilla.Tests/Samples.cs#L504-L522' title='Snippet source file'>snippet source</a> | <a href='#snippet-Attachments' title='Start of snippet'>anchor</a></sup>
+<sup><a href='/src/Krilla.Tests/Samples.cs#L420-L438' title='Snippet source file'>snippet source</a> | <a href='#snippet-Attachments' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
 
@@ -656,7 +656,7 @@ using (var page = document.StartPage(PageSettings.A4))
 
 var pdf = document.Finish();
 ```
-<sup><a href='/src/Krilla.Tests/Samples.cs#L463-L484' title='Snippet source file'>snippet source</a> | <a href='#snippet-ReusableGraphic' title='Start of snippet'>anchor</a></sup>
+<sup><a href='/src/Krilla.Tests/Samples.cs#L391-L412' title='Snippet source file'>snippet source</a> | <a href='#snippet-ReusableGraphic' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
 
@@ -695,7 +695,7 @@ using (var page = document.StartPage(PageSettings.A4))
 // the offending content was added.
 var pdf = document.Finish();
 ```
-<sup><a href='/src/Krilla.Tests/Samples.cs#L374-L400' title='Snippet source file'>snippet source</a> | <a href='#snippet-ArchivalPdf' title='Start of snippet'>anchor</a></sup>
+<sup><a href='/src/Krilla.Tests/Samples.cs#L302-L328' title='Snippet source file'>snippet source</a> | <a href='#snippet-ArchivalPdf' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
 
@@ -757,7 +757,7 @@ document.SetOutline(new OutlineItem("Introduction", pageIndex: 0));
 
 var pdf = document.Finish();
 ```
-<sup><a href='/src/Krilla.Tests/Samples.cs#L408-L455' title='Snippet source file'>snippet source</a> | <a href='#snippet-AccessibleDocument' title='Start of snippet'>anchor</a></sup>
+<sup><a href='/src/Krilla.Tests/Samples.cs#L336-L383' title='Snippet source file'>snippet source</a> | <a href='#snippet-AccessibleDocument' title='Start of snippet'>anchor</a></sup>
 <!-- endSnippet -->
 
 Content that is decoration rather than meaning — running heads, page numbers, rules — should be marked with `BeginArtifact` instead, which keeps it out of the tree entirely.

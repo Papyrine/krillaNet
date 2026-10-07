@@ -1,0 +1,12 @@
+﻿{
+  PageCount: 1,
+  Pages: [
+    {
+      Number: 1,
+      Info: {
+        Width: 200.0,
+        Height: 200.0
+      }
+    }
+  ]
+}

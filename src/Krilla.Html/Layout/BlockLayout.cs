@@ -102,7 +102,7 @@ static class BlockLayout
         float? replacedWidth = null;
         float? replacedHeight = null;
 
-        if (box.Image is {} replaced)
+        if (box.Image is { } replaced)
         {
             var size = ReplacedSizing.Resolve(
                 style,
@@ -116,8 +116,8 @@ static class BlockLayout
 
         var (marginLeft, contentWidth) = (assignedWidth, replacedWidth) switch
         {
-            ({} given, _) => (0f, Math.Max(0, given - surround)),
-            (_, {} fixedWidth) => (ResolveReplacedMargin(style, containingWidth, surround, fixedWidth), fixedWidth),
+            ({ } given, _) => (0f, Math.Max(0, given - surround)),
+            (_, { } fixedWidth) => (ResolveReplacedMargin(style, containingWidth, surround, fixedWidth), fixedWidth),
             _ => ResolveHorizontal(style, containingWidth, surround)
         };
 
@@ -138,13 +138,13 @@ static class BlockLayout
         // And what the children see. Clamped, because the used height is what they resolve
         // against; null when this box has no definite height of its own, which stops the
         // percentage in its tracks exactly as CSS asks.
-        var inner = declared is {} settled
+        var inner = declared is { } settled
             ? ClampHeight(settled, style, surroundY, containingHeight)
             : (float?) null;
 
         float contentHeight;
 
-        if (replacedHeight is {} imageHeight)
+        if (replacedHeight is { } imageHeight)
         {
             contentHeight = imageHeight;
         }
@@ -696,13 +696,13 @@ static class BlockLayout
     /// </remarks>
     static float Clamp(float width, ComputedStyle style, float containingWidth, float surround)
     {
-        if (style.ContentSize(style.MaxWidth.ResolveOrNull(containingWidth), surround) is {} max)
+        if (style.ContentSize(style.MaxWidth.ResolveOrNull(containingWidth), surround) is { } max)
         {
             width = Math.Min(width, max);
         }
 
         // After max-width, so a min wider than the max wins — which is the order CSS specifies.
-        if (style.ContentSize(style.MinWidth.ResolveOrNull(containingWidth), surround) is {} min)
+        if (style.ContentSize(style.MinWidth.ResolveOrNull(containingWidth), surround) is { } min)
         {
             width = Math.Max(width, min);
         }
@@ -748,14 +748,14 @@ static class BlockLayout
     /// </remarks>
     static float ClampHeight(float height, ComputedStyle style, float surround, float? containing)
     {
-        if (Definite(style.MaxHeight, containing, style, surround) is {} max)
+        if (Definite(style.MaxHeight, containing, style, surround) is { } max)
         {
             height = Math.Min(height, max);
         }
 
         // After max-height, so a minimum taller than the maximum wins — the order CSS specifies,
         // and the one `Clamp` uses for the horizontal pair.
-        if (Definite(style.MinHeight, containing, style, surround) is {} min)
+        if (Definite(style.MinHeight, containing, style, surround) is { } min)
         {
             height = Math.Max(height, min);
         }
@@ -776,7 +776,7 @@ static class BlockLayout
         length.Kind switch
         {
             LengthKind.Absolute => style.ContentSize(length.Value, surround),
-            LengthKind.Percent or LengthKind.Calc when containing is {} basis =>
+            LengthKind.Percent or LengthKind.Calc when containing is { } basis =>
                 style.ContentSize(Math.Max(0, length.Resolve(basis)), surround),
             _ => null
         };
@@ -862,9 +862,9 @@ static class BlockLayout
     /// placed, and placing it is what the answer changes.
     /// </remarks>
     static bool TakesClearance(LayoutBox child, FloatContext? floats, float hypothetical) =>
-        floats is {} context &&
+        floats != null &&
         child.Style.Clear != ClearKind.None &&
-        context.ClearTo(child.Style.Clear, hypothetical) > hypothetical;
+        floats.ClearTo(child.Style.Clear, hypothetical) > hypothetical;
 
     /// <inheritdoc cref="LeadingMargin"/>
     static FloatContext? InScope(LayoutBox parent, FloatContext? floats, int index)
@@ -953,19 +953,29 @@ static class BlockLayout
     /// box's own bottom margin collapsing through it and becoming a leading margin for the run.
     /// </para>
     /// </remarks>
-    static bool IsSelfCollapsing(LayoutBox box, float containingWidth) =>
-        box.Image is null &&
-        box.Style.AspectRatio <= 0 &&
-        box.Style.Display != DisplayKind.Table &&
-        // Nor a flex container, whose children hold its margins apart even where each of them is
-        // empty: margins do not collapse inside one, so a flex container holding two empty items
-        // is as tall as their margins where a block holding the same two is not.
-        !box.Style.IsFlexContainer &&
-        box.Style.BorderWidthY == 0 &&
-        box.Style.PaddingTop.Resolve(containingWidth) == 0 &&
-        box.Style.PaddingBottom.Resolve(containingWidth) == 0 &&
-        box.Style.Height.Resolve(0) == 0 &&
-        box.Style.MinHeight.Resolve(0) == 0 &&
-        !box.IsInlineContainer &&
-        box.Children.All(_ => IsSelfCollapsing(_, containingWidth));
+    static bool IsSelfCollapsing(LayoutBox box, float containingWidth)
+    {
+        if (box.Image is not null)
+        {
+            return false;
+        }
+
+        var style = box.Style;
+        return style.AspectRatio <= 0 &&
+               style.Display != DisplayKind.Table &&
+               // Nor a flex container, whose children hold its margins apart even where each of them is
+               // empty: margins do not collapse inside one, so a flex container holding two empty items
+               // is as tall as their margins where a block holding the same two is not.
+               style is
+               {
+                   IsFlexContainer: false,
+                   BorderWidthY: 0
+               } &&
+               style.PaddingTop.Resolve(containingWidth) == 0 &&
+               style.PaddingBottom.Resolve(containingWidth) == 0 &&
+               style.Height.Resolve(0) == 0 &&
+               style.MinHeight.Resolve(0) == 0 &&
+               !box.IsInlineContainer &&
+               box.Children.All(_ => IsSelfCollapsing(_, containingWidth));
+    }
 }

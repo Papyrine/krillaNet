@@ -1460,12 +1460,12 @@ static class InlineLayout
         // text. Measured: Chrome puts it at the end of the content rather than at the band's edge,
         // so an empty line reports it at the start and a centred one at the end of the centred
         // text.
-        if (endedBy is {} selector)
+        if (endedBy != null)
         {
             var size = box.Style.FontSize;
 
             line.Breaks.Add(new(
-                selector,
+                endedBy,
                 new(x, y + above - strutFace.Ascent(size), 0, strutFace.Ascent(size) + strutFace.Descent(size))));
         }
 

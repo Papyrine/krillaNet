@@ -91,7 +91,7 @@ static class FlexLayout
         {
             foreach (var item in line.Items)
             {
-                Measure(item, container, contentWidth, contentHeight, row, fonts);
+                Measure(item, contentWidth, contentHeight, row, fonts);
             }
         }
 
@@ -274,7 +274,11 @@ static class FlexLayout
 
         float? declared = null;
 
-        if (!basis.IsAuto && !basis.IsNone)
+        if (basis is
+            {
+                IsAuto: false,
+                IsNone: false
+            })
         {
             // `flex-basis: content` reaches here as an unparseable value and so as `auto`, which
             // is the same answer by a different route: both fall through to the max-content size
@@ -447,8 +451,11 @@ static class FlexLayout
         }
 
         if (Alignment(item, container.Style) == AlignKind.Stretch &&
-            !item.AutoCrossStart &&
-            !item.AutoCrossEnd)
+            item is
+            {
+                AutoCrossStart: false,
+                AutoCrossEnd: false
+            })
         {
             return available;
         }
@@ -646,8 +653,8 @@ static class FlexLayout
                 // negative total is the same thing reflected through the maximums.
                 unfrozen[index].Frozen =
                     violation == 0 ||
-                    (violation > 0 && clamps[index] > Epsilon) ||
-                    (violation < 0 && clamps[index] < -Epsilon);
+                    (violation > 0 && clamps[index] > epsilon) ||
+                    (violation < 0 && clamps[index] < -epsilon);
             }
         }
 
@@ -670,7 +677,7 @@ static class FlexLayout
     /// a rounding difference. A thousandth of a pixel is far below anything the corpus can see and
     /// far above what the arithmetic produces.
     /// </remarks>
-    const float Epsilon = 0.001f;
+    const float epsilon = 0.001f;
 
     /// <summary>
     /// Lays one item out at the main size the flexing gave it, and records the cross size it comes
@@ -678,7 +685,6 @@ static class FlexLayout
     /// </summary>
     static void Measure(
         FlexItem item,
-        LayoutBox container,
         float contentWidth,
         float? contentHeight,
         bool row,
@@ -854,7 +860,7 @@ static class FlexLayout
 
                 var stretched = Math.Max(0, line.Cross - item.CrossStart - item.CrossEnd);
 
-                if (Math.Abs(stretched - item.Cross) < Epsilon)
+                if (Math.Abs(stretched - item.Cross) < epsilon)
                 {
                     continue;
                 }

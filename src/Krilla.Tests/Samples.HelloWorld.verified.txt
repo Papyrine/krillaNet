@@ -1,7 +1,4 @@
 ﻿{
-  Document: {
-    Title: An Accessible Document
-  },
   PageCount: 1,
   Pages: [
     {
