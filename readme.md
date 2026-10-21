@@ -822,6 +822,18 @@ Expect the build to take appreciably longer than a managed-only one. That is the
 
 **WebAssembly exception handling has to stay switched on**, which it is by default. Every export in the shim contains its panics inside `catch_unwind`, so a failure inside krilla comes back as a status code rather than taking the runtime down with it, and on this target the compiler implements that with native WebAssembly exception handling. `<WasmEnableExceptionHandling>false</WasmEnableExceptionHandling>` therefore fails the link on an undefined `__cpp_exception` symbol — the package raises a message naming the property before the linker gets that far.
 
+**Fonts have to arrive as bytes.** krilla has no font database, and a browser has no directory for `FontSet.AddDirectory` to read, so fetch each face over HTTP and load it with `FontFace.Load`. Build the set once and keep it: it owns native handles, and the faces are megabytes, not a download to repeat per conversion.
+
+```cs
+var set = new FontSet();
+foreach (var face in faces)
+{
+    set.Add(FontFace.Load(await http.GetByteArrayAsync($"fonts/{face}")));
+}
+```
+
+[`src/Krilla.Web`](src/Krilla.Web) is a complete Blazor WebAssembly app built this way, and is what the [live demo](https://papyrine.github.io/krillaNet/) runs.
+
 `browser-wasm` is also the only 32-bit target here. Nothing in the public API changes: the interop layer is written in pointer-sized types throughout, so the struct layouts follow the target on their own, and the shipped archive is checked against the managed side's expectations on every release build.
 
 Images are worth a thought on this platform in particular. Krilla never fetches over the network on any target — that is a security default rather than a gap — so pictures and fonts arrive as bytes the caller supplies, which in a browser means fetching them in application code before handing them over.
