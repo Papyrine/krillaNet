@@ -471,7 +471,8 @@ static class StyleResolver
 
         // After the style, not before: the scan reports against what the element resolved to, and
         // a table cell has to be recognised as one before its vertical-align can be judged.
-        if (context.Reports && !pseudo)
+        if (context.Reports &&
+            !pseudo)
         {
             UnsupportedCss.Report(element, declaration, style, context, context.OnDiagnostic);
         }
@@ -657,7 +658,8 @@ static class StyleResolver
                 declaration.GetPropertyValue(mapping.Shorthand).Trim() is {Length: > 0} pair)
             {
                 var parts = pair.Split(' ', StringSplitOptions.RemoveEmptyEntries);
-                if (parts.Length > 1 && mapping.Second)
+                if (parts.Length > 1 &&
+                    mapping.Second)
                 {
                     return parts[1];
                 }
@@ -1014,7 +1016,9 @@ static class StyleResolver
         var shrink = declaration.GetPropertyValue("flex-shrink").Trim();
         var basis = declaration.GetPropertyValue("flex-basis").Trim();
 
-        if (grow.Length == 0 && shrink.Length == 0 && basis.Length == 0)
+        if (grow.Length == 0 &&
+            shrink.Length == 0 &&
+            basis.Length == 0)
         {
             // Either nothing was declared, or all three were and the parser dropped them — which
             // is what `flex: none` does. Only the source can tell those apart.
@@ -1122,7 +1126,8 @@ static class StyleResolver
         var row = declaration.GetPropertyValue("row-gap").Trim();
         var column = declaration.GetPropertyValue("column-gap").Trim();
 
-        if (row.Length == 0 && column.Length == 0)
+        if (row.Length == 0 &&
+            column.Length == 0)
         {
             return new(CssLength.Zero, CssLength.Zero);
         }
@@ -1301,7 +1306,8 @@ static class StyleResolver
         var source = value[4..^1].Trim();
 
         if (source.Length >= 2 &&
-            ((source[0] == '"' && source[^1] == '"') || (source[0] == '\'' && source[^1] == '\'')))
+            ((source[0] == '"' &&
+              source[^1] == '"') || (source[0] == '\'' && source[^1] == '\'')))
         {
             source = source[1..^1];
         }
@@ -1448,7 +1454,9 @@ static class StyleResolver
             .Split(' ', StringSplitOptions.RemoveEmptyEntries);
 
         // One length sizes that axis and leaves the other to the image's own proportions.
-        if (parts.Length == 0 || (!first && parts.Length == 1))
+        if (parts.Length == 0 ||
+            (!first &&
+             parts.Length == 1))
         {
             return CssLength.Auto;
         }
@@ -1704,7 +1712,10 @@ static class StyleResolver
         }
 
         if (text.Length >= 2 &&
-            ((text[0] == '"' && text[^1] == '"') || (text[0] == '\'' && text[^1] == '\'')))
+            ((text[0] == '"' &&
+              text[^1] == '"') ||
+             (text[0] == '\'' &&
+              text[^1] == '\'')))
         {
             return CssContent.Unescape(text[1..^1]);
         }
@@ -2153,7 +2164,8 @@ static class StyleResolver
 
         // An odd count is a malformed declaration; the trailing mark has no closing partner and
         // would be read as one, so the whole value falls back.
-        if (marks.Count >= 2 && marks.Count % 2 == 0)
+        if (marks.Count >= 2 &&
+            marks.Count % 2 == 0)
         {
             return [.. marks];
         }
@@ -2254,7 +2266,8 @@ static class StyleResolver
         // Exactly two lengths: the offset, with no blur and no spread. A third length is a blur —
         // or a spread that AngleSharp has made indistinguishable from one — and either way this
         // cannot draw it.
-        if (lengths.Count == 2 && color is {} painted)
+        if (lengths.Count == 2 &&
+            color is {} painted)
         {
             return new(lengths[0], lengths[1], painted, opacity, inset);
         }
@@ -2293,7 +2306,8 @@ static class StyleResolver
             return width;
         }
 
-        if (CssValues.TryParseNumber(parts[1], out var height) && height > 0)
+        if (CssValues.TryParseNumber(parts[1], out var height) &&
+            height > 0)
         {
             return width / height;
         }
@@ -2343,7 +2357,8 @@ static class StyleResolver
     /// </remarks>
     static float ParseTabSize(string value, float inherited)
     {
-        if (CssValues.TryParseNumber(value.Trim(), out var stops) && stops > 0)
+        if (CssValues.TryParseNumber(value.Trim(), out var stops) &&
+            stops > 0)
         {
             return stops;
         }
@@ -2551,7 +2566,8 @@ static class StyleResolver
         var collapse = declaration.GetPropertyValue("white-space-collapse").Trim().ToLowerInvariant();
         var wrap = declaration.GetPropertyValue("text-wrap").Trim().ToLowerInvariant();
 
-        if (collapse.Length == 0 && wrap.Length == 0)
+        if (collapse.Length == 0 &&
+            wrap.Length == 0)
         {
             return inherited;
         }

@@ -22,13 +22,15 @@ public class ThemePreferenceService(IJSRuntime jsRuntime)
     public async Task<ThemeType> GetSavedThemeAsync()
     {
         var value = await jsRuntime.InvokeAsync<string?>("statePreference.get", ThemeKey);
-        if (value is not null && Enum.TryParse<ThemeType>(value, out var theme))
+        if (value is not null &&
+            Enum.TryParse<ThemeType>(value, out var theme))
         {
             return theme;
         }
 
         var preferred = await jsRuntime.InvokeAsync<string?>("themeManager.preferredTheme");
-        if (preferred is not null && Enum.TryParse<ThemeType>(preferred, out var system))
+        if (preferred is not null &&
+            Enum.TryParse<ThemeType>(preferred, out var system))
         {
             return system;
         }

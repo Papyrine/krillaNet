@@ -85,7 +85,8 @@ static class SvgHeader
         var declaredWidth = TryLength(Attribute(tag, "width"));
         var declaredHeight = TryLength(Attribute(tag, "height"));
 
-        if (declaredWidth is { } w && declaredHeight is { } h)
+        if (declaredWidth is { } w &&
+            declaredHeight is { } h)
         {
             width = w;
             height = h;
@@ -126,7 +127,8 @@ static class SvgHeader
             return null;
         }
 
-        if (data[0] == 0x1F && data[1] == 0x8B)
+        if (data[0] == 0x1F &&
+            data[1] == 0x8B)
         {
             return Decompress(data);
         }
@@ -219,11 +221,13 @@ static class SvgHeader
             var boundedBefore = index == 0 || char.IsWhiteSpace(tag[index - 1]);
             var rest = tag.AsSpan(end).TrimStart();
 
-            if (boundedBefore && rest.Length > 0 && rest[0] == '=')
+            if (boundedBefore &&
+                rest.Length > 0 && rest[0] == '=')
             {
                 var value = rest[1..].TrimStart();
 
-                if (value.Length > 0 && value[0] is '"' or '\'')
+                if (value.Length > 0 &&
+                    value[0] is '"' or '\'')
                 {
                     var quote = value[0];
                     var close = value[1..].IndexOf(quote);

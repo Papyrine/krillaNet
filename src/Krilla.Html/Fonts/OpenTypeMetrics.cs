@@ -188,7 +188,8 @@ sealed class OpenTypeMetrics
 
             // sxHeight arrived in version 2, so a version 0 or 1 table keeps the fallback rather
             // than reading whatever follows the table.
-            if (ReadUInt16(data, os2) >= 2 && os2 + 88 <= data.Length)
+            if (ReadUInt16(data, os2) >= 2 &&
+                os2 + 88 <= data.Length)
             {
                 xHeight = ReadInt16(data, os2 + 86);
             }
@@ -224,7 +225,8 @@ sealed class OpenTypeMetrics
         var underlineOffset = unitsPerEm / 10;
         var underlineThickness = unitsPerEm / 20;
 
-        if (tables.TryGetValue("post", out var post) && post + 12 <= data.Length)
+        if (tables.TryGetValue("post", out var post) &&
+            post + 12 <= data.Length)
         {
             underlineOffset = -ReadInt16(data, post + 8);
             underlineThickness = ReadInt16(data, post + 10);
@@ -288,7 +290,8 @@ sealed class OpenTypeMetrics
         {
             var record = offset + 6 + i * 12;
             var nameId = ReadUInt16(data, record + 6);
-            if (nameId != 1 && nameId != 16)
+            if (nameId != 1 &&
+                nameId != 16)
             {
                 continue;
             }

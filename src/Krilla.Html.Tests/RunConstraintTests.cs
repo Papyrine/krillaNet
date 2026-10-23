@@ -221,7 +221,8 @@ public class RunConstraintTests
                 var offset = (y * image.Width + x) * 4;
                 var rgba = image.Rgba;
 
-                if (rgba[offset] > 120 && rgba[offset + 1] < 120 && rgba[offset + 2] < 120)
+                if (rgba[offset] > 120 &&
+                    rgba[offset + 1] < 120 && rgba[offset + 2] < 120)
                 {
                     return y;
                 }

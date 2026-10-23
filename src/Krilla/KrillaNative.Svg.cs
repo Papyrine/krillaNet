@@ -19,7 +19,8 @@ static partial class KrillaNative
     {
         try
         {
-            return krilla_svg_supported(out var supported) == Status.Ok && supported != 0;
+            return krilla_svg_supported(out var supported) == Status.Ok &&
+                   supported != 0;
         }
         catch (EntryPointNotFoundException)
         {

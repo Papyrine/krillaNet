@@ -107,7 +107,8 @@ sealed class CssCounters
 
         foreach (var name in pushed)
         {
-            if (scopes.TryGetValue(name, out var stack) && stack.Count > 0)
+            if (scopes.TryGetValue(name, out var stack) &&
+                stack.Count > 0)
             {
                 stack.RemoveAt(stack.Count - 1);
             }
@@ -117,7 +118,8 @@ sealed class CssCounters
     /// <summary>The innermost value of one counter, which is zero when it has none.</summary>
     public int Value(string name)
     {
-        if (scopes.TryGetValue(name, out var stack) && stack.Count > 0)
+        if (scopes.TryGetValue(name, out var stack) &&
+            stack.Count > 0)
         {
             return stack[^1];
         }

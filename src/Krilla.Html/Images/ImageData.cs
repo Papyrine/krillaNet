@@ -82,7 +82,8 @@ sealed class ImageData :
     {
         get
         {
-            if (Width > 0 && Height > 0)
+            if (Width > 0 &&
+                Height > 0)
             {
                 return (float) Width / Height;
             }

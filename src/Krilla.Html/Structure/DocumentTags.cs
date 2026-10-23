@@ -77,7 +77,8 @@ sealed class DocumentTags
     }
 
     /// <summary>Whether anything was recorded at all.</summary>
-    public bool IsEmpty => byElement.Count == 0 && byMarker.Count == 0;
+    public bool IsEmpty => byElement.Count == 0 &&
+                           byMarker.Count == 0;
 
     readonly HashSet<object> sighted = [];
 
@@ -168,7 +169,9 @@ sealed class DocumentTags
             }
         }
 
-        if (own is null && marker is null && children is null)
+        if (own is null &&
+            marker is null &&
+            children is null)
         {
             return null;
         }
@@ -191,7 +194,8 @@ sealed class DocumentTags
 
         foreach (var (child, order) in children ?? [])
         {
-            while (index < (own?.Count ?? 0) && own![index].Order < order)
+            while (index < (own?.Count ?? 0) &&
+                   own![index].Order < order)
             {
                 parent.Add(own[index++].Identifier);
             }
@@ -218,12 +222,14 @@ sealed class DocumentTags
 
         // The marker as well as the text, because it is drawn AHEAD of the item's own lines — so
         // an item whose text is all in child elements still first put ink where its bullet went.
-        if (byMarker.TryGetValue(path, out var marker) && marker.Count > 0)
+        if (byMarker.TryGetValue(path, out var marker) &&
+            marker.Count > 0)
         {
             first = marker[0].Order;
         }
 
-        if (byElement.TryGetValue(path, out var own) && own.Count > 0)
+        if (byElement.TryGetValue(path, out var own) &&
+            own.Count > 0)
         {
             first = Math.Min(first, own[0].Order);
         }
@@ -258,7 +264,8 @@ sealed class DocumentTags
 
             foreach (var target in named)
             {
-                if (cells.ContainsKey(SelectorPath.For(target)) && target.Id is {Length: > 0} id)
+                if (cells.ContainsKey(SelectorPath.For(target)) &&
+                    target.Id is {Length: > 0} id)
                 {
                     ids.Add(id);
                 }
@@ -387,7 +394,8 @@ sealed class DocumentTags
             }
         }
 
-        if (associations.IsHeader(path) && element.Id is {Length: > 0} id)
+        if (associations.IsHeader(path) &&
+            element.Id is {Length: > 0} id)
         {
             tag.WithId(id);
         }
@@ -409,7 +417,8 @@ sealed class DocumentTags
         // An anchor WITH an href is a link and one without is not — HTML's own distinction, and the
         // one a reader acts on. The annotation lands here alongside the text, because `PaintLink`
         // records it against the anchor's own selector rather than the run's.
-        if (element.LocalName == "a" && element.GetAttribute("href") is {Length: > 0})
+        if (element.LocalName == "a" &&
+            element.GetAttribute("href") is {Length: > 0})
         {
             return new(Tag.Create(TagKind.Link));
         }

@@ -65,7 +65,8 @@ static class PageComparison
 
     static PngImage Crop(PngImage image, int width, int height)
     {
-        if (image.Width == width && image.Height == height)
+        if (image.Width == width &&
+            image.Height == height)
         {
             return image;
         }

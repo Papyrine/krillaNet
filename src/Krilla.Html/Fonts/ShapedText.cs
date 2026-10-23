@@ -84,7 +84,8 @@ sealed class ShapedText
         var glyph = 0;
         for (var position = 0; position <= text.Length; position++)
         {
-            while (glyph < glyphs.Length && glyphs[glyph].TextStart < position)
+            while (glyph < glyphs.Length &&
+                   glyphs[glyph].TextStart < position)
             {
                 glyph++;
             }
@@ -117,7 +118,8 @@ sealed class ShapedText
     /// </remarks>
     float Spacing(int start, int end)
     {
-        if (letterSpacing == 0 && wordSpacing == 0)
+        if (letterSpacing == 0 &&
+            wordSpacing == 0)
         {
             return 0;
         }

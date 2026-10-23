@@ -669,7 +669,9 @@ public class DiagnosticTests
             .Select(_ => _.ToString())
             .ToList();
 
-        await Assert.That(lines).Contains(_ => _.Contains("@font-face") && _.Contains("Corporate"));
+        await Assert.That(lines)
+            .Contains(_ => _.Contains("@font-face") &&
+                           _.Contains("Corporate"));
     }
 
     static async Task<List<HtmlDiagnostic>> Collect(string body, string? css = null)

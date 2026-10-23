@@ -41,7 +41,8 @@ static class UnsupportedText
         {
             var value = rune.Value;
 
-            if (!unbreakable && NeedsWordBreaking(value))
+            if (!unbreakable &&
+                NeedsWordBreaking(value))
             {
                 unbreakable = true;
 
@@ -54,7 +55,8 @@ static class UnsupportedText
                     "overflows rather than wrapping");
             }
 
-            if (!reordered && IsRightToLeft(value))
+            if (!reordered &&
+                IsRightToLeft(value))
             {
                 reordered = true;
 
@@ -66,7 +68,10 @@ static class UnsupportedText
                     "laid out left to right, so it comes out in the wrong order");
             }
 
-            if (!uncovered && fonts is not null && Drawn(rune) && !fonts.AnyCovers(value))
+            if (!uncovered &&
+                fonts is not null &&
+                Drawn(rune) &&
+                !fonts.AnyCovers(value))
             {
                 uncovered = true;
 
@@ -78,7 +83,9 @@ static class UnsupportedText
                     "no registered font covers it, so it is drawn as .notdef");
             }
 
-            if (unbreakable && reordered && uncovered)
+            if (unbreakable &&
+                reordered &&
+                uncovered)
             {
                 return;
             }

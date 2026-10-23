@@ -120,14 +120,17 @@ public sealed class ImagePolicy
         new(allowAll: false, predicate);
 
     internal bool IsAllowed(string source) =>
-        allowAll || (filter is not null && filter(source));
+        allowAll ||
+        (filter is not null &&
+         filter(source));
 
     static string Normalize(string directory)
     {
         var full = Path.GetFullPath(directory);
 
         // With a trailing separator, so that an allowed "C:\a" does not also allow "C:\ab".
-        if (full.EndsWith(Path.DirectorySeparatorChar) || full.EndsWith(Path.AltDirectorySeparatorChar))
+        if (full.EndsWith(Path.DirectorySeparatorChar) ||
+            full.EndsWith(Path.AltDirectorySeparatorChar))
         {
             return full;
         }

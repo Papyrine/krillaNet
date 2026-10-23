@@ -296,7 +296,8 @@ sealed class DocumentContext :
 
                     // A pseudo-element carries neither of these, and `Matches` throws on the
                     // double-colon form — so a rule naming one is skipped rather than guessed at.
-                    if (text.Length > 0 && !text.Contains("::"))
+                    if (text.Length > 0 &&
+                        !text.Contains("::"))
                     {
                         found.Add((text, value));
                     }

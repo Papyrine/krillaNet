@@ -57,7 +57,9 @@ static class Bevel
         }
 
         // Chromium hardcodes white, and the value is not the formula's.
-        if (red == 255 && green == 255 && blue == 255)
+        if (red == 255 &&
+            green == 255 &&
+            blue == 255)
         {
             return Color.Rgb(0xAB, 0xAB, 0xAB);
         }

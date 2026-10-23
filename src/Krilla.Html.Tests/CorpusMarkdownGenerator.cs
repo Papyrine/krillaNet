@@ -85,7 +85,8 @@ static class CorpusMarkdownGenerator
             .Select(Path.GetFileName)
             .ToArray();
 
-        if (referencePages.Length == 0 && renderedPages.Length == 0)
+        if (referencePages.Length == 0 &&
+            renderedPages.Length == 0)
         {
             builder.Append("_No pages rendered yet._\n\n");
             return;

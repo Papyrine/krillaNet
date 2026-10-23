@@ -507,7 +507,8 @@ static class FlexLayout
         {
             var needed = item.OuterHypothetical + (current.Count > 0 ? gap : 0);
 
-            if (current.Count > 0 && used + needed > available)
+            if (current.Count > 0 &&
+                used + needed > available)
             {
                 lines.Add(new() {Items = current});
                 current = [];
@@ -577,8 +578,10 @@ static class FlexLayout
             // hypothetical size, is settled before the loop starts.
             item.Frozen =
                 factor == 0 ||
-                (grow && item.Base > item.Hypothetical) ||
-                (!grow && item.Base < item.Hypothetical);
+                (grow &&
+                 item.Base > item.Hypothetical) ||
+                (!grow &&
+                 item.Base < item.Hypothetical);
 
             item.Main = item.Frozen ? item.Hypothetical : item.Base;
         }
@@ -612,11 +615,13 @@ static class FlexLayout
 
             // A grow factor summing below one takes only that fraction of the free space, and a
             // scaled shrink factor summing below one gives up only that fraction of the shortfall.
-            if (grow && unfrozen.Sum(_ => _.Style.FlexGrow) < 1)
+            if (grow &&
+                unfrozen.Sum(_ => _.Style.FlexGrow) < 1)
             {
                 remaining = Math.Min(remaining, initial * unfrozen.Sum(_ => _.Style.FlexGrow));
             }
-            else if (!grow && unfrozen.Sum(_ => _.Style.FlexShrink) < 1)
+            else if (!grow &&
+                     unfrozen.Sum(_ => _.Style.FlexShrink) < 1)
             {
                 remaining = Math.Max(remaining, initial * unfrozen.Sum(_ => _.Style.FlexShrink));
             }
@@ -653,8 +658,10 @@ static class FlexLayout
                 // negative total is the same thing reflected through the maximums.
                 unfrozen[index].Frozen =
                     violation == 0 ||
-                    (violation > 0 && clamps[index] > epsilon) ||
-                    (violation < 0 && clamps[index] < -epsilon);
+                    (violation > 0 &&
+                     clamps[index] > epsilon) ||
+                    (violation < 0 &&
+                     clamps[index] < -epsilon);
             }
         }
 
@@ -759,7 +766,9 @@ static class FlexLayout
         // `align-items: center` centre an item in a container that declared a height and do
         // nothing at all in one that did not, which is the single most confusing thing about the
         // property until the reason is stated.
-        if (style.FlexWrap == FlexWrapKind.NoWrap && crossSize is {} definite && lines.Count == 1)
+        if (style.FlexWrap == FlexWrapKind.NoWrap &&
+            crossSize is {} definite &&
+            lines.Count == 1)
         {
             lines[0].Cross = definite;
         }
@@ -959,7 +968,8 @@ static class FlexLayout
 
         var free = available - content;
 
-        if (align == ContentDistributionKind.Stretch && free > 0)
+        if (align == ContentDistributionKind.Stretch &&
+            free > 0)
         {
             var share = free / lines.Count;
 
@@ -1036,7 +1046,8 @@ static class FlexLayout
         var free = available - Used(line, gap);
         var autos = line.Items.Sum(_ => (_.AutoMainStart ? 1 : 0) + (_.AutoMainEnd ? 1 : 0));
 
-        if (autos > 0 && free > 0)
+        if (autos > 0 &&
+            free > 0)
         {
             var share = free / autos;
             var position = 0f;
@@ -1137,7 +1148,8 @@ static class FlexLayout
     {
         var align = Alignment(item, container);
 
-        if (align == AlignKind.Baseline && !row)
+        if (align == AlignKind.Baseline &&
+            !row)
         {
             return AlignKind.Start;
         }

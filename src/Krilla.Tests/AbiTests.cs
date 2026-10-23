@@ -88,7 +88,8 @@ public class AbiTests
     {
         var leaked = typeof(KrillaDocument).Assembly
             .GetTypes()
-            .Where(_ => _.IsPublic && _.Name.StartsWith("Native", StringComparison.Ordinal))
+            .Where(_ => _.IsPublic &&
+                        _.Name.StartsWith("Native", StringComparison.Ordinal))
             .Select(_ => _.FullName)
             .ToList();
 

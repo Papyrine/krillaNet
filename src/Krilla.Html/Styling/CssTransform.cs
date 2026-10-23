@@ -103,7 +103,8 @@ sealed record CssTransform(
 
         var text = transform.Trim();
 
-        if (text.Length > 0 && !text.Equals("none", StringComparison.OrdinalIgnoreCase))
+        if (text.Length > 0 &&
+            !text.Equals("none", StringComparison.OrdinalIgnoreCase))
         {
             var listed = new List<TransformFunction>();
 
@@ -181,13 +182,15 @@ sealed record CssTransform(
 
             foreach (var word in turned)
             {
-                if (CssValues.ParseAngle(word) is {} degrees && angle is null)
+                if (CssValues.ParseAngle(word) is {} degrees &&
+                    angle is null)
                 {
                     angle = degrees;
                     continue;
                 }
 
-                if (!axis && word.Equals("z", StringComparison.OrdinalIgnoreCase))
+                if (!axis &&
+                    word.Equals("z", StringComparison.OrdinalIgnoreCase))
                 {
                     axis = true;
                     continue;
@@ -442,7 +445,8 @@ sealed record CssTransform(
         switch (name)
         {
             case "translate" when arguments.Count is 1 or 2:
-                if (Length(0) is { } tx && Length(1) is { } ty)
+                if (Length(0) is { } tx &&
+                    Length(1) is { } ty)
                 {
                     return new(TransformKind.Translate, tx, ty, 0);
                 }
@@ -466,7 +470,8 @@ sealed record CssTransform(
                 return null;
 
             case "scale" when arguments.Count is 1 or 2:
-                if (Number(0, 1) is { } sx && Number(1, sx) is { } sy)
+                if (Number(0, 1) is { } sx &&
+                    Number(1, sx) is { } sy)
                 {
                     return new(TransformKind.Scale, CssLength.Zero, CssLength.Zero, sx, sy);
                 }
@@ -498,7 +503,8 @@ sealed record CssTransform(
                 return null;
 
             case "skew" when arguments.Count is 1 or 2:
-                if (Angle(0, 0) is { } skewX && Angle(1, 0) is { } skewY)
+                if (Angle(0, 0) is { } skewX &&
+                    Angle(1, 0) is { } skewY)
                 {
                     return new(TransformKind.Skew, CssLength.Zero, CssLength.Zero, skewX, skewY);
                 }

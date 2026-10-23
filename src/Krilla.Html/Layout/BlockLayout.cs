@@ -277,7 +277,8 @@ static class BlockLayout
             // separates the two — so whoever positioned the parent left it out, and it belongs
             // here. The same guard and the same question `LeadingMargin` asks, which is what keeps
             // the two from disagreeing and applying the margin twice or not at all.
-            if (escaping && TakesClearance(child, scope, contentY + y + pending.Value))
+            if (escaping &&
+                TakesClearance(child, scope, contentY + y + pending.Value))
             {
                 escaping = false;
             }
@@ -318,7 +319,8 @@ static class BlockLayout
             // CLEARANCE takes it out of that rule, which is §8.3.1's own wording: two margins are
             // adjoining only when no clearance separates them, so a box that took any keeps its
             // margins apart like a box with a border.
-            if (clearance == 0 && IsSelfCollapsing(child, contentWidth))
+            if (clearance == 0 &&
+                IsSelfCollapsing(child, contentWidth))
             {
                 y = open;
 
@@ -478,7 +480,8 @@ static class BlockLayout
     /// </summary>
     static int NoteStatic(LayoutBox parent, int from, int until, float x, float y)
     {
-        while (from < parent.Positioned.Count && parent.Positioned[from].Index <= until)
+        while (from < parent.Positioned.Count &&
+               parent.Positioned[from].Index <= until)
         {
             parent.Positioned[from].Box.StaticPosition = (x, y);
             from++;
@@ -507,7 +510,8 @@ static class BlockLayout
         FloatContext floats,
         float? contentHeight)
     {
-        while (from < parent.Floats.Count && parent.Floats[from].Index <= until)
+        while (from < parent.Floats.Count &&
+               parent.Floats[from].Index <= until)
         {
             PlaceFloat(parent.Floats[from].Box, contentX, top, contentWidth, fonts, floats, contentHeight);
             from++;
@@ -643,7 +647,8 @@ static class BlockLayout
         // specification says to re-run the algorithm treating the clamped value as a specified
         // width — which hands the leftover space back to the margins. That is the whole mechanism
         // behind `max-width` with `margin: 0 auto`, the most common centring idiom there is.
-        if (width is null && used == tentative)
+        if (width is null &&
+            used == tentative)
         {
             return (marginLeft ?? 0, used);
         }

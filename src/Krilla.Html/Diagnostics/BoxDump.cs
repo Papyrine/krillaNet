@@ -202,7 +202,8 @@ public static class BoxDump
                 // own, so whatever is accumulated for them here is discarded.
                 Add(
                     path,
-                    index >= 0 && ancestors is not null
+                    index >= 0 &&
+                    ancestors is not null
                         ? InlineMetrics.Reframe(bounds, ancestors[index].Style, ancestors[index].Face, baseline)
                         : bounds);
             }

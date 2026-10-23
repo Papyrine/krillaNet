@@ -128,7 +128,8 @@ sealed class PageRules
                 {
                     var (paper, landscape) = Dimensions(declared, root, rootFontSize);
 
-                    if (paper is null && landscape is null)
+                    if (paper is null &&
+                        landscape is null)
                     {
                         rules.Unsupported.Add(("size", declared, "the page size named here is not read"));
                         continue;

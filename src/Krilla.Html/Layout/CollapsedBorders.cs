@@ -222,12 +222,14 @@ sealed class CollapsedBorders
     {
         var winner = Edge.None;
 
-        if (line > 0 && occupancy[row, line - 1] is {} left)
+        if (line > 0 &&
+            occupancy[row, line - 1] is {} left)
         {
             winner = winner.Against(Of(left.Box.Style, Side.Right, Origin.Cell));
         }
 
-        if (line < columns && occupancy[row, line] is {} right)
+        if (line < columns &&
+            occupancy[row, line] is {} right)
         {
             winner = winner.Against(Of(right.Box.Style, Side.Left, Origin.Cell));
         }
@@ -260,12 +262,14 @@ sealed class CollapsedBorders
     {
         var winner = Edge.None;
 
-        if (line > 0 && occupancy[line - 1, column] is {} above)
+        if (line > 0 &&
+            occupancy[line - 1, column] is {} above)
         {
             winner = winner.Against(Of(above.Box.Style, Side.Bottom, Origin.Cell));
         }
 
-        if (line < rows && occupancy[line, column] is {} below)
+        if (line < rows &&
+            occupancy[line, column] is {} below)
         {
             winner = winner.Against(Of(below.Box.Style, Side.Top, Origin.Cell));
         }
@@ -502,12 +506,14 @@ sealed class CollapsedBorders
     {
         var columns = occupancy.GetLength(1);
 
-        if (line < columns && occupancy[row, line] is {} right)
+        if (line < columns &&
+            occupancy[row, line] is {} right)
         {
             return right.Box.BorderBox.X;
         }
 
-        if (line > 0 && occupancy[row, line - 1] is {} left)
+        if (line > 0 &&
+            occupancy[row, line - 1] is {} left)
         {
             return left.Box.BorderBox.Right;
         }
@@ -520,12 +526,14 @@ sealed class CollapsedBorders
     {
         var rows = occupancy.GetLength(0);
 
-        if (line < rows && occupancy[line, column] is {} below)
+        if (line < rows &&
+            occupancy[line, column] is {} below)
         {
             return below.Box.BorderBox.Y;
         }
 
-        if (line > 0 && occupancy[line - 1, column] is {} above)
+        if (line > 0 &&
+            occupancy[line - 1, column] is {} above)
         {
             return above.Box.BorderBox.Bottom;
         }

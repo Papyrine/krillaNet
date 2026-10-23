@@ -1517,7 +1517,8 @@ sealed record ComputedStyle
         Opacity < 1 ||
         Transform is not null ||
         Position == PositionKind.Fixed ||
-        (IsPositioned && ZIndex is not null);
+        (IsPositioned &&
+         ZIndex is not null);
 
     /// <summary>How this box's text is cased before shaping.</summary>
     public TextTransformKind TextTransform { get; init; } = TextTransformKind.None;
@@ -1776,10 +1777,14 @@ sealed record ComputedStyle
         length is {Value: 0, Percent: 0};
 
     public bool HasBorder =>
-        (BorderTop > 0 && BorderTopColor is not null) ||
-        (BorderRight > 0 && BorderRightColor is not null) ||
-        (BorderBottom > 0 && BorderBottomColor is not null) ||
-        (BorderLeft > 0 && BorderLeftColor is not null);
+        (BorderTop > 0 &&
+         BorderTopColor is not null) ||
+        (BorderRight > 0 &&
+         BorderRightColor is not null) ||
+        (BorderBottom > 0 &&
+         BorderBottomColor is not null) ||
+        (BorderLeft > 0 &&
+         BorderLeftColor is not null);
 
     /// <summary>Whether this box is laid out by the table algorithm rather than as a block.</summary>
     public bool IsTablePart =>

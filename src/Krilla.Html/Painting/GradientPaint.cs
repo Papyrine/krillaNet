@@ -70,7 +70,8 @@ static class GradientPaint
         var half = Length(gradient, box) / 2;
         var (cx, cy) = (box.X + box.Width / 2, box.Y + box.Height / 2);
 
-        var axisAligned = tiles && MathF.Abs(MathF.IEEERemainder(angle, 90f)) < 0.0001f;
+        var axisAligned = tiles &&
+                          MathF.Abs(MathF.IEEERemainder(angle, 90f)) < 0.0001f;
 
         return Paint.LinearGradient(
             cx - dx * half,
@@ -241,7 +242,8 @@ static class GradientPaint
             // dropped and the edge becomes a ramp across the whole gradient. Nudging the second of
             // a pair onto the next representable position keeps the edge within a sub-pixel of
             // where it was asked for.
-            if (index > 0 && position <= highest)
+            if (index > 0 &&
+                position <= highest)
             {
                 position = MathF.BitIncrement(highest);
             }

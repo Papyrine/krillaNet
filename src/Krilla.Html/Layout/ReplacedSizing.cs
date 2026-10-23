@@ -74,7 +74,8 @@ static class ReplacedSizing
             // against. Measured — `image/svg`'s #viewbox row is 816 wide in Chrome and its
             // #inline row is 400, each the full content width of its own container, inline and
             // block-level alike.
-            case (null, null) when !image.HasIntrinsicSize && ratio is {} r3:
+            case (null, null) when !image.HasIntrinsicSize &&
+                                   ratio is {} r3:
                 width = containing;
                 height = containing / r3;
                 break;

@@ -50,7 +50,8 @@ sealed class PageNames
 
         foreach (var (from, to, name) in extents)
         {
-            if (from <= top && to > top)
+            if (from <= top &&
+                to > top)
             {
                 found = name;
             }

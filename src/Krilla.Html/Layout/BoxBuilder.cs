@@ -78,7 +78,8 @@ static class BoxBuilder
         // from continuing the first one's numbering.
         context.Counters.Leave(pushed);
 
-        if (context.PendingColumns.Count > 0 && style.Display == DisplayKind.Table)
+        if (context.PendingColumns.Count > 0 &&
+            style.Display == DisplayKind.Table)
         {
             box.Columns.AddRange(context.PendingColumns);
             box.ColumnBoxes.AddRange(context.PendingColumnBoxes);
@@ -326,17 +327,20 @@ static class BoxBuilder
         var width = style.Width;
         var height = style.Height;
 
-        if (width.IsAuto && Attribute(element, "width") is { } attributeWidth)
+        if (width.IsAuto &&
+            Attribute(element, "width") is { } attributeWidth)
         {
             width = attributeWidth;
         }
 
-        if (height.IsAuto && Attribute(element, "height") is { } attributeHeight)
+        if (height.IsAuto &&
+            Attribute(element, "height") is { } attributeHeight)
         {
             height = attributeHeight;
         }
 
-        if (width == style.Width && height == style.Height)
+        if (width == style.Width &&
+            height == style.Height)
         {
             return style;
         }
@@ -496,7 +500,12 @@ static class BoxBuilder
         // cell out of the grid it belongs to, so the table would lay out around a hole and the
         // content would be positioned as though it were a block of its own — content corruption
         // from one declaration CSS says to ignore. A whole `display: table` still floats.
-        if (style is {IsFloating: true, IsTablePart: true} && style.Display != DisplayKind.Table)
+        if (style is
+            {
+                IsFloating: true,
+                IsTablePart: true
+            } &&
+            style.Display != DisplayKind.Table)
         {
             style = style with {Float = FloatKind.None};
         }
@@ -524,7 +533,8 @@ static class BoxBuilder
         //
         // An absolutely positioned child is NOT a flex item, so it keeps whatever the rule above
         // gave it and is placed by `AbsoluteLayout` as usual.
-        if (parentStyle.IsFlexContainer && !style.IsAbsolute)
+        if (parentStyle.IsFlexContainer &&
+            !style.IsAbsolute)
         {
             style = style with
             {
@@ -894,9 +904,11 @@ static class BoxBuilder
             return;
         }
 
-        var block = blocks is not null && style.Display is DisplayKind.Block or DisplayKind.ListItem;
+        var block = blocks is not null &&
+                    style.Display is DisplayKind.Block or DisplayKind.ListItem;
 
-        if (style.Display != DisplayKind.Inline && !block && context.Reports)
+        if (style.Display != DisplayKind.Inline &&
+            !block && context.Reports)
         {
             Diagnostic.Property(
                 context.OnDiagnostic,
@@ -923,7 +935,8 @@ static class BoxBuilder
         //
         // Not for a block pseudo: its box carries the pseudo's style directly, so the surround is
         // already the box's own and adding it again would apply it twice.
-        if (style.HasSurround && !block)
+        if (style.HasSurround &&
+            !block)
         {
             target.Add(new("", style, null, Edge: InlineEdgeKind.Leading));
         }
@@ -982,7 +995,8 @@ static class BoxBuilder
 
         Flush();
 
-        if (style.HasSurround && !block)
+        if (style.HasSurround &&
+            !block)
         {
             target.Add(new("", style, null, Edge: InlineEdgeKind.Trailing));
         }
@@ -1049,7 +1063,8 @@ static class BoxBuilder
 
         var mark = "";
 
-        if (!suppressed && style.Quotes.Length >= 2)
+        if (!suppressed &&
+            style.Quotes.Length >= 2)
         {
             var pairs = style.Quotes.Length / 2;
             var pair = Math.Min(context.QuoteDepth, pairs - 1);
@@ -1088,7 +1103,8 @@ static class BoxBuilder
                 element.GetAttribute("span"),
                 NumberStyles.Integer,
                 CultureInfo.InvariantCulture,
-                out var declared) && declared > 0)
+                out var declared) &&
+            declared > 0)
         {
             span = declared;
         }

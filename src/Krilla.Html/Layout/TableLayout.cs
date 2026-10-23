@@ -603,7 +603,8 @@ static class TableLayout
         // every column is pinned. Measured: a cell asking for 700px in a table declaring 300px
         // comes out at 232, with the column beside it at its own min-content and the table exactly
         // as wide as it asked to be.
-        if (remaining < minTotal && held.Count > 0)
+        if (remaining < minTotal &&
+            held.Count > 0)
         {
             var shortfall = minTotal - remaining;
             var room = held.Sum(_ => widths[_] - columns.Min[_]);
@@ -853,7 +854,8 @@ static class TableLayout
         {
             var cell = grid.Cells[index];
 
-            if (cell.RowSpan == 1 && !Aligns(cell))
+            if (cell.RowSpan == 1 &&
+                !Aligns(cell))
             {
                 var row = grid.Rows[cell.Row];
                 row.Height = Math.Max(row.Height, natural[index].Used);

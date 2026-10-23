@@ -213,7 +213,8 @@ sealed class ImageStore(
             }
 
             var path = ResolvePath(source, baseUrl);
-            if (path is not null && File.Exists(path))
+            if (path is not null &&
+                File.Exists(path))
             {
                 return File.ReadAllBytes(path);
             }

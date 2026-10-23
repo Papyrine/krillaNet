@@ -103,7 +103,8 @@ static class InlineLayout
                 // collapses. Under `pre` the indentation IS leading spaces, and dropping them
                 // left-aligns every line that was deliberately indented, which is the entire
                 // point of preformatted text.
-                if (current.Count == 0 && !token.Style.PreservesSpaces)
+                if (current.Count == 0 &&
+                    !token.Style.PreservesSpaces)
                 {
                     continue;
                 }
@@ -148,8 +149,10 @@ static class InlineLayout
             // nowrap">`, which is how the property is nearly always written — a whole block that
             // never wraps is the rarer case.
             var breakable =
-                (pendingSpace is {} opportunity && opportunity.Style.Wraps) ||
-                (token.BreaksBefore && token.Style.Wraps);
+                (pendingSpace is {} opportunity &&
+                 opportunity.Style.Wraps) ||
+                (token.BreaksBefore &&
+                 token.Style.Wraps);
 
             // Measured over the whole UNBREAKABLE RUN starting here, not over this token alone.
             // The two differ whenever a break opportunity is followed by tokens that offer none —
@@ -442,10 +445,12 @@ static class InlineLayout
         // that stopped there would be measured short of the group that has to move together.
         static bool Ends(Token token) =>
             token.Kind is TokenKind.Break or TokenKind.Tab ||
-            (token.Kind == TokenKind.Space && token.Style.Wraps);
+            (token.Kind == TokenKind.Space &&
+             token.Style.Wraps);
 
         static bool Offers(Token token) =>
-            token.BreaksBefore && token.Style.Wraps;
+            token.BreaksBefore &&
+            token.Style.Wraps;
     }
 
     /// <summary>
@@ -531,7 +536,8 @@ static class InlineLayout
             {
                 // Leading white space collapses away and occupies nothing, exactly as it does when
                 // a line is flushed — unless it is preserved, where it is content.
-                if (!started && !token.Style.PreservesSpaces)
+                if (!started &&
+                    !token.Style.PreservesSpaces)
                 {
                     continue;
                 }
@@ -558,7 +564,8 @@ static class InlineLayout
             // atomic inline — ends the current unbreakable run exactly as a space does. Without
             // this the min-content width of a hyphenated word is the whole word, so a table column
             // is sized to hold text that layout would have broken and comes out too wide.
-            if (token.BreaksBefore && token.Style.Wraps)
+            if (token.BreaksBefore &&
+                token.Style.Wraps)
             {
                 min = Math.Max(min, unbreakable);
                 unbreakable = 0;
@@ -790,7 +797,8 @@ static class InlineLayout
 
                 if (character == ' ')
                 {
-                    while (index < text.Length && text[index] == ' ')
+                    while (index < text.Length &&
+                           text[index] == ' ')
                     {
                         index++;
                     }
@@ -817,7 +825,8 @@ static class InlineLayout
                     continue;
                 }
 
-                while (index < text.Length && text[index] is not (' ' or '\n' or '\t'))
+                while (index < text.Length &&
+                       text[index] is not (' ' or '\n' or '\t'))
                 {
                     index++;
                 }
@@ -838,7 +847,8 @@ static class InlineLayout
                     // a real dash does — the difference being only whether the hyphen is drawn.
                     var soft = conditional?.Contains(scan + 1) == true;
 
-                    if ((!BreaksAfter(text[scan]) && !soft) || scan + 1 >= index)
+                    if ((!BreaksAfter(text[scan]) &&
+                         !soft) || scan + 1 >= index)
                     {
                         continue;
                     }
@@ -877,9 +887,11 @@ static class InlineLayout
                             Shaped: run.Shaped,
                             TextStart: head - run.Start,
                             TextEnd: tail - run.Start,
-                            BreaksBefore: first && breakable,
+                            BreaksBefore: first &&
+                                          breakable,
                             Backdrops: backdrops,
-                            HyphenAfter: hyphenates && tail == to,
+                            HyphenAfter: hyphenates &&
+                                         tail == to,
                             Generated: item.Generated));
 
                         first = false;
@@ -982,7 +994,8 @@ static class InlineLayout
 
         for (var index = 1; index <= text.Length; index++)
         {
-            if (index < text.Length && ReferenceEquals(chosen[index], chosen[start]))
+            if (index < text.Length &&
+                ReferenceEquals(chosen[index], chosen[start]))
             {
                 continue;
             }
@@ -1182,7 +1195,8 @@ static class InlineLayout
         // separation.
         var lastContent = tokens.FindLastIndex(
             _ => _.Kind is TokenKind.Word or TokenKind.Edge or TokenKind.Tab || IsAtomic(_.Kind));
-        if (lastContent >= 0 && !box.Style.PreservesSpaces)
+        if (lastContent >= 0 &&
+            !box.Style.PreservesSpaces)
         {
             for (var index = tokens.Count - 1; index > lastContent; index--)
             {
@@ -1194,7 +1208,9 @@ static class InlineLayout
         // A soft hyphen renders only where the break actually falls on it, which is the whole of
         // what distinguishes it from a dash already in the text. The line it ends grows by the
         // hyphen's advance, so alignment measures the line as it will be drawn.
-        TextRun? hyphen = !forced && lastContent >= 0 && tokens[lastContent].HyphenAfter
+        TextRun? hyphen = !forced &&
+                          lastContent >= 0 &&
+                          tokens[lastContent].HyphenAfter
             ? Hyphen(tokens[lastContent])
             : null;
 
@@ -1424,7 +1440,8 @@ static class InlineLayout
             {
                 runWidth += tokens[index].Width;
 
-                if (extra > 0 && tokens[index].Kind == TokenKind.Space)
+                if (extra > 0 &&
+                    tokens[index].Kind == TokenKind.Space)
                 {
                     runWidth += extra;
                 }
@@ -1514,7 +1531,8 @@ static class InlineLayout
     /// </remarks>
     static VerticalAlignKind InlineAlign(Token token, ComputedStyle block)
     {
-        if (!ReferenceEquals(token.Style, block) && token.Style.VerticalAlignDeclared)
+        if (!ReferenceEquals(token.Style, block) &&
+            token.Style.VerticalAlignDeclared)
         {
             return token.Style.VerticalAlign;
         }

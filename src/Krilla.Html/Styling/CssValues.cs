@@ -135,7 +135,8 @@ static class CssValues
 
                 if (quote != '\0')
                 {
-                    if (character == quote && value[index - 1] != '\\')
+                    if (character == quote &&
+                        value[index - 1] != '\\')
                     {
                         quote = '\0';
                     }
@@ -456,8 +457,10 @@ static class CssValues
             var family = part;
 
             if (family.Length >= 2 &&
-                ((family[0] == '"' && family[^1] == '"') ||
-                 (family[0] == '\'' && family[^1] == '\'')))
+                ((family[0] == '"' &&
+                  family[^1] == '"') ||
+                 (family[0] == '\'' &&
+                  family[^1] == '\'')))
             {
                 family = family[1..^1];
             }

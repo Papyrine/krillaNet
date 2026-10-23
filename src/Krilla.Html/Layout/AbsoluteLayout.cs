@@ -148,7 +148,9 @@ static class AbsoluteLayout
         // absent — an auto width spans `left` to `right` and an auto height spans `top` to
         // `bottom`, so in either case the box already fills the gap and there is no slack for a
         // margin to absorb.
-        if (left is not null && right is not null && Definite(box, style.Width))
+        if (left is not null &&
+            right is not null &&
+            Definite(box, style.Width))
         {
             (marginLeft, marginRight) = Share(
                 width - left.Value - right.Value - box.BorderBox.Width,
@@ -158,7 +160,9 @@ static class AbsoluteLayout
                 marginRight);
         }
 
-        if (top is not null && bottom is not null && Definite(box, style.Height))
+        if (top is not null &&
+            bottom is not null &&
+            Definite(box, style.Height))
         {
             (marginTop, _) = Share(
                 height - top.Value - bottom.Value - used,
@@ -217,7 +221,8 @@ static class AbsoluteLayout
         float start,
         float end)
     {
-        if (autoStart && autoEnd)
+        if (autoStart &&
+            autoEnd)
         {
             if (slack < 0)
             {
@@ -318,7 +323,8 @@ static class AbsoluteLayout
         // too short and as much too wide.
         var available = Math.Max(0, containing.Width - (left ?? 0) - (right ?? 0) - marginLeft - marginRight);
 
-        if (left is not null && right is not null)
+        if (left is not null &&
+            right is not null)
         {
             return available;
         }

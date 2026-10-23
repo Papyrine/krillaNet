@@ -640,7 +640,8 @@ static class PresentationalHints
         var text = value.Trim();
         var length = 0;
 
-        while (length < text.Length && char.IsAsciiDigit(text[length]))
+        while (length < text.Length &&
+               char.IsAsciiDigit(text[length]))
         {
             length++;
         }

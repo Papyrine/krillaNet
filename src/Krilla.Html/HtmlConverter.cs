@@ -201,7 +201,8 @@ public static class HtmlConverter
 
         if (options.Metadata is not {} given)
         {
-            if (title is null && language is null)
+            if (title is null &&
+                language is null)
             {
                 return null;
             }

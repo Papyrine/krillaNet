@@ -106,7 +106,8 @@ static class PageMargins
         string? name)
     {
         var matching = rules.MarginBoxes
-            .Where(_ => _.Slot == slot && _.Matches(number, blank, name))
+            .Where(_ => _.Slot == slot &&
+                        _.Matches(number, blank, name))
             .OrderBy(_ => _.Specificity)
             .ThenBy(_ => _.Order)
             .ToList();

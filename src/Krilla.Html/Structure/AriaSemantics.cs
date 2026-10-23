@@ -163,7 +163,8 @@ static class AriaSemantics
             return alt;
         }
 
-        if (element.QuerySelector("title") is {} title && Text(title.TextContent) is {} text)
+        if (element.QuerySelector("title") is {} title &&
+            Text(title.TextContent) is {} text)
         {
             return text;
         }

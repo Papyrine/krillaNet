@@ -93,7 +93,8 @@ static class Paginator
             // is the wrong parity. The blank page is `top` repeated: its slice runs from `top` to
             // `top`, so it holds nothing but the canvas — which is what a blank page in a browser
             // holds too, and why it repeats no header.
-            if (sides.TryGetValue(top, out var kind) && Misplaced(kind, pages.Count + 1))
+            if (sides.TryGetValue(top, out var kind) &&
+                Misplaced(kind, pages.Count + 1))
             {
                 pages.Add(PageStart.At(top));
             }
@@ -378,7 +379,8 @@ static class Paginator
             // order — its previous sibling, or its parent when it is a first child, which is the
             // pre-order predecessor in both cases. The box at the very start of the document has
             // none, and a page could not begin earlier than the document does anyway.
-            if (style.BreakBefore == BreakKind.Avoid && index > 0)
+            if (style.BreakBefore == BreakKind.Avoid &&
+                index > 0)
             {
                 Avoid(box.BorderBox.Y, flow[index - 1].BorderBox.Y);
             }
@@ -647,7 +649,8 @@ static class Paginator
             // the loop advances — and a unit already at the top has nowhere better to go, so that
             // one is stepped over and the search continues past it. Without that second half it
             // would move to the top of the next page forever.
-            if (bounds.Height > pageHeight && bounds.Y <= top)
+            if (bounds.Height > pageHeight &&
+                bounds.Y <= top)
             {
                 continue;
             }
@@ -713,7 +716,8 @@ static class Paginator
             return unit.Bounds.Y;
         }
 
-        if (above >= group.Orphans && below >= group.Widows)
+        if (above >= group.Orphans &&
+            below >= group.Widows)
         {
             return unit.Bounds.Y;
         }

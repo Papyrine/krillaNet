@@ -70,7 +70,8 @@ static class TextTransform
         foreach (var character in text)
         {
             builder.Append(
-                StartsWord(previous) && char.IsLetter(character)
+                StartsWord(previous) &&
+                char.IsLetter(character)
                     ? char.ToUpperInvariant(character)
                     : character);
 

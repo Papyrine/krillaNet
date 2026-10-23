@@ -127,7 +127,8 @@ public sealed class FontSet :
         foreach (var requested in familyList)
         {
             var family = ResolveGeneric(requested);
-            if (family is not null && families.TryGetValue(family, out var faces))
+            if (family is not null &&
+                families.TryGetValue(family, out var faces))
             {
                 return Select(faces, weight, italic);
             }
@@ -287,10 +288,12 @@ public sealed class FontSet :
         }
 
         // 400 looks to 500 first, and 500 looks to 400 first, before either searches downward.
-        if (desired == 400 && available == 500)
+        if (desired == 400 &&
+            available == 500)
         {
             return 1;
         }
+
 
         if (desired == 500 && available == 400)
         {

@@ -132,7 +132,8 @@ static class CssContent
 
             if (quote != '\0')
             {
-                if (character == quote && text[index - 1] != '\\')
+                if (character == quote
+                text[index - 1] != '\\')
                 {
                     quote = '\0';
                 }
@@ -153,7 +154,8 @@ static class CssContent
                     continue;
             }
 
-            if (depth == 0 && char.IsWhiteSpace(character))
+            if (depth == 0 &&
+                char.IsWhiteSpace(character))
             {
                 if (index > start)
                 {
@@ -173,7 +175,10 @@ static class CssContent
     static ContentItem? Item(string token)
     {
         if (token.Length >= 2 &&
-            ((token[0] == '"' && token[^1] == '"') || (token[0] == '\'' && token[^1] == '\'')))
+            ((token[0] == '"' &&
+              token[^1] == '"') ||
+             (token[0] == '\'' &&
+              token[^1] == '\'')))
         {
             return new(ContentKind.Text, Unescape(token[1..^1]));
         }
@@ -306,7 +311,8 @@ static class CssContent
 
                 if (quote != '\0')
                 {
-                    if (character == quote && inside[index - 1] != '\\')
+                    if (character == quote &&
+                        inside[index - 1] != '\\')
                     {
                         quote = '\0';
                     }
@@ -320,7 +326,8 @@ static class CssContent
                     continue;
                 }
 
-                if (character != ',' && !char.IsWhiteSpace(character))
+                if (character != ',' &&
+                    !char.IsWhiteSpace(character))
                 {
                     continue;
                 }
@@ -399,7 +406,8 @@ static class CssContent
 
             // One space after an escape is the terminator rather than content, which is what lets
             // `"\201C x"` mean a quote, a space and an x rather than a quote and then "x".
-            if (index + 1 < value.Length && value[index + 1] == ' ')
+            if (index + 1 < value.Length &&
+                value[index + 1] == ' ')
             {
                 index++;
             }

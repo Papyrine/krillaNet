@@ -661,7 +661,8 @@ static class UnsupportedCss
         Diagnostic.Property(sink, element, "position", "fixed", "placed once rather than repeated on every page");
 
         bool Anchored(string property) =>
-            Set(declaration, property) is {} value && value != "auto";
+            Set(declaration, property) is {} value &&
+            value != "auto";
     }
 
     /// <summary>

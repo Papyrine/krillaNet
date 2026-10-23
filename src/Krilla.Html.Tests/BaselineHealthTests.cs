@@ -66,11 +66,13 @@ public class BaselineHealthTests
                 var key = $"{CorpusLayout.Name(directory)}/{Path.GetFileName(page)}";
                 var isBlank = PageComparison.CountColors(page) <= degenerateColorThreshold;
 
-                if (isBlank && !knownBlank.Contains(key))
+                if (isBlank &&
+                    !knownBlank.Contains(key))
                 {
                     blank.Add(key);
                 }
-                else if (!isBlank && knownBlank.Contains(key))
+                else if (!isBlank &&
+                         knownBlank.Contains(key))
                 {
                     wronglyListed.Add(key);
                 }

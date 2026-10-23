@@ -259,7 +259,8 @@ sealed record CssGradient(
         var split = text.LastIndexOf(' ');
         var position = (CssLength?) null;
 
-        if (split > 0 && !text.EndsWith(')'))
+        if (split > 0 &&
+            !text.EndsWith(')'))
         {
             var tail = text[(split + 1)..];
             var parsed = CssValues.ParseLength(tail, fontSize, root, CssLength.None);

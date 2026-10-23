@@ -40,7 +40,8 @@ static class PdfContent
                         continue;
                 }
 
-                if (depth == 0 && Draws(token))
+                if (depth == 0 &&
+                    Draws(token))
                 {
                     loose.Add(token);
                 }
@@ -129,12 +130,14 @@ static class PdfContent
 
             var from = start + "stream".Length;
 
-            while (from < end && text[from] is '\r' or '\n')
+            while (from < end &&
+                   text[from] is '\r' or '\n')
             {
                 from++;
             }
 
-            if (Inflate(pdf, from, end - from) is {} content && !content.Contains('\0'))
+            if (Inflate(pdf, from, end - from) is {} content &&
+                !content.Contains('\0'))
             {
                 yield return content;
             }

@@ -166,7 +166,9 @@ static class CssSource
     /// </remarks>
     static string? Value(string text, int index, int after)
     {
-        if (index > 0 && (char.IsLetterOrDigit(text[index - 1]) || text[index - 1] == '-'))
+        if (index > 0 &&
+            (char.IsLetterOrDigit(text[index - 1]) ||
+             text[index - 1] == '-'))
         {
             return null;
         }

@@ -99,21 +99,25 @@ readonly record struct PageMarginRule(
             return false;
         }
 
-        if (Selector.HasFlag(PageSelector.First) && number != 1)
+        if (Selector.HasFlag(PageSelector.First) &&
+            number != 1)
         {
             return false;
         }
 
-        if (Selector.HasFlag(PageSelector.Blank) && !blank)
+        if (Selector.HasFlag(PageSelector.Blank) &&
+            !blank)
         {
             return false;
         }
 
-        if (Selector.HasFlag(PageSelector.Left) && number % 2 == 1)
+        if (Selector.HasFlag(PageSelector.Left) &&
+            number % 2 == 1)
         {
             return false;
         }
 
-        return !Selector.HasFlag(PageSelector.Right) || number % 2 != 0;
+        return !Selector.HasFlag(PageSelector.Right) ||
+               number % 2 != 0;
     }
 }

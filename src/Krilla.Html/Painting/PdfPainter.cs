@@ -405,7 +405,8 @@ static class PdfPainter
             //
             // The artifact opens INSIDE the transform, matching `PaintRepeats`, so the span brackets
             // the drawing rather than the state that positions it.
-            if (page.Tags is {} seen && !seen.FirstSighting(box))
+            if (page.Tags is {} seen &&
+                !seen.FirstSighting(box))
             {
                 using var artifact = Artifact(surface, page);
                 using var once = Fade(surface, box);
@@ -898,7 +899,9 @@ static class PdfPainter
         {
             if (Grouped(fragments, identity) is {} fragment)
             {
-                if (fragment.First is {} first && first.X == run.X && first.Y == run.Y)
+                if (fragment.First is {} first &&
+                    first.X == run.X &&
+                    first.Y == run.Y)
                 {
                     PaintInlineFragment(surface, fragment);
                 }
@@ -1295,7 +1298,8 @@ static class PdfPainter
                 return null;
             }
 
-            if (found is {} already && (already != painted || alpha != sideAlpha))
+            if (found is {} already &&
+                (already != painted || alpha != sideAlpha))
             {
                 return null;
             }
@@ -1415,7 +1419,8 @@ static class PdfPainter
     /// </remarks>
     static TagSpan Mark(Surface surface, PageSlice page, string? selector, bool text)
     {
-        if (page.Tags is {} tags && selector is {} named)
+        if (page.Tags is {} tags &&
+            selector is {} named)
         {
             return new(surface, tags, named, text ? surface.BeginText() : surface.BeginContent());
         }
@@ -2177,7 +2182,8 @@ static class PdfPainter
         var roundX = style.BackgroundRepeatX == BackgroundRepeatKind.Round;
         var roundY = style.BackgroundRepeatY == BackgroundRepeatKind.Round;
 
-        if (!roundX && !roundY)
+        if (!roundX &&
+            !roundY)
         {
             return (width, height);
         }
@@ -2194,11 +2200,15 @@ static class PdfPainter
             height = origin.Height / MathF.Max(1, MathF.Round(origin.Height / height));
         }
 
-        if (roundX && !roundY && style.BackgroundSizeY.Kind == LengthKind.Auto)
+        if (roundX &&
+            !roundY &&
+            style.BackgroundSizeY.Kind == LengthKind.Auto)
         {
             height = width * ratio;
         }
-        else if (roundY && !roundX && style.BackgroundSizeX.Kind == LengthKind.Auto)
+        else if (roundY &&
+                 !roundX &&
+                 style.BackgroundSizeX.Kind == LengthKind.Auto)
         {
             width = height / ratio;
         }
@@ -2465,7 +2475,8 @@ static class PdfPainter
         // nested rounded rectangles, so the radii are resolved against the border box once.
         var radii = RoundedBox.Resolve(style, outer);
 
-        if (UniformColor(style) is {} uniform && style.PaintsBorderAsRing)
+        if (UniformColor(style) is {} uniform &&
+            style.PaintsBorderAsRing)
         {
             PaintUniformBorder(
                 surface,
@@ -2917,7 +2928,8 @@ static class PdfPainter
 
         // Wound the other way, so the non-zero rule cuts it out. Skipped when the border has
         // swallowed the box whole and there is nothing left to cut.
-        if (innerRight > innerLeft && innerBottom > innerTop)
+        if (innerRight > innerLeft &&
+            innerBottom > innerTop)
         {
             if (radii.IsRounded)
             {
@@ -3179,7 +3191,8 @@ static class PdfPainter
             width,
             height);
 
-        if (width <= content.Width && height <= content.Height)
+        if (width <= content.Width &&
+            height <= content.Height)
         {
             PaintImage(surface, image, bounds);
             return;
