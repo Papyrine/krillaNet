@@ -287,8 +287,10 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          # Proves the musl build, which .NET's RID graph will never substitute for glibc.
-          - { image: 'mcr.microsoft.com/dotnet/sdk:10.0-alpine', name: 'alpine (musl)' }
+          # Proves the musl build, which .NET's RID graph will never substitute for glibc. The
+          # image's own SDK can lag global.json (no 11.0 alpine image during the previews), so
+          # this leg installs the SDK from global.json too, alongside the one the image carries.
+          - { image: 'mcr.microsoft.com/dotnet/sdk:10.0-alpine', name: 'alpine (musl)', alpine: true }
           # Older glibc than the runner's: the check the 2.17 floor exists for. .NET 10 ships
           # no Debian image at all -- `bookworm-slim` existed for 9.0 and `trixie-slim` only for
           # the 10.0 previews -- and the images that remain are no older than the runner
@@ -308,12 +310,17 @@ jobs:
           apt-get update
           apt-get install -y --no-install-recommends ca-certificates curl git libicu70
 
+      # setup-dotnet runs dotnet-install.sh, which needs bash, and the Alpine image has none.
+      - name: Install bash
+        if: matrix.alpine
+        run: apk add --no-cache bash
+
       - name: Checkout
         uses: actions/checkout@v7
 
       # global.json rather than a pinned version, so this leg rolls forward with every other one.
       - name: Set up .NET
-        if: matrix.bare
+        if: matrix.bare || matrix.alpine
         uses: actions/setup-dotnet@v6
         with:
           global-json-file: global.json
