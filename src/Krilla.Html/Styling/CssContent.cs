@@ -132,8 +132,8 @@ static class CssContent
 
             if (quote != '\0')
             {
-                if (character == quote
-                text[index - 1] != '\\')
+                if (character == quote &&
+                    text[index - 1] != '\\')
                 {
                     quote = '\0';
                 }
