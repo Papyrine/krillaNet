@@ -25,9 +25,9 @@ namespace Krilla.Html.Structure;
 /// </remarks>
 sealed class TableAssociations
 {
-    readonly Dictionary<string, (int Rows, int Columns)> spans = new(StringComparer.Ordinal);
-    readonly Dictionary<string, List<IElement>> headers = new(StringComparer.Ordinal);
-    readonly HashSet<string> targets = new(StringComparer.Ordinal);
+    Dictionary<string, (int Rows, int Columns)> spans = new(StringComparer.Ordinal);
+    Dictionary<string, List<IElement>> headers = new(StringComparer.Ordinal);
+    HashSet<string> targets = [with(StringComparer.Ordinal)];
 
     /// <summary>Every cell in every table under <paramref name="root"/>.</summary>
     public static TableAssociations Build(LayoutBox root)

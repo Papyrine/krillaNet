@@ -104,7 +104,7 @@ static class CorpusLayout
         {
             return System.IO.Directory
                 .EnumerateFiles(InputsDirectory, HtmlFile, SearchOption.AllDirectories)
-                .Select(_ => Directory(_))
+                .Select(Directory)
                 .OrderBy(_ => _, StringComparer.OrdinalIgnoreCase);
         }
 
