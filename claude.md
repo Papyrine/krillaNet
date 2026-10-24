@@ -1869,6 +1869,36 @@ reading twice are the four where the build SUCCEEDS and the result is wrong anyw
   exception implementations rather than on and off, and only the first defines that tag, so
   `buildTransitive/Krilla.targets` raises its own error first — the linker's message names
   neither this package nor the property responsible.
+- **From .NET 11 that link asks for the STANDARD instructions, and rustc emits the LEGACY
+  ones.** .NET 11's `BrowserWasmApp.targets` passes `-s WASM_LEGACY_EXCEPTIONS=0` beside
+  `-fwasm-exceptions`, so the runtime's own code uses `try_table`, while rustc still emits the
+  older `try`, `delegate` and `rethrow`. Since Emscripten 4.0.2 the standard form comes from
+  LLVM's backend rather than from Binaryen's translator, so nothing converts an object compiled
+  the other way, and wasm-ld puts both into one module. Chromium refuses that module outright —
+  `CompileError: ... module uses a mix of legacy and new exception handling instructions` — so
+  the build is green, the app publishes, and Blazor never starts: every Playwright test timed
+  out waiting for the page. Measured on the RC2 link: the archive is 8,284 legacy `try` and no
+  `try_table`, the runtime's only exception handling is one `try_table` in
+  `libmono-wasm-eh-wasm.a`, and .NET 10 never set the flag, which is why the same archive
+  worked there.
+- **The fix is a translation AFTER the link, in the consumer's build.**
+  `KrillaTranslateWasmExceptions` runs Binaryen's `--translate-to-exnref` over
+  `dotnet.native.wasm` whenever `$(_WasmDefaultFlags)` asks for `WASM_LEGACY_EXCEPTIONS=0`. The
+  archive cannot settle it on its own, because the consumer's SDK chooses the form: an archive
+  in the standard form would mix with .NET 10's legacy runtime the same way in reverse.
+- **It cannot ride on the SDK's post-link `wasm-opt`.** `_RunWasmOptPostLink` runs only when
+  `WasmRunWasmOpt` is true, which defaults from `WasmNativeStrip` — on in a Release build, and
+  measured to run zero times in a Debug one. A flag added through `WasmOptConfigurationFlags`
+  would therefore fix the published site and leave `dotnet run` broken. The target runs after
+  every link instead, writes `krilla-exnref.stamp` beside the module so an up-to-date link is
+  not translated twice, and passes `-g` so a Debug module keeps its function names.
+- **Two things can hide a regression here, and a green build proves nothing.** The target leans
+  on three SDK internals — `_WasmDefaultFlags`, `_WasmIntermediateOutputPath` and `_ExeExt` —
+  so a rename makes the condition read false and the original failure comes back silently. And
+  `native.yml`'s check links with emcc 3.1.56's default, which is legacy and matches the archive
+  by construction, while `IntegrationTests/WasmConsumer` links nothing at all. The Playwright
+  tests in `Krilla.Web.Tests` are what caught this, and the only thing here that loads a
+  .NET-linked module in a browser.
 
 ### Two wasm-opt calls, and neither is the other
 
@@ -1901,9 +1931,12 @@ reading twice are the four where the build SUCCEEDS and the result is wrong anyw
 - **Removing the whole section is a third option and a wrong one.** `+bulk-memory` goes with it
   and binaryen rejects the module with "Bulk memory operations require bulk memory".
 - **This is a .NET 9/10 problem, and it self-heals.** .NET 8 ships Emscripten 3.1.34, 9 and 10
-  ship 3.1.56, and .NET 11 ships 6.0.2, which needs none of it. Note which side of the boundary
-  that is on: the failing `wasm-opt` is the CONSUMER's, so moving this repository to a newer SDK
-  would fix nothing for anybody — it would only stop our own tests from seeing it.
+  ship 3.1.56, and .NET 11 ships 6.0.2, whose binaryen knows both feature names and needs no
+  declarations dropped. That is true of THIS problem only: 6.0.2 brings an exception-handling
+  trap of its own, under *Exceptions* above, which is the reverse case — .NET 11 consumers break
+  and .NET 10 ones do not. Note which side of the boundary this one is on: the failing
+  `wasm-opt` is the CONSUMER's, so moving this repository to a newer SDK would fix nothing for
+  anybody — it would only stop our own tests from seeing it.
 - **`-O2` in the archive's own check is load-bearing rather than thoroughness.** emcc skips
   wasm-opt entirely at `-O0`, so the first version of that check linked cleanly and proved
   nothing. The whole class of failure above is invisible below `-O2`.

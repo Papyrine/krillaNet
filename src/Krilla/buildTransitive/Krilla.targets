@@ -49,6 +49,32 @@
            Text="Krilla: the browser-wasm native contains its panics with catch_unwind, which on this target needs WebAssembly exception handling — and this project has switched it off. Remove &lt;WasmEnableExceptionHandling&gt;false&lt;/WasmEnableExceptionHandling&gt;, or drop the Krilla package reference from the WebAssembly project. Without it the link fails on an undefined __cpp_exception symbol." />
   </Target>
 
+  <!-- rustc emits the LEGACY wasm exception handling instructions, and from .NET 11 the SDK links
+       with -sWASM_LEGACY_EXCEPTIONS=0, so the runtime's own code uses the standardised ones. Since
+       Emscripten 4.0.2 nothing translates an object compiled the other way, and a browser refuses
+       a module mixing the two: the app links, publishes, and never starts. Binaryen's pass
+       rewrites the whole module after the link. It runs in every configuration because the SDK's
+       own post-link wasm-opt is on only when stripping, which a Debug build does not do, and the
+       stamp keeps an up-to-date link from being translated again. -->
+  <Target Name="KrillaTranslateWasmExceptions"
+          AfterTargets="WasmLinkDotNet"
+          Condition="'$(RuntimeIdentifier)' == 'browser-wasm' and '$(WasmBuildNative)' == 'true' and $(_WasmDefaultFlags.Contains('WASM_LEGACY_EXCEPTIONS=0'))"
+          Inputs="$(_WasmIntermediateOutputPath)dotnet.native.wasm"
+          Outputs="$(_WasmIntermediateOutputPath)krilla-exnref.stamp">
+    <PropertyGroup>
+      <_KrillaWasmModule>$(_WasmIntermediateOutputPath)dotnet.native.wasm</_KrillaWasmModule>
+    </PropertyGroup>
+
+    <Exec Command="wasm-opt$(_ExeExt) --enable-simd --enable-exception-handling --enable-reference-types --enable-multivalue --enable-bulk-memory --enable-nontrapping-float-to-int --enable-sign-ext --enable-mutable-globals -g --translate-to-exnref &quot;$(_KrillaWasmModule)&quot; -o &quot;$(_KrillaWasmModule)&quot;"
+          IgnoreStandardErrorWarningFormat="true"
+          EnvironmentVariables="@(WasmToolchainEnvVars)" />
+    <Touch Files="$(_WasmIntermediateOutputPath)krilla-exnref.stamp" AlwaysCreate="true" />
+
+    <ItemGroup>
+      <FileWrites Include="$(_WasmIntermediateOutputPath)krilla-exnref.stamp" />
+    </ItemGroup>
+  </Target>
+
   <!-- Keep the archive out of the application's output. Its bytes are inside the .wasm module
        before anything is copied, so shipping it as well adds about ten megabytes that is
        deployed and never read. Two targets, because the build list and the publish list are
