@@ -94,7 +94,7 @@ jobs:
       # `dotnet test`, which rejects it under the VSTest path. The ModuleInitializer installs the
       # Playwright browser (VerifyPlaywright.Initialize(installPlaywright: true)) on first run.
       - name: Run tests
-        run: dotnet src/Krilla.Web.Tests/bin/Release/net10.0/Krilla.Web.Tests.dll
+        run: dotnet src/Krilla.Web.Tests/bin/Release/net11.0/Krilla.Web.Tests.dll
 
       - name: Publish
         run: dotnet publish src/Krilla.Web --configuration Release --output publish

@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework>net10.0</TargetFramework>
+    <TargetFrameworks>net10.0;net11.0</TargetFrameworks>
     <Description>Converts HTML to PDF via Krilla</Description>
     <PackageTags>PDF, HTML, krilla, Convert, Render, AngleSharp</PackageTags>
     <PackageReadmeFile>nuget-readme.md</PackageReadmeFile>
