@@ -6,6 +6,16 @@
          Release, which with TreatWarningsAsErrors would fail on every undocumented component. -->
     <GenerateDocumentationFile>false</GenerateDocumentationFile>
     <NoWarn>$(NoWarn);CS1591</NoWarn>
+
+    <!--
+      BL0016, new in the .NET 11 Components analyzers, wants every JS interop call inside a
+      try/catch. The guarding here lives on the JS side on purpose: interop.js wraps every call
+      that can fail (localStorage, the performance APIs), and the blob-URL calls cannot. Nor is
+      there a circuit to drop, JSDisconnectedException being Blazor Server's. What is left to
+      throw is a missing or renamed function, a bug that should surface rather than be caught, so
+      a C# catch at each call site would be dead code written to satisfy the rule.
+    -->
+    <NoWarn>$(NoWarn);BL0016</NoWarn>
     <IsPackable>false</IsPackable>
     <InvariantGlobalization>true</InvariantGlobalization>
     <BlazorEnableTimeZoneSupport>false</BlazorEnableTimeZoneSupport>
