@@ -7,6 +7,7 @@ global using Krilla.Html;
 global using Krilla.Html.Diagnostics;
 global using Krilla.Html.Fonts;
 global using Morph.PDFium;
+global using HtmlOptions = Krilla.Html.HtmlOptions;
 global using VerifyTests;
 global using static VerifyTUnit.Verifier;
 global using System.Text.RegularExpressions;
