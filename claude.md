@@ -98,6 +98,8 @@ Mirrors Morph.PDFium: `KrillaNative.*.cs` partials of one `static partial class`
 
 `AbiTests` loops `krilla_abi_sizeof` over every mirrored struct. A layout disagreement between Rust and C# is the one bug class here that corrupts memory rather than throwing, so that test earns its keep.
 
+`Fonts/FontRepository` is the font database krilla lacks, entirely managed: `FontFileReader` reads only the table directory and `name`/`OS/2`/`head` out of each file at their offsets, because a system scan touches hundreds of files and some collections are tens of megabytes. Its tests run against `TestFonts`, which builds a directory from the Liberation fonts in `Krilla.Html.Tests/Fonts` — including a `.ttc` assembled at test time, since no freely licensed collection is small enough to commit. Liberation's regular and bold share most advances, so a test telling two faces apart does it by path and index, not by measuring.
+
 ### The HTML converter (`src/Krilla.Html`)
 
 Three stages, each inspectable on its own: AngleSharp parses and runs the cascade, `Layout/` turns the styled tree into positioned boxes, and `Painting/PdfPainter` draws those boxes through `Krilla.Surface`. Implemented: block and inline layout, inline-block, tables, floats, relative and absolute positioning, the box model including `box-sizing`, collapsing margins, line breaking, alignment, pagination including forced page breaks, `overflow` clipping and the block formatting context that comes with it, `visibility`, `text-transform`, letter and word spacing, the `font-size` keywords, all three text decorations, `vertical-align` on inline boxes, dashed, dotted and double borders, `border-radius`, `opacity`, `transform`, `z-index` and the stacking contexts that come with it, linear and

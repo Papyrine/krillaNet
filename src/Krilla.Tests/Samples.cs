@@ -439,4 +439,45 @@ public class Samples
 
         return Verify(pdf, "pdf");
     }
+
+    [Test]
+    public Task Text()
+    {
+        var fontDirectory = TestFonts.Source;
+
+        #region Text
+
+        // Font.Find("Arial", bold: true) searches the installed fonts. A repository over a
+        // fixed directory pins them, so the output is the same on every machine.
+        var fonts = new FontRepository(fontDirectory);
+        using var title = fonts.Find("Helvetica", bold: true)!;
+        using var body = fonts.Find("Helvetica", italic: true)!;
+
+        const string text =
+            "Helvetica is a Standard-14 name, so it finds Arial or a face metric-compatible " +
+            "with it. WrapText breaks at spaces, and inside a word only when the word alone " +
+            "is wider than the line.";
+
+        using var document = new KrillaDocument();
+
+        using (var page = document.StartPage(300, 200))
+        {
+            page.Surface
+                .SetFill(Color.Rgb(20, 20, 20))
+                .DrawText(new(20, 40), title, 20, "List of Documents");
+
+            float baseline = 70;
+            foreach (var line in body.WrapText(text, 12, 260))
+            {
+                page.Surface.DrawText(new(20, baseline), body, 12, line);
+                baseline += 16;
+            }
+        }
+
+        var pdf = document.Finish();
+
+        #endregion
+
+        return Verify(pdf, "pdf");
+    }
 }

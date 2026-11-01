@@ -451,6 +451,60 @@ document.Save("report.pdf");
 | --- |
 
 
+### Fonts and text
+
+krilla has no font database, so Krilla carries one. `Font.Find("Arial", bold: true)` scans the installed fonts once, lazily, and returns the closest face, or null when the family is not installed. A `FontRepository` over a fixed set of directories replaces the installed fonts, and setting `FontRepository.Default` makes `Font.Find` use it everywhere:
+
+ * The system and per-user font folders on Windows, `/System/Library/Fonts`, `/Library/Fonts` and `~/Library/Fonts` on macOS, and the fontconfig directories plus the XDG defaults on Linux. `FontRepository.SystemDirectories` lists them.
+ * A family matches a face's typographic or legacy family name, in any language the font carries, ignoring case. A full or PostScript name (`Arial Bold`, `Arial-BoldMT`) finds that one face.
+ * The PDF Standard-14 names map to the faces readers substitute: `Helvetica` to Arial, `Times-Roman` to Times New Roman, `Courier` to Courier New. Suffixes carry the style, so `Helvetica-BoldOblique` is Arial Bold Italic. Those three families then fall back to their metric-compatible stand-ins, Liberation and Arimo, Tinos and Cousine, which is what a Linux machine usually has.
+ * The closest style wins, so a family with no bold face returns its regular one, and `FontFaceInfo.Bold` and `.Italic` say what was found. `FallbackFamily` names a family to use when nothing matches.
+ * `.ttc` and `.otc` collections are read face by face. `FontRepository.FindFace` returns where a face is without loading it.
+
+`Font.MeasureText` gives the width of a shaped line, kerning included. `Font.WrapText` breaks text into lines that fit a width, ready to draw one by one with `DrawText`. It breaks at spaces, and inside a word only when the word alone is too wide.
+
+<!-- snippet: Text -->
+<a id='snippet-Text'></a>
+```cs
+// Font.Find("Arial", bold: true) searches the installed fonts. A repository over a
+// fixed directory pins them, so the output is the same on every machine.
+var fonts = new FontRepository(fontDirectory);
+using var title = fonts.Find("Helvetica", bold: true)!;
+using var body = fonts.Find("Helvetica", italic: true)!;
+
+const string text =
+    "Helvetica is a Standard-14 name, so it finds Arial or a face metric-compatible " +
+    "with it. WrapText breaks at spaces, and inside a word only when the word alone " +
+    "is wider than the line.";
+
+using var document = new KrillaDocument();
+
+using (var page = document.StartPage(300, 200))
+{
+    page.Surface
+        .SetFill(Color.Rgb(20, 20, 20))
+        .DrawText(new(20, 40), title, 20, "List of Documents");
+
+    float baseline = 70;
+    foreach (var line in body.WrapText(text, 12, 260))
+    {
+        page.Surface.DrawText(new(20, baseline), body, 12, line);
+        baseline += 16;
+    }
+}
+
+var pdf = document.Finish();
+```
+<sup><a href='/src/Krilla.Tests/Samples.cs#L448-L479' title='Snippet source file'>snippet source</a> | <a href='#snippet-Text' title='Start of snippet'>anchor</a></sup>
+<!-- endSnippet -->
+
+
+#### Result
+
+| [<img src="/src/Krilla.Tests/Samples.Text%23page_0001.verified.png" width="190" alt="Rendered output of the Text sample">](/src/Krilla.Tests/Samples.Text.verified.pdf) |
+| --- |
+
+
 ### Images
 
 <!-- snippet: DrawAnImage -->
@@ -776,7 +830,7 @@ Content that is decoration rather than meaning — running heads, page numbers, 
  * **One page can be open at a time.** krilla keeps global serialization state while a page is open, so starting a second page before closing the first throws. `Page` is `IDisposable`, so a `using` statement handles it.
  * `Finish()` consumes the document. Nothing can be added afterwards.
  * A document with no pages still produces a valid PDF: krilla writes a single empty page, because a page-less PDF is invalid.
- * **There is no font database.** krilla does not enumerate installed fonts and does not match on family or style. `Font.Load` takes bytes, and finding those bytes is the caller's job.
+ * **krilla has no font database**, and does not match on family or style. `Font.Load` takes bytes; `Font.Find` and `FontRepository` find them by family and style, from a scan written in managed code. See [Fonts and text](#fonts-and-text).
  * Documents are **not thread safe** and carry no internal locking — unlike Morph.PDFium, which serializes on a process-wide lock because PDFium has global state. Krilla has none, so separate documents are genuinely independent and can be built in parallel; a single document must be used from one thread at a time.
  * Output is deterministic for a given Krilla version, which makes it suitable for snapshot testing.
 

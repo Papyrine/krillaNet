@@ -68,6 +68,40 @@
     <PropertyGroup>
       <_KrillaCargoExe Condition="'$(OS)' == 'Windows_NT'">$(USERPROFILE)\.cargo\bin\cargo.exe</_KrillaCargoExe>
       <_KrillaCargoExe Condition="'$(OS)' != 'Windows_NT'">$(HOME)/.cargo/bin/cargo</_KrillaCargoExe>
+      <_KrillaCargoHomeExe Condition="'$(CARGO_HOME)' != '' and '$(OS)' == 'Windows_NT'">$(CARGO_HOME)\bin\cargo.exe</_KrillaCargoHomeExe>
+      <_KrillaCargoHomeExe Condition="'$(CARGO_HOME)' != '' and '$(OS)' != 'Windows_NT'">$(CARGO_HOME)/bin/cargo</_KrillaCargoHomeExe>
+      <_KrillaCargoExe Condition="'$(_KrillaCargoHomeExe)' != '' and Exists('$(_KrillaCargoHomeExe)')">$(_KrillaCargoHomeExe)</_KrillaCargoExe>
+    </PropertyGroup>
+
+    <!--
+      Then whatever cargo is on PATH. rustup's default home is not the only place a toolchain
+      lives: the macos-15 runner image moved it in its 20261021 update, and with only the fixed
+      path checked, the build skipped cargo in silence and failed later, at pack time, over a
+      runtimes/ directory nothing had created.
+    -->
+    <Exec Command="command -v cargo"
+          Condition="!Exists('$(_KrillaCargoExe)') and '$(OS)' != 'Windows_NT'"
+          ConsoleToMSBuild="true"
+          IgnoreExitCode="true"
+          EchoOff="true"
+          StandardOutputImportance="low"
+          StandardErrorImportance="low">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_KrillaCargoOnPath" />
+    </Exec>
+    <Exec Command="where cargo.exe 2&gt;nul"
+          Condition="!Exists('$(_KrillaCargoExe)') and '$(OS)' == 'Windows_NT'"
+          ConsoleToMSBuild="true"
+          IgnoreExitCode="true"
+          EchoOff="true"
+          StandardOutputImportance="low"
+          StandardErrorImportance="low">
+      <Output TaskParameter="ConsoleOutput" PropertyName="_KrillaCargoOnPath" />
+    </Exec>
+
+    <PropertyGroup>
+      <!-- `where` lists every match, which ConsoleOutput joins with semicolons. The first wins. -->
+      <_KrillaCargoOnPath>$(_KrillaCargoOnPath.Split(';')[0].Trim())</_KrillaCargoOnPath>
+      <_KrillaCargoExe Condition="!Exists('$(_KrillaCargoExe)') and '$(_KrillaCargoOnPath)' != '' and Exists('$(_KrillaCargoOnPath)')">$(_KrillaCargoOnPath)</_KrillaCargoExe>
       <_KrillaHaveCargo>false</_KrillaHaveCargo>
       <_KrillaHaveCargo Condition="Exists('$(_KrillaCargoExe)')">true</_KrillaHaveCargo>
     </PropertyGroup>
