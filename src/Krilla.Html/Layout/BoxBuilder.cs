@@ -1150,7 +1150,7 @@ static class BoxBuilder
     /// <c>string-set: title counter(chapter) ". " content()</c> read as a numbered heading.
     /// </para>
     /// </remarks>
-    static IReadOnlyList<(string Name, string Value)>? NamedStrings(IElement element, DocumentContext context)
+    static List<(string Name, string Value)>? NamedStrings(IElement element, DocumentContext context)
     {
         if (context.Declared(element, "string-set") is not {Length: > 0} declared ||
             declared.Equals("none", StringComparison.OrdinalIgnoreCase))

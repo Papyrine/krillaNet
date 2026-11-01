@@ -189,7 +189,7 @@ static class GradientPaint
     /// which is why the line's length has to be computed before the stops rather than after.
     /// </para>
     /// </remarks>
-    static IReadOnlyList<GradientStop> Stops(CssGradient gradient, float length)
+    static GradientStop[] Stops(CssGradient gradient, float length)
     {
         var count = gradient.Stops.Count;
         var positions = new float?[count];
