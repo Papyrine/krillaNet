@@ -27,4 +27,9 @@
     <PackageReference Include="ProjectDefaults" PrivateAssets="all" />
     <ProjectReference Include="..\Krilla\Krilla.csproj" />
   </ItemGroup>
+  <ItemGroup>
+    <!-- The HTML corpus's pinned fonts, shared rather than copied. Font lookup and text
+         measuring are tested against these so the results are the same on every machine. -->
+    <None Include="..\Krilla.Html.Tests\Fonts\*.ttf" Link="Fonts\%(Filename)%(Extension)" CopyToOutputDirectory="PreserveNewest" />
+  </ItemGroup>
 </Project>
